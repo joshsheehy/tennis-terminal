@@ -5,12 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "lint": "next lint",
-    "import:calendars": "tsx src/scripts/import-official-calendars.ts"
+    "import:calendars": "tsx src/scripts/import-calendars.ts"
   },
   "dependencies": {
-    "next": "15.3.1",
+    "next": "15.3.8",
+    "pdf-parse": "^1.1.1",
     "pg": "^8.12.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -21,7 +22,8 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "eslint": "^9.17.0",
-    "eslint-config-next": "15.3.1",
+    "eslint-config-next": "15.3.8",
+    "tailwindcss": "^4.1.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
