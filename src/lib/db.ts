@@ -3,13 +3,16 @@ import { CutoffSnapshot, ScheduleRow } from './types';
 
 const connectionString = process.env.DATABASE_URL;
 
+if (!connectionString) {
+  throw new Error('DATABASE_URL is missing');
+}
+
 const globalForDb = globalThis as unknown as { pool?: Pool };
 
 export const pool =
   globalForDb.pool ??
   new Pool({
     connectionString,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   });
 
 if (process.env.NODE_ENV !== 'production') {
@@ -17,8 +20,6 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export async function getUpcomingSchedule(limit = 20): Promise<ScheduleRow[]> {
-  if (!connectionString) return [];
-
   const result = await pool.query<ScheduleRow>(
     `
     select
@@ -49,8 +50,6 @@ export async function getUpcomingSchedule(limit = 20): Promise<ScheduleRow[]> {
 }
 
 export async function getEditionBySlug(slug: string): Promise<ScheduleRow | null> {
-  if (!connectionString) return null;
-
   const result = await pool.query<ScheduleRow>(
     `
     select
@@ -85,8 +84,6 @@ export async function getCutoffSnapshot(
   eventType: 'singles' | 'doubles',
   drawType: 'main' | 'qualifying'
 ): Promise<CutoffSnapshot | null> {
-  if (!connectionString) return null;
-
   const result = await pool.query<CutoffSnapshot>(
     `
     select *
