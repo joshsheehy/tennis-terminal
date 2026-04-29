@@ -49,7 +49,7 @@ export async function getUpcomingSchedule(limit = 20): Promise<ScheduleRow[]> {
   return result.rows;
 }
 
-export async function getEditionBySlug(slug: string): Promise<ScheduleRow | null> {
+export async function getTournamentHistoryBySlug(slug: string): Promise<ScheduleRow[]> {
   const result = await pool.query<ScheduleRow>(
     `
     select
@@ -70,31 +70,29 @@ export async function getEditionBySlug(slug: string): Promise<ScheduleRow | null
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     where t.slug = $1
+      and te.status = 'held'
     order by te.year desc
-    limit 1
     `,
     [slug]
   );
 
-  return result.rows[0] ?? null;
+  return result.rows;
 }
 
-export async function getCutoffSnapshot(
-  tournamentEditionId: string,
-  eventType: 'singles' | 'doubles',
-  drawType: 'main' | 'qualifying'
-): Promise<CutoffSnapshot | null> {
+export async function getCutoffSnapshotsForEditionIds(
+  editionIds: string[]
+): Promise<CutoffSnapshot[]> {
+  if (editionIds.length === 0) return [];
+
   const result = await pool.query<CutoffSnapshot>(
     `
     select *
     from cutoff_snapshots
-    where tournament_edition_id = $1
-      and event_type = $2
-      and draw_type = $3
-    limit 1
+    where tournament_edition_id = any($1::uuid[])
+    order by tournament_edition_id, event_type, draw_type
     `,
-    [tournamentEditionId, eventType, drawType]
+    [editionIds]
   );
 
-  return result.rows[0] ?? null;
+  return result.rows;
 }
