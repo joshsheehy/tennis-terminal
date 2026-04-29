@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { PoolClient } from 'pg';
 import { pool } from '@/lib/db';
 
 export const runtime = 'nodejs';
@@ -434,9 +435,11 @@ const importedEditions: ImportedEdition[] = [
 ];
 
 export async function GET() {
-  const client = await pool.connect();
+  let client: PoolClient | undefined;
 
   try {
+    client = await pool.connect();
+
     await client.query('BEGIN');
 
     await client.query(`create extension if not exists pgcrypto;`);
@@ -577,7 +580,12 @@ export async function GET() {
       tournamentsImported: importedEditions.length,
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {}
+    }
+
     console.error(error);
 
     return NextResponse.json(
@@ -588,6 +596,6 @@ export async function GET() {
       { status: 500 }
     );
   } finally {
-    client.release();
+    if (client) client.release();
   }
 }
