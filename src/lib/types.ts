@@ -35,3 +35,10 @@ export type CutoffSnapshot = {
   created_at?: string;
   updated_at?: string;
 };
+
+export type CheckerStatus = 'Direct Acceptance' | 'Via Alternate Spot' | 'Out' | 'No cutoff data';
+
+export type CheckerResult = {
+  label: string;
+  status: CheckerStatus;
+};
