@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ScheduleRow } from '@/lib/types';
 
@@ -80,22 +80,18 @@ export default function WeekTournamentPicker({
   }, [tournaments]);
 
   const [selectedWeekKey, setSelectedWeekKey] = useState(weekGroups[0]?.key ?? '');
+
   const selectedWeek =
     weekGroups.find((group) => group.key === selectedWeekKey) ?? null;
 
-  const [selectedSlug, setSelectedSlug] = useState('');
-
-  useEffect(() => {
-    if (selectedWeek?.tournaments?.length) {
-      setSelectedSlug(selectedWeek.tournaments[0].slug);
-    } else {
-      setSelectedSlug('');
-    }
-  }, [selectedWeekKey, selectedWeek]);
+  const [selectedEditionId, setSelectedEditionId] = useState(
+    weekGroups[0]?.tournaments[0]?.edition_id ?? ''
+  );
 
   const selectedTournament =
-    selectedWeek?.tournaments.find((tournament) => tournament.slug === selectedSlug) ??
-    null;
+    selectedWeek?.tournaments.find(
+      (tournament) => tournament.edition_id === selectedEditionId
+    ) ?? selectedWeek?.tournaments[0] ?? null;
 
   return (
     <div
@@ -113,10 +109,19 @@ export default function WeekTournamentPicker({
         >
           Select week
         </label>
+
         <select
           id="week-select"
           value={selectedWeekKey}
-          onChange={(e) => setSelectedWeekKey(e.target.value)}
+          onChange={(e) => {
+            const nextWeekKey = e.target.value;
+            setSelectedWeekKey(nextWeekKey);
+
+            const nextWeek =
+              weekGroups.find((group) => group.key === nextWeekKey) ?? null;
+
+            setSelectedEditionId(nextWeek?.tournaments[0]?.edition_id ?? '');
+          }}
           style={{
             width: '100%',
             padding: '10px',
@@ -140,10 +145,12 @@ export default function WeekTournamentPicker({
         >
           Tournaments in selected week
         </label>
+
         <select
+          key={selectedWeekKey}
           id="tournament-select"
-          value={selectedSlug}
-          onChange={(e) => setSelectedSlug(e.target.value)}
+          value={selectedTournament?.edition_id ?? ''}
+          onChange={(e) => setSelectedEditionId(e.target.value)}
           disabled={!selectedWeek}
           style={{
             width: '100%',
@@ -154,7 +161,7 @@ export default function WeekTournamentPicker({
           }}
         >
           {selectedWeek?.tournaments.map((tournament) => (
-            <option key={tournament.edition_id} value={tournament.slug}>
+            <option key={tournament.edition_id} value={tournament.edition_id}>
               {tournament.name} — {tournament.city}
             </option>
           ))}
