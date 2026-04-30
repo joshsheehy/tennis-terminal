@@ -1,7 +1,7 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ScheduleRow } from '@/lib/types';
 
 function formatDate(dateString: string | null) {
@@ -23,7 +23,6 @@ function getDateValue(dateString: string | null) {
 type WeekGroup = {
   key: string;
   week: number | null;
-  label: string;
   tournaments: ScheduleRow[];
   startDate: string | null;
   endDate: string | null;
@@ -34,8 +33,6 @@ export default function WeekTournamentPicker({
 }: {
   tournaments: ScheduleRow[];
 }) {
-  const router = useRouter();
-
   const weekGroups = useMemo<WeekGroup[]>(() => {
     const map = new Map<string, ScheduleRow[]>();
 
@@ -60,23 +57,20 @@ export default function WeekTournamentPicker({
 
         const week = key === 'na' ? null : Number(key);
         const startDate = sortedItems[0]?.start_date ?? null;
+
         const endDate = sortedItems.reduce<string | null>((latest, item) => {
-          if (!latest) return item.end_date ?? item.start_date ?? null;
-          const latestValue = getDateValue(latest);
-          const itemValue = getDateValue(item.end_date ?? item.start_date ?? null);
-          return itemValue > latestValue ? item.end_date ?? item.start_date ?? null : latest;
+          const candidate = item.end_date ?? item.start_date ?? null;
+          if (!latest) return candidate;
+
+          return getDateValue(candidate) > getDateValue(latest) ? candidate : latest;
         }, null);
 
         return {
           key,
           week,
+          tournaments: sortedItems,
           startDate,
           endDate,
-          label:
-            week === null
-              ? 'Week NA'
-              : `Week ${week} — ${startDate ? formatDate(startDate) : 'NA'}`,
-          tournaments: sortedItems,
         };
       })
       .sort((a, b) => {
@@ -184,8 +178,9 @@ export default function WeekTournamentPicker({
                 }}
               >
                 {group.tournaments.map((tournament, index) => (
-                  <div
+                  <Link
                     key={tournament.edition_id}
+                    href={`/tournaments/${tournament.slug}`}
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -193,6 +188,8 @@ export default function WeekTournamentPicker({
                       gap: 20,
                       padding: '20px 24px',
                       borderTop: index === 0 ? 'none' : '1px solid #e5e7eb',
+                      textDecoration: 'none',
+                      color: 'inherit',
                     }}
                   >
                     <div>
@@ -234,9 +231,7 @@ export default function WeekTournamentPicker({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/tournaments/${tournament.slug}`)}
+                    <div
                       style={{
                         whiteSpace: 'nowrap',
                         padding: '14px 20px',
@@ -246,12 +241,11 @@ export default function WeekTournamentPicker({
                         color: '#0f172a',
                         fontWeight: 700,
                         fontSize: 16,
-                        cursor: 'pointer',
                       }}
                     >
                       Open
-                    </button>
-                  </div>
+                    </div>
+                  </Link>
                 ))}
               </div>
             )}
