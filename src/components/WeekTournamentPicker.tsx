@@ -25,6 +25,8 @@ type WeekGroup = {
   week: number | null;
   label: string;
   tournaments: ScheduleRow[];
+  startDate: string | null;
+  endDate: string | null;
 };
 
 export default function WeekTournamentPicker({
@@ -51,24 +53,29 @@ export default function WeekTournamentPicker({
       .map(([key, items]) => {
         const sortedItems = [...items].sort((a, b) => {
           const dateDiff = getDateValue(a.start_date) - getDateValue(b.start_date);
-
-          if (dateDiff !== 0) {
-            return dateDiff;
-          }
+          if (dateDiff !== 0) return dateDiff;
 
           return a.name.localeCompare(b.name);
         });
 
         const week = key === 'na' ? null : Number(key);
-        const firstDate = sortedItems[0]?.start_date ?? null;
+        const startDate = sortedItems[0]?.start_date ?? null;
+        const endDate = sortedItems.reduce<string | null>((latest, item) => {
+          if (!latest) return item.end_date ?? item.start_date ?? null;
+          const latestValue = getDateValue(latest);
+          const itemValue = getDateValue(item.end_date ?? item.start_date ?? null);
+          return itemValue > latestValue ? item.end_date ?? item.start_date ?? null : latest;
+        }, null);
 
         return {
           key,
           week,
+          startDate,
+          endDate,
           label:
             week === null
               ? 'Week NA'
-              : `Week ${week}${firstDate ? ` — ${formatDate(firstDate)}` : ''}`,
+              : `Week ${week} — ${startDate ? formatDate(startDate) : 'NA'}`,
           tournaments: sortedItems,
         };
       })
@@ -79,131 +86,178 @@ export default function WeekTournamentPicker({
       });
   }, [tournaments]);
 
-  const [selectedWeekKey, setSelectedWeekKey] = useState(weekGroups[0]?.key ?? '');
-
-  const selectedWeek =
-    weekGroups.find((group) => group.key === selectedWeekKey) ?? null;
-
-  const [selectedEditionId, setSelectedEditionId] = useState(
-    weekGroups[0]?.tournaments[0]?.edition_id ?? ''
-  );
-
-  const selectedTournament =
-    selectedWeek?.tournaments.find(
-      (tournament) => tournament.edition_id === selectedEditionId
-    ) ?? selectedWeek?.tournaments[0] ?? null;
+  const [openWeekKey, setOpenWeekKey] = useState(weekGroups[0]?.key ?? '');
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gap: '20px',
-        maxWidth: 700,
-        color: '#111',
-      }}
-    >
-      <div>
-        <label
-          htmlFor="week-select"
-          style={{ display: 'block', marginBottom: 8, color: '#111', fontWeight: 600 }}
-        >
-          Select week
-        </label>
+    <div style={{ display: 'grid', gap: 16 }}>
+      {weekGroups.map((group) => {
+        const isOpen = group.key === openWeekKey;
 
-        <select
-          id="week-select"
-          value={selectedWeekKey}
-          onChange={(e) => {
-            const nextWeekKey = e.target.value;
-            setSelectedWeekKey(nextWeekKey);
-
-            const nextWeek =
-              weekGroups.find((group) => group.key === nextWeekKey) ?? null;
-
-            setSelectedEditionId(nextWeek?.tournaments[0]?.edition_id ?? '');
-          }}
-          style={{
-            width: '100%',
-            padding: '10px',
-            color: '#111',
-            background: '#fff',
-            border: '1px solid #ccc',
-          }}
-        >
-          {weekGroups.map((group) => (
-            <option key={group.key} value={group.key}>
-              {group.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label
-          htmlFor="tournament-select"
-          style={{ display: 'block', marginBottom: 8, color: '#111', fontWeight: 600 }}
-        >
-          Tournaments in selected week
-        </label>
-
-        <select
-          key={selectedWeekKey}
-          id="tournament-select"
-          value={selectedTournament?.edition_id ?? ''}
-          onChange={(e) => setSelectedEditionId(e.target.value)}
-          disabled={!selectedWeek}
-          style={{
-            width: '100%',
-            padding: '10px',
-            color: '#111',
-            background: '#fff',
-            border: '1px solid #ccc',
-          }}
-        >
-          {selectedWeek?.tournaments.map((tournament) => (
-            <option key={tournament.edition_id} value={tournament.edition_id}>
-              {tournament.name} — {tournament.city}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {selectedTournament && (
-        <div
-          style={{
-            border: '1px solid #ccc',
-            padding: '16px',
-            background: '#fafafa',
-            color: '#111',
-          }}
-        >
-          <h2 style={{ marginTop: 0, color: '#111' }}>{selectedTournament.name}</h2>
-          <p style={{ color: '#333' }}>
-            {selectedTournament.city}
-            {selectedTournament.country ? `, ${selectedTournament.country}` : ''}
-          </p>
-          <p style={{ color: '#333' }}>
-            {selectedTournament.level} · {selectedTournament.surface}
-          </p>
-          <p style={{ color: '#333' }}>
-            Week: {selectedTournament.week ?? 'NA'}
-            <br />
-            Start: {formatDate(selectedTournament.start_date)}
-          </p>
-          <button
-            onClick={() => router.push(`/tournaments/${selectedTournament.slug}`)}
+        return (
+          <div
+            key={group.key}
             style={{
-              padding: '10px 14px',
-              cursor: 'pointer',
-              color: '#111',
+              border: '1px solid #d6d6d6',
+              borderRadius: 16,
+              overflow: 'hidden',
               background: '#fff',
-              border: '1px solid #999',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
             }}
           >
-            Open historical cuts
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => setOpenWeekKey(isOpen ? '' : group.key)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '22px 24px',
+                border: 'none',
+                background: '#fff',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    marginBottom: 6,
+                  }}
+                >
+                  {group.week === null ? 'Week NA' : `Week ${group.week}`}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 18,
+                    color: '#334155',
+                  }}
+                >
+                  {group.startDate ? formatDate(group.startDate) : 'NA'}
+                  {group.endDate ? ` - ${formatDate(group.endDate)}` : ''}
+                  {' | '}
+                  {group.tournaments.length}{' '}
+                  {group.tournaments.length === 1 ? 'tournament' : 'tournaments'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 16,
+                    color: '#334155',
+                    fontWeight: 600,
+                  }}
+                >
+                  {isOpen ? 'Hide' : 'View all'}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 26,
+                    lineHeight: 1,
+                    color: '#0f172a',
+                    transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                  }}
+                >
+                  ▾
+                </div>
+              </div>
+            </button>
+
+            {isOpen && (
+              <div
+                style={{
+                  borderTop: '1px solid #e5e7eb',
+                  background: '#fafafa',
+                }}
+              >
+                {group.tournaments.map((tournament, index) => (
+                  <div
+                    key={tournament.edition_id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 20,
+                      padding: '20px 24px',
+                      borderTop: index === 0 ? 'none' : '1px solid #e5e7eb',
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 24,
+                          fontWeight: 700,
+                          color: '#0f172a',
+                          marginBottom: 8,
+                        }}
+                      >
+                        {tournament.name}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 18,
+                          color: '#334155',
+                          marginBottom: 6,
+                        }}
+                      >
+                        {tournament.city}
+                        {tournament.country ? `, ${tournament.country}` : ''}
+                        {' | '}
+                        {tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
+                        {tournament.end_date ? ` - ${formatDate(tournament.end_date)}` : ''}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 18,
+                          color: '#0f172a',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {tournament.level}
+                        {' · '}
+                        {tournament.surface}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/tournaments/${tournament.slug}`)}
+                      style={{
+                        whiteSpace: 'nowrap',
+                        padding: '14px 20px',
+                        borderRadius: 12,
+                        border: '2px solid #0f172a',
+                        background: '#fff',
+                        color: '#0f172a',
+                        fontWeight: 700,
+                        fontSize: 16,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Open
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
