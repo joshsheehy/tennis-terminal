@@ -13,6 +13,13 @@ function formatDate(dateString: string | null) {
   }).format(new Date(dateString));
 }
 
+function getDateValue(dateString: string | null) {
+  if (!dateString) return Number.MAX_SAFE_INTEGER;
+
+  const value = new Date(dateString).getTime();
+  return Number.isNaN(value) ? Number.MAX_SAFE_INTEGER : value;
+}
+
 type WeekGroup = {
   key: string;
   week: number | null;
@@ -43,8 +50,10 @@ export default function WeekTournamentPicker({
     return Array.from(map.entries())
       .map(([key, items]) => {
         const sortedItems = [...items].sort((a, b) => {
-          if (a.start_date !== b.start_date) {
-            return a.start_date.localeCompare(b.start_date);
+          const dateDiff = getDateValue(a.start_date) - getDateValue(b.start_date);
+
+          if (dateDiff !== 0) {
+            return dateDiff;
           }
 
           return a.name.localeCompare(b.name);
@@ -71,7 +80,6 @@ export default function WeekTournamentPicker({
   }, [tournaments]);
 
   const [selectedWeekKey, setSelectedWeekKey] = useState(weekGroups[0]?.key ?? '');
-
   const selectedWeek =
     weekGroups.find((group) => group.key === selectedWeekKey) ?? null;
 
@@ -90,7 +98,14 @@ export default function WeekTournamentPicker({
     null;
 
   return (
-    <div style={{ display: 'grid', gap: '20px', maxWidth: 700, color: '#111' }}>
+    <div
+      style={{
+        display: 'grid',
+        gap: '20px',
+        maxWidth: 700,
+        color: '#111',
+      }}
+    >
       <div>
         <label
           htmlFor="week-select"
@@ -98,7 +113,6 @@ export default function WeekTournamentPicker({
         >
           Select week
         </label>
-
         <select
           id="week-select"
           value={selectedWeekKey}
@@ -126,7 +140,6 @@ export default function WeekTournamentPicker({
         >
           Tournaments in selected week
         </label>
-
         <select
           id="tournament-select"
           value={selectedSlug}
@@ -158,22 +171,18 @@ export default function WeekTournamentPicker({
           }}
         >
           <h2 style={{ marginTop: 0, color: '#111' }}>{selectedTournament.name}</h2>
-
           <p style={{ color: '#333' }}>
             {selectedTournament.city}
             {selectedTournament.country ? `, ${selectedTournament.country}` : ''}
           </p>
-
           <p style={{ color: '#333' }}>
             {selectedTournament.level} · {selectedTournament.surface}
           </p>
-
           <p style={{ color: '#333' }}>
             Week: {selectedTournament.week ?? 'NA'}
             <br />
             Start: {formatDate(selectedTournament.start_date)}
           </p>
-
           <button
             onClick={() => router.push(`/tournaments/${selectedTournament.slug}`)}
             style={{
