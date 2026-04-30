@@ -71,6 +71,7 @@ export default function WeekTournamentPicker({
   }, [tournaments]);
 
   const [selectedWeekKey, setSelectedWeekKey] = useState(weekGroups[0]?.key ?? '');
+
   const selectedWeek =
     weekGroups.find((group) => group.key === selectedWeekKey) ?? null;
 
@@ -89,16 +90,26 @@ export default function WeekTournamentPicker({
     null;
 
   return (
-    <div style={{ display: 'grid', gap: '20px', maxWidth: 700 }}>
+    <div style={{ display: 'grid', gap: '20px', maxWidth: 700, color: '#111' }}>
       <div>
-        <label htmlFor="week-select" style={{ display: 'block', marginBottom: 8 }}>
+        <label
+          htmlFor="week-select"
+          style={{ display: 'block', marginBottom: 8, color: '#111', fontWeight: 600 }}
+        >
           Select week
         </label>
+
         <select
           id="week-select"
           value={selectedWeekKey}
           onChange={(e) => setSelectedWeekKey(e.target.value)}
-          style={{ width: '100%', padding: '10px' }}
+          style={{
+            width: '100%',
+            padding: '10px',
+            color: '#111',
+            background: '#fff',
+            border: '1px solid #ccc',
+          }}
         >
           {weekGroups.map((group) => (
             <option key={group.key} value={group.key}>
@@ -111,16 +122,23 @@ export default function WeekTournamentPicker({
       <div>
         <label
           htmlFor="tournament-select"
-          style={{ display: 'block', marginBottom: 8 }}
+          style={{ display: 'block', marginBottom: 8, color: '#111', fontWeight: 600 }}
         >
           Tournaments in selected week
         </label>
+
         <select
           id="tournament-select"
           value={selectedSlug}
           onChange={(e) => setSelectedSlug(e.target.value)}
           disabled={!selectedWeek}
-          style={{ width: '100%', padding: '10px' }}
+          style={{
+            width: '100%',
+            padding: '10px',
+            color: '#111',
+            background: '#fff',
+            border: '1px solid #ccc',
+          }}
         >
           {selectedWeek?.tournaments.map((tournament) => (
             <option key={tournament.edition_id} value={tournament.slug}>
@@ -131,23 +149,40 @@ export default function WeekTournamentPicker({
       </div>
 
       {selectedTournament && (
-        <div style={{ border: '1px solid #ccc', padding: '16px' }}>
-          <h2 style={{ marginTop: 0 }}>{selectedTournament.name}</h2>
-          <p>
+        <div
+          style={{
+            border: '1px solid #ccc',
+            padding: '16px',
+            background: '#fafafa',
+            color: '#111',
+          }}
+        >
+          <h2 style={{ marginTop: 0, color: '#111' }}>{selectedTournament.name}</h2>
+
+          <p style={{ color: '#333' }}>
             {selectedTournament.city}
             {selectedTournament.country ? `, ${selectedTournament.country}` : ''}
           </p>
-          <p>
+
+          <p style={{ color: '#333' }}>
             {selectedTournament.level} · {selectedTournament.surface}
           </p>
-          <p>
-            Week: {selectedTournament.week ?? 'NA'} <br />
+
+          <p style={{ color: '#333' }}>
+            Week: {selectedTournament.week ?? 'NA'}
+            <br />
             Start: {formatDate(selectedTournament.start_date)}
           </p>
 
           <button
             onClick={() => router.push(`/tournaments/${selectedTournament.slug}`)}
-            style={{ padding: '10px 14px', cursor: 'pointer' }}
+            style={{
+              padding: '10px 14px',
+              cursor: 'pointer',
+              color: '#111',
+              background: '#fff',
+              border: '1px solid #999',
+            }}
           >
             Open historical cuts
           </button>
