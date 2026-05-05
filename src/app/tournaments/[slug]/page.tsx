@@ -14,8 +14,17 @@ function formatDate(dateString: string | null) {
 }
 
 function compareLabel(value: boolean | null) {
-  if (value === null) return 'No prior year';
+  if (value === null) return 'No prior year / not held';
   return value ? 'Same' : 'Different';
+}
+
+function isChallengerLevel(level: string) {
+  return level.toLowerCase().includes('challenger');
+}
+
+function editionSummary(edition: { start_date: string | null; week: number | null; level: string; surface: string; status: string }) {
+  if (edition.status === 'not_held') return 'Not Held / NA';
+  return `${formatDate(edition.start_date)} · Week ${edition.week ?? 'NA'} · ${edition.level} · ${edition.surface}`;
 }
 
 function cutoffLabel(cutoff: CutoffSnapshot) {
@@ -25,13 +34,11 @@ function cutoffLabel(cutoff: CutoffSnapshot) {
   return 'Doubles qualifying';
 }
 
-function rankText(rank: number | null, name: string | null) {
-  if (!rank && !name) return 'No data yet';
-  if (!rank) return name ?? 'No data yet';
-  return name ? `${rank} — ${name}` : String(rank);
+function rankText(rank: number | null) {
+  return rank ? String(rank) : 'No data yet';
 }
 
-function CutoffTable({ cutoffs }: { cutoffs: CutoffSnapshot[] }) {
+function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: string }) {
   if (cutoffs.length === 0) {
     return (
       <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
@@ -40,45 +47,42 @@ function CutoffTable({ cutoffs }: { cutoffs: CutoffSnapshot[] }) {
     );
   }
 
+  const showChallengerColumns = isChallengerLevel(level);
+
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-800">
-      <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+      <table className="w-full min-w-[640px] border-collapse text-left text-sm">
         <thead className="bg-neutral-900 text-neutral-400">
           <tr>
             <th className="p-3 font-medium">Draw</th>
-            <th className="p-3 font-medium">Last direct accepted</th>
-            <th className="p-3 font-medium">Last alternate</th>
+            <th className="p-3 font-medium">Last direct rank</th>
+            <th className="p-3 font-medium">Last alternate rank</th>
             <th className="p-3 font-medium">Alternates in draw</th>
-            <th className="p-3 font-medium">Challenger doubles advanced</th>
-            <th className="p-3 font-medium">Challenger doubles on-site</th>
+            {showChallengerColumns && (
+              <>
+                <th className="p-3 font-medium">Doubles advanced cut</th>
+                <th className="p-3 font-medium">Doubles on-site cut</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
           {cutoffs.map((cutoff) => (
             <tr key={cutoff.id} className="border-t border-neutral-800 text-neutral-200">
               <td className="p-3">{cutoffLabel(cutoff)}</td>
-              <td className="p-3">
-                {rankText(
-                  cutoff.last_direct_acceptance_rank,
-                  cutoff.last_direct_acceptance_player_name
-                )}
-              </td>
-              <td className="p-3">
-                {rankText(cutoff.last_alternate_rank, cutoff.last_alternate_player_name)}
-              </td>
+              <td className="p-3">{rankText(cutoff.last_direct_acceptance_rank)}</td>
+              <td className="p-3">{rankText(cutoff.last_alternate_rank)}</td>
               <td className="p-3">{cutoff.alternate_entries_count ?? 0}</td>
-              <td className="p-3">
-                {rankText(
-                  cutoff.challenger_doubles_advanced_cut_rank,
-                  cutoff.challenger_doubles_advanced_team_name
-                )}
-              </td>
-              <td className="p-3">
-                {rankText(
-                  cutoff.challenger_doubles_onsite_cut_rank,
-                  cutoff.challenger_doubles_onsite_team_name
-                )}
-              </td>
+              {showChallengerColumns && (
+                <>
+                  <td className="p-3">
+                    {rankText(cutoff.challenger_doubles_advanced_cut_rank)}
+                  </td>
+                  <td className="p-3">
+                    {rankText(cutoff.challenger_doubles_onsite_cut_rank)}
+                  </td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>
@@ -127,7 +131,7 @@ export default async function TournamentDetailPage({
           </div>
           <div>
             <div className="text-neutral-500">Start</div>
-            <div>{formatDate(current.start_date)}</div>
+            <div>{current.status === 'not_held' ? 'NA' : formatDate(current.start_date)}</div>
           </div>
         </div>
       </section>
@@ -146,23 +150,27 @@ export default async function TournamentDetailPage({
               <div>
                 <h3 className="text-lg font-semibold">{row.edition.year}</h3>
                 <p className="text-sm text-neutral-400">
-                  {formatDate(row.edition.start_date)} · Week {row.edition.week ?? 'NA'} · {row.edition.level} · {row.edition.surface}
+                  {editionSummary(row.edition)}
                 </p>
               </div>
 
               <div className="grid gap-2 text-sm sm:grid-cols-2">
                 <div className="rounded-xl border border-neutral-800 px-3 py-2">
-                  <div className="text-neutral-500">Same level as previous year</div>
-                  <div>{compareLabel(row.same_level_as_previous_year)}</div>
+                  Level vs previous year: {compareLabel(row.same_level_as_previous_year)}
                 </div>
                 <div className="rounded-xl border border-neutral-800 px-3 py-2">
-                  <div className="text-neutral-500">Same week as previous year</div>
-                  <div>{compareLabel(row.same_week_as_previous_year)}</div>
+                  Week vs previous year: {compareLabel(row.same_week_as_previous_year)}
                 </div>
               </div>
             </div>
 
-            <CutoffTable cutoffs={row.cutoffs} />
+            {row.edition.status === 'not_held' ? (
+              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
+                Tournament not held this year.
+              </div>
+            ) : (
+              <CutoffTable cutoffs={row.cutoffs} level={row.edition.level} />
+            )}
           </article>
         ))}
       </section>
