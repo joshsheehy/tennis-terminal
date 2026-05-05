@@ -7,13 +7,12 @@ export type ScheduleRow = {
   country: string | null;
   year: number;
   week: number | null;
-  start_date: string | null;
+  start_date: string;
   end_date: string | null;
   level: string;
   surface: string;
   indoor: boolean | null;
   source: string;
-  status: 'held' | 'not_held';
 };
 
 export type CutoffSnapshot = {

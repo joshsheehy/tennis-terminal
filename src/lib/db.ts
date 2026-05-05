@@ -36,8 +36,7 @@ export async function getUpcomingSchedule(limit = 20): Promise<ScheduleRow[]> {
       te.level,
       te.surface,
       te.indoor,
-      te.source,
-      te.status
+      te.source
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     where te.status = 'held'
@@ -67,8 +66,7 @@ export async function getTournamentHistoryBySlug(slug: string): Promise<Schedule
       te.level,
       te.surface,
       te.indoor,
-      te.source,
-      te.status
+      te.source
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     where t.slug = $1
