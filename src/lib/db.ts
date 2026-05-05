@@ -19,6 +19,13 @@ if (process.env.NODE_ENV !== 'production') {
   globalForDb.pool = pool;
 }
 
+export type TournamentDetailRow = {
+  edition: ScheduleRow;
+  cutoffs: CutoffSnapshot[];
+  same_level_as_previous_year: boolean | null;
+  same_week_as_previous_year: boolean | null;
+};
+
 export async function getUpcomingSchedule(limit = 20): Promise<ScheduleRow[]> {
   const result = await pool.query<ScheduleRow>(
     `
@@ -90,7 +97,26 @@ export async function getCutoffSnapshotsForEditionIds(
 
   const result = await pool.query<CutoffSnapshot>(
     `
-    select *
+    select
+      id,
+      tournament_edition_id,
+      event_type,
+      draw_type,
+      source_type,
+      last_direct_acceptance_rank,
+      last_direct_acceptance_player_name,
+      last_alternate_rank,
+      last_alternate_player_name,
+      challenger_doubles_advanced_cut_rank,
+      challenger_doubles_advanced_team_name,
+      challenger_doubles_onsite_cut_rank,
+      challenger_doubles_onsite_team_name,
+      parsed_at,
+      parser_version,
+      source_notes,
+      alternate_entries_count,
+      created_at,
+      updated_at
     from cutoff_snapshots
     where tournament_edition_id = any($1::uuid[])
     order by tournament_edition_id, event_type, draw_type
@@ -99,4 +125,57 @@ export async function getCutoffSnapshotsForEditionIds(
   );
 
   return result.rows;
+}
+
+export async function getTournamentDetailRowsBySlug(
+  slug: string,
+  limit = 4
+): Promise<TournamentDetailRow[]> {
+  const editionsResult = await pool.query<ScheduleRow>(
+    `
+    select
+      te.id as edition_id,
+      t.id as tournament_id,
+      t.slug,
+      t.name,
+      t.city,
+      t.country,
+      te.year,
+      te.week,
+      te.start_date,
+      te.end_date,
+      te.level,
+      te.surface,
+      te.indoor,
+      te.source,
+      te.status
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    where t.slug = $1
+    order by te.year desc
+    limit $2
+    `,
+    [slug, limit]
+  );
+
+  const editions = editionsResult.rows;
+  const editionIds = editions.map((edition) => edition.edition_id);
+  const cutoffs = await getCutoffSnapshotsForEditionIds(editionIds);
+
+  return editions.map((edition, index) => {
+    const previousEdition = editions[index + 1] ?? null;
+
+    return {
+      edition,
+      cutoffs: cutoffs.filter(
+        (cutoff) => cutoff.tournament_edition_id === edition.edition_id
+      ),
+      same_level_as_previous_year: previousEdition
+        ? edition.level === previousEdition.level
+        : null,
+      same_week_as_previous_year: previousEdition
+        ? edition.week === previousEdition.week
+        : null,
+    };
+  });
 }
