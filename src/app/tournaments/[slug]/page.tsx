@@ -14,8 +14,13 @@ function formatDate(dateString: string | null) {
 }
 
 function compareLabel(value: boolean | null) {
-  if (value === null) return 'No prior year';
+  if (value === null) return 'No prior year / not held';
   return value ? 'Same' : 'Different';
+}
+
+function editionSummary(edition: { start_date: string | null; week: number | null; level: string; surface: string; status: string }) {
+  if (edition.status === 'not_held') return 'Not Held / NA';
+  return `${formatDate(edition.start_date)} · Week ${edition.week ?? 'NA'} · ${edition.level} · ${edition.surface}`;
 }
 
 function cutoffLabel(cutoff: CutoffSnapshot) {
@@ -127,7 +132,7 @@ export default async function TournamentDetailPage({
           </div>
           <div>
             <div className="text-neutral-500">Start</div>
-            <div>{formatDate(current.start_date)}</div>
+            <div>{current.status === 'not_held' ? 'NA' : formatDate(current.start_date)}</div>
           </div>
         </div>
       </section>
@@ -146,7 +151,7 @@ export default async function TournamentDetailPage({
               <div>
                 <h3 className="text-lg font-semibold">{row.edition.year}</h3>
                 <p className="text-sm text-neutral-400">
-                  {formatDate(row.edition.start_date)} · Week {row.edition.week ?? 'NA'} · {row.edition.level} · {row.edition.surface}
+                  {editionSummary(row.edition)}
                 </p>
               </div>
 
@@ -162,7 +167,13 @@ export default async function TournamentDetailPage({
               </div>
             </div>
 
-            <CutoffTable cutoffs={row.cutoffs} />
+            {row.edition.status === 'not_held' ? (
+              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
+                Tournament not held this year.
+              </div>
+            ) : (
+              <CutoffTable cutoffs={row.cutoffs} />
+            )}
           </article>
         ))}
       </section>

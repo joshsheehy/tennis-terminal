@@ -15,7 +15,7 @@ create table if not exists tournament_editions (
   tournament_id uuid not null references tournaments(id) on delete cascade,
   year int not null,
   week int,
-  start_date date not null,
+  start_date date,
   end_date date,
   level text not null,
   surface text not null,
