@@ -131,7 +131,7 @@ export default async function TournamentDetailPage({
           </div>
           <div>
             <div className="text-neutral-500">Start</div>
-            <div>{current.status === 'not_held' ? 'NA' : formatDate(current.start_date)}</div>
+            <div>{formatDate(current.start_date)}</div>
           </div>
         </div>
       </section>
