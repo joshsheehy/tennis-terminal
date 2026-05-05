@@ -33,6 +33,7 @@ export type CutoffSnapshot = {
   parsed_at: string | null;
   parser_version: string | null;
   source_notes: string | null;
+  alternate_entries_count: number;
   created_at?: string;
   updated_at?: string;
 };
