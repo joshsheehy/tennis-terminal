@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { ScheduleRow } from '@/lib/types';
 
-function formatDate(dateString: string) {
-  return new Intl.DateTimeFormat('en-US', {
+function formatDate(dateString: string | null) {
+  if (!dateString) return 'NA'; return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
