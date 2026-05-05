@@ -22,7 +22,13 @@ function isChallengerLevel(level: string) {
   return level.toLowerCase().includes('challenger');
 }
 
-function editionSummary(edition: { start_date: string | null; week: number | null; level: string; surface: string; status: string }) {
+function editionSummary(edition: {
+  start_date: string | null;
+  week: number | null;
+  level: string;
+  surface: string;
+  status: string;
+}) {
   if (edition.status === 'not_held') return 'Not Held / NA';
   return `${formatDate(edition.start_date)} · Week ${edition.week ?? 'NA'} · ${edition.level} · ${edition.surface}`;
 }
@@ -51,12 +57,11 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
 
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-800">
-      <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+      <table className="w-full min-w-[520px] border-collapse text-left text-sm">
         <thead className="bg-neutral-900 text-neutral-400">
           <tr>
             <th className="p-3 font-medium">Draw</th>
             <th className="p-3 font-medium">Last direct rank</th>
-            <th className="p-3 font-medium">Last alternate rank</th>
             <th className="p-3 font-medium">Alternates in draw</th>
             {showChallengerColumns && (
               <>
@@ -71,7 +76,6 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
             <tr key={cutoff.id} className="border-t border-neutral-800 text-neutral-200">
               <td className="p-3">{cutoffLabel(cutoff)}</td>
               <td className="p-3">{rankText(cutoff.last_direct_acceptance_rank)}</td>
-              <td className="p-3">{rankText(cutoff.last_alternate_rank)}</td>
               <td className="p-3">{cutoff.alternate_entries_count ?? 0}</td>
               {showChallengerColumns && (
                 <>
