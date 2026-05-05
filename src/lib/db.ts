@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { CutoffSnapshot, ScheduleRow } from './types';
+import { CutoffDisplayRow, CutoffSnapshot, ScheduleRow } from './types';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -31,8 +31,8 @@ export async function getUpcomingSchedule(limit = 20): Promise<ScheduleRow[]> {
       t.country,
       te.year,
       te.week,
-      te.start_date::text as start_date,
-      te.end_date::text as end_date,
+      te.start_date,
+      te.end_date,
       te.level,
       te.surface,
       te.indoor,
@@ -61,8 +61,8 @@ export async function getTournamentHistoryBySlug(slug: string): Promise<Schedule
       t.country,
       te.year,
       te.week,
-      te.start_date::text as start_date,
-      te.end_date::text as end_date,
+      te.start_date,
+      te.end_date,
       te.level,
       te.surface,
       te.indoor,
@@ -95,4 +95,42 @@ export async function getCutoffSnapshotsForEditionIds(
   );
 
   return result.rows;
+}
+
+export async function getTournamentDetailRowsBySlug(
+  slug: string,
+  historyYears = 3
+): Promise<CutoffDisplayRow[]> {
+  const allEditions = await getTournamentHistoryBySlug(slug);
+  if (allEditions.length === 0) return [];
+
+  const currentYear = Math.max(...allEditions.map((edition) => edition.year));
+  const minYear = currentYear - historyYears;
+  const visibleEditions = allEditions.filter(
+    (edition) => edition.year <= currentYear && edition.year >= minYear
+  );
+
+  const cutoffs = await getCutoffSnapshotsForEditionIds(
+    visibleEditions.map((edition) => edition.edition_id)
+  );
+
+  const editionsByYear = new Map(allEditions.map((edition) => [edition.year, edition]));
+
+  return visibleEditions.map((edition) => {
+    const previousEdition = editionsByYear.get(edition.year - 1) ?? null;
+
+    return {
+      edition,
+      previous_year: previousEdition?.year ?? null,
+      same_level_as_previous_year: previousEdition
+        ? previousEdition.level === edition.level
+        : null,
+      same_week_as_previous_year: previousEdition
+        ? previousEdition.week === edition.week
+        : null,
+      cutoffs: cutoffs.filter(
+        (cutoff) => cutoff.tournament_edition_id === edition.edition_id
+      ),
+    };
+  });
 }

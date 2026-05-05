@@ -48,6 +48,7 @@ create table if not exists cutoff_snapshots (
   parsed_at timestamptz,
   parser_version text,
   source_notes text,
+  alternate_entries_count int not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (tournament_edition_id, event_type, draw_type)

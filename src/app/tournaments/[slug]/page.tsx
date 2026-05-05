@@ -1,9 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getCutoffSnapshotsForEditionIds, getTournamentHistoryBySlug } from '@/lib/db';
+import { getTournamentDetailRowsBySlug } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
-
-export const dynamic = 'force-dynamic';
 
 function formatDate(dateString: string | null) {
   if (!dateString) return 'NA';
@@ -15,101 +13,76 @@ function formatDate(dateString: string | null) {
   }).format(new Date(dateString));
 }
 
-function getSnapshot(
-  snapshots: CutoffSnapshot[],
-  editionId: string,
-  eventType: 'singles' | 'doubles',
-  drawType: 'main' | 'qualifying'
-) {
-  return (
-    snapshots.find(
-      (snapshot) =>
-        snapshot.tournament_edition_id === editionId &&
-        snapshot.event_type === eventType &&
-        snapshot.draw_type === drawType
-    ) ?? null
-  );
+function compareLabel(value: boolean | null) {
+  if (value === null) return 'No prior year';
+  return value ? 'Same' : 'Different';
 }
 
-function valueOrNA(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === '') return 'NA';
-  return value;
+function cutoffLabel(cutoff: CutoffSnapshot) {
+  if (cutoff.event_type === 'singles' && cutoff.draw_type === 'main') return 'Singles main';
+  if (cutoff.event_type === 'singles' && cutoff.draw_type === 'qualifying') return 'Singles qualifying';
+  if (cutoff.event_type === 'doubles' && cutoff.draw_type === 'main') return 'Doubles main';
+  return 'Doubles qualifying';
 }
 
-function CutSection({
-  title,
-  snapshot,
-  isChallenger,
-}: {
-  title: string;
-  snapshot: CutoffSnapshot | null;
-  isChallenger?: boolean;
-}) {
+function rankText(rank: number | null, name: string | null) {
+  if (!rank && !name) return 'No data yet';
+  if (!rank) return name ?? 'No data yet';
+  return name ? `${rank} — ${name}` : String(rank);
+}
+
+function CutoffTable({ cutoffs }: { cutoffs: CutoffSnapshot[] }) {
+  if (cutoffs.length === 0) {
+    return (
+      <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
+        No cut data imported yet for this year.
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
-      <h3 className="text-sm font-semibold text-white">{title}</h3>
-
-      {!snapshot ? (
-        <p className="mt-3 text-sm text-neutral-400">No historical cut data yet.</p>
-      ) : (
-        <div className="mt-3 space-y-2 text-sm text-neutral-300">
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-neutral-500">Last direct accepted</span>
-            <span>{valueOrNA(snapshot.last_direct_acceptance_rank)}</span>
-          </div>
-
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-neutral-500">Direct accepted player/team</span>
-            <span className="text-right">
-              {valueOrNA(snapshot.last_direct_acceptance_player_name)}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-neutral-500">Last alternate</span>
-            <span>{valueOrNA(snapshot.last_alternate_rank)}</span>
-          </div>
-
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-neutral-500">Alternate player/team</span>
-            <span className="text-right">
-              {valueOrNA(snapshot.last_alternate_player_name)}
-            </span>
-          </div>
-
-          {isChallenger && (
-            <>
-              <div className="mt-4 border-t border-neutral-800 pt-4 text-xs uppercase tracking-[0.18em] text-neutral-500">
-                Challenger doubles fields
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-neutral-500">Advanced cut</span>
-                <span>{valueOrNA(snapshot.challenger_doubles_advanced_cut_rank)}</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-neutral-500">Advanced team</span>
-                <span className="text-right">
-                  {valueOrNA(snapshot.challenger_doubles_advanced_team_name)}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-neutral-500">On-site cut</span>
-                <span>{valueOrNA(snapshot.challenger_doubles_onsite_cut_rank)}</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-neutral-500">On-site team</span>
-                <span className="text-right">
-                  {valueOrNA(snapshot.challenger_doubles_onsite_team_name)}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+    <div className="overflow-x-auto rounded-xl border border-neutral-800">
+      <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+        <thead className="bg-neutral-900 text-neutral-400">
+          <tr>
+            <th className="p-3 font-medium">Draw</th>
+            <th className="p-3 font-medium">Last direct accepted</th>
+            <th className="p-3 font-medium">Last alternate</th>
+            <th className="p-3 font-medium">Alternates in draw</th>
+            <th className="p-3 font-medium">Challenger doubles advanced</th>
+            <th className="p-3 font-medium">Challenger doubles on-site</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cutoffs.map((cutoff) => (
+            <tr key={cutoff.id} className="border-t border-neutral-800 text-neutral-200">
+              <td className="p-3">{cutoffLabel(cutoff)}</td>
+              <td className="p-3">
+                {rankText(
+                  cutoff.last_direct_acceptance_rank,
+                  cutoff.last_direct_acceptance_player_name
+                )}
+              </td>
+              <td className="p-3">
+                {rankText(cutoff.last_alternate_rank, cutoff.last_alternate_player_name)}
+              </td>
+              <td className="p-3">{cutoff.alternate_entries_count ?? 0}</td>
+              <td className="p-3">
+                {rankText(
+                  cutoff.challenger_doubles_advanced_cut_rank,
+                  cutoff.challenger_doubles_advanced_team_name
+                )}
+              </td>
+              <td className="p-3">
+                {rankText(
+                  cutoff.challenger_doubles_onsite_cut_rank,
+                  cutoff.challenger_doubles_onsite_team_name
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -120,92 +93,79 @@ export default async function TournamentDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const rows = await getTournamentDetailRowsBySlug(slug, 3);
 
-  const history = await getTournamentHistoryBySlug(slug);
+  if (rows.length === 0) notFound();
 
-  if (history.length === 0) {
-    notFound();
-  }
-
-  const editionIds = history.map((row) => row.edition_id);
-  const snapshots = await getCutoffSnapshotsForEditionIds(editionIds);
-
-  const tournament = history[0];
+  const current = rows[0].edition;
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl px-4 py-8 sm:px-6">
-      <div className="mb-8">
-        <Link href="/schedule" className="text-sm text-neutral-400 hover:text-white">
-          ← Back to schedule
-        </Link>
+    <main className="mx-auto min-h-screen max-w-6xl px-6 py-10">
+      <Link href="/schedule" className="text-sm text-neutral-400 hover:text-white">
+        ← Back to schedule
+      </Link>
 
-        <p className="mt-6 text-xs uppercase tracking-[0.2em] text-neutral-500">
-          Tournament detail
+      <section className="mt-8 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
+        <p className="text-sm uppercase tracking-[0.2em] text-neutral-500">Tournament</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight">{current.name}</h1>
+        <p className="mt-2 text-neutral-400">
+          {current.city}
+          {current.country ? `, ${current.country}` : ''}
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{tournament.name}</h1>
-        <p className="mt-2 text-sm text-neutral-400">
-          {tournament.city}
-          {tournament.country ? `, ${tournament.country}` : ''}
-        </p>
-      </div>
+        <div className="mt-5 grid gap-3 text-sm text-neutral-300 sm:grid-cols-4">
+          <div>
+            <div className="text-neutral-500">Current year</div>
+            <div>{current.year}</div>
+          </div>
+          <div>
+            <div className="text-neutral-500">Week</div>
+            <div>{current.week ?? 'NA'}</div>
+          </div>
+          <div>
+            <div className="text-neutral-500">Level</div>
+            <div>{current.level}</div>
+          </div>
+          <div>
+            <div className="text-neutral-500">Start</div>
+            <div>{formatDate(current.start_date)}</div>
+          </div>
+        </div>
+      </section>
 
-      <div className="space-y-6">
-        {history.map((edition) => {
-          const singlesMain = getSnapshot(
-            snapshots,
-            edition.edition_id,
-            'singles',
-            'main'
-          );
-          const singlesQualifying = getSnapshot(
-            snapshots,
-            edition.edition_id,
-            'singles',
-            'qualifying'
-          );
-          const doublesMain = getSnapshot(
-            snapshots,
-            edition.edition_id,
-            'doubles',
-            'main'
-          );
+      <section className="mt-8 space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold">Last 3 years of cuts</h2>
+          <p className="mt-1 text-sm text-neutral-400">
+            Shows 2026 plus the previous three calendar editions when available. Level and week are compared against the immediately previous year.
+          </p>
+        </div>
 
-          const isChallenger = edition.level.toLowerCase().includes('challenger');
-
-          return (
-            <section
-              key={edition.edition_id}
-              className="rounded-3xl border border-neutral-800 bg-black p-5"
-            >
-              <div className="mb-5 flex flex-col gap-2 border-b border-neutral-800 pb-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="text-2xl font-semibold text-white">{edition.year}</h2>
-                  <p className="mt-1 text-sm text-neutral-400">
-                    {edition.level} · {edition.surface}
-                  </p>
-                </div>
-
-                <div className="text-sm text-neutral-400">
-                  <div>Week: {valueOrNA(edition.week)}</div>
-                  <div>
-                    Dates: {formatDate(edition.start_date)} – {formatDate(edition.end_date)}
-                  </div>
-                </div>
+        {rows.map((row) => (
+          <article key={row.edition.edition_id} className="rounded-2xl border border-neutral-800 bg-black p-5">
+            <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-start">
+              <div>
+                <h3 className="text-lg font-semibold">{row.edition.year}</h3>
+                <p className="text-sm text-neutral-400">
+                  {formatDate(row.edition.start_date)} · Week {row.edition.week ?? 'NA'} · {row.edition.level} · {row.edition.surface}
+                </p>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <CutSection title="Singles main draw" snapshot={singlesMain} />
-                <CutSection title="Singles qualifying" snapshot={singlesQualifying} />
-                <CutSection
-                  title="Doubles"
-                  snapshot={doublesMain}
-                  isChallenger={isChallenger}
-                />
+              <div className="grid gap-2 text-sm sm:grid-cols-2">
+                <div className="rounded-xl border border-neutral-800 px-3 py-2">
+                  <div className="text-neutral-500">Same level as previous year</div>
+                  <div>{compareLabel(row.same_level_as_previous_year)}</div>
+                </div>
+                <div className="rounded-xl border border-neutral-800 px-3 py-2">
+                  <div className="text-neutral-500">Same week as previous year</div>
+                  <div>{compareLabel(row.same_week_as_previous_year)}</div>
+                </div>
               </div>
-            </section>
-          );
-        })}
-      </div>
+            </div>
+
+            <CutoffTable cutoffs={row.cutoffs} />
+          </article>
+        ))}
+      </section>
     </main>
   );
 }

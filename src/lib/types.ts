@@ -32,6 +32,7 @@ export type CutoffSnapshot = {
   parsed_at: string | null;
   parser_version: string | null;
   source_notes: string | null;
+  alternate_entries_count: number;
   created_at?: string;
   updated_at?: string;
 };
@@ -41,4 +42,13 @@ export type CheckerStatus = 'Direct Acceptance' | 'Via Alternate Spot' | 'Out' |
 export type CheckerResult = {
   label: string;
   status: CheckerStatus;
+};
+
+
+export type CutoffDisplayRow = {
+  edition: ScheduleRow;
+  previous_year: number | null;
+  same_level_as_previous_year: boolean | null;
+  same_week_as_previous_year: boolean | null;
+  cutoffs: CutoffSnapshot[];
 };
