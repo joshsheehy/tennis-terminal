@@ -15,6 +15,17 @@ type DrawImportTarget = {
   draw_url: string;
 };
 
+type VerifiedCutRankTarget = {
+  slug: string;
+  year: number;
+  event_type: EventType;
+  draw_type: DrawType;
+  last_direct_acceptance_rank: number;
+  source_url: string;
+  source_label: string;
+  note: string;
+};
+
 type ParsedDrawMarkers = {
   alternate_entries_count: number;
   lucky_loser_entries_count: number;
@@ -110,6 +121,101 @@ const drawImportTargets: DrawImportTarget[] = [
   },
 ];
 
+const verifiedCutRankTargets: VerifiedCutRankTarget[] = [
+  {
+    slug: 'brisbane-international-presented-by-anz-brisbane',
+    year: 2026,
+    event_type: 'singles',
+    draw_type: 'main',
+    last_direct_acceptance_rank: 58,
+    source_url: 'https://canaltenis.com/entry-list-atp-brisbane-2026/',
+    source_label: 'Canal Tenis Brisbane 2026 entry list',
+    note: 'Last non-WC/non-Q main-draw entry listed before wild cards and qualifiers.',
+  },
+  {
+    slug: 'brisbane-international-presented-by-anz-brisbane',
+    year: 2026,
+    event_type: 'singles',
+    draw_type: 'qualifying',
+    last_direct_acceptance_rank: 106,
+    source_url: 'https://canaltenis.com/entry-list-atp-brisbane-2026/',
+    source_label: 'Canal Tenis Brisbane 2026 qualifying entry list',
+    note: 'Last listed qualifying direct acceptance before wild cards.',
+  },
+  {
+    slug: 'bank-of-china-hong-kong-tennis-open-hong-kong',
+    year: 2026,
+    event_type: 'singles',
+    draw_type: 'main',
+    last_direct_acceptance_rank: 77,
+    source_url: 'https://canaltenis.com/entry-list-atp-hong-kong-2026/',
+    source_label: 'Canal Tenis Hong Kong 2026 entry list',
+    note: 'Last non-WC/non-Q/non-SE main-draw entry after the listed withdrawal replacement.',
+  },
+  {
+    slug: 'bank-of-china-hong-kong-tennis-open-hong-kong',
+    year: 2026,
+    event_type: 'singles',
+    draw_type: 'qualifying',
+    last_direct_acceptance_rank: 169,
+    source_url: 'https://canaltenis.com/entry-list-atp-hong-kong-2026/',
+    source_label: 'Canal Tenis Hong Kong 2026 qualifying entry list',
+    note: 'Last listed qualifying direct acceptance before wild cards.',
+  },
+  {
+    slug: 'adelaide-international-adelaide',
+    year: 2026,
+    event_type: 'singles',
+    draw_type: 'main',
+    last_direct_acceptance_rank: 57,
+    source_url: 'https://www.spaziotennis.com/trn/ent/entry-list-atp-adelaide-2026-partecipanti-ed-italiani-presenti/117955',
+    source_label: 'Spazio Tennis Adelaide 2026 entry list',
+    note: 'Last listed alternate marked IN for the main draw.',
+  },
+  {
+    slug: 'adelaide-international-adelaide',
+    year: 2026,
+    event_type: 'singles',
+    draw_type: 'qualifying',
+    last_direct_acceptance_rank: 78,
+    source_url: 'https://www.spaziotennis.com/trn/ent/entry-list-atp-adelaide-2026-partecipanti-ed-italiani-presenti/117955',
+    source_label: 'Spazio Tennis Adelaide 2026 qualifying entry list',
+    note: 'Last ranked qualifying entry shown before unranked alternate-in names in the available source.',
+  },
+  {
+    slug: 'asb-classic-auckland',
+    year: 2026,
+    event_type: 'singles',
+    draw_type: 'main',
+    last_direct_acceptance_rank: 69,
+    source_url: 'https://www.spaziotennis.com/trn/ent/entry-list-atp-auckland-2026-partecipanti-ed-italiani-presenti/117956',
+    source_label: 'Spazio Tennis Auckland 2026 entry list',
+    note: 'Last listed alternate marked IN for the main draw.',
+  },
+  {
+    slug: 'asb-classic-auckland',
+    year: 2026,
+    event_type: 'singles',
+    draw_type: 'qualifying',
+    last_direct_acceptance_rank: 91,
+    source_url: 'https://www.spaziotennis.com/trn/ent/entry-list-atp-auckland-2026-partecipanti-ed-italiani-presenti/117956',
+    source_label: 'Spazio Tennis Auckland 2026 qualifying entry list',
+    note: 'Last ranked qualifying entry shown before unranked alternate-in names in the available source.',
+  },
+];
+
+function findVerifiedCutRank(target: DrawImportTarget) {
+  return (
+    verifiedCutRankTargets.find(
+      (cut) =>
+        cut.slug === target.slug &&
+        cut.year === target.year &&
+        cut.event_type === target.event_type &&
+        cut.draw_type === target.draw_type
+    ) ?? null
+  );
+}
+
 function countMarker(text: string, marker: string) {
   const pattern = new RegExp(`\\(${marker}\\)`, 'gi');
   return text.match(pattern)?.length ?? 0;
@@ -168,11 +274,25 @@ async function getEditionId(slug: string, year: number) {
   return result.rows[0]?.id ?? null;
 }
 
+function makeSourceNotes(target: DrawImportTarget, parsed: ParsedDrawMarkers, verifiedCut: VerifiedCutRankTarget | null) {
+  const markerNotes = `Draw URL: ${target.draw_url}. Marker counts: LL=${parsed.lucky_loser_entries_count}, Alt=${parsed.alternate_entries_count - parsed.lucky_loser_entries_count}, Q=${parsed.qualifying_entries_count}, WC=${parsed.wildcard_entries_count}, SE=${parsed.special_exempt_entries_count}.`;
+
+  if (!verifiedCut) {
+    return `${markerNotes} Last-direct rank pending entry-list/PDF verification.`;
+  }
+
+  return `${markerNotes} Last-direct rank source: ${verifiedCut.source_label} (${verifiedCut.source_url}). ${verifiedCut.note}`;
+}
+
 async function upsertCutoffSnapshot(
   target: DrawImportTarget,
   editionId: string,
-  parsed: ParsedDrawMarkers
+  parsed: ParsedDrawMarkers,
+  verifiedCut: VerifiedCutRankTarget | null
 ) {
+  const sourceType = verifiedCut ? 'entry_list_and_atp_draw_page' : 'atp_draw_page';
+  const sourceNotes = makeSourceNotes(target, parsed, verifiedCut);
+
   await pool.query(
     `
     insert into cutoff_snapshots (
@@ -198,8 +318,8 @@ async function upsertCutoffSnapshot(
       $1,
       $2,
       $3,
-      'atp_draw_page',
-      null,
+      $4,
+      $5,
       null,
       null,
       null,
@@ -208,22 +328,15 @@ async function upsertCutoffSnapshot(
       null,
       null,
       now(),
-      'atp-draw-marker-parser-v1',
-      $4,
-      $5,
+      'entry-list-plus-atp-draw-parser-v1',
+      $6,
+      $7,
       now()
     )
     on conflict (tournament_edition_id, event_type, draw_type)
     do update set
       source_type = excluded.source_type,
-      last_direct_acceptance_rank = excluded.last_direct_acceptance_rank,
-      last_direct_acceptance_player_name = excluded.last_direct_acceptance_player_name,
-      last_alternate_rank = excluded.last_alternate_rank,
-      last_alternate_player_name = excluded.last_alternate_player_name,
-      challenger_doubles_advanced_cut_rank = excluded.challenger_doubles_advanced_cut_rank,
-      challenger_doubles_advanced_team_name = excluded.challenger_doubles_advanced_team_name,
-      challenger_doubles_onsite_cut_rank = excluded.challenger_doubles_onsite_cut_rank,
-      challenger_doubles_onsite_team_name = excluded.challenger_doubles_onsite_team_name,
+      last_direct_acceptance_rank = coalesce(excluded.last_direct_acceptance_rank, cutoff_snapshots.last_direct_acceptance_rank),
       parsed_at = excluded.parsed_at,
       parser_version = excluded.parser_version,
       source_notes = excluded.source_notes,
@@ -234,7 +347,9 @@ async function upsertCutoffSnapshot(
       editionId,
       target.event_type,
       target.draw_type,
-      `Draw URL: ${target.draw_url}. Marker counts: LL=${parsed.lucky_loser_entries_count}, Alt=${parsed.alternate_entries_count - parsed.lucky_loser_entries_count}, Q=${parsed.qualifying_entries_count}, WC=${parsed.wildcard_entries_count}, SE=${parsed.special_exempt_entries_count}. Last-direct rank pending official PDF/acceptance-list parser.`,
+      sourceType,
+      verifiedCut?.last_direct_acceptance_rank ?? null,
+      sourceNotes,
       parsed.alternate_entries_count,
     ]
   );
@@ -256,14 +371,16 @@ export async function GET() {
 
       const html = await fetchDrawHtml(target.draw_url);
       const parsed = parseDrawMarkers(html);
+      const verifiedCut = findVerifiedCutRank(target);
 
-      await upsertCutoffSnapshot(target, editionId, parsed);
+      await upsertCutoffSnapshot(target, editionId, parsed, verifiedCut);
 
       imported.push({
         slug: target.slug,
         year: target.year,
         event_type: target.event_type,
         draw_type: target.draw_type,
+        last_direct_acceptance_rank: verifiedCut?.last_direct_acceptance_rank ?? null,
         parsed,
       });
     } catch (error) {
