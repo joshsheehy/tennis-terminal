@@ -48,6 +48,11 @@ export async function getUpcomingSchedule(limit = 20): Promise<ScheduleRow[]> {
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     where te.status = 'held'
+      and te.year = (
+        select max(year)
+        from tournament_editions
+        where status = 'held'
+      )
     order by te.start_date asc, t.name asc
     limit $1
     `,
