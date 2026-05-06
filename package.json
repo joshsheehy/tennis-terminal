@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "node .next/standalone/server.js",
     "lint": "next lint",
-    "import:calendars": "tsx src/scripts/import-official-calendars.ts"
+    "import:calendars": "tsx src/scripts/import-official-calendars.ts",
+    "import:cutoffs": "tsx src/scripts/run-cutoff-import.ts"
   },
   "dependencies": {
     "next": "15.3.8",
