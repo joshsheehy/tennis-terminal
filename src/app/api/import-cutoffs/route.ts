@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -7,256 +8,58 @@ export const dynamic = 'force-dynamic';
 type EventType = 'singles' | 'doubles';
 type DrawType = 'main' | 'qualifying';
 
-type DrawImportTarget = {
+type PdfImportTarget = {
   slug: string;
   year: number;
   event_type: EventType;
   draw_type: DrawType;
-  draw_url: string;
+  pdf_url: string;
 };
 
-type VerifiedCutRankTarget = {
-  slug: string;
-  year: number;
-  event_type: EventType;
-  draw_type: DrawType;
-  last_direct_acceptance_rank: number;
-  source_url: string;
-  source_label: string;
-  note: string;
-};
+const pdfImportTargets: PdfImportTarget[] = [
+  // ATP Tour week 1
+  { slug: 'brisbane-international-presented-by-anz-brisbane', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/339/mds.pdf' },
+  { slug: 'brisbane-international-presented-by-anz-brisbane', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/339/qs.pdf' },
+  { slug: 'brisbane-international-presented-by-anz-brisbane', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/339/mdd.pdf' },
 
-type ParsedDrawMarkers = {
-  alternate_entries_count: number;
-  lucky_loser_entries_count: number;
-  qualifying_entries_count: number;
-  wildcard_entries_count: number;
-  special_exempt_entries_count: number;
-};
+  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/336/mds.pdf' },
+  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/336/qs.pdf' },
+  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/336/mdd.pdf' },
 
-const drawImportTargets: DrawImportTarget[] = [
-  {
-    slug: 'brisbane-international-presented-by-anz-brisbane',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'main',
-    draw_url: 'https://www.atptour.com/en/scores/archive/brisbane/339/2026/draws?matchtype=singles',
-  },
-  {
-    slug: 'brisbane-international-presented-by-anz-brisbane',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'qualifying',
-    draw_url: 'https://www.atptour.com/en/scores/archive/brisbane/339/2026/draws?matchtype=qualifiersingles',
-  },
-  {
-    slug: 'brisbane-international-presented-by-anz-brisbane',
-    year: 2026,
-    event_type: 'doubles',
-    draw_type: 'main',
-    draw_url: 'https://www.atptour.com/en/scores/archive/brisbane/339/2026/draws?matchtype=doubles',
-  },
-  {
-    slug: 'bank-of-china-hong-kong-tennis-open-hong-kong',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'main',
-    draw_url: 'https://www.atptour.com/en/scores/archive/hong-kong/336/2026/draws?matchtype=singles',
-  },
-  {
-    slug: 'bank-of-china-hong-kong-tennis-open-hong-kong',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'qualifying',
-    draw_url: 'https://www.atptour.com/en/scores/archive/hong-kong/336/2026/draws?matchtype=qualifiersingles',
-  },
-  {
-    slug: 'bank-of-china-hong-kong-tennis-open-hong-kong',
-    year: 2026,
-    event_type: 'doubles',
-    draw_type: 'main',
-    draw_url: 'https://www.atptour.com/en/scores/archive/hong-kong/336/2026/draws?matchtype=doubles',
-  },
-  {
-    slug: 'adelaide-international-adelaide',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'main',
-    draw_url: 'https://www.atptour.com/en/scores/archive/adelaide/8998/2026/draws?matchtype=singles',
-  },
-  {
-    slug: 'adelaide-international-adelaide',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'qualifying',
-    draw_url: 'https://www.atptour.com/en/scores/archive/adelaide/8998/2026/draws?matchtype=qualifiersingles',
-  },
-  {
-    slug: 'adelaide-international-adelaide',
-    year: 2026,
-    event_type: 'doubles',
-    draw_type: 'main',
-    draw_url: 'https://www.atptour.com/en/scores/archive/adelaide/8998/2026/draws?matchtype=doubles',
-  },
-  {
-    slug: 'asb-classic-auckland',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'main',
-    draw_url: 'https://www.atptour.com/en/scores/archive/auckland/301/2026/draws?matchtype=singles',
-  },
-  {
-    slug: 'asb-classic-auckland',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'qualifying',
-    draw_url: 'https://www.atptour.com/en/scores/archive/auckland/301/2026/draws?matchtype=qualifiersingles',
-  },
-  {
-    slug: 'asb-classic-auckland',
-    year: 2026,
-    event_type: 'doubles',
-    draw_type: 'main',
-    draw_url: 'https://www.atptour.com/en/scores/archive/auckland/301/2026/draws?matchtype=doubles',
-  },
+  // ATP Tour week 2
+  { slug: 'adelaide-international-adelaide', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/8998/mds.pdf' },
+  { slug: 'adelaide-international-adelaide', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/8998/qs.pdf' },
+  { slug: 'adelaide-international-adelaide', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/8998/mdd.pdf' },
+
+  { slug: 'asb-classic-auckland', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/301/mds.pdf' },
+  { slug: 'asb-classic-auckland', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/301/qs.pdf' },
+  { slug: 'asb-classic-auckland', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/301/mdd.pdf' },
+
+  // ATP Tour week 5+
+  { slug: 'open-occitanie-montpellier', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/375/mds.pdf' },
+  { slug: 'open-occitanie-montpellier', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/375/qs.pdf' },
+  { slug: 'open-occitanie-montpellier', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/375/mdd.pdf' },
+
+  { slug: 'dallas-open-dallas', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/424/mds.pdf' },
+  { slug: 'dallas-open-dallas', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/424/qs.pdf' },
+  { slug: 'dallas-open-dallas', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/424/mdd.pdf' },
+
+  { slug: 'abn-amro-open-rotterdam', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/407/mds.pdf' },
+  { slug: 'abn-amro-open-rotterdam', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/407/qs.pdf' },
+  { slug: 'abn-amro-open-rotterdam', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/407/mdd.pdf' },
+
+  { slug: 'ieb-argentina-open-buenos-aires', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/506/mds.pdf' },
+  { slug: 'ieb-argentina-open-buenos-aires', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/506/qs.pdf' },
+  { slug: 'ieb-argentina-open-buenos-aires', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/506/mdd.pdf' },
+
+  { slug: 'qatar-exxonmobil-open-doha', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/451/mds.pdf' },
+  { slug: 'qatar-exxonmobil-open-doha', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/451/qs.pdf' },
+  { slug: 'qatar-exxonmobil-open-doha', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/451/mdd.pdf' },
+
+  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/6932/mds.pdf' },
+  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/6932/qs.pdf' },
+  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/6932/mdd.pdf' },
 ];
-
-const verifiedCutRankTargets: VerifiedCutRankTarget[] = [
-  {
-    slug: 'brisbane-international-presented-by-anz-brisbane',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'main',
-    last_direct_acceptance_rank: 58,
-    source_url: 'https://canaltenis.com/entry-list-atp-brisbane-2026/',
-    source_label: 'Canal Tenis Brisbane 2026 entry list',
-    note: 'Last non-WC/non-Q main-draw entry listed before wild cards and qualifiers.',
-  },
-  {
-    slug: 'brisbane-international-presented-by-anz-brisbane',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'qualifying',
-    last_direct_acceptance_rank: 106,
-    source_url: 'https://canaltenis.com/entry-list-atp-brisbane-2026/',
-    source_label: 'Canal Tenis Brisbane 2026 qualifying entry list',
-    note: 'Last listed qualifying direct acceptance before wild cards.',
-  },
-  {
-    slug: 'bank-of-china-hong-kong-tennis-open-hong-kong',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'main',
-    last_direct_acceptance_rank: 77,
-    source_url: 'https://canaltenis.com/entry-list-atp-hong-kong-2026/',
-    source_label: 'Canal Tenis Hong Kong 2026 entry list',
-    note: 'Last non-WC/non-Q/non-SE main-draw entry after the listed withdrawal replacement.',
-  },
-  {
-    slug: 'bank-of-china-hong-kong-tennis-open-hong-kong',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'qualifying',
-    last_direct_acceptance_rank: 169,
-    source_url: 'https://canaltenis.com/entry-list-atp-hong-kong-2026/',
-    source_label: 'Canal Tenis Hong Kong 2026 qualifying entry list',
-    note: 'Last listed qualifying direct acceptance before wild cards.',
-  },
-  {
-    slug: 'adelaide-international-adelaide',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'main',
-    last_direct_acceptance_rank: 57,
-    source_url: 'https://www.spaziotennis.com/trn/ent/entry-list-atp-adelaide-2026-partecipanti-ed-italiani-presenti/117955',
-    source_label: 'Spazio Tennis Adelaide 2026 entry list',
-    note: 'Last listed alternate marked IN for the main draw.',
-  },
-  {
-    slug: 'adelaide-international-adelaide',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'qualifying',
-    last_direct_acceptance_rank: 78,
-    source_url: 'https://www.spaziotennis.com/trn/ent/entry-list-atp-adelaide-2026-partecipanti-ed-italiani-presenti/117955',
-    source_label: 'Spazio Tennis Adelaide 2026 qualifying entry list',
-    note: 'Last ranked qualifying entry shown before unranked alternate-in names in the available source.',
-  },
-  {
-    slug: 'asb-classic-auckland',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'main',
-    last_direct_acceptance_rank: 69,
-    source_url: 'https://www.spaziotennis.com/trn/ent/entry-list-atp-auckland-2026-partecipanti-ed-italiani-presenti/117956',
-    source_label: 'Spazio Tennis Auckland 2026 entry list',
-    note: 'Last listed alternate marked IN for the main draw.',
-  },
-  {
-    slug: 'asb-classic-auckland',
-    year: 2026,
-    event_type: 'singles',
-    draw_type: 'qualifying',
-    last_direct_acceptance_rank: 91,
-    source_url: 'https://www.spaziotennis.com/trn/ent/entry-list-atp-auckland-2026-partecipanti-ed-italiani-presenti/117956',
-    source_label: 'Spazio Tennis Auckland 2026 qualifying entry list',
-    note: 'Last ranked qualifying entry shown before unranked alternate-in names in the available source.',
-  },
-];
-
-function findVerifiedCutRank(target: DrawImportTarget) {
-  return (
-    verifiedCutRankTargets.find(
-      (cut) =>
-        cut.slug === target.slug &&
-        cut.year === target.year &&
-        cut.event_type === target.event_type &&
-        cut.draw_type === target.draw_type
-    ) ?? null
-  );
-}
-
-function countMarker(text: string, marker: string) {
-  const pattern = new RegExp(`\\(${marker}\\)`, 'gi');
-  return text.match(pattern)?.length ?? 0;
-}
-
-function parseDrawMarkers(html: string): ParsedDrawMarkers {
-  const text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/\s+/g, ' ');
-
-  const altCount = countMarker(text, 'Alt');
-  const llCount = countMarker(text, 'LL');
-
-  return {
-    alternate_entries_count: altCount + llCount,
-    lucky_loser_entries_count: llCount,
-    qualifying_entries_count: countMarker(text, 'Q'),
-    wildcard_entries_count: countMarker(text, 'WC'),
-    special_exempt_entries_count: countMarker(text, 'SE'),
-  };
-}
-
-async function fetchDrawHtml(url: string) {
-  const response = await fetch(url, {
-    headers: {
-      'user-agent':
-        'Mozilla/5.0 (compatible; TennisTerminalBot/0.1; +https://tennis-terminal-production.up.railway.app)',
-      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    },
-    cache: 'no-store',
-  });
-
-  if (!response.ok) {
-    throw new Error(`Fetch failed ${response.status} for ${url}`);
-  }
-
-  return response.text();
-}
 
 async function getEditionId(slug: string, year: number) {
   const result = await pool.query<{ id: string }>(
@@ -274,25 +77,11 @@ async function getEditionId(slug: string, year: number) {
   return result.rows[0]?.id ?? null;
 }
 
-function makeSourceNotes(target: DrawImportTarget, parsed: ParsedDrawMarkers, verifiedCut: VerifiedCutRankTarget | null) {
-  const markerNotes = `Draw URL: ${target.draw_url}. Marker counts: LL=${parsed.lucky_loser_entries_count}, Alt=${parsed.alternate_entries_count - parsed.lucky_loser_entries_count}, Q=${parsed.qualifying_entries_count}, WC=${parsed.wildcard_entries_count}, SE=${parsed.special_exempt_entries_count}.`;
-
-  if (!verifiedCut) {
-    return `${markerNotes} Last-direct rank pending entry-list/PDF verification.`;
-  }
-
-  return `${markerNotes} Last-direct rank source: ${verifiedCut.source_label} (${verifiedCut.source_url}). ${verifiedCut.note}`;
-}
-
 async function upsertCutoffSnapshot(
-  target: DrawImportTarget,
+  target: PdfImportTarget,
   editionId: string,
-  parsed: ParsedDrawMarkers,
-  verifiedCut: VerifiedCutRankTarget | null
+  parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>>
 ) {
-  const sourceType = verifiedCut ? 'entry_list_and_atp_draw_page' : 'atp_draw_page';
-  const sourceNotes = makeSourceNotes(target, parsed, verifiedCut);
-
   await pool.query(
     `
     insert into cutoff_snapshots (
@@ -318,6 +107,7 @@ async function upsertCutoffSnapshot(
       $1,
       $2,
       $3,
+      'official_pdf',
       $4,
       $5,
       null,
@@ -326,9 +116,8 @@ async function upsertCutoffSnapshot(
       null,
       null,
       null,
-      null,
       now(),
-      'entry-list-plus-atp-draw-parser-v1',
+      'official-pdf-bottom-left-v1',
       $6,
       $7,
       now()
@@ -336,7 +125,8 @@ async function upsertCutoffSnapshot(
     on conflict (tournament_edition_id, event_type, draw_type)
     do update set
       source_type = excluded.source_type,
-      last_direct_acceptance_rank = coalesce(excluded.last_direct_acceptance_rank, cutoff_snapshots.last_direct_acceptance_rank),
+      last_direct_acceptance_rank = excluded.last_direct_acceptance_rank,
+      last_direct_acceptance_player_name = excluded.last_direct_acceptance_player_name,
       parsed_at = excluded.parsed_at,
       parser_version = excluded.parser_version,
       source_notes = excluded.source_notes,
@@ -347,9 +137,9 @@ async function upsertCutoffSnapshot(
       editionId,
       target.event_type,
       target.draw_type,
-      sourceType,
-      verifiedCut?.last_direct_acceptance_rank ?? null,
-      sourceNotes,
+      parsed.last_direct_acceptance_rank,
+      parsed.last_direct_acceptance_name,
+      `Official PDF: ${target.pdf_url}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}.`,
       parsed.alternate_entries_count,
     ]
   );
@@ -360,7 +150,7 @@ export async function GET() {
   const skipped = [];
   const failed = [];
 
-  for (const target of drawImportTargets) {
+  for (const target of pdfImportTargets) {
     try {
       const editionId = await getEditionId(target.slug, target.year);
 
@@ -369,19 +159,19 @@ export async function GET() {
         continue;
       }
 
-      const html = await fetchDrawHtml(target.draw_url);
-      const parsed = parseDrawMarkers(html);
-      const verifiedCut = findVerifiedCutRank(target);
+      const parsed = await fetchAndParseOfficialPdfCutoff(target.pdf_url);
 
-      await upsertCutoffSnapshot(target, editionId, parsed, verifiedCut);
+      await upsertCutoffSnapshot(target, editionId, parsed);
 
       imported.push({
         slug: target.slug,
         year: target.year,
         event_type: target.event_type,
         draw_type: target.draw_type,
-        last_direct_acceptance_rank: verifiedCut?.last_direct_acceptance_rank ?? null,
-        parsed,
+        pdf_url: target.pdf_url,
+        last_direct_acceptance_rank: parsed.last_direct_acceptance_rank,
+        last_direct_acceptance_name: parsed.last_direct_acceptance_name,
+        alternate_entries_count: parsed.alternate_entries_count,
       });
     } catch (error) {
       failed.push({
