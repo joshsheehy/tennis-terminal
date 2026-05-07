@@ -16,50 +16,65 @@ type PdfImportTarget = {
   pdf_url: string;
 };
 
-const pdfImportTargets: PdfImportTarget[] = [
-  // ATP Tour week 1
-  { slug: 'brisbane-international-presented-by-anz-brisbane', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/339/mds.pdf' },
-  { slug: 'brisbane-international-presented-by-anz-brisbane', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/339/qs.pdf' },
-  { slug: 'brisbane-international-presented-by-anz-brisbane', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/339/mdd.pdf' },
+type OfficialPdfSource = {
+  slug: string;
+  year: number;
+  code: string;
+};
 
-  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/336/mds.pdf' },
-  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/336/qs.pdf' },
-  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/336/mdd.pdf' },
+const officialPdfSources: OfficialPdfSource[] = [
+  // ATP Tour events currently seeded in the app.
+  { slug: 'brisbane-international-presented-by-anz-brisbane', year: 2026, code: '339' },
+  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', year: 2026, code: '336' },
+  { slug: 'adelaide-international-adelaide', year: 2026, code: '8998' },
+  { slug: 'asb-classic-auckland', year: 2026, code: '301' },
+  { slug: 'open-occitanie-montpellier', year: 2026, code: '375' },
+  { slug: 'dallas-open-dallas', year: 2026, code: '424' },
+  { slug: 'abn-amro-open-rotterdam', year: 2026, code: '407' },
+  { slug: 'ieb-argentina-open-buenos-aires', year: 2026, code: '506' },
+  { slug: 'qatar-exxonmobil-open-doha', year: 2026, code: '451' },
+  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', year: 2026, code: '6932' },
 
-  // ATP Tour week 2
-  { slug: 'adelaide-international-adelaide', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/8998/mds.pdf' },
-  { slug: 'adelaide-international-adelaide', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/8998/qs.pdf' },
-  { slug: 'adelaide-international-adelaide', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/8998/mdd.pdf' },
-
-  { slug: 'asb-classic-auckland', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/301/mds.pdf' },
-  { slug: 'asb-classic-auckland', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/301/qs.pdf' },
-  { slug: 'asb-classic-auckland', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/301/mdd.pdf' },
-
-  // ATP Tour week 5+
-  { slug: 'open-occitanie-montpellier', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/375/mds.pdf' },
-  { slug: 'open-occitanie-montpellier', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/375/qs.pdf' },
-  { slug: 'open-occitanie-montpellier', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/375/mdd.pdf' },
-
-  { slug: 'dallas-open-dallas', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/424/mds.pdf' },
-  { slug: 'dallas-open-dallas', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/424/qs.pdf' },
-  { slug: 'dallas-open-dallas', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/424/mdd.pdf' },
-
-  { slug: 'abn-amro-open-rotterdam', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/407/mds.pdf' },
-  { slug: 'abn-amro-open-rotterdam', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/407/qs.pdf' },
-  { slug: 'abn-amro-open-rotterdam', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/407/mdd.pdf' },
-
-  { slug: 'ieb-argentina-open-buenos-aires', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/506/mds.pdf' },
-  { slug: 'ieb-argentina-open-buenos-aires', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/506/qs.pdf' },
-  { slug: 'ieb-argentina-open-buenos-aires', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/506/mdd.pdf' },
-
-  { slug: 'qatar-exxonmobil-open-doha', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/451/mds.pdf' },
-  { slug: 'qatar-exxonmobil-open-doha', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/451/qs.pdf' },
-  { slug: 'qatar-exxonmobil-open-doha', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/451/mdd.pdf' },
-
-  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', year: 2026, event_type: 'singles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/6932/mds.pdf' },
-  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', year: 2026, event_type: 'singles', draw_type: 'qualifying', pdf_url: 'https://www.protennislive.com/posting/2026/6932/qs.pdf' },
-  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', year: 2026, event_type: 'doubles', draw_type: 'main', pdf_url: 'https://www.protennislive.com/posting/2026/6932/mdd.pdf' },
+  // Challenger events currently seeded in the app.
+  { slug: 'bengaluru-1-bengaluru', year: 2026, code: '7808' },
+  { slug: 'canberra-canberra', year: 2026, code: '7393' },
+  { slug: 'noumea-noumea', year: 2026, code: '2205' },
+  { slug: 'nonthaburi-1-nonthaburi', year: 2026, code: '2791' },
+  { slug: 'nottingham-1-nottingham', year: 2026, code: '2907' },
+  { slug: 'nonthaburi-2-nonthaburi', year: 2026, code: '2795' },
+  { slug: 'buenos-aires-challenger-buenos-aires', year: 2026, code: '1210' },
+  { slug: 'glasgow-glasgow', year: 2026, code: '7916' },
+  { slug: 'oeiras-1-oeiras', year: 2026, code: '2831' },
+  { slug: 'itajai-itajai', year: 2026, code: '3053' },
 ];
+
+function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
+  return sources.flatMap((source) => [
+    {
+      slug: source.slug,
+      year: source.year,
+      event_type: 'singles' as const,
+      draw_type: 'main' as const,
+      pdf_url: `https://www.protennislive.com/posting/${source.year}/${source.code}/mds.pdf`,
+    },
+    {
+      slug: source.slug,
+      year: source.year,
+      event_type: 'singles' as const,
+      draw_type: 'qualifying' as const,
+      pdf_url: `https://www.protennislive.com/posting/${source.year}/${source.code}/qs.pdf`,
+    },
+    {
+      slug: source.slug,
+      year: source.year,
+      event_type: 'doubles' as const,
+      draw_type: 'main' as const,
+      pdf_url: `https://www.protennislive.com/posting/${source.year}/${source.code}/mdd.pdf`,
+    },
+  ]);
+}
+
+const pdfImportTargets = buildPdfImportTargets(officialPdfSources);
 
 async function getEditionId(slug: string, year: number) {
   const result = await pool.query<{ id: string }>(
@@ -117,7 +132,7 @@ async function upsertCutoffSnapshot(
       null,
       null,
       now(),
-      'official-pdf-bottom-left-v1',
+      'official-pdf-bottom-left-v2',
       $6,
       $7,
       now()
@@ -183,6 +198,8 @@ export async function GET() {
 
   return NextResponse.json({
     ok: failed.length === 0,
+    sourceCount: officialPdfSources.length,
+    targetCount: pdfImportTargets.length,
     importedCount: imported.length,
     skippedCount: skipped.length,
     failedCount: failed.length,
