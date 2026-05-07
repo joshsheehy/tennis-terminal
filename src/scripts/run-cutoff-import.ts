@@ -10,6 +10,28 @@ function normalizeBaseUrl(value: string | undefined) {
   return `https://${value.replace(/\/$/, '')}`;
 }
 
+async function runStep(label: string, url: string) {
+  console.log(`Starting ${label}: ${url}`);
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+      'user-agent': 'TennisTerminalCron/0.3',
+    },
+  });
+
+  const body = await response.text();
+  console.log(`${label} response:`);
+  console.log(body);
+
+  if (!response.ok) {
+    throw new Error(`${label} failed with status ${response.status}`);
+  }
+
+  console.log(`Finished ${label}`);
+}
+
 async function main() {
   const baseUrl = normalizeBaseUrl(appUrl);
 
@@ -17,27 +39,14 @@ async function main() {
     throw new Error('APP_URL or RAILWAY_PUBLIC_DOMAIN is required for scheduled data sync');
   }
 
-  const syncUrl = `${baseUrl}/api/sync-all`;
+  console.log(`Starting Tennis Terminal scheduled data sync for ${baseUrl}`);
 
-  console.log(`Starting full Tennis Terminal data sync from ${syncUrl}`);
+  await runStep('calendar import', `${baseUrl}/api/import-calendars`);
+  await runStep('2026 cutoff import', `${baseUrl}/api/import-cutoffs?year=2026`);
+  await runStep('2025 cutoff import', `${baseUrl}/api/import-cutoffs?year=2025`);
+  await runStep('2024 cutoff import', `${baseUrl}/api/import-cutoffs?year=2024`);
 
-  const response = await fetch(syncUrl, {
-    method: 'GET',
-    headers: {
-      accept: 'application/json',
-      'user-agent': 'TennisTerminalCron/0.2',
-    },
-  });
-
-  const body = await response.text();
-
-  console.log(body);
-
-  if (!response.ok) {
-    throw new Error(`Data sync failed with status ${response.status}`);
-  }
-
-  console.log('Full Tennis Terminal data sync finished');
+  console.log('Full Tennis Terminal scheduled data sync finished');
 }
 
 main().catch((error) => {
