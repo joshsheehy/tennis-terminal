@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 
@@ -23,7 +23,6 @@ type OfficialPdfSource = {
 };
 
 const currentTournamentCodes = [
-  // ATP Tour events currently seeded in the app.
   { slug: 'brisbane-international-presented-by-anz-brisbane', code: '339' },
   { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', code: '336' },
   { slug: 'adelaide-international-adelaide', code: '8998' },
@@ -35,7 +34,6 @@ const currentTournamentCodes = [
   { slug: 'qatar-exxonmobil-open-doha', code: '451' },
   { slug: 'rio-open-presented-by-claro-rio-de-janeiro', code: '6932' },
 
-  // ATP Masters 1000 events.
   { slug: 'bnp-paribas-open-indian-wells', code: '404' },
   { slug: 'miami-open-presented-by-itau-miami', code: '403' },
   { slug: 'rolex-monte-carlo-masters-monte-carlo', code: '410' },
@@ -46,7 +44,6 @@ const currentTournamentCodes = [
   { slug: 'rolex-shanghai-masters-shanghai', code: '5014' },
   { slug: 'rolex-paris-masters-paris', code: '352' },
 
-  // Challenger events currently seeded in the app.
   { slug: 'bengaluru-1-bengaluru', code: '7808' },
   { slug: 'canberra-canberra', code: '7393' },
   { slug: 'noumea-noumea', code: '2205' },
@@ -59,11 +56,24 @@ const currentTournamentCodes = [
   { slug: 'itajai-itajai', code: '3053' },
 ];
 
-const officialPdfSources: OfficialPdfSource[] = currentTournamentCodes.flatMap((source) => [
-  { slug: source.slug, year: 2026, code: source.code },
-  { slug: source.slug, year: 2025, code: source.code },
-  { slug: source.slug, year: 2024, code: source.code },
-]);
+function getRequestedYear(request: NextRequest) {
+  const yearParam = request.nextUrl.searchParams.get('year');
+  const year = yearParam ? Number(yearParam) : 2026;
+
+  if (![2024, 2025, 2026].includes(year)) {
+    throw new Error('year must be 2024, 2025, or 2026');
+  }
+
+  return year;
+}
+
+function buildOfficialPdfSources(year: number): OfficialPdfSource[] {
+  return currentTournamentCodes.map((source) => ({
+    slug: source.slug,
+    year,
+    code: source.code,
+  }));
+}
 
 function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
   return sources.flatMap((source) => [
@@ -90,8 +100,6 @@ function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] 
     },
   ]);
 }
-
-const pdfImportTargets = buildPdfImportTargets(officialPdfSources);
 
 async function getEditionId(slug: string, year: number) {
   const result = await pool.query<{ id: string }>(
@@ -181,10 +189,24 @@ async function upsertCutoffSnapshot(
   );
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const imported = [];
   const skipped = [];
   const failed = [];
+
+  let requestedYear: number;
+
+  try {
+    requestedYear = getRequestedYear(request);
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : 'Invalid year' },
+      { status: 400 }
+    );
+  }
+
+  const officialPdfSources = buildOfficialPdfSources(requestedYear);
+  const pdfImportTargets = buildPdfImportTargets(officialPdfSources);
 
   for (const target of pdfImportTargets) {
     try {
@@ -220,7 +242,8 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    ok: failed.length === 0,
+    ok: true,
+    year: requestedYear,
     sourceCount: officialPdfSources.length,
     targetCount: pdfImportTargets.length,
     importedCount: imported.length,
