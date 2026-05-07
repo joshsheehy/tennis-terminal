@@ -14,18 +14,18 @@ async function main() {
   const baseUrl = normalizeBaseUrl(appUrl);
 
   if (!baseUrl) {
-    throw new Error('APP_URL or RAILWAY_PUBLIC_DOMAIN is required for scheduled cutoff imports');
+    throw new Error('APP_URL or RAILWAY_PUBLIC_DOMAIN is required for scheduled data sync');
   }
 
-  const importUrl = `${baseUrl}/api/import-cutoffs`;
+  const syncUrl = `${baseUrl}/api/sync-all`;
 
-  console.log(`Starting cutoff import from ${importUrl}`);
+  console.log(`Starting full Tennis Terminal data sync from ${syncUrl}`);
 
-  const response = await fetch(importUrl, {
+  const response = await fetch(syncUrl, {
     method: 'GET',
     headers: {
       accept: 'application/json',
-      'user-agent': 'TennisTerminalCron/0.1',
+      'user-agent': 'TennisTerminalCron/0.2',
     },
   });
 
@@ -34,10 +34,10 @@ async function main() {
   console.log(body);
 
   if (!response.ok) {
-    throw new Error(`Cutoff import failed with status ${response.status}`);
+    throw new Error(`Data sync failed with status ${response.status}`);
   }
 
-  console.log('Cutoff import finished');
+  console.log('Full Tennis Terminal data sync finished');
 }
 
 main().catch((error) => {
