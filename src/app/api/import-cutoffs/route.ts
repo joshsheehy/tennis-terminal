@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
+import { TOURNAMENT_REGISTRY } from '@/lib/tournament-registry';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ type OfficialPdfSource = {
   slug: string;
   year: number;
   code: string;
-  level: 'atp_250' | 'atp_500' | 'atp_1000' | 'challenger';
+  has_doubles_qualifying: boolean;
 };
 
 type EditionTemplate = {
@@ -34,44 +35,6 @@ type EditionTemplate = {
   source: string;
   source_url: string | null;
 };
-
-const currentTournamentCodes: Array<{
-  slug: string;
-  code: string;
-  level: OfficialPdfSource['level'];
-}> = [
-  { slug: 'brisbane-international-presented-by-anz-brisbane', code: '339', level: 'atp_250' },
-  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', code: '336', level: 'atp_250' },
-  { slug: 'adelaide-international-adelaide', code: '8998', level: 'atp_250' },
-  { slug: 'asb-classic-auckland', code: '301', level: 'atp_250' },
-  { slug: 'open-occitanie-montpellier', code: '375', level: 'atp_250' },
-  { slug: 'dallas-open-dallas', code: '424', level: 'atp_500' },
-  { slug: 'abn-amro-open-rotterdam', code: '407', level: 'atp_500' },
-  { slug: 'ieb-argentina-open-buenos-aires', code: '506', level: 'atp_250' },
-  { slug: 'qatar-exxonmobil-open-doha', code: '451', level: 'atp_500' },
-  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', code: '6932', level: 'atp_500' },
-
-  { slug: 'bnp-paribas-open-indian-wells', code: '404', level: 'atp_1000' },
-  { slug: 'miami-open-presented-by-itau-miami', code: '403', level: 'atp_1000' },
-  { slug: 'rolex-monte-carlo-masters-monte-carlo', code: '410', level: 'atp_1000' },
-  { slug: 'mutua-madrid-open-madrid', code: '1536', level: 'atp_1000' },
-  { slug: 'internazionali-bnl-ditalia-rome', code: '416', level: 'atp_1000' },
-  { slug: 'national-bank-open-presented-by-rogers-montreal', code: '421', level: 'atp_1000' },
-  { slug: 'cincinnati-open-cincinnati', code: '422', level: 'atp_1000' },
-  { slug: 'rolex-shanghai-masters-shanghai', code: '5014', level: 'atp_1000' },
-  { slug: 'rolex-paris-masters-paris', code: '352', level: 'atp_1000' },
-
-  { slug: 'bengaluru-1-bengaluru', code: '7808', level: 'challenger' },
-  { slug: 'canberra-canberra', code: '7393', level: 'challenger' },
-  { slug: 'noumea-noumea', code: '2205', level: 'challenger' },
-  { slug: 'nonthaburi-1-nonthaburi', code: '2791', level: 'challenger' },
-  { slug: 'nottingham-1-nottingham', code: '2907', level: 'challenger' },
-  { slug: 'nonthaburi-2-nonthaburi', code: '2795', level: 'challenger' },
-  { slug: 'buenos-aires-challenger-buenos-aires', code: '1210', level: 'challenger' },
-  { slug: 'glasgow-glasgow', code: '7916', level: 'challenger' },
-  { slug: 'oeiras-1-oeiras', code: '2831', level: 'challenger' },
-  { slug: 'itajai-itajai', code: '3053', level: 'challenger' },
-];
 
 function getRequestedYear(request: NextRequest) {
   const yearParam = request.nextUrl.searchParams.get('year');
@@ -95,12 +58,14 @@ function shiftDateToYear(dateString: string | null, year: number) {
 }
 
 function buildOfficialPdfSources(year: number): OfficialPdfSource[] {
-  return currentTournamentCodes.map((source) => ({
-    slug: source.slug,
-    year,
-    code: source.code,
-    level: source.level,
-  }));
+  return TOURNAMENT_REGISTRY
+    .filter((entry) => entry.protennislive_code && entry.year === 2026)
+    .map((entry) => ({
+      slug: entry.slug,
+      year,
+      code: entry.protennislive_code as string,
+      has_doubles_qualifying: entry.has_doubles_qualifying,
+    }));
 }
 
 function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
@@ -111,9 +76,11 @@ function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] 
       { slug: source.slug, year: source.year, event_type: 'singles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qs.pdf`] },
       { slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'main', pdf_url_candidates: [`${baseUrl}/mdd.pdf`] },
     ];
-    if (source.level === 'atp_500') {
+
+    if (source.has_doubles_qualifying) {
       targets.push({ slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qd.pdf`, `${baseUrl}/qdd.pdf`] });
     }
+
     return targets;
   });
 }
@@ -288,6 +255,7 @@ export async function GET(request: NextRequest) {
   const imported = [];
   const skipped = [];
   const failed = [];
+  const nullCuts = [];
 
   let requestedYear: number;
 
@@ -329,7 +297,7 @@ export async function GET(request: NextRequest) {
 
       await upsertCutoffSnapshot(target, editionId, parsed, importedPdfUrl);
 
-      imported.push({
+      const importedRow = {
         slug: target.slug,
         year: target.year,
         event_type: target.event_type,
@@ -340,7 +308,13 @@ export async function GET(request: NextRequest) {
         challenger_doubles_advanced_cut_rank: parsed.challenger_doubles_advanced_cut_rank,
         challenger_doubles_onsite_cut_rank: parsed.challenger_doubles_onsite_cut_rank,
         alternate_entries_count: parsed.alternate_entries_count,
-      });
+      };
+
+      if (parsed.last_direct_acceptance_rank == null) {
+        nullCuts.push(importedRow);
+      }
+
+      imported.push(importedRow);
     } catch (error) {
       failed.push({
         target,
@@ -357,8 +331,10 @@ export async function GET(request: NextRequest) {
     importedCount: imported.length,
     skippedCount: skipped.length,
     failedCount: failed.length,
+    nullCutCount: nullCuts.length,
     imported,
     skipped,
     failed,
+    nullCuts,
   });
 }
