@@ -27,17 +27,35 @@ function getUsefulLines(text: string) {
     .filter(Boolean);
 }
 
+function cleanAcceptanceName(name: string) {
+  return name
+    .replace(/\s+/g, ' ')
+    .replace(/[\s,;:-]+$/, '')
+    .trim();
+}
+
 function parseNameAndRank(line: string) {
-  const normalized = line.replace(/[–—]/g, '-').trim();
-  const match = normalized.match(/^(.+?)\s*-\s*(\d{1,5})\b/);
+  const normalized = line.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
 
-  if (!match) return null;
+  const patterns = [
+    /^(.+?)\s*-\s*(\d{1,5})\b/,
+    /^(.+?)\s*\((\d{1,5})\)\s*$/,
+    /^(.+?)\s+(\d{1,5})\s*$/,
+  ];
 
-  return {
-    name: match[1].trim(),
-    rank: Number(match[2]),
-    raw: line.trim(),
-  };
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+
+    if (match) {
+      return {
+        name: cleanAcceptanceName(match[1]),
+        rank: Number(match[2]),
+        raw: line.trim(),
+      };
+    }
+  }
+
+  return null;
 }
 
 function parseLastDirectAcceptance(lines: string[]) {
@@ -49,7 +67,7 @@ function parseLastDirectAcceptance(lines: string[]) {
     const line = lines[index + offset];
     if (!line) continue;
 
-    if (/^(atp supervisor|tournament director|seeded players|seeded teams|alternates\/lucky losers|withdrawals|retirements)/i.test(line)) {
+    if (/^(atp supervisor|tournament director|seeded players|seeded teams|alternates\/lucky losers|withdrawals|retirements|released)/i.test(line)) {
       continue;
     }
 
@@ -98,7 +116,9 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
   };
 }
 
-export async function fetchAndParseOfficialPdfCutoff(pdfUrl: string): Promise<ParsedOfficialPdfCutoff> {
+export async function fetchAndParseOfficialPdfCutoff(
+  pdfUrl: string
+): Promise<ParsedOfficialPdfCutoff> {
   const response = await fetch(pdfUrl, {
     headers: {
       accept: 'application/pdf,*/*;q=0.8',
