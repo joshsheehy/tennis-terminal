@@ -13,13 +13,14 @@ type PdfImportTarget = {
   year: number;
   event_type: EventType;
   draw_type: DrawType;
-  pdf_url: string;
+  pdf_url_candidates: string[];
 };
 
 type OfficialPdfSource = {
   slug: string;
   year: number;
   code: string;
+  level: 'atp_250' | 'atp_500' | 'atp_1000' | 'challenger';
 };
 
 type EditionTemplate = {
@@ -34,38 +35,42 @@ type EditionTemplate = {
   source_url: string | null;
 };
 
-const currentTournamentCodes = [
-  { slug: 'brisbane-international-presented-by-anz-brisbane', code: '339' },
-  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', code: '336' },
-  { slug: 'adelaide-international-adelaide', code: '8998' },
-  { slug: 'asb-classic-auckland', code: '301' },
-  { slug: 'open-occitanie-montpellier', code: '375' },
-  { slug: 'dallas-open-dallas', code: '424' },
-  { slug: 'abn-amro-open-rotterdam', code: '407' },
-  { slug: 'ieb-argentina-open-buenos-aires', code: '506' },
-  { slug: 'qatar-exxonmobil-open-doha', code: '451' },
-  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', code: '6932' },
+const currentTournamentCodes: Array<{
+  slug: string;
+  code: string;
+  level: OfficialPdfSource['level'];
+}> = [
+  { slug: 'brisbane-international-presented-by-anz-brisbane', code: '339', level: 'atp_250' },
+  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', code: '336', level: 'atp_250' },
+  { slug: 'adelaide-international-adelaide', code: '8998', level: 'atp_250' },
+  { slug: 'asb-classic-auckland', code: '301', level: 'atp_250' },
+  { slug: 'open-occitanie-montpellier', code: '375', level: 'atp_250' },
+  { slug: 'dallas-open-dallas', code: '424', level: 'atp_500' },
+  { slug: 'abn-amro-open-rotterdam', code: '407', level: 'atp_500' },
+  { slug: 'ieb-argentina-open-buenos-aires', code: '506', level: 'atp_250' },
+  { slug: 'qatar-exxonmobil-open-doha', code: '451', level: 'atp_500' },
+  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', code: '6932', level: 'atp_500' },
 
-  { slug: 'bnp-paribas-open-indian-wells', code: '404' },
-  { slug: 'miami-open-presented-by-itau-miami', code: '403' },
-  { slug: 'rolex-monte-carlo-masters-monte-carlo', code: '410' },
-  { slug: 'mutua-madrid-open-madrid', code: '1536' },
-  { slug: 'internazionali-bnl-ditalia-rome', code: '416' },
-  { slug: 'national-bank-open-presented-by-rogers-montreal', code: '421' },
-  { slug: 'cincinnati-open-cincinnati', code: '422' },
-  { slug: 'rolex-shanghai-masters-shanghai', code: '5014' },
-  { slug: 'rolex-paris-masters-paris', code: '352' },
+  { slug: 'bnp-paribas-open-indian-wells', code: '404', level: 'atp_1000' },
+  { slug: 'miami-open-presented-by-itau-miami', code: '403', level: 'atp_1000' },
+  { slug: 'rolex-monte-carlo-masters-monte-carlo', code: '410', level: 'atp_1000' },
+  { slug: 'mutua-madrid-open-madrid', code: '1536', level: 'atp_1000' },
+  { slug: 'internazionali-bnl-ditalia-rome', code: '416', level: 'atp_1000' },
+  { slug: 'national-bank-open-presented-by-rogers-montreal', code: '421', level: 'atp_1000' },
+  { slug: 'cincinnati-open-cincinnati', code: '422', level: 'atp_1000' },
+  { slug: 'rolex-shanghai-masters-shanghai', code: '5014', level: 'atp_1000' },
+  { slug: 'rolex-paris-masters-paris', code: '352', level: 'atp_1000' },
 
-  { slug: 'bengaluru-1-bengaluru', code: '7808' },
-  { slug: 'canberra-canberra', code: '7393' },
-  { slug: 'noumea-noumea', code: '2205' },
-  { slug: 'nonthaburi-1-nonthaburi', code: '2791' },
-  { slug: 'nottingham-1-nottingham', code: '2907' },
-  { slug: 'nonthaburi-2-nonthaburi', code: '2795' },
-  { slug: 'buenos-aires-challenger-buenos-aires', code: '1210' },
-  { slug: 'glasgow-glasgow', code: '7916' },
-  { slug: 'oeiras-1-oeiras', code: '2831' },
-  { slug: 'itajai-itajai', code: '3053' },
+  { slug: 'bengaluru-1-bengaluru', code: '7808', level: 'challenger' },
+  { slug: 'canberra-canberra', code: '7393', level: 'challenger' },
+  { slug: 'noumea-noumea', code: '2205', level: 'challenger' },
+  { slug: 'nonthaburi-1-nonthaburi', code: '2791', level: 'challenger' },
+  { slug: 'nottingham-1-nottingham', code: '2907', level: 'challenger' },
+  { slug: 'nonthaburi-2-nonthaburi', code: '2795', level: 'challenger' },
+  { slug: 'buenos-aires-challenger-buenos-aires', code: '1210', level: 'challenger' },
+  { slug: 'glasgow-glasgow', code: '7916', level: 'challenger' },
+  { slug: 'oeiras-1-oeiras', code: '2831', level: 'challenger' },
+  { slug: 'itajai-itajai', code: '3053', level: 'challenger' },
 ];
 
 function getRequestedYear(request: NextRequest) {
@@ -94,33 +99,23 @@ function buildOfficialPdfSources(year: number): OfficialPdfSource[] {
     slug: source.slug,
     year,
     code: source.code,
+    level: source.level,
   }));
 }
 
 function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
-  return sources.flatMap((source) => [
-    {
-      slug: source.slug,
-      year: source.year,
-      event_type: 'singles' as const,
-      draw_type: 'main' as const,
-      pdf_url: `https://www.protennislive.com/posting/${source.year}/${source.code}/mds.pdf`,
-    },
-    {
-      slug: source.slug,
-      year: source.year,
-      event_type: 'singles' as const,
-      draw_type: 'qualifying' as const,
-      pdf_url: `https://www.protennislive.com/posting/${source.year}/${source.code}/qs.pdf`,
-    },
-    {
-      slug: source.slug,
-      year: source.year,
-      event_type: 'doubles' as const,
-      draw_type: 'main' as const,
-      pdf_url: `https://www.protennislive.com/posting/${source.year}/${source.code}/mdd.pdf`,
-    },
-  ]);
+  return sources.flatMap((source) => {
+    const baseUrl = `https://www.protennislive.com/posting/${source.year}/${source.code}`;
+    const targets: PdfImportTarget[] = [
+      { slug: source.slug, year: source.year, event_type: 'singles', draw_type: 'main', pdf_url_candidates: [`${baseUrl}/mds.pdf`] },
+      { slug: source.slug, year: source.year, event_type: 'singles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qs.pdf`] },
+      { slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'main', pdf_url_candidates: [`${baseUrl}/mdd.pdf`] },
+    ];
+    if (source.level === 'atp_500') {
+      targets.push({ slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qd.pdf`, `${baseUrl}/qdd.pdf`] });
+    }
+    return targets;
+  });
 }
 
 async function getEditionId(slug: string, year: number) {
@@ -219,7 +214,8 @@ async function getOrCreateEditionId(slug: string, year: number) {
 async function upsertCutoffSnapshot(
   target: PdfImportTarget,
   editionId: string,
-  parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>>
+  parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>>,
+  importedPdfUrl: string
 ) {
   await pool.query(
     `
@@ -282,7 +278,7 @@ async function upsertCutoffSnapshot(
       parsed.last_direct_acceptance_name,
       parsed.challenger_doubles_advanced_cut_rank,
       parsed.challenger_doubles_onsite_cut_rank,
-      `Official PDF: ${target.pdf_url}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}. Historical edition row may be generated from current calendar metadata when no exact historical calendar row exists yet.`,
+      `Official PDF: ${importedPdfUrl}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}. Historical edition row may be generated from current calendar metadata when no exact historical calendar row exists yet.`,
       parsed.alternate_entries_count,
     ]
   );
@@ -309,7 +305,21 @@ export async function GET(request: NextRequest) {
 
   for (const target of pdfImportTargets) {
     try {
-      const parsed = await fetchAndParseOfficialPdfCutoff(target.pdf_url);
+      let parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>> | null = null;
+      let importedPdfUrl: string | null = null;
+      for (const pdfUrl of target.pdf_url_candidates) {
+        try {
+          parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+          importedPdfUrl = pdfUrl;
+          break;
+        } catch {
+          // try next candidate URL
+        }
+      }
+      if (!parsed || !importedPdfUrl) {
+        skipped.push({ target, reason: `No available PDF in: ${target.pdf_url_candidates.join(', ')}` });
+        continue;
+      }
       const editionId = await getOrCreateEditionId(target.slug, target.year);
 
       if (!editionId) {
@@ -317,14 +327,14 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      await upsertCutoffSnapshot(target, editionId, parsed);
+      await upsertCutoffSnapshot(target, editionId, parsed, importedPdfUrl);
 
       imported.push({
         slug: target.slug,
         year: target.year,
         event_type: target.event_type,
         draw_type: target.draw_type,
-        pdf_url: target.pdf_url,
+        pdf_url: importedPdfUrl,
         last_direct_acceptance_rank: parsed.last_direct_acceptance_rank,
         last_direct_acceptance_name: parsed.last_direct_acceptance_name,
         challenger_doubles_advanced_cut_rank: parsed.challenger_doubles_advanced_cut_rank,

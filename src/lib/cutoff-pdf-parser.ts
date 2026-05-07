@@ -104,21 +104,22 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
   return null;
 }
 
-function parseChallengerDoublesCuts(rawLastDirectAcceptance: string | null) {
-  if (!rawLastDirectAcceptance) {
+function parseChallengerDoublesCuts(lines: string[], lastDirectAcceptanceIndex: number) {
+  if (lastDirectAcceptanceIndex === -1) {
     return {
       advanced: null,
       onsite: null,
     };
   }
 
-  const normalized = rawLastDirectAcceptance
+  const windowText = lines.slice(lastDirectAcceptanceIndex, lastDirectAcceptanceIndex + 12).join(' ');
+  const normalized = windowText
     .replace(/[–—]/g, '-')
     .replace(/\s+/g, ' ')
     .trim();
 
-  const advancedMatch = normalized.match(/\badv(?:anced)?\.?\s*(\d{1,5})\b/i);
-  const onsiteMatch = normalized.match(/\bon[-\s]?site\.?\s*(\d{1,5})\b/i);
+  const advancedMatch = normalized.match(/\badv(?:anced)?\.?\s*[:\-]?\s*(\d{1,5})\b/i);
+  const onsiteMatch = normalized.match(/\bon[-\s]?site\.?\s*[:\-]?\s*(\d{1,5})\b/i);
 
   return {
     advanced: advancedMatch ? Number(advancedMatch[1]) : null,
@@ -153,8 +154,9 @@ function parseAlternateEntriesCount(lines: string[]) {
 
 export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutoff {
   const lines = getUsefulLines(text);
+  const lastDirectAcceptanceIndex = lines.findIndex((line) => /last direct acceptance/i.test(line));
   const lastDirect = parseLastDirectAcceptance(lines);
-  const challengerDoublesCuts = parseChallengerDoublesCuts(lastDirect?.raw ?? null);
+  const challengerDoublesCuts = parseChallengerDoublesCuts(lines, lastDirectAcceptanceIndex);
 
   return {
     last_direct_acceptance_rank: lastDirect?.rank ?? null,
