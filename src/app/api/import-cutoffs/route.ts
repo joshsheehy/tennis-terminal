@@ -22,6 +22,18 @@ type OfficialPdfSource = {
   code: string;
 };
 
+type EditionTemplate = {
+  tournament_id: string;
+  week: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  level: string;
+  surface: string;
+  indoor: boolean | null;
+  source: string;
+  source_url: string | null;
+};
+
 const currentTournamentCodes = [
   { slug: 'brisbane-international-presented-by-anz-brisbane', code: '339' },
   { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', code: '336' },
@@ -65,6 +77,16 @@ function getRequestedYear(request: NextRequest) {
   }
 
   return year;
+}
+
+function shiftDateToYear(dateString: string | null, year: number) {
+  if (!dateString) return null;
+
+  const parts = dateString.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+
+  const [, month, day] = parts;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 function buildOfficialPdfSources(year: number): OfficialPdfSource[] {
@@ -117,6 +139,83 @@ async function getEditionId(slug: string, year: number) {
   return result.rows[0]?.id ?? null;
 }
 
+async function getEditionTemplate(slug: string): Promise<EditionTemplate | null> {
+  const result = await pool.query<EditionTemplate>(
+    `
+    select
+      te.tournament_id,
+      te.week,
+      te.start_date,
+      te.end_date,
+      te.level,
+      te.surface,
+      te.indoor,
+      te.source,
+      te.source_url
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    where t.slug = $1
+      and te.status = 'held'
+    order by te.year desc
+    limit 1
+    `,
+    [slug]
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function createHistoricalEditionFromTemplate(slug: string, year: number) {
+  const template = await getEditionTemplate(slug);
+
+  if (!template) return null;
+
+  const result = await pool.query<{ id: string }>(
+    `
+    insert into tournament_editions (
+      tournament_id,
+      year,
+      week,
+      start_date,
+      end_date,
+      level,
+      surface,
+      indoor,
+      source,
+      source_url,
+      status,
+      updated_at
+    )
+    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'held', now())
+    on conflict (tournament_id, year)
+    do update set
+      updated_at = now()
+    returning id
+    `,
+    [
+      template.tournament_id,
+      year,
+      template.week,
+      shiftDateToYear(template.start_date, year),
+      shiftDateToYear(template.end_date, year),
+      template.level,
+      template.surface,
+      template.indoor,
+      template.source,
+      template.source_url,
+    ]
+  );
+
+  return result.rows[0]?.id ?? null;
+}
+
+async function getOrCreateEditionId(slug: string, year: number) {
+  const existingEditionId = await getEditionId(slug, year);
+  if (existingEditionId) return existingEditionId;
+
+  return createHistoricalEditionFromTemplate(slug, year);
+}
+
 async function upsertCutoffSnapshot(
   target: PdfImportTarget,
   editionId: string,
@@ -157,7 +256,7 @@ async function upsertCutoffSnapshot(
       $7,
       null,
       now(),
-      'official-pdf-bottom-left-v3',
+      'official-pdf-bottom-left-v4',
       $8,
       $9,
       now()
@@ -183,7 +282,7 @@ async function upsertCutoffSnapshot(
       parsed.last_direct_acceptance_name,
       parsed.challenger_doubles_advanced_cut_rank,
       parsed.challenger_doubles_onsite_cut_rank,
-      `Official PDF: ${target.pdf_url}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}.`,
+      `Official PDF: ${target.pdf_url}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}. Historical edition row may be generated from current calendar metadata when no exact historical calendar row exists yet.`,
       parsed.alternate_entries_count,
     ]
   );
@@ -210,14 +309,13 @@ export async function GET(request: NextRequest) {
 
   for (const target of pdfImportTargets) {
     try {
-      const editionId = await getEditionId(target.slug, target.year);
+      const parsed = await fetchAndParseOfficialPdfCutoff(target.pdf_url);
+      const editionId = await getOrCreateEditionId(target.slug, target.year);
 
       if (!editionId) {
-        skipped.push({ target, reason: 'Tournament edition not found. Run calendar import first.' });
+        skipped.push({ target, reason: 'Tournament row not found for slug.' });
         continue;
       }
-
-      const parsed = await fetchAndParseOfficialPdfCutoff(target.pdf_url);
 
       await upsertCutoffSnapshot(target, editionId, parsed);
 
