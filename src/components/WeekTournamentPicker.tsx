@@ -20,6 +20,22 @@ function getDateValue(dateString: string | null) {
   return Number.isNaN(value) ? Number.MAX_SAFE_INTEGER : value;
 }
 
+function getLevelSortValue(level: string) {
+  const normalized = level.toLowerCase();
+
+  if (normalized.includes('1000')) return 1000;
+  if (normalized.includes('500')) return 500;
+  if (normalized.includes('250')) return 250;
+  if (normalized.includes('challenger 175')) return 175;
+  if (normalized.includes('challenger 125')) return 125;
+  if (normalized.includes('challenger 100')) return 100;
+  if (normalized.includes('challenger 75')) return 75;
+  if (normalized.includes('challenger 50')) return 50;
+  if (normalized.includes('challenger')) return 1;
+
+  return 0;
+}
+
 type WeekGroup = {
   key: string;
   week: number | null;
@@ -49,6 +65,9 @@ export default function WeekTournamentPicker({
     return Array.from(map.entries())
       .map(([key, items]) => {
         const sortedItems = [...items].sort((a, b) => {
+          const levelDiff = getLevelSortValue(b.level) - getLevelSortValue(a.level);
+          if (levelDiff !== 0) return levelDiff;
+
           const dateDiff = getDateValue(a.start_date) - getDateValue(b.start_date);
           if (dateDiff !== 0) return dateDiff;
 
