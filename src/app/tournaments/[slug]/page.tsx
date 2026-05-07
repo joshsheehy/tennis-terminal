@@ -24,13 +24,17 @@ function isChallengerLevel(level: string) {
 
 function editionSummary(edition: {
   start_date: string | null;
+  end_date?: string | null;
   week: number | null;
   level: string;
   surface: string;
   status: string;
 }) {
   if (edition.status === 'not_held') return 'Not Held / NA';
-  return `${formatDate(edition.start_date)} · Week ${edition.week ?? 'NA'} · ${edition.level} · ${edition.surface}`;
+  const dateRange = edition.end_date
+    ? `${formatDate(edition.start_date)} - ${formatDate(edition.end_date)}`
+    : formatDate(edition.start_date);
+  return `${dateRange} · Week ${edition.week ?? 'NA'} · ${edition.level} · ${edition.surface}`;
 }
 
 function cutoffLabel(cutoff: CutoffSnapshot) {
@@ -44,6 +48,16 @@ function rankText(rank: number | null) {
   return rank ? String(rank) : 'No data yet';
 }
 
+function challengerDoublesCutText(cutoff: CutoffSnapshot) {
+  const advance = cutoff.challenger_doubles_advanced_cut_rank;
+  const onsite = cutoff.challenger_doubles_onsite_cut_rank;
+
+  if (advance && onsite) return `${advance} advance / ${onsite} on site`;
+  if (advance) return `${advance} advance`;
+  if (onsite) return `${onsite} on site`;
+  return rankText(cutoff.last_direct_acceptance_rank);
+}
+
 function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: string }) {
   if (cutoffs.length === 0) {
     return (
@@ -53,7 +67,7 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
     );
   }
 
-  const showChallengerColumns = isChallengerLevel(level);
+  const isChallenger = isChallengerLevel(level);
 
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-800">
@@ -61,32 +75,20 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
         <thead className="bg-neutral-900 text-neutral-400">
           <tr>
             <th className="p-3 font-medium">Draw</th>
-            <th className="p-3 font-medium">Last direct rank</th>
+            <th className="p-3 font-medium">Cut</th>
             <th className="p-3 font-medium">Alternates in draw</th>
-            {showChallengerColumns && (
-              <>
-                <th className="p-3 font-medium">Doubles advanced cut</th>
-                <th className="p-3 font-medium">Doubles on-site cut</th>
-              </>
-            )}
           </tr>
         </thead>
         <tbody>
           {cutoffs.map((cutoff) => (
             <tr key={cutoff.id} className="border-t border-neutral-800 text-neutral-200">
               <td className="p-3">{cutoffLabel(cutoff)}</td>
-              <td className="p-3">{rankText(cutoff.last_direct_acceptance_rank)}</td>
+              <td className="p-3">
+                {isChallenger && cutoff.event_type === 'doubles'
+                  ? challengerDoublesCutText(cutoff)
+                  : rankText(cutoff.last_direct_acceptance_rank)}
+              </td>
               <td className="p-3">{cutoff.alternate_entries_count ?? 0}</td>
-              {showChallengerColumns && (
-                <>
-                  <td className="p-3">
-                    {rankText(cutoff.challenger_doubles_advanced_cut_rank)}
-                  </td>
-                  <td className="p-3">
-                    {rankText(cutoff.challenger_doubles_onsite_cut_rank)}
-                  </td>
-                </>
-              )}
             </tr>
           ))}
         </tbody>
@@ -141,13 +143,6 @@ export default async function TournamentDetailPage({
       </section>
 
       <section className="mt-8 space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold">Last 3 years of cuts</h2>
-          <p className="mt-1 text-sm text-neutral-400">
-            Shows 2026 plus the previous three calendar editions when available. Level and week are compared against the immediately previous year.
-          </p>
-        </div>
-
         {rows.map((row) => (
           <article key={row.edition.edition_id} className="rounded-2xl border border-neutral-800 bg-black p-5">
             <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-start">
