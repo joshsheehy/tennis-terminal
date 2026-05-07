@@ -52,9 +52,9 @@ function challengerDoublesCutText(cutoff: CutoffSnapshot) {
   const advance = cutoff.challenger_doubles_advanced_cut_rank;
   const onsite = cutoff.challenger_doubles_onsite_cut_rank;
 
-  if (advance && onsite) return `${advance} advance / ${onsite} on site`;
-  if (advance) return `${advance} advance`;
-  if (onsite) return `${onsite} on site`;
+  if (advance && onsite) return `Adv ${advance} / on-site ${onsite}`;
+  if (advance) return `Adv ${advance}`;
+  if (onsite) return `on-site ${onsite}`;
   return rankText(cutoff.last_direct_acceptance_rank);
 }
 
@@ -80,7 +80,9 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
           </tr>
         </thead>
         <tbody>
-          {cutoffs.map((cutoff) => (
+          {cutoffs
+            .filter((cutoff) => !(isChallenger && cutoff.event_type === 'doubles' && cutoff.draw_type === 'qualifying'))
+            .map((cutoff) => (
             <tr key={cutoff.id} className="border-t border-neutral-800 text-neutral-200">
               <td className="p-3">{cutoffLabel(cutoff)}</td>
               <td className="p-3">
