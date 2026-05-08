@@ -39,10 +39,47 @@ function getLevelSortValue(level: string) {
 type WeekGroup = {
   key: string;
   week: number | null;
-  tournaments: ScheduleRow[];
+  tournaments: DisplayTournament[];
   startDate: string | null;
-  endDate: string | null;
 };
+
+type DisplayTournament = {
+  tournament: ScheduleRow;
+  displayWeek: number | null;
+};
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_WEEK = 7 * MS_PER_DAY;
+
+function parseDate(dateString: string | null) {
+  if (!dateString) return null;
+
+  const date = new Date(`${dateString}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getWeekStartUtc(date: Date) {
+  const day = date.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const weekStart = new Date(date);
+  weekStart.setUTCDate(date.getUTCDate() + mondayOffset);
+  weekStart.setUTCHours(0, 0, 0, 0);
+
+  return weekStart;
+}
+
+function getAdditionalWeeksSpanned(startDate: string | null, endDate: string | null) {
+  const start = parseDate(startDate);
+  const end = parseDate(endDate);
+  if (!start || !end) return 0;
+
+  const startWeek = getWeekStartUtc(start).getTime();
+  const endWeek = getWeekStartUtc(end).getTime();
+
+  if (endWeek <= startWeek) return 0;
+
+  return Math.floor((endWeek - startWeek) / MS_PER_WEEK);
+}
 
 export default function WeekTournamentPicker({
   tournaments,
@@ -50,46 +87,63 @@ export default function WeekTournamentPicker({
   tournaments: ScheduleRow[];
 }) {
   const weekGroups = useMemo<WeekGroup[]>(() => {
-    const map = new Map<string, ScheduleRow[]>();
+    const expanded: DisplayTournament[] = [];
 
     for (const tournament of tournaments) {
-      const key = tournament.week === null ? 'na' : String(tournament.week);
+      expanded.push({
+        tournament,
+        displayWeek: tournament.week,
+      });
+
+      if (tournament.week === null) continue;
+
+      const additionalWeeks = getAdditionalWeeksSpanned(
+        tournament.start_date,
+        tournament.end_date
+      );
+
+      for (let offset = 1; offset <= additionalWeeks; offset += 1) {
+        expanded.push({
+          tournament,
+          displayWeek: tournament.week + offset,
+        });
+      }
+    }
+
+    const map = new Map<string, DisplayTournament[]>();
+
+    for (const entry of expanded) {
+      const key = entry.displayWeek === null ? 'na' : String(entry.displayWeek);
 
       if (!map.has(key)) {
         map.set(key, []);
       }
 
-      map.get(key)!.push(tournament);
+      map.get(key)!.push(entry);
     }
 
     return Array.from(map.entries())
       .map(([key, items]) => {
         const sortedItems = [...items].sort((a, b) => {
-          const levelDiff = getLevelSortValue(b.level) - getLevelSortValue(a.level);
+          const levelDiff =
+            getLevelSortValue(b.tournament.level) - getLevelSortValue(a.tournament.level);
           if (levelDiff !== 0) return levelDiff;
 
-          const dateDiff = getDateValue(a.start_date) - getDateValue(b.start_date);
+          const dateDiff =
+            getDateValue(a.tournament.start_date) - getDateValue(b.tournament.start_date);
           if (dateDiff !== 0) return dateDiff;
 
-          return a.name.localeCompare(b.name);
+          return a.tournament.name.localeCompare(b.tournament.name);
         });
 
         const week = key === 'na' ? null : Number(key);
-        const startDate = sortedItems[0]?.start_date ?? null;
-
-        const endDate = sortedItems.reduce<string | null>((latest, item) => {
-          const candidate = item.end_date ?? item.start_date ?? null;
-          if (!latest) return candidate;
-
-          return getDateValue(candidate) > getDateValue(latest) ? candidate : latest;
-        }, null);
+        const startDate = sortedItems[0]?.tournament.start_date ?? null;
 
         return {
           key,
           week,
           tournaments: sortedItems,
           startDate,
-          endDate,
         };
       })
       .sort((a, b) => {
@@ -142,7 +196,6 @@ export default function WeekTournamentPicker({
                 }}
               >
                 {group.startDate ? formatDate(group.startDate) : 'NA'}
-                {group.endDate ? ` - ${formatDate(group.endDate)}` : ''}
                 {' | '}
                 {group.tournaments.length}{' '}
                 {group.tournaments.length === 1 ? 'tournament' : 'tournaments'}
@@ -167,9 +220,9 @@ export default function WeekTournamentPicker({
               background: '#fafafa',
             }}
           >
-            {group.tournaments.map((tournament, tournamentIndex) => (
+            {group.tournaments.map(({ tournament, displayWeek }, tournamentIndex) => (
               <Link
-                key={tournament.edition_id}
+                key={`${tournament.edition_id}-${displayWeek ?? 'na'}`}
                 href={`/tournaments/${tournament.slug}`}
                 style={{
                   display: 'flex',
@@ -205,7 +258,6 @@ export default function WeekTournamentPicker({
                     {tournament.country ? `, ${tournament.country}` : ''}
                     {' | '}
                     {tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
-                    {tournament.end_date ? ` - ${formatDate(tournament.end_date)}` : ''}
                   </div>
 
                   <div
