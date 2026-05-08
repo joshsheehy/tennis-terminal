@@ -245,12 +245,12 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   tourEvent('Rolex Monte-Carlo Masters', 'Monte-Carlo', 'Monaco', 2026, 14, '2026-04-05', '2026-04-12', 'ATP 1000', 'Clay', false, '410', false),
 
   // ─── WEEK 15 (Apr 13) ────────────────────────────────────────────────────────
-  tourEvent('Grand Prix Hassan II', 'Marrakech', 'Morocco', 2026, 15, '2026-04-13', null, 'ATP 250', 'Clay', false, '360', false),
+  tourEvent('Grand Prix Hassan II', 'Marrakech', 'Morocco', 2026, 13, '2026-03-30', null, 'ATP 250', 'Clay', false, '360', false),
+  tourEvent('Tiriac Open', 'Bucharest', 'Romania', 2026, 13, '2026-03-30', null, 'ATP 250', 'Clay', false, null, false),
 
   // ─── WEEK 16 (Apr 20) ────────────────────────────────────────────────────────
-  tourEvent('Barcelona Open Banc Sabadell', 'Barcelona', 'Spain', 2026, 16, '2026-04-20', null, 'ATP 500', 'Clay', false, '425', true),
+  tourEvent('Barcelona Open Banc Sabadell', 'Barcelona', 'Spain', 2026, 15, '2026-04-13', null, 'ATP 500', 'Clay', false, '425', true),
   tourEvent('BMW Open', 'Munich', 'Germany', 2026, 15, '2026-04-13', null, 'ATP 500', 'Clay', false, '308', true),
-  tourEvent('Millennium Estoril Open', 'Estoril', 'Portugal', 2026, 15, '2026-04-13', null, 'ATP 500', 'Clay', false, '7290', false),
 
 
   // ─── WEEK 17 (Apr 27) ────────────────────────────────────────────────────────
@@ -362,15 +362,15 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Centurion 4', 'Centurion', 'South Africa', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, null, false),
   challengerEvent('İstanbul (Enka)', 'İstanbul', 'Turkey', 2026, 31, '2026-08-03', null, 'Challenger 50', 'Hard', false, null, false),
 
-  // ─── WEEK 17 (Apr 22) — ATP 1000 ─────────────────────────────────────────────
-  tourEvent('Mutua Madrid Open', 'Madrid', 'Spain', 2026, 17, '2026-04-22', '2026-05-03', 'ATP 1000', 'Clay', false, '1536', false),
+  // ─── WEEK 16 (Apr 22) — ATP 1000 ─────────────────────────────────────────────
+  tourEvent('Mutua Madrid Open', 'Madrid', 'Spain', 2026, 16, '2026-04-22', '2026-05-03', 'ATP 1000', 'Clay', false, '1536', false),
 
   // ─── WEEK 19 (May 6) — ATP 1000 ──────────────────────────────────────────────
   tourEvent("Internazionali BNL d'Italia", 'Rome', 'Italy', 2026, 18, '2026-05-06', '2026-05-17', 'ATP 1000', 'Clay', false, '416', false),
 
   // ─── WEEK 20 (May 17) — clay before Roland Garros ───────────────────────────
-  tourEvent('Open Parc Auvergne-Rhône-Alpes', 'Lyon', 'France', 2026, 20, '2026-05-18', null, 'ATP 250', 'Clay', false, '7309', false),
   tourEvent('Gonet Geneva Open', 'Geneva', 'Switzerland', 2026, 20, '2026-05-17', null, 'ATP 250', 'Clay', false, '322', false),
+  tourEvent('Bitpanda Hamburg Open', 'Hamburg', 'Germany', 2026, 20, '2026-05-17', null, 'ATP 500', 'Clay', false, '414', true),
 
   // ─── WEEKS 21–23: Roland Garros (Grand Slam — excluded) ──────────────────────
 
@@ -380,17 +380,16 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   // ─── WEEK 24 (Jun 15) ────────────────────────────────────────────────────────
   tourEvent('Terra Wortmann Open', 'Halle', 'Germany', 2026, 24, '2026-06-15', null, 'ATP 500', 'Grass', false, '500', true),
   tourEvent('HSBC Championships', 'London', 'Great Britain', 2026, 24, '2026-06-15', null, 'ATP 500', 'Grass', false, '311', true),
-  tourEvent('Libema Open', 's-Hertogenbosch', 'Netherlands', 2026, 24, '2026-06-15', null, 'ATP 250', 'Grass', false, '440', false),
+  tourEvent('Libema Open', 's-Hertogenbosch', 'Netherlands', 2026, 23, '2026-06-08', null, 'ATP 250', 'Grass', false, '440', false),
 
   // ─── WEEK 25 (Jun 22) ────────────────────────────────────────────────────────
   tourEvent('Lexus Eastbourne Open', 'Eastbourne', 'Great Britain', 2026, 25, '2026-06-22', null, 'ATP 250', 'Grass', false, '741', false),
-  tourEvent('Mallorca Championships', 'Mallorca', 'Spain', 2026, 25, '2026-06-22', null, 'ATP 250', 'Grass', false, '8994', false),
+  tourEvent('Mallorca Championships presented by Ecotrans Group', 'Mallorca', 'Spain', 2026, 25, '2026-06-21', null, 'ATP 250', 'Grass', false, '8994', false),
 
   // ─── WEEKS 26–27: Wimbledon (Grand Slam — excluded) ──────────────────────────
 
   // ─── WEEK 28 (Jul 13) — post-Wimbledon clay ──────────────────────────────────
   tourEvent('SkiStar Swedish Open', 'Bastad', 'Sweden', 2026, 28, '2026-07-13', null, 'ATP 250', 'Clay', false, '316', false),
-  tourEvent('Hamburg Open', 'Hamburg', 'Germany', 2026, 28, '2026-07-13', null, 'ATP 250', 'Clay', false, '414', false),
   tourEvent('EFG Swiss Open', 'Gstaad', 'Switzerland', 2026, 28, '2026-07-13', null, 'ATP 250', 'Clay', false, '314', false),
   tourEvent('Plava Laguna Croatia Open', 'Umag', 'Croatia', 2026, 28, '2026-07-13', null, 'ATP 250', 'Clay', false, '439', false),
 
@@ -426,7 +425,6 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   tourEvent('Rolex Shanghai Masters', 'Shanghai', 'China', 2026, 41, '2026-10-07', '2026-10-18', 'ATP 1000', 'Hard', false, '5014', false),
 
   // ─── WEEK 42 (Oct 19) ────────────────────────────────────────────────────────
-  tourEvent('Moselle Open', 'Metz', 'France', 2026, 42, '2026-10-19', null, 'ATP 250', 'Indoor Hard', true, '341', false),
 
   // ─── WEEK 43 (Oct 26) ────────────────────────────────────────────────────────
   tourEvent('Erste Bank Open', 'Vienna', 'Austria', 2026, 43, '2026-10-26', null, 'ATP 500', 'Indoor Hard', true, '337', true),
