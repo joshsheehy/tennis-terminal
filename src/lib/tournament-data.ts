@@ -170,7 +170,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
 
   // ─── WEEK 20 (May 17) — clay before Roland Garros ───────────────────────────
   tourEvent('Open Parc Auvergne-Rhône-Alpes', 'Lyon', 'France', 2026, 20, '2026-05-18', null, 'ATP 250', 'Clay', false, '7309', false),
-  tourEvent('Gonet Geneva Open', 'Geneva', 'Switzerland', 2026, 20, '2026-05-18', null, 'ATP 250', 'Clay', false, '322', false),
+  tourEvent('Gonet Geneva Open', 'Geneva', 'Switzerland', 2026, 20, '2026-05-17', null, 'ATP 250', 'Clay', false, '322', false),
 
   // ─── WEEKS 21–23: Roland Garros (Grand Slam — excluded) ──────────────────────
 
