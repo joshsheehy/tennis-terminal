@@ -35,22 +35,71 @@ type EditionTemplate = {
   source_url: string | null;
 };
 
+// Tournaments listed here get cutoff PDFs fetched from protennislive.com.
+// Tournaments in ALL_EDITIONS that are NOT listed here will still appear on the
+// schedule but will have no cutoff data until their code is added below.
+//
+// To find a missing code: go to https://www.protennislive.com/posting/{year}/{code}/mds.pdf
+// and try codes until you get a valid PDF. The code is the ATP tournament ID.
+//
+// CODES STILL NEEDED (schedule shows, cutoffs won't import until filled in):
+//   cordoba-open-cordoba
+//   open-provence-marseille
+//   dubai-duty-free-tennis-championships-dubai
+//   abierto-mexicano-telcel-acapulco
+//   delray-beach-open-delray-beach
+//   santiago-open-santiago
+//   ecuador-open-quito-quito
+//   houston-open-houston
+//   grand-prix-hassan-ii-marrakech
+//   barcelona-open-banc-sabadell-barcelona
+//   bmw-open-munich
+//   millennium-estoril-open-estoril
+//   gonet-geneva-open-geneva
+//   open-parc-auvergne-rhone-alpes-lyon
+//   boss-open-stuttgart
+//   terra-wortmann-open-halle
+//   cinch-championships-london
+//   libema-open-s-hertogenbosch
+//   rothesay-international-eastbourne
+//   mallorca-championships-mallorca
+//   skistar-swedish-open-bastad
+//   efg-swiss-open-gstaad
+//   plava-laguna-croatia-open-umag
+//   hamburg-open-hamburg
+//   generali-open-kitzbuhel
+//   abierto-de-tenis-mifel-los-cabos
+//   citi-open-washington
+//   winston-salem-open-winston-salem
+//   chengdu-open-chengdu
+//   zhuhai-championships-zhuhai
+//   china-open-beijing
+//   rakuten-japan-open-tokyo
+//   european-open-antwerp
+//   moselle-open-metz
+//   erste-bank-open-vienna
+//   swiss-indoors-basel
+//   if-stockholm-open-stockholm
 const currentTournamentCodes: Array<{
   slug: string;
   code: string;
   level: OfficialPdfSource['level'];
 }> = [
+  // ── ATP 250 ─────────────────────────────────────────────────────────────────
   { slug: 'brisbane-international-presented-by-anz-brisbane', code: '339', level: 'atp_250' },
   { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', code: '336', level: 'atp_250' },
   { slug: 'adelaide-international-adelaide', code: '8998', level: 'atp_250' },
   { slug: 'asb-classic-auckland', code: '301', level: 'atp_250' },
   { slug: 'open-occitanie-montpellier', code: '375', level: 'atp_250' },
+  { slug: 'ieb-argentina-open-buenos-aires', code: '506', level: 'atp_250' },
+
+  // ── ATP 500 ─────────────────────────────────────────────────────────────────
   { slug: 'dallas-open-dallas', code: '424', level: 'atp_500' },
   { slug: 'abn-amro-open-rotterdam', code: '407', level: 'atp_500' },
-  { slug: 'ieb-argentina-open-buenos-aires', code: '506', level: 'atp_250' },
   { slug: 'qatar-exxonmobil-open-doha', code: '451', level: 'atp_500' },
   { slug: 'rio-open-presented-by-claro-rio-de-janeiro', code: '6932', level: 'atp_500' },
 
+  // ── ATP 1000 ─────────────────────────────────────────────────────────────────
   { slug: 'bnp-paribas-open-indian-wells', code: '404', level: 'atp_1000' },
   { slug: 'miami-open-presented-by-itau-miami', code: '403', level: 'atp_1000' },
   { slug: 'rolex-monte-carlo-masters-monte-carlo', code: '410', level: 'atp_1000' },
@@ -61,6 +110,7 @@ const currentTournamentCodes: Array<{
   { slug: 'rolex-shanghai-masters-shanghai', code: '5014', level: 'atp_1000' },
   { slug: 'rolex-paris-masters-paris', code: '352', level: 'atp_1000' },
 
+  // ── CHALLENGERS ──────────────────────────────────────────────────────────────
   { slug: 'bengaluru-1-bengaluru', code: '7808', level: 'challenger' },
   { slug: 'canberra-canberra', code: '7393', level: 'challenger' },
   { slug: 'noumea-noumea', code: '2205', level: 'challenger' },
