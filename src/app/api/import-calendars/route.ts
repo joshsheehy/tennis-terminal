@@ -80,6 +80,7 @@ async function upsertTournamentAndEdition(item: TournamentEdition) {
 export async function GET() {
   const imported = [];
   const failed = [];
+  const syncedYears = Array.from(new Set(ALL_EDITIONS.map((item) => item.edition.year)));
 
   for (const item of ALL_EDITIONS) {
     try {
@@ -94,10 +95,47 @@ export async function GET() {
     }
   }
 
+  const staleCleanup = [];
+
+  for (const year of syncedYears) {
+    const slugsForYear = Array.from(
+      new Set(
+        ALL_EDITIONS.filter((item) => item.edition.year === year).map((item) => item.tournament.slug)
+      )
+    );
+
+    const cleanupResult = await pool.query<{
+      slug: string;
+      year: number;
+      status: string;
+    }>(
+      `
+      update tournament_editions te
+      set status = 'not_held',
+          updated_at = now()
+      from tournaments t
+      where te.tournament_id = t.id
+        and te.year = $1
+        and te.status <> 'not_held'
+        and not (t.slug = any($2::text[]))
+      returning t.slug, te.year, te.status
+      `,
+      [year, slugsForYear]
+    );
+
+    staleCleanup.push({
+      year,
+      markedNotHeldCount: cleanupResult.rowCount ?? 0,
+      markedNotHeld: cleanupResult.rows,
+    });
+  }
+
   return NextResponse.json({
     ok: failed.length === 0,
     importedCount: imported.length,
     failedCount: failed.length,
+    syncedYears,
+    staleCleanup,
     imported,
     failed,
   });
