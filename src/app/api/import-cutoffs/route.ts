@@ -96,9 +96,27 @@ function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] 
   return sources.flatMap((source) => {
     const baseUrl = `https://www.protennislive.com/posting/${source.year}/${source.code}`;
     const targets: PdfImportTarget[] = [
-      { slug: source.slug, year: source.year, event_type: 'singles', draw_type: 'main', pdf_url_candidates: [`${baseUrl}/mds.pdf`] },
-      { slug: source.slug, year: source.year, event_type: 'singles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qs.pdf`] },
-      { slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'main', pdf_url_candidates: [`${baseUrl}/mdd.pdf`] },
+      {
+        slug: source.slug,
+        year: source.year,
+        event_type: 'singles',
+        draw_type: 'main',
+        pdf_url_candidates: [`${baseUrl}/mds.pdf`, `${baseUrl}/mds-1.pdf`, `${baseUrl}/md.pdf`],
+      },
+      {
+        slug: source.slug,
+        year: source.year,
+        event_type: 'singles',
+        draw_type: 'qualifying',
+        pdf_url_candidates: [`${baseUrl}/qs.pdf`, `${baseUrl}/q.pdf`],
+      },
+      {
+        slug: source.slug,
+        year: source.year,
+        event_type: 'doubles',
+        draw_type: 'main',
+        pdf_url_candidates: [`${baseUrl}/mdd.pdf`, `${baseUrl}/md.pdf`],
+      },
     ];
     if (source.level === 'atp_500') {
       targets.push({ slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qd.pdf`, `${baseUrl}/qdd.pdf`] });
