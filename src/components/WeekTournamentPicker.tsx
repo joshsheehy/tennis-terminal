@@ -137,7 +137,16 @@ export default function WeekTournamentPicker({
         });
 
         const week = key === 'na' ? null : Number(key);
-        const startDate = sortedItems[0]?.tournament.start_date ?? null;
+
+        const newItems = sortedItems.filter((item) => item.displayWeek === item.tournament.week);
+        const dateSourceItems = newItems.length > 0 ? newItems : sortedItems;
+        const startDate = dateSourceItems.reduce<string | null>((earliest, item) => {
+          if (!item.tournament.start_date) return earliest;
+          if (!earliest) return item.tournament.start_date;
+          return getDateValue(item.tournament.start_date) < getDateValue(earliest)
+            ? item.tournament.start_date
+            : earliest;
+        }, null);
 
         return {
           key,
@@ -242,9 +251,28 @@ export default function WeekTournamentPicker({
                       fontWeight: 700,
                       color: '#0f172a',
                       marginBottom: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
                     }}
                   >
                     {tournament.name}
+                    {displayWeek !== null && displayWeek !== tournament.week && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 500,
+                          color: '#6b7280',
+                          background: '#f3f4f6',
+                          border: '1px solid #d1d5db',
+                          borderRadius: 6,
+                          padding: '2px 8px',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        in progress
+                      </span>
+                    )}
                   </div>
 
                   <div
