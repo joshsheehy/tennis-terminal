@@ -97,6 +97,12 @@ function parseNumberParam(value: string | null, field: string) {
   return parsed;
 }
 
+function parseYearParam(value: string | null): number {
+  const year = value ? Number(value) : 2026;
+  if (![2024, 2025, 2026].includes(year)) throw new Error('year must be 2024, 2025, or 2026');
+  return year;
+}
+
 function getMissingEditions(weekFilter: number | null): MissingEdition[] {
   return ALL_EDITIONS
     .filter((item) => item.edition.status === 'held' && item.edition.year === 2026 && item.edition.protennislive_code === null)
@@ -256,12 +262,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const year = parseYearParam(searchParams.get('year'));
+
     const missing = getMissingEditions(weekFilter);
     const tasks: Array<() => Promise<{ code: number; pdf_url: string; text: string | null }>> = [];
 
     for (let code = startCode; code <= endCode; code += 1) {
       for (const pdfType of PDF_TYPES) {
-        const pdf_url = `https://www.protennislive.com/posting/2026/${code}/${pdfType}`;
+        const pdf_url = `https://www.protennislive.com/posting/${year}/${code}/${pdfType}`;
         tasks.push(async () => ({ code, pdf_url, text: await fetchPdfText(pdf_url) }));
       }
     }
@@ -316,6 +324,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
+      year,
       range: { startCode, endCode },
       testedCount: tasks.length,
       workingPdfCount,

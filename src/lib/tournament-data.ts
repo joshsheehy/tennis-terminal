@@ -246,7 +246,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
 
   // ─── WEEK 15 (Apr 13) ────────────────────────────────────────────────────────
   tourEvent('Grand Prix Hassan II', 'Marrakech', 'Morocco', 2026, 13, '2026-03-30', null, 'ATP 250', 'Clay', false, '360', false),
-  tourEvent('Tiriac Open', 'Bucharest', 'Romania', 2026, 13, '2026-03-30', null, 'ATP 250', 'Clay', false, null, false),
+  tourEvent('Tiriac Open', 'Bucharest', 'Romania', 2026, 13, '2026-03-30', null, 'ATP 250', 'Clay', false, '4462', false),
 
   // ─── WEEK 16 (Apr 20) ────────────────────────────────────────────────────────
   tourEvent('Barcelona Open Banc Sabadell', 'Barcelona', 'Spain', 2026, 15, '2026-04-13', null, 'ATP 500', 'Clay', false, '425', true),

@@ -1,30 +1,47 @@
-import Link from 'next/link';
+import WeekTournamentPicker from '@/components/WeekTournamentPicker';
+import { getUpcomingSchedule } from '@/lib/db';
 
-export default function HomePage() {
+export const dynamic = 'force-dynamic';
+
+export default async function HomePage() {
+  const tournaments = await getUpcomingSchedule(200);
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-12">
-      <div className="space-y-4">
-        <p className="text-sm uppercase tracking-[0.2em] text-neutral-500">
-          Tennis Terminal
+    <main
+      style={{
+        maxWidth: 900,
+        margin: '0 auto',
+        padding: '32px 16px',
+        background: '#ffffff',
+        color: '#111111',
+        minHeight: '100vh',
+      }}
+    >
+      <div style={{ marginBottom: 24 }}>
+        <p
+          style={{
+            fontSize: 12,
+            textTransform: 'uppercase',
+            letterSpacing: '0.2em',
+            color: '#666',
+            marginBottom: 8,
+          }}
+        >
+          Schedule
         </p>
 
-        <h1 className="text-4xl font-semibold tracking-tight">
-          Tournament calendar and historical cut data
-        </h1>
+        <h1 style={{ margin: 0, marginBottom: 12 }}>Tournament calendar</h1>
 
-        <p className="max-w-xl text-neutral-400">
-          Browse the schedule, open a tournament, and view historical cut information.
+        <p style={{ margin: 0, color: '#444' }}>
+          Pick a week first, then choose a tournament to open its historical page.
         </p>
-
-        <div className="pt-4">
-          <Link
-            href="/schedule"
-            className="inline-flex rounded-xl border border-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-900"
-          >
-            Open schedule
-          </Link>
-        </div>
       </div>
+
+      {tournaments.length === 0 ? (
+        <div style={{ color: '#444' }}>No tournaments found yet.</div>
+      ) : (
+        <WeekTournamentPicker tournaments={tournaments} />
+      )}
     </main>
   );
 }

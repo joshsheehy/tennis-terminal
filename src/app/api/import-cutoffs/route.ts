@@ -81,7 +81,9 @@ function shiftDateToYear(dateString: string | null, year: number) {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-function buildOfficialPdfSources(year: number): OfficialPdfSource[] {
+const ATP_TOUR_LEVELS: OfficialPdfSource['level'][] = ['atp_250', 'atp_500', 'atp_1000'];
+
+function buildOfficialPdfSources(year: number, atpOnly: boolean): OfficialPdfSource[] {
   return ALL_EDITIONS
     .filter((entry) => entry.edition.year === 2026 && entry.edition.protennislive_code)
     .map((entry) => ({
@@ -91,7 +93,8 @@ function buildOfficialPdfSources(year: number): OfficialPdfSource[] {
       level: normalizeLevel(entry.edition.level) as OfficialPdfSource['level'],
       has_doubles_qualifying: entry.edition.has_doubles_qualifying,
     }))
-    .filter((entry) => Boolean(entry.level));
+    .filter((entry) => Boolean(entry.level))
+    .filter((entry) => !atpOnly || ATP_TOUR_LEVELS.includes(entry.level));
 }
 
 function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
@@ -310,6 +313,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const atpOnly = request.nextUrl.searchParams.get('atpOnly') === 'true';
+
   const editionSlugs = await getEditionSlugsForYear(requestedYear);
   const knownCodeBySlug = new Map(
     ALL_EDITIONS
@@ -320,11 +325,12 @@ export async function GET(request: NextRequest) {
     .filter((edition) => {
       const normalizedLevel = normalizeLevel(edition.level);
       if (!normalizedLevel) return false;
+      if (atpOnly && !ATP_TOUR_LEVELS.includes(normalizedLevel)) return false;
       return !knownCodeBySlug.has(edition.slug);
     })
     .map((edition) => ({ slug: edition.slug, level: edition.level }));
 
-  const officialPdfSources = buildOfficialPdfSources(requestedYear);
+  const officialPdfSources = buildOfficialPdfSources(requestedYear, atpOnly);
   const pdfImportTargets = buildPdfImportTargets(officialPdfSources);
 
   for (const target of pdfImportTargets) {
@@ -386,6 +392,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     year: requestedYear,
+    atpOnly,
     sourceCount: officialPdfSources.length,
     targetCount: pdfImportTargets.length,
     importedWithCutsCount: importedWithCuts.length,

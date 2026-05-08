@@ -113,7 +113,7 @@ export default async function TournamentDetailPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-6 py-10">
-      <Link href="/schedule" className="text-sm text-neutral-400 hover:text-white">
+      <Link href="/" className="text-sm text-neutral-400 hover:text-white">
         ← Back to schedule
       </Link>
 
