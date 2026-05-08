@@ -252,6 +252,116 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   tourEvent('BMW Open', 'Munich', 'Germany', 2026, 15, '2026-04-13', null, 'ATP 500', 'Clay', false, '308', true),
   tourEvent('Millennium Estoril Open', 'Estoril', 'Portugal', 2026, 15, '2026-04-13', null, 'ATP 500', 'Clay', false, '7290', false),
 
+
+  // ─── WEEK 17 (Apr 27) ────────────────────────────────────────────────────────
+  challengerEvent('Aix-en-Provence', 'Aix-en-Provence', 'France', 2026, 17, '2026-04-27', null, 'Challenger 175', 'Clay', false, null, false),
+  challengerEvent('Cagliari', 'Cagliari', 'Italy', 2026, 17, '2026-04-27', null, 'Challenger 175', 'Clay', false, null, false),
+  challengerEvent('Mauthausen', 'Mauthausen', 'Austria', 2026, 17, '2026-04-27', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Jiujiang', 'Jiujiang', 'China', 2026, 17, '2026-04-27', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Ostrava', 'Ostrava', 'Czech Republic', 2026, 17, '2026-04-27', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Abidjan 2', 'Abidjan', "Côte d'Ivoire", 2026, 17, '2026-04-27', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Shymkent 2', 'Shymkent', 'Kazakhstan', 2026, 17, '2026-04-27', null, 'Challenger 50', 'Clay', false, null, false),
+
+  // ─── WEEK 18 (May 4) ─────────────────────────────────────────────────────────
+  challengerEvent('Wuxi', 'Wuxi', 'China', 2026, 18, '2026-05-04', null, 'Challenger 100', 'Hard', false, null, false),
+  challengerEvent('Francavilla al Mare', 'Francavilla al Mare', 'Italy', 2026, 18, '2026-05-04', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Prague', 'Prague', 'Czech Republic', 2026, 18, '2026-05-04', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Brazzaville', 'Brazzaville', 'Republic of the Congo', 2026, 18, '2026-05-04', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Santos', 'Santos', 'Brazil', 2026, 18, '2026-05-04', null, 'Challenger 50', 'Clay', false, null, false),
+
+  // ─── WEEK 19 (May 11) ────────────────────────────────────────────────────────
+  challengerEvent('Bordeaux', 'Bordeaux', 'France', 2026, 19, '2026-05-11', null, 'Challenger 175', 'Clay', false, null, false),
+  challengerEvent('Valencia', 'Valencia', 'Spain', 2026, 19, '2026-05-11', null, 'Challenger 175', 'Clay', false, null, false),
+  challengerEvent('Oeiras 4', 'Oeiras', 'Portugal', 2026, 19, '2026-05-11', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Tunis', 'Tunis', 'Tunisia', 2026, 19, '2026-05-11', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Zagreb', 'Zagreb', 'Croatia', 2026, 19, '2026-05-11', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Bengaluru 2', 'Bengaluru', 'India', 2026, 19, '2026-05-11', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Córdoba Challenger', 'Córdoba', 'Argentina', 2026, 19, '2026-05-11', null, 'Challenger 50', 'Clay', false, null, false),
+
+  // ─── WEEK 20 (May 18) ────────────────────────────────────────────────────────
+  challengerEvent('İstanbul (İstinye)', 'İstanbul', 'Turkey', 2026, 20, '2026-05-18', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Bengaluru 3', 'Bengaluru', 'India', 2026, 20, '2026-05-18', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Cervia', 'Cervia', 'Italy', 2026, 20, '2026-05-18', null, 'Challenger 50', 'Clay', false, null, false),
+
+  // ─── WEEK 21 (May 25) ────────────────────────────────────────────────────────
+  challengerEvent('Chișinău', 'Chișinău', 'Moldova', 2026, 21, '2026-05-25', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Little Rock, AR', 'Little Rock', 'United States', 2026, 21, '2026-05-25', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Vicenza', 'Vicenza', 'Italy', 2026, 21, '2026-05-25', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Centurion 1', 'Centurion', 'South Africa', 2026, 21, '2026-05-25', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Košice', 'Košice', 'Slovakia', 2026, 21, '2026-05-25', null, 'Challenger 50', 'Clay', false, null, false),
+
+  // ─── WEEK 22 (Jun 1) ─────────────────────────────────────────────────────────
+  challengerEvent('Birmingham', 'Birmingham', 'Great Britain', 2026, 22, '2026-06-01', null, 'Challenger 125', 'Grass', false, null, false),
+  challengerEvent('Perugia', 'Perugia', 'Italy', 2026, 22, '2026-06-01', null, 'Challenger 125', 'Clay', false, null, false),
+  challengerEvent('Bad Rappenau', 'Bad Rappenau', 'Germany', 2026, 22, '2026-06-01', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Prostějov', 'Prostějov', 'Czech Republic', 2026, 22, '2026-06-01', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Tyler, TX', 'Tyler', 'United States', 2026, 22, '2026-06-01', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Centurion 2', 'Centurion', 'South Africa', 2026, 22, '2026-06-01', null, 'Challenger 50', 'Hard', false, null, false),
+
+  // ─── WEEK 23 (Jun 8) ─────────────────────────────────────────────────────────
+  challengerEvent('Ilkley', 'Ilkley', 'Great Britain', 2026, 23, '2026-06-08', null, 'Challenger 125', 'Grass', false, null, false),
+  challengerEvent('Bratislava', 'Bratislava', 'Slovakia', 2026, 23, '2026-06-08', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Lyon Challenger', 'Lyon', 'France', 2026, 23, '2026-06-08', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Cattolica', 'Cattolica', 'Italy', 2026, 23, '2026-06-08', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('San Miguel de Tucumán', 'San Miguel de Tucumán', 'Argentina', 2026, 23, '2026-06-08', null, 'Challenger 50', 'Clay', false, null, false),
+
+  // ─── WEEK 24 (Jun 15) ────────────────────────────────────────────────────────
+  challengerEvent('Nottingham 2', 'Nottingham', 'Great Britain', 2026, 24, '2026-06-15', null, 'Challenger 125', 'Grass', false, null, false),
+  challengerEvent('Parma', 'Parma', 'Italy', 2026, 24, '2026-06-15', null, 'Challenger 125', 'Clay', false, null, false),
+  challengerEvent('Poznań', 'Poznań', 'Poland', 2026, 24, '2026-06-15', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Dublin', 'Dublin', 'Ireland', 2026, 24, '2026-06-15', null, 'Challenger 75', 'Grass', false, null, false),
+  challengerEvent('Asunción (CIT)', 'Asunción', 'Paraguay', 2026, 24, '2026-06-15', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Royan', 'Royan', 'France', 2026, 24, '2026-06-15', null, 'Challenger 50', 'Clay', false, null, false),
+
+  // ─── WEEK 25 (Jun 22) ────────────────────────────────────────────────────────
+  challengerEvent('Târgu Mureș', 'Târgu Mureș', 'Romania', 2026, 25, '2026-06-22', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Durham, NC', 'Durham', 'United States', 2026, 25, '2026-06-22', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Piracicaba', 'Piracicaba', 'Brazil', 2026, 25, '2026-06-22', null, 'Challenger 50', 'Clay', false, null, false),
+
+  // ─── WEEK 26 (Jun 29) ────────────────────────────────────────────────────────
+  challengerEvent('Brașov', 'Brașov', 'Romania', 2026, 26, '2026-06-29', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Cary, NC', 'Cary', 'United States', 2026, 26, '2026-06-29', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Milan Challenger', 'Milan', 'Italy', 2026, 26, '2026-06-29', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Quito', 'Quito', 'Ecuador', 2026, 26, '2026-06-29', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Troyes', 'Troyes', 'France', 2026, 26, '2026-06-29', null, 'Challenger 50', 'Clay', false, null, false),
+
+  // ─── WEEK 27 (Jul 6) ─────────────────────────────────────────────────────────
+  challengerEvent('Braunschweig', 'Braunschweig', 'Germany', 2026, 27, '2026-07-06', null, 'Challenger 125', 'Clay', false, null, false),
+  challengerEvent('Newport, RI', 'Newport', 'United States', 2026, 27, '2026-07-06', null, 'Challenger 125', 'Grass', false, null, false),
+  challengerEvent('Iași', 'Iași', 'Romania', 2026, 27, '2026-07-06', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Bogotá', 'Bogotá', 'Colombia', 2026, 27, '2026-07-06', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Trieste', 'Trieste', 'Italy', 2026, 27, '2026-07-06', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Liège', 'Liège', 'Belgium', 2026, 27, '2026-07-06', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Nottingham 3', 'Nottingham', 'Great Britain', 2026, 27, '2026-07-06', null, 'Challenger 50', 'Grass', false, null, false),
+
+  // ─── WEEK 28 (Jul 13) ────────────────────────────────────────────────────────
+  challengerEvent('Bunschoten', 'Bunschoten', 'Netherlands', 2026, 28, '2026-07-13', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Cordenons', 'Cordenons', 'Italy', 2026, 28, '2026-07-13', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Granby', 'Granby', 'Canada', 2026, 28, '2026-07-13', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Lincoln, NE', 'Lincoln', 'United States', 2026, 28, '2026-07-13', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Pozoblanco', 'Pozoblanco', 'Spain', 2026, 28, '2026-07-13', null, 'Challenger 75', 'Hard', false, null, false),
+
+  // ─── WEEK 29 (Jul 20) ────────────────────────────────────────────────────────
+  challengerEvent('Bloomfield Hills, MI', 'Bloomfield Hills', 'United States', 2026, 29, '2026-07-20', null, 'Challenger 125', 'Hard', false, null, false),
+  challengerEvent('Zug', 'Zug', 'Switzerland', 2026, 29, '2026-07-20', null, 'Challenger 125', 'Clay', false, null, false),
+  challengerEvent('Segovia', 'Segovia', 'Spain', 2026, 29, '2026-07-20', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Tampere', 'Tampere', 'Finland', 2026, 29, '2026-07-20', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Winnipeg', 'Winnipeg', 'Canada', 2026, 29, '2026-07-20', null, 'Challenger 75', 'Hard', false, null, false),
+
+  // ─── WEEK 30 (Jul 27) ────────────────────────────────────────────────────────
+  challengerEvent('San Marino', 'San Marino', 'San Marino', 2026, 30, '2026-07-27', null, 'Challenger 125', 'Clay', false, null, false),
+  challengerEvent('Vancouver', 'Vancouver', 'Canada', 2026, 30, '2026-07-27', null, 'Challenger 125', 'Hard', false, null, false),
+  challengerEvent('Bonn', 'Bonn', 'Germany', 2026, 30, '2026-07-27', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Liberec', 'Liberec', 'Czech Republic', 2026, 30, '2026-07-27', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Centurion 3', 'Centurion', 'South Africa', 2026, 30, '2026-07-27', null, 'Challenger 50', 'Hard', false, null, false),
+
+  // ─── WEEK 31 (Aug 3) ─────────────────────────────────────────────────────────
+  challengerEvent('Hagen', 'Hagen', 'Germany', 2026, 31, '2026-08-03', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Grodzisk Mazowiecki', 'Grodzisk Mazowiecki', 'Poland', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Lexington, KY', 'Lexington', 'United States', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Centurion 4', 'Centurion', 'South Africa', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('İstanbul (Enka)', 'İstanbul', 'Turkey', 2026, 31, '2026-08-03', null, 'Challenger 50', 'Hard', false, null, false),
+
   // ─── WEEK 17 (Apr 22) — ATP 1000 ─────────────────────────────────────────────
   tourEvent('Mutua Madrid Open', 'Madrid', 'Spain', 2026, 17, '2026-04-22', '2026-05-03', 'ATP 1000', 'Clay', false, '1536', false),
 
