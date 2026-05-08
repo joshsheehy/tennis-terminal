@@ -169,7 +169,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   tourEvent("Internazionali BNL d'Italia", 'Rome', 'Italy', 2026, 18, '2026-05-06', '2026-05-17', 'ATP 1000', 'Clay', false, '416', false),
 
   // ─── WEEK 20 (May 17) — clay before Roland Garros ───────────────────────────
-  tourEvent('Bitpanda Hamburg Open', 'Hamburg', 'Germany', 2026, 20, '2026-05-17', null, 'ATP 500', 'Clay', false, '414', true),
+  tourEvent('Open Parc Auvergne-Rhône-Alpes', 'Lyon', 'France', 2026, 20, '2026-05-18', null, 'ATP 250', 'Clay', false, '7309', false),
   tourEvent('Gonet Geneva Open', 'Geneva', 'Switzerland', 2026, 20, '2026-05-18', null, 'ATP 250', 'Clay', false, '322', false),
 
   // ─── WEEKS 21–23: Roland Garros (Grand Slam — excluded) ──────────────────────
@@ -190,6 +190,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
 
   // ─── WEEK 28 (Jul 13) — post-Wimbledon clay ──────────────────────────────────
   tourEvent('SkiStar Swedish Open', 'Bastad', 'Sweden', 2026, 28, '2026-07-13', null, 'ATP 250', 'Clay', false, '316', false),
+  tourEvent('Hamburg Open', 'Hamburg', 'Germany', 2026, 28, '2026-07-13', null, 'ATP 250', 'Clay', false, '414', false),
   tourEvent('EFG Swiss Open', 'Gstaad', 'Switzerland', 2026, 28, '2026-07-13', null, 'ATP 250', 'Clay', false, '314', false),
   tourEvent('Plava Laguna Croatia Open', 'Umag', 'Croatia', 2026, 28, '2026-07-13', null, 'ATP 250', 'Clay', false, '439', false),
 
@@ -225,7 +226,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   tourEvent('Rolex Shanghai Masters', 'Shanghai', 'China', 2026, 41, '2026-10-07', '2026-10-18', 'ATP 1000', 'Hard', false, '5014', false),
 
   // ─── WEEK 42 (Oct 19) ────────────────────────────────────────────────────────
-  tourEvent('European Open', 'Antwerp', 'Belgium', 2026, 42, '2026-10-19', null, 'ATP 250', 'Indoor Hard', true, '7485', false),
+  tourEvent('Moselle Open', 'Metz', 'France', 2026, 42, '2026-10-19', null, 'ATP 250', 'Indoor Hard', true, '341', false),
 
   // ─── WEEK 43 (Oct 26) ────────────────────────────────────────────────────────
   tourEvent('Erste Bank Open', 'Vienna', 'Austria', 2026, 43, '2026-10-26', null, 'ATP 500', 'Indoor Hard', true, '337', true),
