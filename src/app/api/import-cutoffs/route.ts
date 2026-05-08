@@ -114,6 +114,30 @@ const currentTournamentCodes: Array<{
   { slug: 'itajai-itajai', code: '3053', level: 'challenger' },
 ];
 
+
+async function getEditionSlugsForYear(year: number) {
+  const result = await pool.query<{ slug: string; level: string }>(
+    `
+    select t.slug, te.level
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    where te.year = $1
+      and te.status = 'held'
+    `,
+    [year]
+  );
+
+  return result.rows;
+}
+
+function normalizeLevel(level: string): OfficialPdfSource['level'] | null {
+  if (level === 'ATP 250') return 'atp_250';
+  if (level === 'ATP 500') return 'atp_500';
+  if (level === 'ATP 1000') return 'atp_1000';
+  if (level.startsWith('Challenger')) return 'challenger';
+  return null;
+}
+
 function getRequestedYear(request: NextRequest) {
   const yearParam = request.nextUrl.searchParams.get('year');
   const year = yearParam ? Number(yearParam) : 2026;
@@ -341,6 +365,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const editionSlugs = await getEditionSlugsForYear(requestedYear);
+  const knownCodeBySlug = new Map(currentTournamentCodes.map((entry) => [entry.slug, entry]));
+  const missingCodeMappings = editionSlugs
+    .filter((edition) => {
+      const normalizedLevel = normalizeLevel(edition.level);
+      if (!normalizedLevel) return false;
+      return !knownCodeBySlug.has(edition.slug);
+    })
+    .map((edition) => ({ slug: edition.slug, level: edition.level }));
+
   const officialPdfSources = buildOfficialPdfSources(requestedYear);
   const pdfImportTargets = buildPdfImportTargets(officialPdfSources);
 
@@ -401,5 +435,6 @@ export async function GET(request: NextRequest) {
     imported,
     skipped,
     failed,
+    missing_code_mappings: missingCodeMappings,
   });
 }
