@@ -22,6 +22,7 @@ type OfficialPdfSource = {
   year: number;
   code: string;
   level: 'atp_250' | 'atp_500' | 'atp_1000' | 'challenger';
+  has_doubles_qualifying: boolean;
 };
 
 type EditionTemplate = {
@@ -88,6 +89,7 @@ function buildOfficialPdfSources(year: number): OfficialPdfSource[] {
       year,
       code: entry.edition.protennislive_code as string,
       level: normalizeLevel(entry.edition.level) as OfficialPdfSource['level'],
+      has_doubles_qualifying: entry.edition.has_doubles_qualifying,
     }))
     .filter((entry) => Boolean(entry.level));
 }
@@ -118,7 +120,7 @@ function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] 
         pdf_url_candidates: [`${baseUrl}/mdd.pdf`, `${baseUrl}/md.pdf`],
       },
     ];
-    if (source.level === 'atp_500') {
+    if (source.has_doubles_qualifying) {
       targets.push({ slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qd.pdf`, `${baseUrl}/qdd.pdf`] });
     }
     return targets;
