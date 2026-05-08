@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
+import { ALL_EDITIONS } from '@/lib/tournament-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,86 +35,6 @@ type EditionTemplate = {
   source: string;
   source_url: string | null;
 };
-
-const currentTournamentCodes: Array<{
-  slug: string;
-  code: string;
-  level: OfficialPdfSource['level'];
-}> = [
-  // ── ATP 250 ─────────────────────────────────────────────────────────────────
-  { slug: 'brisbane-international-presented-by-anz-brisbane', code: '339', level: 'atp_250' },
-  { slug: 'bank-of-china-hong-kong-tennis-open-hong-kong', code: '336', level: 'atp_250' },
-  { slug: 'adelaide-international-adelaide', code: '8998', level: 'atp_250' },
-  { slug: 'asb-classic-auckland', code: '301', level: 'atp_250' },
-  { slug: 'cordoba-open-cordoba', code: '9158', level: 'atp_250' },
-  { slug: 'open-occitanie-montpellier', code: '375', level: 'atp_250' },
-  { slug: 'open-provence-marseille', code: '496', level: 'atp_250' },
-  { slug: 'ieb-argentina-open-buenos-aires', code: '506', level: 'atp_250' },
-  { slug: 'delray-beach-open-delray-beach', code: '499', level: 'atp_250' },
-  { slug: 'santiago-open-santiago', code: '8996', level: 'atp_250' },
-  { slug: 'houston-open-houston', code: '717', level: 'atp_250' },
-  { slug: 'grand-prix-hassan-ii-marrakech', code: '360', level: 'atp_250' },
-  { slug: 'bmw-open-munich', code: '308', level: 'atp_250' },
-  { slug: 'millennium-estoril-open-estoril', code: '7290', level: 'atp_250' },
-  { slug: 'gonet-geneva-open-geneva', code: '322', level: 'atp_250' },
-  { slug: 'open-parc-auvergne-rhone-alpes-lyon', code: '7694', level: 'atp_250' },
-  { slug: 'boss-open-stuttgart', code: '321', level: 'atp_250' },
-  { slug: 'libema-open-s-hertogenbosch', code: '440', level: 'atp_250' },
-  { slug: 'rothesay-international-eastbourne', code: '741', level: 'atp_250' },
-  { slug: 'mallorca-championships-mallorca', code: '8994', level: 'atp_250' },
-  { slug: 'skistar-swedish-open-bastad', code: '316', level: 'atp_250' },
-  { slug: 'efg-swiss-open-gstaad', code: '314', level: 'atp_250' },
-  { slug: 'plava-laguna-croatia-open-umag', code: '439', level: 'atp_250' },
-  { slug: 'hamburg-open-hamburg', code: '414', level: 'atp_250' },
-  { slug: 'generali-open-kitzbuhel', code: '319', level: 'atp_250' },
-  { slug: 'abierto-de-tenis-mifel-los-cabos', code: '7480', level: 'atp_250' },
-  { slug: 'winston-salem-open-winston-salem', code: '6242', level: 'atp_250' },
-  { slug: 'chengdu-open-chengdu', code: '7581', level: 'atp_250' },
-  { slug: 'zhuhai-championships-zhuhai', code: '9164', level: 'atp_250' },
-  { slug: 'european-open-antwerp', code: '7485', level: 'atp_250' },
-  { slug: 'moselle-open-metz', code: '341', level: 'atp_250' },
-  { slug: 'if-stockholm-open-stockholm', code: '429', level: 'atp_250' },
-
-  // ── ATP 500 ─────────────────────────────────────────────────────────────────
-  { slug: 'dallas-open-dallas', code: '424', level: 'atp_500' },
-  { slug: 'abn-amro-open-rotterdam', code: '407', level: 'atp_500' },
-  { slug: 'qatar-exxonmobil-open-doha', code: '451', level: 'atp_500' },
-  { slug: 'rio-open-presented-by-claro-rio-de-janeiro', code: '6932', level: 'atp_500' },
-  { slug: 'dubai-duty-free-tennis-championships-dubai', code: '495', level: 'atp_500' },
-  { slug: 'abierto-mexicano-telcel-acapulco', code: '807', level: 'atp_500' },
-  { slug: 'barcelona-open-banc-sabadell-barcelona', code: '425', level: 'atp_500' },
-  { slug: 'terra-wortmann-open-halle', code: '500', level: 'atp_500' },
-  { slug: 'cinch-championships-london', code: '311', level: 'atp_500' },
-  { slug: 'citi-open-washington', code: '418', level: 'atp_500' },
-  { slug: 'china-open-beijing', code: '747', level: 'atp_500' },
-  { slug: 'rakuten-japan-open-tokyo', code: '329', level: 'atp_500' },
-  { slug: 'erste-bank-open-vienna', code: '337', level: 'atp_500' },
-  { slug: 'swiss-indoors-basel', code: '328', level: 'atp_500' },
-
-  // ── ATP 1000 ─────────────────────────────────────────────────────────────────
-  { slug: 'bnp-paribas-open-indian-wells', code: '404', level: 'atp_1000' },
-  { slug: 'miami-open-presented-by-itau-miami', code: '403', level: 'atp_1000' },
-  { slug: 'rolex-monte-carlo-masters-monte-carlo', code: '410', level: 'atp_1000' },
-  { slug: 'mutua-madrid-open-madrid', code: '1536', level: 'atp_1000' },
-  { slug: 'internazionali-bnl-ditalia-rome', code: '416', level: 'atp_1000' },
-  { slug: 'national-bank-open-presented-by-rogers-montreal', code: '421', level: 'atp_1000' },
-  { slug: 'cincinnati-open-cincinnati', code: '422', level: 'atp_1000' },
-  { slug: 'rolex-shanghai-masters-shanghai', code: '5014', level: 'atp_1000' },
-  { slug: 'rolex-paris-masters-paris', code: '352', level: 'atp_1000' },
-
-  // ── CHALLENGERS ──────────────────────────────────────────────────────────────
-  { slug: 'bengaluru-1-bengaluru', code: '7808', level: 'challenger' },
-  { slug: 'canberra-canberra', code: '7393', level: 'challenger' },
-  { slug: 'noumea-noumea', code: '2205', level: 'challenger' },
-  { slug: 'nonthaburi-1-nonthaburi', code: '2791', level: 'challenger' },
-  { slug: 'nottingham-1-nottingham', code: '2907', level: 'challenger' },
-  { slug: 'nonthaburi-2-nonthaburi', code: '2795', level: 'challenger' },
-  { slug: 'buenos-aires-challenger-buenos-aires', code: '1210', level: 'challenger' },
-  { slug: 'glasgow-glasgow', code: '7916', level: 'challenger' },
-  { slug: 'oeiras-1-oeiras', code: '2831', level: 'challenger' },
-  { slug: 'itajai-itajai', code: '3053', level: 'challenger' },
-];
-
 
 async function getEditionSlugsForYear(year: number) {
   const result = await pool.query<{ slug: string; level: string }>(
@@ -160,12 +81,15 @@ function shiftDateToYear(dateString: string | null, year: number) {
 }
 
 function buildOfficialPdfSources(year: number): OfficialPdfSource[] {
-  return currentTournamentCodes.map((source) => ({
-    slug: source.slug,
-    year,
-    code: source.code,
-    level: source.level,
-  }));
+  return ALL_EDITIONS
+    .filter((entry) => entry.edition.year === 2026 && entry.edition.protennislive_code)
+    .map((entry) => ({
+      slug: entry.tournament.slug,
+      year,
+      code: entry.edition.protennislive_code as string,
+      level: normalizeLevel(entry.edition.level) as OfficialPdfSource['level'],
+    }))
+    .filter((entry) => Boolean(entry.level));
 }
 
 function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
@@ -366,7 +290,11 @@ export async function GET(request: NextRequest) {
   }
 
   const editionSlugs = await getEditionSlugsForYear(requestedYear);
-  const knownCodeBySlug = new Map(currentTournamentCodes.map((entry) => [entry.slug, entry]));
+  const knownCodeBySlug = new Map(
+    ALL_EDITIONS
+      .filter((entry) => entry.edition.year === 2026 && entry.edition.protennislive_code)
+      .map((entry) => [entry.tournament.slug, entry.edition.protennislive_code])
+  );
   const missingCodeMappings = editionSlugs
     .filter((edition) => {
       const normalizedLevel = normalizeLevel(edition.level);
