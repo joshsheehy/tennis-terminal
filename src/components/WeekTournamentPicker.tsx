@@ -36,12 +36,13 @@ function getLevelSortValue(level: string) {
   return 0;
 }
 
+type TournamentEntry = ScheduleRow & { carryover: boolean };
+
 type WeekGroup = {
   key: string;
   week: number | null;
-  tournaments: ScheduleRow[];
+  tournaments: TournamentEntry[];
   startDate: string | null;
-  endDate: string | null;
 };
 
 export default function WeekTournamentPicker({
@@ -50,16 +51,20 @@ export default function WeekTournamentPicker({
   tournaments: ScheduleRow[];
 }) {
   const weekGroups = useMemo<WeekGroup[]>(() => {
-    const map = new Map<string, ScheduleRow[]>();
+    const map = new Map<string, TournamentEntry[]>();
 
     for (const tournament of tournaments) {
       const key = tournament.week === null ? 'na' : String(tournament.week);
 
-      if (!map.has(key)) {
-        map.set(key, []);
-      }
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push({ ...tournament, carryover: false });
 
-      map.get(key)!.push(tournament);
+      // Masters 1000 events run across 2 weeks — also list under the following week
+      if (tournament.level.toLowerCase().includes('1000') && tournament.week !== null) {
+        const nextKey = String(tournament.week + 1);
+        if (!map.has(nextKey)) map.set(nextKey, []);
+        map.get(nextKey)!.push({ ...tournament, carryover: true });
+      }
     }
 
     return Array.from(map.entries())
@@ -75,22 +80,12 @@ export default function WeekTournamentPicker({
         });
 
         const week = key === 'na' ? null : Number(key);
-        const startDate = sortedItems[0]?.start_date ?? null;
 
-        const endDate = sortedItems.reduce<string | null>((latest, item) => {
-          const candidate = item.end_date ?? item.start_date ?? null;
-          if (!latest) return candidate;
+        // Week start date = earliest non-carryover tournament; fall back to carryover if week is all carryovers
+        const ownItems = sortedItems.filter((t) => !t.carryover);
+        const startDate = (ownItems.length > 0 ? ownItems : sortedItems)[0]?.start_date ?? null;
 
-          return getDateValue(candidate) > getDateValue(latest) ? candidate : latest;
-        }, null);
-
-        return {
-          key,
-          week,
-          tournaments: sortedItems,
-          startDate,
-          endDate,
-        };
+        return { key, week, tournaments: sortedItems, startDate };
       })
       .sort((a, b) => {
         if (a.week === null) return 1;
@@ -142,7 +137,6 @@ export default function WeekTournamentPicker({
                 }}
               >
                 {group.startDate ? formatDate(group.startDate) : 'NA'}
-                {group.endDate ? ` - ${formatDate(group.endDate)}` : ''}
                 {' | '}
                 {group.tournaments.length}{' '}
                 {group.tournaments.length === 1 ? 'tournament' : 'tournaments'}
@@ -169,7 +163,7 @@ export default function WeekTournamentPicker({
           >
             {group.tournaments.map((tournament, tournamentIndex) => (
               <Link
-                key={tournament.edition_id}
+                key={`${tournament.edition_id}${tournament.carryover ? '-c' : ''}`}
                 href={`/tournaments/${tournament.slug}`}
                 style={{
                   display: 'flex',
@@ -189,9 +183,27 @@ export default function WeekTournamentPicker({
                       fontWeight: 700,
                       color: '#0f172a',
                       marginBottom: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
                     }}
                   >
                     {tournament.name}
+                    {tournament.carryover && (
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: '#64748b',
+                          background: '#f1f5f9',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 6,
+                          padding: '2px 8px',
+                        }}
+                      >
+                        in progress
+                      </span>
+                    )}
                   </div>
 
                   <div
@@ -205,7 +217,6 @@ export default function WeekTournamentPicker({
                     {tournament.country ? `, ${tournament.country}` : ''}
                     {' | '}
                     {tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
-                    {tournament.end_date ? ` - ${formatDate(tournament.end_date)}` : ''}
                   </div>
 
                   <div
