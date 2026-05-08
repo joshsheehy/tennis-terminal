@@ -139,7 +139,6 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   tourEvent('Miami Open presented by Itau', 'Miami', 'United States', 2026, 12, '2026-03-18', '2026-03-29', 'ATP 1000', 'Hard', false),
 
   // ─── WEEK 13 (Mar 30) ────────────────────────────────────────────────────────
-  tourEvent('Ecuador Open Quito', 'Quito', 'Ecuador', 2026, 13, '2026-03-30', null, 'ATP 250', 'Clay', false),
   tourEvent('Houston Open', 'Houston', 'United States', 2026, 13, '2026-03-30', null, 'ATP 250', 'Clay', false),
 
   // ─── WEEK 14 (Apr 5) — ATP 1000 ──────────────────────────────────────────────
