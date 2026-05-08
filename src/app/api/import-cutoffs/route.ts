@@ -292,8 +292,9 @@ async function upsertCutoffSnapshot(
 }
 
 export async function GET(request: NextRequest) {
-  const imported = [];
-  const skipped = [];
+  const importedWithCuts = [];
+  const importedNullCuts = [];
+  const skippedNoPdf = [];
   const failed = [];
 
   let requestedYear: number;
@@ -338,19 +339,22 @@ export async function GET(request: NextRequest) {
         }
       }
       if (!parsed || !importedPdfUrl) {
-        skipped.push({ target, reason: `No available PDF in: ${target.pdf_url_candidates.join(', ')}` });
+        skippedNoPdf.push({
+          target,
+          reason: `No available PDF in: ${target.pdf_url_candidates.join(', ')}`,
+        });
         continue;
       }
       const editionId = await getOrCreateEditionId(target.slug, target.year);
 
       if (!editionId) {
-        skipped.push({ target, reason: 'Tournament row not found for slug.' });
+        failed.push({ target, error: 'Tournament row not found for slug.' });
         continue;
       }
 
       await upsertCutoffSnapshot(target, editionId, parsed, importedPdfUrl);
 
-      imported.push({
+      const importedItem = {
         slug: target.slug,
         year: target.year,
         event_type: target.event_type,
@@ -358,10 +362,17 @@ export async function GET(request: NextRequest) {
         pdf_url: importedPdfUrl,
         last_direct_acceptance_rank: parsed.last_direct_acceptance_rank,
         last_direct_acceptance_name: parsed.last_direct_acceptance_name,
+        raw_last_direct_acceptance: parsed.raw_last_direct_acceptance,
         challenger_doubles_advanced_cut_rank: parsed.challenger_doubles_advanced_cut_rank,
         challenger_doubles_onsite_cut_rank: parsed.challenger_doubles_onsite_cut_rank,
         alternate_entries_count: parsed.alternate_entries_count,
-      });
+      };
+
+      if (parsed.last_direct_acceptance_rank == null) {
+        importedNullCuts.push(importedItem);
+      } else {
+        importedWithCuts.push(importedItem);
+      }
     } catch (error) {
       failed.push({
         target,
@@ -375,11 +386,13 @@ export async function GET(request: NextRequest) {
     year: requestedYear,
     sourceCount: officialPdfSources.length,
     targetCount: pdfImportTargets.length,
-    importedCount: imported.length,
-    skippedCount: skipped.length,
+    importedWithCutsCount: importedWithCuts.length,
+    importedNullCutsCount: importedNullCuts.length,
+    skippedNoPdfCount: skippedNoPdf.length,
     failedCount: failed.length,
-    imported,
-    skipped,
+    importedWithCuts,
+    importedNullCuts,
+    skippedNoPdf,
     failed,
     missing_code_mappings: missingCodeMappings,
   });
