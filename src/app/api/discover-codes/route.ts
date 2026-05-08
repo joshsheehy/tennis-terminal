@@ -14,6 +14,7 @@ type MatchConfidence = 'high' | 'medium' | 'low';
 type MatchCandidate = {
   code: number;
   pdf_url: string;
+  titleSnippet: string;
   matched_slug: string;
   matched_name: string;
   matched_city: string;
@@ -25,6 +26,13 @@ type WorkingUnknown = {
   code: number;
   pdf_url: string;
   titleSnippet: string;
+  possibleMatches: Array<{
+    matched_slug: string;
+    matched_name: string;
+    matched_city: string;
+    confidence: MatchConfidence;
+    evidence: string[];
+  }>;
 };
 
 type PdfParseResult = { text: string };
@@ -57,6 +65,29 @@ function getAliases(value: string) {
     if (token.length >= 4) aliases.add(token);
   });
   return Array.from(aliases);
+}
+
+const GENERIC_ALIAS_TOKENS = new Set([
+  'challenger',
+  'open',
+  'tennis',
+  'singles',
+  'doubles',
+  'main',
+  'draw',
+  'qualifying',
+  'city',
+  '50',
+  '75',
+  '100',
+  '125',
+  '175',
+]);
+
+function getMeaningfulTokens(value: string) {
+  return normalize(value)
+    .split(' ')
+    .filter((token) => token.length >= 3 && !GENERIC_ALIAS_TOKENS.has(token) && !/^\d+$/.test(token));
 }
 
 function parseNumberParam(value: string | null, field: string) {
@@ -119,17 +150,27 @@ function evaluateMatch(text: string, tournament: MissingEdition) {
   const evidence: string[] = [];
   let score = 0;
 
-  const nameAliases = getAliases(tournament.name);
-  const cityAliases = getAliases(tournament.city);
+  const nameTokens = getMeaningfulTokens(tournament.name);
+  const cityTokens = getMeaningfulTokens(tournament.city);
+  const exactNormalizedCity = normalize(tournament.city);
 
-  if (nameAliases.some((alias) => alias && normalizedText.includes(alias))) {
+  const nameTokenMatches = nameTokens.filter((token) => normalizedText.includes(token));
+  const hasMeaningfulNameMatch = nameTokenMatches.length > 0;
+  if (hasMeaningfulNameMatch) {
     score += 2;
-    evidence.push('name/alias found in PDF text');
+    evidence.push(`event-name token match: ${nameTokenMatches.join(', ')}`);
   }
 
-  if (cityAliases.some((alias) => alias && normalizedText.includes(alias))) {
+  const hasExactCityMatch = exactNormalizedCity.length > 0 && normalizedText.includes(exactNormalizedCity);
+  const cityTokenMatches = cityTokens.filter((token) => normalizedText.includes(token));
+  const hasCityTokenMatch = cityTokenMatches.length > 0;
+
+  if (hasExactCityMatch) {
+    score += 3;
+    evidence.push('exact normalized city match');
+  } else if (hasCityTokenMatch) {
     score += 2;
-    evidence.push('city/alias found in PDF text');
+    evidence.push(`city token match: ${cityTokenMatches.join(', ')}`);
   }
 
   const startDate = new Date(tournament.start_date);
@@ -137,8 +178,12 @@ function evaluateMatch(text: string, tournament: MissingEdition) {
     const monthDay = `${startDate.getUTCDate()}`;
     const year = `${startDate.getUTCFullYear()}`;
     if (normalizedText.includes(monthDay) && normalizedText.includes(year)) {
-      score += 1;
-      evidence.push('date hints found in PDF text');
+      if (hasMeaningfulNameMatch || hasExactCityMatch || hasCityTokenMatch) {
+        score += 1;
+        evidence.push('date hints found in PDF text');
+      } else {
+        evidence.push('date hints ignored without name/city evidence');
+      }
     }
   }
 
@@ -148,6 +193,11 @@ function evaluateMatch(text: string, tournament: MissingEdition) {
       score += 1;
       evidence.push('week token found in PDF text');
     }
+  }
+
+  if (hasExactCityMatch && hasMeaningfulNameMatch) {
+    score += 1;
+    evidence.push('city + meaningful event-name token synergy');
   }
 
   if (score >= 4) return { confidence: 'high' as const, evidence };
@@ -225,35 +275,41 @@ export async function GET(request: NextRequest) {
       if (!result.text) continue;
       workingPdfCount += 1;
 
-      let best: (MatchCandidate & { scoreRank: number }) | null = null;
+      const titleSnippet = extractTitleSnippet(result.text);
+      const scoredMatches: Array<MatchCandidate & { scoreRank: number }> = [];
 
       for (const candidate of missing) {
         const evaluated = evaluateMatch(result.text, candidate);
         if (!evaluated) continue;
 
         const scoreRank = evaluated.confidence === 'high' ? 3 : evaluated.confidence === 'medium' ? 2 : 1;
-        if (!best || scoreRank > best.scoreRank) {
-          best = {
-            code: result.code,
-            pdf_url: result.pdf_url,
-            matched_slug: candidate.slug,
-            matched_name: candidate.name,
-            matched_city: candidate.city,
-            confidence: evaluated.confidence,
-            evidence: evaluated.evidence,
-            scoreRank,
-          };
-        }
+        scoredMatches.push({
+          code: result.code,
+          pdf_url: result.pdf_url,
+          titleSnippet,
+          matched_slug: candidate.slug,
+          matched_name: candidate.name,
+          matched_city: candidate.city,
+          confidence: evaluated.confidence,
+          evidence: evaluated.evidence,
+          scoreRank,
+        });
       }
 
-      if (best) {
-        const { scoreRank: _, ...record } = best;
-        matches.push(record);
+      if (scoredMatches.length > 0) {
+        scoredMatches.sort((a, b) => b.scoreRank - a.scoreRank);
+        const bestRank = scoredMatches[0].scoreRank;
+        const strongestMatches = scoredMatches.filter((match) => match.scoreRank === bestRank);
+        for (const strongest of strongestMatches) {
+          const { scoreRank: _, ...record } = strongest;
+          matches.push(record);
+        }
       } else {
         workingUnknown.push({
           code: result.code,
           pdf_url: result.pdf_url,
-          titleSnippet: extractTitleSnippet(result.text),
+          titleSnippet,
+          possibleMatches: [],
         });
       }
     }
