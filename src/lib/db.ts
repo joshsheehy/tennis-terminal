@@ -54,6 +54,12 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
       join tournaments t on t.id = te.tournament_id
       where te.status = 'held'
         and te.year = $1
+        -- Exclude editions where start_date is in December of the same year as the edition.
+        -- December tournaments belong to the next ATP year (e.g. Dec 30, 2025 = ATP 2026 Week 1).
+        and not (
+          extract(month from te.start_date) = 12
+          and extract(year from te.start_date) = te.year
+        )
     )
     select edition_id, tournament_id, slug, name, city, country,
            year, week, start_date, end_date, level, surface, indoor, source, status
