@@ -58,6 +58,15 @@ function challengerDoublesCutText(cutoff: CutoffSnapshot) {
   return rankText(cutoff.last_direct_acceptance_rank);
 }
 
+function altLlText(cutoff: CutoffSnapshot) {
+  const alt = cutoff.alternate_entries_count ?? 0;
+  const ll = cutoff.lucky_loser_count ?? 0;
+  if (alt > 0 && ll > 0) return `${alt} ALT / ${ll} LL`;
+  if (alt > 0) return `${alt} ALT`;
+  if (ll > 0) return `${ll} LL`;
+  return '0';
+}
+
 function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: string }) {
   if (cutoffs.length === 0) {
     return (
@@ -76,7 +85,7 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
           <tr>
             <th className="p-3 font-medium">Draw</th>
             <th className="p-3 font-medium">Cut</th>
-            <th className="p-3 font-medium">Alternates in draw</th>
+            <th className="p-3 font-medium">Alternates / lucky losers in draw</th>
           </tr>
         </thead>
         <tbody>
@@ -90,7 +99,7 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
                   ? challengerDoublesCutText(cutoff)
                   : rankText(cutoff.last_direct_acceptance_rank)}
               </td>
-              <td className="p-3">{cutoff.alternate_entries_count ?? 0}</td>
+              <td className="p-3">{altLlText(cutoff)}</td>
             </tr>
           ))}
         </tbody>
