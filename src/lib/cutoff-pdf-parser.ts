@@ -12,6 +12,7 @@ export type ParsedOfficialPdfCutoff = {
   challenger_doubles_advanced_cut_rank: number | null;
   challenger_doubles_onsite_cut_rank: number | null;
   alternate_entries_count: number;
+  lucky_loser_count: number;
   pdf_text_length: number;
 };
 
@@ -24,7 +25,7 @@ type ParsedNameRank = {
 function normalizePdfText(text: string) {
   return text
     .replace(/\r/g, '\n')
-    .replace(/\u00a0/g, ' ')
+    .replace(/ /g, ' ')
     .replace(/[ \t]+/g, ' ');
 }
 
@@ -118,8 +119,8 @@ function parseChallengerDoublesCuts(lines: string[], lastDirectAcceptanceIndex: 
     .replace(/\s+/g, ' ')
     .trim();
 
-  const advancedMatch = normalized.match(/\badv(?:anced)?\.?\s*[:\-]?\s*(\d{1,5})\b/i);
-  const onsiteMatch = normalized.match(/\bon[-\s]?site\.?\s*[:\-]?\s*(\d{1,5})\b/i);
+  const advancedMatch = normalized.match(/\badv(?:anced)?\.*\s*[:\-]?\s*(\d{1,5})\b/i);
+  const onsiteMatch = normalized.match(/\bon[-\s]?site\.*\s*[:\-]?\s*(\d{1,5})\b/i);
 
   return {
     advanced: advancedMatch ? Number(advancedMatch[1]) : null,
@@ -127,15 +128,20 @@ function parseChallengerDoublesCuts(lines: string[], lastDirectAcceptanceIndex: 
   };
 }
 
-function parseAlternateEntriesCount(lines: string[]) {
+function parseAlternateEntriesCount(lines: string[]): { alternate_count: number; lucky_loser_count: number } {
   const sectionStart = lines.findIndex((line) => /alternates\/lucky losers/i.test(line));
 
   if (sectionStart === -1) {
     const fullText = lines.join(' ');
-    return (fullText.match(/\((?:LL|Alt)\)/gi) ?? []).length;
+    const matches = fullText.match(/\((?:LL|Alt)\)/gi) ?? [];
+    return {
+      alternate_count: matches.filter((m) => /alt/i.test(m)).length,
+      lucky_loser_count: matches.filter((m) => /^(ll)$/i.test(m.replace(/[()]/g, ''))).length,
+    };
   }
 
-  let count = 0;
+  let alternate_count = 0;
+  let lucky_loser_count = 0;
 
   for (let i = sectionStart + 1; i < lines.length; i += 1) {
     const line = lines[i];
@@ -144,12 +150,14 @@ function parseAlternateEntriesCount(lines: string[]) {
       break;
     }
 
-    if (/\((?:LL|Alt)\)/i.test(line)) {
-      count += 1;
+    if (/\(Alt\)/i.test(line)) {
+      alternate_count += 1;
+    } else if (/\(LL\)/i.test(line)) {
+      lucky_loser_count += 1;
     }
   }
 
-  return count;
+  return { alternate_count, lucky_loser_count };
 }
 
 export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutoff {
@@ -157,6 +165,7 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
   const lastDirectAcceptanceIndex = lines.findIndex((line) => /last direct acceptance/i.test(line));
   const lastDirect = parseLastDirectAcceptance(lines);
   const challengerDoublesCuts = parseChallengerDoublesCuts(lines, lastDirectAcceptanceIndex);
+  const { alternate_count, lucky_loser_count } = parseAlternateEntriesCount(lines);
 
   return {
     last_direct_acceptance_rank: lastDirect?.rank ?? null,
@@ -164,7 +173,8 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
     raw_last_direct_acceptance: lastDirect?.raw ?? null,
     challenger_doubles_advanced_cut_rank: challengerDoublesCuts.advanced,
     challenger_doubles_onsite_cut_rank: challengerDoublesCuts.onsite,
-    alternate_entries_count: parseAlternateEntriesCount(lines),
+    alternate_entries_count: alternate_count,
+    lucky_loser_count,
     pdf_text_length: text.length,
   };
 }

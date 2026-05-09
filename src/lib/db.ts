@@ -125,6 +125,7 @@ export async function getCutoffSnapshotsForEditionIds(
       parser_version,
       source_notes,
       alternate_entries_count,
+      lucky_loser_count,
       created_at,
       updated_at
     from cutoff_snapshots
