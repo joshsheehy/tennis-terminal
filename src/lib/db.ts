@@ -38,9 +38,10 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
         t.city,
         t.country,
         te.year,
-        -- ATP week: days since the Monday on or before Jan 1 of this ATP season, divided by 7.
-        -- date_trunc('week', make_date(year,1,1)) gives that Monday even when it falls in December.
-        (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1 as week,
+        -- ATP week: days since the first Monday of the ATP year, divided by 7.
+        -- date_trunc('week', Jan 7) gives the first Monday of the year (Jan 7 is always in week 1).
+        -- greatest(1,...) clamps pre-Jan-1 starters (e.g. Dec 30) to week 1.
+        greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 7))::date) / 7 + 1) as week,
         te.start_date,
         te.end_date,
         te.level,
@@ -171,7 +172,7 @@ export async function getTournamentDetailRowsBySlug(
       t.city,
       t.country,
       te.year,
-      (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1 as week,
+      greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 7))::date) / 7 + 1) as week,
       te.start_date,
       te.end_date,
       te.level,
