@@ -112,7 +112,10 @@ export default async function TournamentDetailPage({
   const { year: yearParam } = await searchParams;
   const year = yearParam && VALID_YEARS.includes(Number(yearParam)) ? Number(yearParam) : 2026;
 
-  const rows = await getTournamentDetailRowsBySlug(slug, 3, year);
+  // Show only editions up to the selected year, with depth based on how far back we have data:
+  // 2024 → 1 edition (we have no 2023), 2025 → 2 (2025+2024), 2026 → 3 (2026+2025+2024)
+  const editionLimit = Math.max(1, year - 2023);
+  const rows = await getTournamentDetailRowsBySlug(slug, editionLimit, year);
 
   if (rows.length === 0) notFound();
 
