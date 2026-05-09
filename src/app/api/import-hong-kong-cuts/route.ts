@@ -13,6 +13,7 @@ type CutImport = {
   last_alternate_rank: number | null;
   last_alternate_player_name: string | null;
   alternate_entries_count: number;
+  lucky_loser_count: number;
   source_notes: string;
 };
 
@@ -28,6 +29,7 @@ const cuts: CutImport[] = [
     last_alternate_rank: null,
     last_alternate_player_name: null,
     alternate_entries_count: 0,
+    lucky_loser_count: 0,
     source_notes:
       'Official ProTennisLive 2024 Hong Kong main singles PDF: LAST DIRECT ACCEPTANCE AT DEADLINE / IN DRAW Bonzi, Benjamin - 73; Alternates/Lucky Losers section shows no entries. https://www.protennislive.com/posting/2024/336/mds.pdf',
   },
@@ -40,6 +42,7 @@ const cuts: CutImport[] = [
     last_alternate_rank: null,
     last_alternate_player_name: null,
     alternate_entries_count: 0,
+    lucky_loser_count: 0,
     source_notes:
       'Official ProTennisLive 2024 Hong Kong qualifying singles PDF: LAST DIRECT ACCEPTANCE Dougaz, Aziz - 232; Alternates section shows no entries. https://www.protennislive.com/posting/2024/336/qs.pdf',
   },
@@ -52,6 +55,7 @@ const cuts: CutImport[] = [
     last_alternate_rank: null,
     last_alternate_player_name: null,
     alternate_entries_count: 0,
+    lucky_loser_count: 0,
     source_notes:
       'Official ProTennisLive 2024 Hong Kong main doubles PDF: LAST DIRECT ACCEPTANCE King, Evan / Stalder, Reese - 132; Alternates/Lucky Losers section shows no entries. https://www.protennislive.com/posting/2024/336/mdd.pdf',
   },
@@ -64,6 +68,7 @@ const cuts: CutImport[] = [
     last_alternate_rank: null,
     last_alternate_player_name: null,
     alternate_entries_count: 0,
+    lucky_loser_count: 0,
     source_notes:
       'Official ProTennisLive 2025 Hong Kong main singles PDF: Last direct acceptance A. Muller - 67; Alternates/Lucky Losers section shows no entries. https://www.protennislive.com/posting/2025/336/mds.pdf',
   },
@@ -76,6 +81,7 @@ const cuts: CutImport[] = [
     last_alternate_rank: null,
     last_alternate_player_name: null,
     alternate_entries_count: 0,
+    lucky_loser_count: 0,
     source_notes:
       'Official ProTennisLive 2025 Hong Kong qualifying singles PDF: Last direct acceptance D. Yevseyev - 246; Alternates section shows no entries. https://www.protennislive.com/posting/2025/336/qs.pdf',
   },
@@ -88,6 +94,7 @@ const cuts: CutImport[] = [
     last_alternate_rank: null,
     last_alternate_player_name: 'Gabriel Diallo / Francesco Passaro',
     alternate_entries_count: 1,
+    lucky_loser_count: 0,
     source_notes:
       'Official ProTennisLive 2025 Hong Kong main doubles PDF: Last direct acceptance R. Carballes Baena / A. Muller - 124; Alternates/Lucky Losers lists G. Diallo / F. Passaro (Alt). https://www.protennislive.com/posting/2025/336/mdd.pdf',
   },
@@ -121,6 +128,11 @@ export async function GET() {
       add column if not exists alternate_entries_count int;
     `);
 
+    await client.query(`
+      alter table cutoff_snapshots
+      add column if not exists lucky_loser_count int not null default 0;
+    `);
+
     let imported = 0;
     const missingYears = new Set<number>();
 
@@ -144,12 +156,13 @@ export async function GET() {
           last_alternate_rank,
           last_alternate_player_name,
           alternate_entries_count,
+          lucky_loser_count,
           parsed_at,
           parser_version,
           source_notes,
           updated_at
         )
-        values ($1, $2, $3, 'official_pdf_manual_v1', $4, $5, $6, $7, $8, now(), 'hong-kong-manual-v1', $9, now())
+        values ($1, $2, $3, 'official_pdf_manual_v1', $4, $5, $6, $7, $8, $9, now(), 'hong-kong-manual-v1', $10, now())
         on conflict (tournament_edition_id, event_type, draw_type)
         do update set
           source_type = excluded.source_type,
@@ -158,6 +171,7 @@ export async function GET() {
           last_alternate_rank = excluded.last_alternate_rank,
           last_alternate_player_name = excluded.last_alternate_player_name,
           alternate_entries_count = excluded.alternate_entries_count,
+          lucky_loser_count = excluded.lucky_loser_count,
           parsed_at = excluded.parsed_at,
           parser_version = excluded.parser_version,
           source_notes = excluded.source_notes,
@@ -172,6 +186,7 @@ export async function GET() {
           cut.last_alternate_rank,
           cut.last_alternate_player_name,
           cut.alternate_entries_count,
+          cut.lucky_loser_count,
           cut.source_notes,
         ]
       );

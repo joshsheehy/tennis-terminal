@@ -253,6 +253,7 @@ async function upsertCutoffSnapshot(
       parser_version,
       source_notes,
       alternate_entries_count,
+      lucky_loser_count,
       updated_at
     )
     values (
@@ -272,6 +273,7 @@ async function upsertCutoffSnapshot(
       'official-pdf-bottom-left-v4',
       $8,
       $9,
+      $10,
       now()
     )
     on conflict (tournament_edition_id, event_type, draw_type)
@@ -285,6 +287,7 @@ async function upsertCutoffSnapshot(
       parser_version = excluded.parser_version,
       source_notes = excluded.source_notes,
       alternate_entries_count = excluded.alternate_entries_count,
+      lucky_loser_count = excluded.lucky_loser_count,
       updated_at = now()
     `,
     [
@@ -297,6 +300,7 @@ async function upsertCutoffSnapshot(
       parsed.challenger_doubles_onsite_cut_rank,
       `Official PDF: ${importedPdfUrl}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}. Historical edition row may be generated from current calendar metadata when no exact historical calendar row exists yet.`,
       parsed.alternate_entries_count,
+      parsed.lucky_loser_count,
     ]
   );
 }
@@ -379,6 +383,7 @@ export async function GET(request: NextRequest) {
         challenger_doubles_advanced_cut_rank: parsed.challenger_doubles_advanced_cut_rank,
         challenger_doubles_onsite_cut_rank: parsed.challenger_doubles_onsite_cut_rank,
         alternate_entries_count: parsed.alternate_entries_count,
+        lucky_loser_count: parsed.lucky_loser_count,
       };
 
       if (parsed.last_direct_acceptance_rank == null) {
