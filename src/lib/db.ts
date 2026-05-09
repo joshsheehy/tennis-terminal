@@ -29,27 +29,37 @@ export type TournamentDetailRow = {
 export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
   const result = await pool.query<ScheduleRow>(
     `
-    select
-      te.id as edition_id,
-      t.id as tournament_id,
-      t.slug,
-      t.name,
-      t.city,
-      t.country,
-      te.year,
-      te.week,
-      te.start_date,
-      te.end_date,
-      te.level,
-      te.surface,
-      te.indoor,
-      te.source,
-      te.status
-    from tournament_editions te
-    join tournaments t on t.id = te.tournament_id
-    where te.status = 'held'
-      and te.year = $1
-    order by te.start_date asc, t.name asc
+    with ranked as (
+      select
+        te.id as edition_id,
+        t.id as tournament_id,
+        t.slug,
+        t.name,
+        t.city,
+        t.country,
+        te.year,
+        te.week,
+        te.start_date,
+        te.end_date,
+        te.level,
+        te.surface,
+        te.indoor,
+        te.source,
+        te.status,
+        row_number() over (
+          partition by lower(t.name), te.week
+          order by te.updated_at desc nulls last
+        ) as rn
+      from tournament_editions te
+      join tournaments t on t.id = te.tournament_id
+      where te.status = 'held'
+        and te.year = $1
+    )
+    select edition_id, tournament_id, slug, name, city, country,
+           year, week, start_date, end_date, level, surface, indoor, source, status
+    from ranked
+    where rn = 1
+    order by start_date asc, name asc
     `,
     [year]
   );
