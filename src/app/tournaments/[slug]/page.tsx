@@ -82,28 +82,28 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
   );
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-neutral-800">
-      <table className="w-full min-w-[480px] border-collapse text-sm">
+    <div className="overflow-x-auto rounded-xl border border-neutral-700">
+      <table className="w-full min-w-[480px] text-sm">
         <thead>
-          <tr className="bg-neutral-900">
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Draw</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Cut</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">ALT / LL in draw</th>
+          <tr className="border-b border-neutral-700 bg-neutral-800">
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Draw</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Cut</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">ALT / LL in draw</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-neutral-800">
           {rows.map((cutoff, i) => (
             <tr
               key={cutoff.id}
-              className={`border-t border-neutral-800 ${i % 2 === 0 ? 'bg-neutral-950' : 'bg-black'}`}
+              className={i % 2 === 0 ? 'bg-neutral-950' : 'bg-neutral-900'}
             >
-              <td className="px-4 py-4 text-sm text-neutral-400">{cutoffLabel(cutoff)}</td>
-              <td className="px-4 py-4 text-sm font-semibold tabular-nums text-white">
+              <td className="px-4 py-3 text-neutral-300">{cutoffLabel(cutoff)}</td>
+              <td className="px-4 py-3 font-bold tabular-nums text-white">
                 {isChallenger && cutoff.event_type === 'doubles'
                   ? challengerDoublesCutText(cutoff)
                   : rankText(cutoff.last_direct_acceptance_rank)}
               </td>
-              <td className="px-4 py-4 text-sm tabular-nums text-neutral-300">{altLlText(cutoff)}</td>
+              <td className="px-4 py-3 tabular-nums text-neutral-400">{altLlText(cutoff)}</td>
             </tr>
           ))}
         </tbody>
