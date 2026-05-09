@@ -187,9 +187,9 @@ export async function GET(request: NextRequest) {
     }
 
     // ProTennisLive uses calendar year. For Dec-30-start tournaments belonging to next ATP year,
-    // PDFs are in the prior calendar year folder.
+    // PDFs are in the prior calendar year folder. Also try +1 in case data was posted late.
     const startCalendarYear = Number(r.start_date.slice(0, 4));
-    const candidateYears = Array.from(new Set([startCalendarYear, startCalendarYear - 1, r.year, r.year - 1]));
+    const candidateYears = Array.from(new Set([startCalendarYear, startCalendarYear - 1, startCalendarYear + 1, r.year, r.year - 1]));
 
     const isChallenger = r.level.toLowerCase().includes('challenger');
     const filledThis: string[] = [];

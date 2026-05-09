@@ -111,25 +111,25 @@ function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] 
         year: source.year,
         event_type: 'singles',
         draw_type: 'main',
-        pdf_url_candidates: [`${baseUrl}/mds.pdf`, `${baseUrl}/mds-1.pdf`, `${baseUrl}/md.pdf`],
+        pdf_url_candidates: [`${baseUrl}/mds.pdf`, `${baseUrl}/mds-1.pdf`, `${baseUrl}/mds-2.pdf`, `${baseUrl}/mds-3.pdf`, `${baseUrl}/md.pdf`, `${baseUrl}/ms.pdf`, `${baseUrl}/ad.pdf`, `${baseUrl}/mds-final.pdf`],
       },
       {
         slug: source.slug,
         year: source.year,
         event_type: 'singles',
         draw_type: 'qualifying',
-        pdf_url_candidates: [`${baseUrl}/qs.pdf`, `${baseUrl}/q.pdf`],
+        pdf_url_candidates: [`${baseUrl}/qs.pdf`, `${baseUrl}/qs-1.pdf`, `${baseUrl}/qs-2.pdf`, `${baseUrl}/q.pdf`, `${baseUrl}/qd.pdf`, `${baseUrl}/qsa.pdf`, `${baseUrl}/qs-final.pdf`],
       },
       {
         slug: source.slug,
         year: source.year,
         event_type: 'doubles',
         draw_type: 'main',
-        pdf_url_candidates: [`${baseUrl}/mdd.pdf`, `${baseUrl}/md.pdf`],
+        pdf_url_candidates: [`${baseUrl}/mdd.pdf`, `${baseUrl}/mdd-1.pdf`, `${baseUrl}/mdd-2.pdf`, `${baseUrl}/mdd-3.pdf`, `${baseUrl}/md.pdf`, `${baseUrl}/dd.pdf`, `${baseUrl}/mdd-final.pdf`],
       },
     ];
     if (source.has_doubles_qualifying) {
-      targets.push({ slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qd.pdf`, `${baseUrl}/qdd.pdf`] });
+      targets.push({ slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qd.pdf`, `${baseUrl}/qd-1.pdf`, `${baseUrl}/qdd.pdf`] });
     }
     return targets;
   });
