@@ -28,8 +28,8 @@ type OfficialPdfSource = {
 type EditionTemplate = {
   tournament_id: string;
   week: number | null;
-  start_date: string | null;
-  end_date: string | null;
+  start_date: string | Date | null;
+  end_date: string | Date | null;
   level: string;
   surface: string;
   indoor: boolean | null;
@@ -71,10 +71,15 @@ function getRequestedYear(request: NextRequest) {
   return year;
 }
 
-function shiftDateToYear(dateString: string | null, year: number) {
-  if (!dateString) return null;
+function shiftDateToYear(rawDate: string | Date | null, year: number) {
+  if (!rawDate) return null;
 
-  const parts = dateString.split('-').map(Number);
+  // pg returns PostgreSQL date columns as Date objects; handle both
+  const iso = rawDate instanceof Date
+    ? `${rawDate.getUTCFullYear()}-${String(rawDate.getUTCMonth() + 1).padStart(2, '0')}-${String(rawDate.getUTCDate()).padStart(2, '0')}`
+    : String(rawDate);
+
+  const parts = iso.split('-').map(Number);
   if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
 
   const [, month, day] = parts;
