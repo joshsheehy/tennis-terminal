@@ -4,7 +4,7 @@ import { pool } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Finds tournament editions that share the same (name, week, year) — true duplicates.
+// Finds tournament editions that share the same (normalized name, calendar week, year) — true duplicates.
 // With dryRun=true (default), just reports what would be removed.
 // With dryRun=false, merges cutoff_snapshots to the primary edition and deletes duplicates.
 
@@ -20,13 +20,17 @@ export async function GET(request: NextRequest) {
     yearFilter = `and te.year = $1`;
   }
 
-  // Find groups of editions sharing the same normalized name + week + year.
-  // Normalization strips trailing " Ch" / " Ch 2" so "Zadar" and "Zadar Ch" collapse into one group.
+  // Find groups of editions sharing the same normalized name + calendar week + year.
+  // Normalization strips trailing " Ch N" and trailing standalone numbers,
+  // so "Zadar", "Zadar Ch", and "Zadar 1" all collapse to "zadar".
   const dupeQuery = await pool.query(
     `
     select
-      regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', '') as norm_name,
-      te.week,
+      regexp_replace(
+        regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+        '\\s+\\d+$', ''
+      ) as norm_name,
+      date_trunc('week', te.start_date) as cal_week,
       te.year,
       count(*) as cnt,
       json_agg(json_build_object(
@@ -42,17 +46,28 @@ export async function GET(request: NextRequest) {
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     where te.status = 'held'
+      and te.start_date is not null
       ${yearFilter}
-    group by regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''), te.week, te.year
+    group by
+      regexp_replace(
+        regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+        '\\s+\\d+$', ''
+      ),
+      date_trunc('week', te.start_date),
+      te.year
     having count(*) > 1
-    order by te.year, te.week, regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', '')
+    order by te.year, date_trunc('week', te.start_date),
+      regexp_replace(
+        regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+        '\\s+\\d+$', ''
+      )
     `,
     queryParams
   );
 
   const groups = dupeQuery.rows as Array<{
     norm_name: string;
-    week: number | null;
+    cal_week: string;
     year: number;
     cnt: string;
     editions: Array<{
@@ -78,7 +93,7 @@ export async function GET(request: NextRequest) {
       duplicateGroupCount: groups.length,
       groups: groups.map((g) => ({
         name: g.editions[0].name,
-        week: g.week,
+        calWeek: g.cal_week,
         year: g.year,
         count: Number(g.cnt),
         editions: g.editions,
@@ -152,7 +167,7 @@ export async function GET(request: NextRequest) {
           keptEditionId: primary.edition_id,
           keptSlug: primary.slug,
           name: group.editions[0].name,
-          week: group.week,
+          calWeek: group.cal_week,
           year: group.year,
         });
       } catch (err) {

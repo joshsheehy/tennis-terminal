@@ -38,7 +38,9 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
         t.city,
         t.country,
         te.year,
-        te.week,
+        -- ATP week: days since the Monday on or before Jan 1 of this ATP season, divided by 7.
+        -- date_trunc('week', make_date(year,1,1)) gives that Monday even when it falls in December.
+        (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1 as week,
         te.start_date,
         te.end_date,
         te.level,
@@ -47,15 +49,25 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
         te.source,
         te.status,
         row_number() over (
-          partition by regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''), te.week
+          -- Deduplicate by calendar week so JeffSackmann imports (stored week may differ)
+          -- collapse with canonical entries. Strip " ch N" and trailing " N" from names.
+          partition by
+            regexp_replace(
+              regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+              '\\s+\\d+$', ''
+            ),
+            date_trunc('week', te.start_date)
           order by te.updated_at desc nulls last
         ) as rn
       from tournament_editions te
       join tournaments t on t.id = te.tournament_id
       where te.status = 'held'
         and te.year = $1
-        -- Exclude editions where start_date is in December of the same year as the edition.
-        -- December tournaments belong to the next ATP year (e.g. Dec 30, 2025 = ATP 2026 Week 1).
+        and te.start_date is not null
+        -- Exclude editions where start_date is in December of the same calendar year as
+        -- te.year — those are bad records (e.g. year=2025, start='2025-12-30', week=53).
+        -- December starts that belong to the NEXT ATP year (e.g. year=2026, start='2025-12-30')
+        -- are kept and correctly compute to week 1.
         and not (
           extract(month from te.start_date) = 12
           and extract(year from te.start_date) = te.year
@@ -159,7 +171,7 @@ export async function getTournamentDetailRowsBySlug(
       t.city,
       t.country,
       te.year,
-      te.week,
+      (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1 as week,
       te.start_date,
       te.end_date,
       te.level,
@@ -171,6 +183,7 @@ export async function getTournamentDetailRowsBySlug(
     join tournaments t on t.id = te.tournament_id
     where t.slug = $1
       and te.year <= $3
+      and te.start_date is not null
     order by te.year desc
     limit $2
     `,

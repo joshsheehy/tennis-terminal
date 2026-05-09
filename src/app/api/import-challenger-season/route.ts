@@ -82,11 +82,15 @@ async function fetchSackmannChallengerList(year: number): Promise<SackmannTourna
 
 function getAtpWeek(dateStr: string): number {
   const date = new Date(`${dateStr}T00:00:00Z`);
-  // December tournaments are ATP Week 1 of the following season
+  // December tournaments belong to the next ATP season as Week 1
   if (date.getUTCMonth() === 11) return 1;
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  const dayOfYear = Math.floor((date.getTime() - yearStart.getTime()) / (24 * 60 * 60 * 1000));
-  return Math.floor(dayOfYear / 7) + 1;
+  // ATP Week 1 starts on the last Monday on or before Jan 1 of this year
+  const jan1 = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const jan1Day = jan1.getUTCDay(); // 0=Sun … 6=Sat
+  const daysBack = jan1Day === 0 ? 6 : jan1Day - 1;
+  const week1Start = new Date(jan1.getTime() - daysBack * 24 * 60 * 60 * 1000);
+  const daysSinceWeek1 = Math.floor((date.getTime() - week1Start.getTime()) / (24 * 60 * 60 * 1000));
+  return Math.floor(daysSinceWeek1 / 7) + 1;
 }
 
 async function ensureTournamentRow(
