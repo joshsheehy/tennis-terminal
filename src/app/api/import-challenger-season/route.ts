@@ -82,6 +82,8 @@ async function fetchSackmannChallengerList(year: number): Promise<SackmannTourna
 
 function getAtpWeek(dateStr: string): number {
   const date = new Date(`${dateStr}T00:00:00Z`);
+  // December tournaments are ATP Week 1 of the following season
+  if (date.getUTCMonth() === 11) return 1;
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   const dayOfYear = Math.floor((date.getTime() - yearStart.getTime()) / (24 * 60 * 60 * 1000));
   return Math.floor(dayOfYear / 7) + 1;
@@ -244,9 +246,13 @@ export async function GET(request: NextRequest) {
         slug = slugify(`${name}-${city}`, { lower: true, strict: true, trim: true });
       }
 
-      const week = getAtpWeek(t.startDate);
+      const startDate = new Date(`${t.startDate}T00:00:00Z`);
+      const isDecember = startDate.getUTCMonth() === 11;
+      const week = isDecember ? 1 : getAtpWeek(t.startDate);
+      // December starts belong to the next ATP season (e.g. Dec 30, 2025 = ATP 2026 Week 1)
+      const editionYear = isDecember ? startDate.getUTCFullYear() + 1 : year;
       const tournamentId = await ensureTournamentRow(slug, name, city, country);
-      const editionId = await ensureEditionRow(tournamentId, year, week, t.startDate, level, t.surface, source);
+      const editionId = await ensureEditionRow(tournamentId, editionYear, week, t.startDate, level, t.surface, source);
 
       const [singlesMain, singlesQual, doublesMain] = await Promise.all([
         tryImportCut(editionId, t.code, year, 'singles', 'main', ['mds.pdf', 'mds-1.pdf', 'md.pdf']),
@@ -259,7 +265,7 @@ export async function GET(request: NextRequest) {
       const entry = {
         slug,
         name,
-        year,
+        year: editionYear,
         week,
         code: t.code,
         surface: t.surface,
