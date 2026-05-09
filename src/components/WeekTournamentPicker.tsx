@@ -166,10 +166,9 @@ export default function WeekTournamentPicker({
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      {weekGroups.map((group, index) => (
+      {weekGroups.map((group) => (
         <details
           key={group.key}
-          open={index === 0}
           style={{
             border: '1px solid #d6d6d6',
             borderRadius: 16,
