@@ -1,10 +1,20 @@
 import WeekTournamentPicker from '@/components/WeekTournamentPicker';
-import { getUpcomingSchedule } from '@/lib/db';
+import YearPicker from '@/components/YearPicker';
+import { getScheduleForYear } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export default async function HomePage() {
-  const tournaments = await getUpcomingSchedule(200);
+const VALID_YEARS = [2024, 2025, 2026];
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>;
+}) {
+  const { year: yearParam } = await searchParams;
+  const year = yearParam && VALID_YEARS.includes(Number(yearParam)) ? Number(yearParam) : 2026;
+
+  const tournaments = await getScheduleForYear(year);
 
   return (
     <main
@@ -30,7 +40,9 @@ export default async function HomePage() {
           Schedule
         </p>
 
-        <h1 style={{ margin: 0, marginBottom: 12 }}>Tournament calendar</h1>
+        <h1 style={{ margin: 0, marginBottom: 16 }}>Tournament calendar</h1>
+
+        <YearPicker currentYear={year} />
 
         <p style={{ margin: 0, color: '#444' }}>
           Pick a week first, then choose a tournament to open its historical page.
@@ -38,9 +50,9 @@ export default async function HomePage() {
       </div>
 
       {tournaments.length === 0 ? (
-        <div style={{ color: '#444' }}>No tournaments found yet.</div>
+        <div style={{ color: '#444' }}>No tournaments found for {year}.</div>
       ) : (
-        <WeekTournamentPicker tournaments={tournaments} />
+        <WeekTournamentPicker tournaments={tournaments} year={year} />
       )}
     </main>
   );

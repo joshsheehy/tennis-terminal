@@ -83,8 +83,10 @@ function getAdditionalWeeksSpanned(startDate: string | null, endDate: string | n
 
 export default function WeekTournamentPicker({
   tournaments,
+  year = 2026,
 }: {
   tournaments: ScheduleRow[];
+  year?: number;
 }) {
   const weekGroups = useMemo<WeekGroup[]>(() => {
     const expanded: DisplayTournament[] = [];
@@ -232,7 +234,7 @@ export default function WeekTournamentPicker({
             {group.tournaments.map(({ tournament, displayWeek }, tournamentIndex) => (
               <Link
                 key={`${tournament.edition_id}-${displayWeek ?? 'na'}`}
-                href={`/tournaments/${tournament.slug}`}
+                href={`/tournaments/${tournament.slug}${year !== 2026 ? `?year=${year}` : ''}`}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
