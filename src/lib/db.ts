@@ -26,7 +26,7 @@ export type TournamentDetailRow = {
   same_week_as_previous_year: boolean | null;
 };
 
-export async function getUpcomingSchedule(limit = 20): Promise<ScheduleRow[]> {
+export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
   const result = await pool.query<ScheduleRow>(
     `
     select
@@ -48,15 +48,10 @@ export async function getUpcomingSchedule(limit = 20): Promise<ScheduleRow[]> {
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     where te.status = 'held'
-      and te.year = (
-        select max(year)
-        from tournament_editions
-        where status = 'held'
-      )
+      and te.year = $1
     order by te.start_date asc, t.name asc
-    limit $1
     `,
-    [limit]
+    [year]
   );
 
   return result.rows;
@@ -134,7 +129,8 @@ export async function getCutoffSnapshotsForEditionIds(
 
 export async function getTournamentDetailRowsBySlug(
   slug: string,
-  limit = 4
+  limit = 4,
+  maxYear = 9999
 ): Promise<TournamentDetailRow[]> {
   const editionsResult = await pool.query<ScheduleRow>(
     `
@@ -157,10 +153,11 @@ export async function getTournamentDetailRowsBySlug(
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     where t.slug = $1
+      and te.year <= $3
     order by te.year desc
     limit $2
     `,
-    [slug, limit]
+    [slug, limit, maxYear]
   );
 
   const editions = editionsResult.rows;

@@ -99,13 +99,20 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
   );
 }
 
+const VALID_YEARS = [2024, 2025, 2026];
+
 export default async function TournamentDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ year?: string }>;
 }) {
   const { slug } = await params;
-  const rows = await getTournamentDetailRowsBySlug(slug, 3);
+  const { year: yearParam } = await searchParams;
+  const year = yearParam && VALID_YEARS.includes(Number(yearParam)) ? Number(yearParam) : 2026;
+
+  const rows = await getTournamentDetailRowsBySlug(slug, 3, year);
 
   if (rows.length === 0) notFound();
 
@@ -113,8 +120,8 @@ export default async function TournamentDetailPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-6 py-10">
-      <Link href="/" className="text-sm text-neutral-400 hover:text-white">
-        ← Back to schedule
+      <Link href={year !== 2026 ? `/?year=${year}` : '/'} className="text-sm text-neutral-400 hover:text-white">
+        ← Back to {year} schedule
       </Link>
 
       <section className="mt-8 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
@@ -126,8 +133,8 @@ export default async function TournamentDetailPage({
         </p>
         <div className="mt-5 grid gap-3 text-sm text-neutral-300 sm:grid-cols-4">
           <div>
-            <div className="text-neutral-500">Current year</div>
-            <div>{current.year}</div>
+            <div className="text-neutral-500">Viewing year</div>
+            <div>{year}</div>
           </div>
           <div>
             <div className="text-neutral-500">Week</div>
