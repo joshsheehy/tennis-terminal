@@ -47,7 +47,7 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
         te.source,
         te.status,
         row_number() over (
-          partition by lower(t.name), te.week
+          partition by regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''), te.week
           order by te.updated_at desc nulls last
         ) as rn
       from tournament_editions te

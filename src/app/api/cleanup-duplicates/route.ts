@@ -20,11 +20,12 @@ export async function GET(request: NextRequest) {
     yearFilter = `and te.year = $1`;
   }
 
-  // Find groups of editions sharing the same lowercase name + week + year
+  // Find groups of editions sharing the same normalized name + week + year.
+  // Normalization strips trailing " Ch" / " Ch 2" so "Zadar" and "Zadar Ch" collapse into one group.
   const dupeQuery = await pool.query(
     `
     select
-      lower(t.name) as norm_name,
+      regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', '') as norm_name,
       te.week,
       te.year,
       count(*) as cnt,
@@ -42,9 +43,9 @@ export async function GET(request: NextRequest) {
     join tournaments t on t.id = te.tournament_id
     where te.status = 'held'
       ${yearFilter}
-    group by lower(t.name), te.week, te.year
+    group by regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''), te.week, te.year
     having count(*) > 1
-    order by te.year, te.week, lower(t.name)
+    order by te.year, te.week, regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', '')
     `,
     queryParams
   );
