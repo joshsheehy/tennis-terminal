@@ -32,7 +32,7 @@ function editionSummary(edition: {
 }) {
   if (edition.status === 'not_held') return 'Not Held / NA';
   const dateRange = edition.end_date
-    ? `${formatDate(edition.start_date)} - ${formatDate(edition.end_date)}`
+    ? `${formatDate(edition.start_date)} – ${formatDate(edition.end_date)}`
     : formatDate(edition.start_date);
   return `${dateRange} · Week ${edition.week ?? 'NA'} · ${edition.level} · ${edition.surface}`;
 }
@@ -45,7 +45,7 @@ function cutoffLabel(cutoff: CutoffSnapshot) {
 }
 
 function rankText(rank: number | null) {
-  return rank ? String(rank) : 'No data yet';
+  return rank ? String(rank) : '—';
 }
 
 function challengerDoublesCutText(cutoff: CutoffSnapshot) {
@@ -70,7 +70,13 @@ function altLlText(cutoff: CutoffSnapshot) {
 function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: string }) {
   if (cutoffs.length === 0) {
     return (
-      <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
+      <div style={{
+        padding: '12px 16px',
+        background: '#f5f5f5',
+        borderRadius: 8,
+        color: '#888',
+        fontSize: 14,
+      }}>
         No cut data imported yet for this year.
       </div>
     );
@@ -82,28 +88,31 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
   );
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-neutral-700">
-      <table className="w-full min-w-[480px] text-sm">
+    <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
-          <tr className="border-b border-neutral-700 bg-neutral-800">
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Draw</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Cut</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">ALT / LL in draw</th>
+          <tr style={{ background: '#f0f0f0', borderBottom: '2px solid #d0d0d0' }}>
+            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666' }}>Draw</th>
+            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666' }}>Cut</th>
+            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666' }}>ALT / LL in draw</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-neutral-800">
+        <tbody>
           {rows.map((cutoff, i) => (
             <tr
               key={cutoff.id}
-              className={i % 2 === 0 ? 'bg-neutral-950' : 'bg-neutral-900'}
+              style={{
+                background: i % 2 === 0 ? '#ffffff' : '#fafafa',
+                borderBottom: '1px solid #e8e8e8',
+              }}
             >
-              <td className="px-4 py-3 text-neutral-300">{cutoffLabel(cutoff)}</td>
-              <td className="px-4 py-3 font-bold tabular-nums text-white">
+              <td style={{ padding: '12px 16px', color: '#555' }}>{cutoffLabel(cutoff)}</td>
+              <td style={{ padding: '12px 16px', fontWeight: 700, color: '#111', fontVariantNumeric: 'tabular-nums' }}>
                 {isChallenger && cutoff.event_type === 'doubles'
                   ? challengerDoublesCutText(cutoff)
                   : rankText(cutoff.last_direct_acceptance_rank)}
               </td>
-              <td className="px-4 py-3 tabular-nums text-neutral-400">{altLlText(cutoff)}</td>
+              <td style={{ padding: '12px 16px', color: '#555', fontVariantNumeric: 'tabular-nums' }}>{altLlText(cutoff)}</td>
             </tr>
           ))}
         </tbody>
@@ -125,8 +134,6 @@ export default async function TournamentDetailPage({
   const { year: yearParam } = await searchParams;
   const year = yearParam && VALID_YEARS.includes(Number(yearParam)) ? Number(yearParam) : 2026;
 
-  // Show only editions up to the selected year, with depth based on how far back we have data:
-  // 2024 → 1 edition (we have no 2023), 2025 → 2 (2025+2024), 2026 → 3 (2026+2025+2024)
   const editionLimit = Math.max(1, year - 2023);
   const rows = await getTournamentDetailRowsBySlug(slug, editionLimit, year);
 
@@ -135,69 +142,63 @@ export default async function TournamentDetailPage({
   const current = rows[0].edition;
 
   return (
-    <main className="mx-auto min-h-screen max-w-6xl px-6 py-10">
-      <Link href={year !== 2026 ? `/?year=${year}` : '/'} className="text-sm text-neutral-400 hover:text-white">
+    <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: '#ffffff', color: '#111', minHeight: '100vh' }}>
+      <Link href={year !== 2026 ? `/?year=${year}` : '/'} style={{ fontSize: 14, color: '#888' }}>
         ← Back to {year} schedule
       </Link>
 
-      <section className="mt-8 rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
-        <p className="text-sm uppercase tracking-[0.2em] text-neutral-500">Tournament</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">{current.name}</h1>
-        <p className="mt-2 text-neutral-400">
-          {current.city}
-          {current.country ? `, ${current.country}` : ''}
+      <div style={{ marginTop: 24, paddingBottom: 20, borderBottom: '1px solid #e8e8e8' }}>
+        <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#999', marginBottom: 6 }}>
+          Tournament
         </p>
-        <div className="mt-5 grid gap-3 text-sm text-neutral-300 sm:grid-cols-4">
-          <div>
-            <div className="text-neutral-500">Viewing year</div>
-            <div>{year}</div>
-          </div>
-          <div>
-            <div className="text-neutral-500">Week</div>
-            <div>{current.week ?? 'NA'}</div>
-          </div>
-          <div>
-            <div className="text-neutral-500">Level</div>
-            <div>{current.level}</div>
-          </div>
-          <div>
-            <div className="text-neutral-500">Start</div>
-            <div>{formatDate(current.start_date)}</div>
-          </div>
+        <h1 style={{ margin: 0, marginBottom: 4, fontSize: 28, fontWeight: 700 }}>{current.name}</h1>
+        <p style={{ margin: 0, color: '#666', fontSize: 15 }}>
+          {current.city}{current.country ? `, ${current.country}` : ''}
+        </p>
+        <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {[
+            ['Viewing year', year],
+            ['Week', current.week ?? 'NA'],
+            ['Level', current.level],
+            ['Start', formatDate(current.start_date)],
+          ].map(([label, value]) => (
+            <div key={String(label)}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#999', marginBottom: 2 }}>{label}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>{value}</div>
+            </div>
+          ))}
         </div>
-      </section>
+      </div>
 
-      <section className="mt-8 space-y-6">
+      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {rows.map((row) => (
-          <article key={row.edition.edition_id} className="rounded-2xl border border-neutral-800 bg-black p-5">
-            <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-start">
+          <div key={row.edition.edition_id} style={{ border: '1px solid #e0e0e0', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ background: '#f8f8f8', padding: '14px 16px', borderBottom: '1px solid #e0e0e0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h3 className="text-lg font-semibold">{row.edition.year}</h3>
-                <p className="text-sm text-neutral-400">
-                  {editionSummary(row.edition)}
-                </p>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{row.edition.year}</h3>
+                <p style={{ margin: 0, fontSize: 13, color: '#666', marginTop: 2 }}>{editionSummary(row.edition)}</p>
               </div>
-
-              <div className="grid gap-2 text-sm sm:grid-cols-2">
-                <div className="rounded-xl border border-neutral-800 px-3 py-2">
-                  Level vs previous year: {compareLabel(row.same_level_as_previous_year)}
-                </div>
-                <div className="rounded-xl border border-neutral-800 px-3 py-2">
-                  Week vs previous year: {compareLabel(row.same_week_as_previous_year)}
-                </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, padding: '4px 10px', background: '#fff', border: '1px solid #ddd', borderRadius: 6, color: '#555' }}>
+                  Level: <strong>{compareLabel(row.same_level_as_previous_year)}</strong>
+                </span>
+                <span style={{ fontSize: 12, padding: '4px 10px', background: '#fff', border: '1px solid #ddd', borderRadius: 6, color: '#555' }}>
+                  Week: <strong>{compareLabel(row.same_week_as_previous_year)}</strong>
+                </span>
               </div>
             </div>
-
-            {row.edition.status === 'not_held' ? (
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
-                Tournament not held this year.
-              </div>
-            ) : (
-              <CutoffTable cutoffs={row.cutoffs} level={row.edition.level} />
-            )}
-          </article>
+            <div style={{ padding: 16 }}>
+              {row.edition.status === 'not_held' ? (
+                <div style={{ padding: '12px 16px', background: '#f5f5f5', borderRadius: 8, color: '#888', fontSize: 14 }}>
+                  Tournament not held this year.
+                </div>
+              ) : (
+                <CutoffTable cutoffs={row.cutoffs} level={row.edition.level} />
+              )}
+            </div>
+          </div>
         ))}
-      </section>
+      </div>
     </main>
   );
 }
