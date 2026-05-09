@@ -260,9 +260,9 @@ export async function GET(request: NextRequest) {
       const editionId = await ensureEditionRow(tournamentId, editionYear, week, t.startDate, level, t.surface, source);
 
       const [singlesMain, singlesQual, doublesMain] = await Promise.all([
-        tryImportCut(editionId, t.code, year, 'singles', 'main', ['mds.pdf', 'mds-1.pdf', 'md.pdf']),
-        tryImportCut(editionId, t.code, year, 'singles', 'qualifying', ['qs.pdf', 'q.pdf']),
-        tryImportCut(editionId, t.code, year, 'doubles', 'main', ['mdd.pdf', 'mdd-1.pdf', 'md.pdf']),
+        tryImportCut(editionId, t.code, year, 'singles', 'main', ['mds.pdf', 'mds-1.pdf', 'mds-2.pdf', 'mds-3.pdf', 'md.pdf', 'ms.pdf', 'ad.pdf', 'mds-final.pdf']),
+        tryImportCut(editionId, t.code, year, 'singles', 'qualifying', ['qs.pdf', 'qs-1.pdf', 'qs-2.pdf', 'q.pdf', 'qd.pdf', 'qsa.pdf', 'qs-final.pdf']),
+        tryImportCut(editionId, t.code, year, 'doubles', 'main', ['mdd.pdf', 'mdd-1.pdf', 'mdd-2.pdf', 'mdd-3.pdf', 'md.pdf', 'dd.pdf', 'mdd-final.pdf']),
       ]);
 
       const anyPdf = singlesMain.ok || singlesQual.ok || doublesMain.ok;
