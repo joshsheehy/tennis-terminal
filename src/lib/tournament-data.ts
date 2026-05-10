@@ -429,8 +429,27 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   tourEvent('Rolex Paris Masters', 'Paris', 'France', 2026, 45, '2026-11-02', '2026-11-08', 'ATP 1000', 'Indoor Hard', true, '352', false),
 
   // ─── HISTORICAL EDITIONS (level changes, demotions, promotions) ───────────
-  // Add entries here when a tournament ran at a different level in a prior year.
+  // Add entries here for prior-year editions missing from the main 2026 list.
   // The slug must match the current entry so history is stitched together correctly.
+
+  // Asunción (Rakiura) 2025 — same level/surface as 2026, just a missing year entry.
+  {
+    tournament: { slug: makeSlug('Asunción (Rakiura)', 'Asunción'), name: 'Asunción (Rakiura)', city: 'Asunción', country: 'Paraguay' },
+    edition: {
+      year: 2025,
+      week: 11,
+      start_date: '2025-03-17',
+      end_date: '2025-03-23',
+      level: 'Challenger 75',
+      surface: 'Clay',
+      indoor: false,
+      source: 'atp_challenger_pdf',
+      source_url: 'https://www.atptour.com/en/scores/archive/asuncion/2909/2025/results',
+      status: 'held',
+      protennislive_code: '2909',
+      has_doubles_qualifying: false,
+    },
+  },
 
   // Newport was an ATP 250 in 2024 (its final year on Tour) before dropping to Challenger 125.
   {
