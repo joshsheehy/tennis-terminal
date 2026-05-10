@@ -196,6 +196,10 @@ export default async function TournamentDetailPage({
                 <div style={{ padding: '12px 16px', background: '#f5f5f5', borderRadius: 8, color: '#888', fontSize: 14 }}>
                   Tournament not held this year.
                 </div>
+              ) : row.edition.start_date && new Date(row.edition.start_date) > new Date() ? (
+                <div style={{ padding: '12px 16px', background: '#f5f5f5', borderRadius: 8, color: '#888', fontSize: 14 }}>
+                  Tournament has not started yet.
+                </div>
               ) : (
                 <CutoffTable cutoffs={row.cutoffs} level={row.edition.level} />
               )}
