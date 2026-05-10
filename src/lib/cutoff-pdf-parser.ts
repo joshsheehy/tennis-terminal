@@ -179,23 +179,53 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
   };
 }
 
-export async function fetchAndParseOfficialPdfCutoff(
-  pdfUrl: string
-): Promise<ParsedOfficialPdfCutoff> {
-  const response = await fetch(pdfUrl, {
+async function fetchPdfBuffer(url: string): Promise<Buffer> {
+  const response = await fetch(url, {
     headers: {
       accept: 'application/pdf,*/*;q=0.8',
-      'user-agent': 'TennisTerminalPdfParser/0.1',
+      'user-agent': 'Mozilla/5.0 (compatible; TennisTerminalBot/1.0)',
+      referer: 'https://www.protennislive.com/',
     },
     cache: 'no-store',
   });
+  if (!response.ok) throw new Error(`fetch failed ${response.status}`);
+  return Buffer.from(await response.arrayBuffer());
+}
 
-  if (!response.ok) {
-    throw new Error(`PDF fetch failed ${response.status} for ${pdfUrl}`);
+// When PTL blocks a historical PDF, try the Wayback Machine.
+// Uses the "if_" modifier so we get the raw file, not the Wayback UI wrapper.
+async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
+  const yearMatch = pdfUrl.match(/\/posting\/(\d{4})\//);
+  if (!yearMatch) return null;
+  const year = yearMatch[1];
+
+  // Try a few snapshots spread across the season
+  const timestamps = [`${year}1201`, `${year}0901`, `${year}0601`, `${year}0401`];
+  for (const ts of timestamps) {
+    try {
+      return await fetchPdfBuffer(
+        `https://web.archive.org/web/${ts}000000if_/${pdfUrl}`
+      );
+    } catch {
+      // try next timestamp
+    }
   }
+  return null;
+}
 
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+export async function fetchAndParseOfficialPdfCutoff(
+  pdfUrl: string
+): Promise<ParsedOfficialPdfCutoff> {
+  let buffer: Buffer;
+
+  try {
+    buffer = await fetchPdfBuffer(pdfUrl);
+  } catch {
+    // PTL may block historical PDFs — fall back to Wayback Machine
+    const archived = await fetchViaWayback(pdfUrl);
+    if (!archived) throw new Error(`PDF unavailable (PTL + Wayback both failed) for ${pdfUrl}`);
+    buffer = archived;
+  }
 
   // pdf-parse has no bundled TypeScript types in this project.
   // Using require here avoids adding another dependency just for this parser.
