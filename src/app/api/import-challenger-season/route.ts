@@ -244,10 +244,13 @@ export async function GET(request: NextRequest) {
         country = editionEntry.tournament.country;
         level = editionEntry.edition.level;
         source = editionEntry.edition.source;
-        // Prefer canonical dates from tournament-data.ts over JeffSackmann's,
-        // which can diverge from the ATP official schedule.
-        canonicalStartDate = editionEntry.edition.start_date;
-        canonicalWeek = editionEntry.edition.week;
+        // For the current season (2026), prefer canonical scheduled dates so
+        // JeffSackmann's actual-play dates don't shift tournaments to the wrong week.
+        // For historical imports (2024/2025), use JeffSackmann's actual dates.
+        if (year === 2026) {
+          canonicalStartDate = editionEntry.edition.start_date;
+          canonicalWeek = editionEntry.edition.week;
+        }
       } else {
         // Tournament not in our 2026 calendar — derive from JeffSackmann name
         name = t.name;
