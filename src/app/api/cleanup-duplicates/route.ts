@@ -28,7 +28,10 @@ export async function GET(request: NextRequest) {
     select
       regexp_replace(
         regexp_replace(
-          regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+          regexp_replace(
+            translate(lower(t.name), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+            '\\s+ch(\\s+\\d+)?$', ''
+          ),
           '\\s+\\d+$', ''
         ),
         ',\\s*[a-z]{2}$', ''
@@ -54,7 +57,10 @@ export async function GET(request: NextRequest) {
     group by
       regexp_replace(
         regexp_replace(
-          regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+          regexp_replace(
+            translate(lower(t.name), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+            '\\s+ch(\\s+\\d+)?$', ''
+          ),
           '\\s+\\d+$', ''
         ),
         ',\\s*[a-z]{2}$', ''
@@ -65,7 +71,10 @@ export async function GET(request: NextRequest) {
     order by te.year, date_trunc('week', te.start_date),
       regexp_replace(
         regexp_replace(
-          regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+          regexp_replace(
+            translate(lower(t.name), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+            '\\s+ch(\\s+\\d+)?$', ''
+          ),
           '\\s+\\d+$', ''
         ),
         ',\\s*[a-z]{2}$', ''

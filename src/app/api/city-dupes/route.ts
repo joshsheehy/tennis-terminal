@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const dupeQuery = await pool.query(
     `
     select
-      t.city,
+      translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn') as city,
       date_trunc('week', te.start_date) as cal_week,
       te.year,
       count(*) as cnt,
@@ -48,9 +48,9 @@ export async function GET(request: NextRequest) {
       and te.start_date is not null
       and t.city is not null
       ${yearFilter}
-    group by t.city, date_trunc('week', te.start_date), te.year
+    group by translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'), date_trunc('week', te.start_date), te.year
     having count(*) > 1
-    order by te.year, date_trunc('week', te.start_date), t.city
+    order by te.year, date_trunc('week', te.start_date), translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn')
     `,
     queryParams
   );
