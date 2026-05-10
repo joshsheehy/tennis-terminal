@@ -179,38 +179,42 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
   };
 }
 
-async function fetchPdfBuffer(url: string): Promise<Buffer> {
-  const response = await fetch(url, {
-    headers: {
-      accept: 'application/pdf,*/*;q=0.8',
-      'user-agent': 'Mozilla/5.0 (compatible; TennisTerminalBot/1.0)',
-      referer: 'https://www.protennislive.com/',
-    },
-    cache: 'no-store',
-  });
-  if (!response.ok) throw new Error(`fetch failed ${response.status}`);
-  return Buffer.from(await response.arrayBuffer());
+async function fetchPdfBuffer(url: string, timeoutMs = 8000): Promise<Buffer> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      headers: {
+        accept: 'application/pdf,*/*;q=0.8',
+        'user-agent': 'Mozilla/5.0 (compatible; TennisTerminalBot/1.0)',
+        referer: 'https://www.protennislive.com/',
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`fetch failed ${response.status}`);
+    return Buffer.from(await response.arrayBuffer());
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-// When PTL blocks a historical PDF, try the Wayback Machine.
+// When PTL blocks a historical PDF, try the Wayback Machine in parallel.
 // Uses the "if_" modifier so we get the raw file, not the Wayback UI wrapper.
 async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
   const yearMatch = pdfUrl.match(/\/posting\/(\d{4})\//);
   if (!yearMatch) return null;
   const year = yearMatch[1];
 
-  // Try a few snapshots spread across the season
+  // Race all timestamps simultaneously — first success wins, 6s per attempt
   const timestamps = [`${year}1201`, `${year}0901`, `${year}0601`, `${year}0401`];
-  for (const ts of timestamps) {
-    try {
-      return await fetchPdfBuffer(
-        `https://web.archive.org/web/${ts}000000if_/${pdfUrl}`
-      );
-    } catch {
-      // try next timestamp
-    }
-  }
-  return null;
+  const results = await Promise.all(
+    timestamps.map((ts) =>
+      fetchPdfBuffer(`https://web.archive.org/web/${ts}000000if_/${pdfUrl}`, 6000)
+        .catch(() => null)
+    )
+  );
+  return results.find((r) => r !== null) ?? null;
 }
 
 export async function fetchAndParseOfficialPdfCutoff(
