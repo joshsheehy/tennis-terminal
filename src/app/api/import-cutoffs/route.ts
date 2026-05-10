@@ -408,13 +408,13 @@ export async function GET(request: NextRequest) {
   }
 
   const missingCodeMappings = editionSlugs
-    .filter((edition) => {
+    .filter((edition: { slug: string; level: string }) => {
       const normalizedLevel = normalizeLevel(edition.level);
       if (!normalizedLevel) return false;
       if (atpOnly && !ATP_TOUR_LEVELS.includes(normalizedLevel)) return false;
       return !knownCodeBySlug.has(edition.slug);
     })
-    .map((edition) => ({ slug: edition.slug, level: edition.level }));
+    .map((edition: { slug: string; level: string }) => ({ slug: edition.slug, level: edition.level }));
 
   const officialPdfSources = buildOfficialPdfSources(requestedYear, atpOnly, dbFallbackCodes);
   const allTargets = buildPdfImportTargets(officialPdfSources);

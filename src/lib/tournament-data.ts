@@ -428,4 +428,27 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   // ─── WEEK 45 (Nov 2) — ATP 1000 ──────────────────────────────────────────────
   tourEvent('Rolex Paris Masters', 'Paris', 'France', 2026, 45, '2026-11-02', '2026-11-08', 'ATP 1000', 'Indoor Hard', true, '352', false),
 
+  // ─── HISTORICAL EDITIONS (level changes, demotions, promotions) ───────────
+  // Add entries here when a tournament ran at a different level in a prior year.
+  // The slug must match the current entry so history is stitched together correctly.
+
+  // Newport was an ATP 250 in 2024 (its final year on Tour) before dropping to Challenger 125.
+  {
+    tournament: { slug: makeSlug('Newport, RI', 'Newport'), name: 'Newport, RI', city: 'Newport', country: 'United States' },
+    edition: {
+      year: 2024,
+      week: 29,
+      start_date: '2024-07-15',
+      end_date: '2024-07-21',
+      level: 'ATP 250',
+      surface: 'Grass',
+      indoor: false,
+      source: 'atp_tour_pdf',
+      source_url: 'https://www.atptour.com/en/scores/archive/newport/315/2024/results',
+      status: 'held',
+      protennislive_code: '315',
+      has_doubles_qualifying: false,
+    },
+  },
+
 ];
