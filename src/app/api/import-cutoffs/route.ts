@@ -52,6 +52,31 @@ async function getEditionSlugsForYear(year: number) {
   return result.rows;
 }
 
+async function getKnownCodesFromEditionSourceUrls(year: number) {
+  const result = await pool.query<{ slug: string; source_url: string | null }>(
+    `
+    select t.slug, te.source_url
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    where te.year = $1
+      and te.status = 'held'
+      and te.source_url is not null
+    `,
+    [year]
+  );
+
+  const codeBySlug = new Map<string, string>();
+
+  for (const row of result.rows) {
+    const sourceUrl = row.source_url ?? '';
+    const match = sourceUrl.match(/\/archive\/[^/]+\/(\d+)\/\d{4}\/results/i);
+    if (!match?.[1]) continue;
+    codeBySlug.set(row.slug, match[1]);
+  }
+
+  return codeBySlug;
+}
+
 function normalizeLevel(level: string): OfficialPdfSource['level'] | null {
   if (level === 'ATP 250') return 'atp_250';
   if (level === 'ATP 500') return 'atp_500';
@@ -88,18 +113,41 @@ function shiftDateToYear(rawDate: string | Date | null, year: number) {
 
 const ATP_TOUR_LEVELS: OfficialPdfSource['level'][] = ['atp_250', 'atp_500', 'atp_1000'];
 
-function buildOfficialPdfSources(year: number, atpOnly: boolean): OfficialPdfSource[] {
-  return ALL_EDITIONS
-    .filter((entry) => entry.edition.year === 2026 && entry.edition.protennislive_code)
-    .map((entry) => ({
+function buildOfficialPdfSources(
+  year: number,
+  atpOnly: boolean,
+  fallbackCodeBySlug: Map<string, string>
+): OfficialPdfSource[] {
+  const sourceBySlug = new Map<string, OfficialPdfSource>();
+
+  for (const entry of ALL_EDITIONS) {
+    if (entry.edition.year !== 2026 || !entry.edition.protennislive_code) continue;
+
+    const normalizedLevel = normalizeLevel(entry.edition.level);
+    if (!normalizedLevel) continue;
+    if (atpOnly && !ATP_TOUR_LEVELS.includes(normalizedLevel)) continue;
+
+    sourceBySlug.set(entry.tournament.slug, {
       slug: entry.tournament.slug,
       year,
       code: entry.edition.protennislive_code as string,
-      level: normalizeLevel(entry.edition.level) as OfficialPdfSource['level'],
+      level: normalizedLevel,
       has_doubles_qualifying: entry.edition.has_doubles_qualifying,
-    }))
-    .filter((entry) => Boolean(entry.level))
-    .filter((entry) => !atpOnly || ATP_TOUR_LEVELS.includes(entry.level));
+    });
+  }
+
+  for (const [slug, code] of fallbackCodeBySlug.entries()) {
+    if (sourceBySlug.has(slug)) continue;
+    sourceBySlug.set(slug, {
+      slug,
+      year,
+      code,
+      level: 'challenger',
+      has_doubles_qualifying: false,
+    });
+  }
+
+  return Array.from(sourceBySlug.values());
 }
 
 function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
@@ -325,11 +373,13 @@ export async function GET(request: NextRequest) {
   const atpOnly = request.nextUrl.searchParams.get('atpOnly') === 'true';
 
   const editionSlugs = await getEditionSlugsForYear(requestedYear);
-  const knownCodeBySlug = new Map(
+  const canonicalCodeBySlug = new Map(
     ALL_EDITIONS
       .filter((entry) => entry.edition.year === 2026 && entry.edition.protennislive_code)
       .map((entry) => [entry.tournament.slug, entry.edition.protennislive_code])
   );
+  const sourceUrlCodeBySlug = await getKnownCodesFromEditionSourceUrls(requestedYear);
+  const knownCodeBySlug = new Map([...sourceUrlCodeBySlug.entries(), ...canonicalCodeBySlug.entries()]);
   const missingCodeMappings = editionSlugs
     .filter((edition) => {
       const normalizedLevel = normalizeLevel(edition.level);
@@ -339,7 +389,7 @@ export async function GET(request: NextRequest) {
     })
     .map((edition) => ({ slug: edition.slug, level: edition.level }));
 
-  const officialPdfSources = buildOfficialPdfSources(requestedYear, atpOnly);
+  const officialPdfSources = buildOfficialPdfSources(requestedYear, atpOnly, sourceUrlCodeBySlug);
   const pdfImportTargets = buildPdfImportTargets(officialPdfSources);
 
   for (const target of pdfImportTargets) {
