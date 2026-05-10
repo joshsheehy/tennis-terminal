@@ -234,6 +234,9 @@ export async function GET(request: NextRequest) {
       let level: string;
       let source: string;
 
+      let canonicalStartDate: string | null = null;
+      let canonicalWeek: number | null = null;
+
       if (editionEntry) {
         slug = editionEntry.tournament.slug;
         name = editionEntry.tournament.name;
@@ -241,6 +244,10 @@ export async function GET(request: NextRequest) {
         country = editionEntry.tournament.country;
         level = editionEntry.edition.level;
         source = editionEntry.edition.source;
+        // Prefer canonical dates from tournament-data.ts over JeffSackmann's,
+        // which can diverge from the ATP official schedule.
+        canonicalStartDate = editionEntry.edition.start_date;
+        canonicalWeek = editionEntry.edition.week;
       } else {
         // Tournament not in our 2026 calendar — derive from JeffSackmann name
         name = t.name;
@@ -251,13 +258,14 @@ export async function GET(request: NextRequest) {
         slug = slugify(`${name}-${city}`, { lower: true, strict: true, trim: true });
       }
 
-      const startDate = new Date(`${t.startDate}T00:00:00Z`);
+      const effectiveStartDate = canonicalStartDate ?? t.startDate;
+      const startDate = new Date(`${effectiveStartDate}T00:00:00Z`);
       const isDecember = startDate.getUTCMonth() === 11;
-      const week = isDecember ? 1 : getAtpWeek(t.startDate);
+      const week = canonicalWeek ?? (isDecember ? 1 : getAtpWeek(effectiveStartDate));
       // December starts belong to the next ATP season (e.g. Dec 30, 2025 = ATP 2026 Week 1)
       const editionYear = isDecember ? startDate.getUTCFullYear() + 1 : year;
       const tournamentId = await ensureTournamentRow(slug, name, city, country);
-      const editionId = await ensureEditionRow(tournamentId, editionYear, week, t.startDate, level, t.surface, source);
+      const editionId = await ensureEditionRow(tournamentId, editionYear, week, effectiveStartDate, level, t.surface, source);
 
       const [singlesMain, singlesQual, doublesMain] = await Promise.all([
         tryImportCut(editionId, t.code, year, 'singles', 'main', ['mds.pdf', 'mds-1.pdf', 'mds-2.pdf', 'mds-3.pdf', 'md.pdf', 'ms.pdf', 'ad.pdf', 'mds-final.pdf']),

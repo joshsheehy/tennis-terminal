@@ -18,6 +18,11 @@ const SLUG_TO_CODE = new Map<string, string>(
     .map((e) => [e.tournament.slug, String(e.edition.protennislive_code)])
 );
 
+const SLUG_HAS_DOUBLES_QUAL = new Set(
+  ALL_EDITIONS.filter((e) => e.edition.has_doubles_qualifying).map((e) => e.tournament.slug)
+);
+const ALL_KNOWN_SLUGS = new Set(ALL_EDITIONS.map((e) => e.tournament.slug));
+
 const PDF_PATTERNS = {
   singles_main: ['mds.pdf', 'mds-1.pdf', 'mds-2.pdf', 'mds-3.pdf', 'md.pdf', 'ms.pdf', 'ad.pdf', 'mds-final.pdf'],
   singles_qual: ['qs.pdf', 'qs-1.pdf', 'qs-2.pdf', 'q.pdf', 'qd.pdf', 'qsa.pdf', 'qs-final.pdf'],
@@ -150,11 +155,15 @@ export async function GET() {
 
   const incomplete = editionsResult.rows.filter((r) => {
     const isChallenger = r.level.toLowerCase().includes('challenger');
+    const needsDoublesQual = !isChallenger && (
+      SLUG_HAS_DOUBLES_QUAL.has(r.slug) ||
+      (!ALL_KNOWN_SLUGS.has(r.slug) && (r.level.includes('500') || r.level.includes('1000')))
+    );
     return (
       !r.has_singles_main ||
       !r.has_singles_qual ||
       !r.has_doubles_main ||
-      (!isChallenger && !r.has_doubles_qual)
+      (needsDoublesQual && !r.has_doubles_qual)
     );
   });
 
@@ -184,12 +193,16 @@ export async function GET() {
       new Set([startCalendarYear, startCalendarYear - 1, startCalendarYear + 1, r.year, r.year - 1])
     );
     const isChallenger = r.level.toLowerCase().includes('challenger');
+    const needsDoublesQual = !isChallenger && (
+      SLUG_HAS_DOUBLES_QUAL.has(r.slug) ||
+      (!ALL_KNOWN_SLUGS.has(r.slug) && (r.level.includes('500') || r.level.includes('1000')))
+    );
 
     const tasks: Promise<boolean>[] = [];
     if (!r.has_singles_main) tasks.push(tryFill(r.edition_id, code, candidateYears, 'singles', 'main', PDF_PATTERNS.singles_main));
     if (!r.has_singles_qual) tasks.push(tryFill(r.edition_id, code, candidateYears, 'singles', 'qualifying', PDF_PATTERNS.singles_qual));
     if (!r.has_doubles_main) tasks.push(tryFill(r.edition_id, code, candidateYears, 'doubles', 'main', PDF_PATTERNS.doubles_main));
-    if (!isChallenger && !r.has_doubles_qual) tasks.push(tryFill(r.edition_id, code, candidateYears, 'doubles', 'qualifying', PDF_PATTERNS.doubles_qual));
+    if (needsDoublesQual && !r.has_doubles_qual) tasks.push(tryFill(r.edition_id, code, candidateYears, 'doubles', 'qualifying', PDF_PATTERNS.doubles_qual));
 
     const results = await Promise.all(tasks);
     if (results.some(Boolean)) filled++;

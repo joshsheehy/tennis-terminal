@@ -27,8 +27,11 @@ export async function GET(request: NextRequest) {
     `
     select
       regexp_replace(
-        regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
-        '\\s+\\d+$', ''
+        regexp_replace(
+          regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+          '\\s+\\d+$', ''
+        ),
+        ',\\s*[a-z]{2}$', ''
       ) as norm_name,
       date_trunc('week', te.start_date) as cal_week,
       te.year,
@@ -50,16 +53,22 @@ export async function GET(request: NextRequest) {
       ${yearFilter}
     group by
       regexp_replace(
-        regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
-        '\\s+\\d+$', ''
+        regexp_replace(
+          regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+          '\\s+\\d+$', ''
+        ),
+        ',\\s*[a-z]{2}$', ''
       ),
       date_trunc('week', te.start_date),
       te.year
     having count(*) > 1
     order by te.year, date_trunc('week', te.start_date),
       regexp_replace(
-        regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
-        '\\s+\\d+$', ''
+        regexp_replace(
+          regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+          '\\s+\\d+$', ''
+        ),
+        ',\\s*[a-z]{2}$', ''
       )
     `,
     queryParams
