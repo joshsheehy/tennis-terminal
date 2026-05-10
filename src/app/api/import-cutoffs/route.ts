@@ -52,6 +52,30 @@ async function getEditionSlugsForYear(year: number) {
   return result.rows;
 }
 
+// Extracts PTL codes from ATP archive source_url values stored in the DB.
+// Covers tournaments that are in the DB for the requested year but have no
+// entry in the static ALL_EDITIONS catalogue.
+async function getCodesFromEditionSourceUrls(year: number): Promise<Map<string, string>> {
+  const result = await pool.query<{ slug: string; source_url: string | null }>(
+    `
+    select t.slug, te.source_url
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    where te.year = $1
+      and te.status = 'held'
+      and te.source_url is not null
+    `,
+    [year]
+  );
+
+  const codeBySlug = new Map<string, string>();
+  for (const row of result.rows) {
+    const match = (row.source_url ?? '').match(/\/archive\/[^/]+\/(\d+)\/\d{4}\/results/i);
+    if (match?.[1]) codeBySlug.set(row.slug, match[1]);
+  }
+  return codeBySlug;
+}
+
 function normalizeLevel(level: string): OfficialPdfSource['level'] | null {
   if (level === 'ATP 250') return 'atp_250';
   if (level === 'ATP 500') return 'atp_500';
@@ -88,7 +112,11 @@ function shiftDateToYear(rawDate: string | Date | null, year: number) {
 
 const ATP_TOUR_LEVELS: OfficialPdfSource['level'][] = ['atp_250', 'atp_500', 'atp_1000'];
 
-function buildOfficialPdfSources(year: number, atpOnly: boolean): OfficialPdfSource[] {
+function buildOfficialPdfSources(
+  year: number,
+  atpOnly: boolean,
+  dbFallbackCodes: Map<string, string> = new Map()
+): OfficialPdfSource[] {
   // Pick the most recent edition per slug that has a code — codes are stable across years
   // so we don't need to restrict to any single year when building the lookup.
   const bySlug = new Map<string, (typeof ALL_EDITIONS)[0]>();
@@ -99,7 +127,8 @@ function buildOfficialPdfSources(year: number, atpOnly: boolean): OfficialPdfSou
       bySlug.set(entry.tournament.slug, entry);
     }
   }
-  return Array.from(bySlug.values())
+
+  const sources: OfficialPdfSource[] = Array.from(bySlug.values())
     .map((entry) => ({
       slug: entry.tournament.slug,
       year,
@@ -109,6 +138,17 @@ function buildOfficialPdfSources(year: number, atpOnly: boolean): OfficialPdfSou
     }))
     .filter((entry) => Boolean(entry.level))
     .filter((entry) => !atpOnly || ATP_TOUR_LEVELS.includes(entry.level));
+
+  // Add DB-sourced codes for slugs that have no static entry at all.
+  // These are assumed challenger level with no doubles qualifying.
+  const staticSlugs = new Set(sources.map((s) => s.slug));
+  for (const [slug, code] of dbFallbackCodes) {
+    if (staticSlugs.has(slug)) continue;
+    if (atpOnly) continue;
+    sources.push({ slug, year, code, level: 'challenger', has_doubles_qualifying: false });
+  }
+
+  return sources;
 }
 
 function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
@@ -336,11 +376,23 @@ export async function GET(request: NextRequest) {
   const offset = Number(request.nextUrl.searchParams.get('offset') ?? '0');
 
   const editionSlugs = await getEditionSlugsForYear(requestedYear);
-  const knownCodeBySlug = new Map(
-    ALL_EDITIONS
-      .filter((entry) => entry.edition.year === 2026 && entry.edition.protennislive_code)
-      .map((entry) => [entry.tournament.slug, entry.edition.protennislive_code])
-  );
+  const dbFallbackCodes = await getCodesFromEditionSourceUrls(requestedYear);
+
+  // Build the full code map: static data (all years, most recent per slug) + DB source_url fallback.
+  // Static takes precedence; within static, prefer the most recent edition year.
+  const knownCodeBySlug = new Map<string, string>(dbFallbackCodes);
+  const staticBest = new Map<string, { code: string; year: number }>();
+  for (const entry of ALL_EDITIONS) {
+    if (!entry.edition.protennislive_code) continue;
+    const cur = staticBest.get(entry.tournament.slug);
+    if (!cur || entry.edition.year > cur.year) {
+      staticBest.set(entry.tournament.slug, { code: entry.edition.protennislive_code as string, year: entry.edition.year });
+    }
+  }
+  for (const [slug, { code }] of staticBest) {
+    knownCodeBySlug.set(slug, code);
+  }
+
   const missingCodeMappings = editionSlugs
     .filter((edition) => {
       const normalizedLevel = normalizeLevel(edition.level);
@@ -350,7 +402,7 @@ export async function GET(request: NextRequest) {
     })
     .map((edition) => ({ slug: edition.slug, level: edition.level }));
 
-  const officialPdfSources = buildOfficialPdfSources(requestedYear, atpOnly);
+  const officialPdfSources = buildOfficialPdfSources(requestedYear, atpOnly, dbFallbackCodes);
   const allTargets = buildPdfImportTargets(officialPdfSources);
   const pdfImportTargets = allTargets.slice(offset, offset + limit);
 
