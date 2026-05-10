@@ -55,7 +55,10 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
           partition by
             regexp_replace(
               regexp_replace(
-                regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+                regexp_replace(
+                  translate(lower(t.name), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+                  '\\s+ch(\\s+\\d+)?$', ''
+                ),
                 '\\s+\\d+$', ''
               ),
               ',\\s*[a-z]{2}$', ''
