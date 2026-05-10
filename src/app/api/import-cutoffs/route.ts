@@ -45,6 +45,7 @@ async function getEditionSlugsForYear(year: number) {
     join tournaments t on t.id = te.tournament_id
     where te.year = $1
       and te.status = 'held'
+      and (te.start_date is null or te.start_date <= current_date)
     `,
     [year]
   );
@@ -64,6 +65,7 @@ async function getCodesFromEditionSourceUrls(year: number): Promise<Map<string, 
     where te.year = $1
       and te.status = 'held'
       and te.source_url is not null
+      and (te.start_date is null or te.start_date <= current_date)
     `,
     [year]
   );
@@ -117,6 +119,9 @@ function buildOfficialPdfSources(
   atpOnly: boolean,
   dbFallbackCodes: Map<string, string> = new Map()
 ): OfficialPdfSource[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   // Pick the most recent edition per slug that has a code — codes are stable across years
   // so we don't need to restrict to any single year when building the lookup.
   const bySlug = new Map<string, (typeof ALL_EDITIONS)[0]>();
@@ -129,6 +134,15 @@ function buildOfficialPdfSources(
   }
 
   const sources: OfficialPdfSource[] = Array.from(bySlug.values())
+    // When the canonical edition year matches the import year, the start_date is accurate —
+    // skip tournaments that haven't started yet. For historical years the canonical entry
+    // is always from a later year so this check doesn't apply.
+    .filter((entry) => {
+      if (entry.edition.year === year && entry.edition.start_date) {
+        return new Date(entry.edition.start_date) <= today;
+      }
+      return true;
+    })
     .map((entry) => ({
       slug: entry.tournament.slug,
       year,
