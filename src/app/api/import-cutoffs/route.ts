@@ -323,6 +323,8 @@ export async function GET(request: NextRequest) {
   }
 
   const atpOnly = request.nextUrl.searchParams.get('atpOnly') === 'true';
+  const limit = Math.min(Number(request.nextUrl.searchParams.get('limit') ?? '50'), 200);
+  const offset = Number(request.nextUrl.searchParams.get('offset') ?? '0');
 
   const editionSlugs = await getEditionSlugsForYear(requestedYear);
   const knownCodeBySlug = new Map(
@@ -340,7 +342,8 @@ export async function GET(request: NextRequest) {
     .map((edition) => ({ slug: edition.slug, level: edition.level }));
 
   const officialPdfSources = buildOfficialPdfSources(requestedYear, atpOnly);
-  const pdfImportTargets = buildPdfImportTargets(officialPdfSources);
+  const allTargets = buildPdfImportTargets(officialPdfSources);
+  const pdfImportTargets = allTargets.slice(offset, offset + limit);
 
   for (const target of pdfImportTargets) {
     try {
@@ -404,7 +407,12 @@ export async function GET(request: NextRequest) {
     year: requestedYear,
     atpOnly,
     sourceCount: officialPdfSources.length,
-    targetCount: pdfImportTargets.length,
+    totalTargets: allTargets.length,
+    offset,
+    limit,
+    pageSize: pdfImportTargets.length,
+    hasMore: offset + limit < allTargets.length,
+    nextOffset: offset + limit < allTargets.length ? offset + limit : null,
     importedWithCutsCount: importedWithCuts.length,
     importedNullCutsCount: importedNullCuts.length,
     skippedNoPdfCount: skippedNoPdf.length,
