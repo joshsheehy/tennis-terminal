@@ -54,8 +54,11 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
           -- collapse with canonical entries. Strip " ch N" and trailing " N" from names.
           partition by
             regexp_replace(
-              regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
-              '\\s+\\d+$', ''
+              regexp_replace(
+                regexp_replace(lower(t.name), '\\s+ch(\\s+\\d+)?$', ''),
+                '\\s+\\d+$', ''
+              ),
+              ',\\s*[a-z]{2}$', ''
             ),
             date_trunc('week', te.start_date)
           order by te.updated_at desc nulls last
