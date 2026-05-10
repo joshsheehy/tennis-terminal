@@ -89,8 +89,17 @@ function shiftDateToYear(rawDate: string | Date | null, year: number) {
 const ATP_TOUR_LEVELS: OfficialPdfSource['level'][] = ['atp_250', 'atp_500', 'atp_1000'];
 
 function buildOfficialPdfSources(year: number, atpOnly: boolean): OfficialPdfSource[] {
-  return ALL_EDITIONS
-    .filter((entry) => entry.edition.year === 2026 && entry.edition.protennislive_code)
+  // Pick the most recent edition per slug that has a code — codes are stable across years
+  // so we don't need to restrict to any single year when building the lookup.
+  const bySlug = new Map<string, (typeof ALL_EDITIONS)[0]>();
+  for (const entry of ALL_EDITIONS) {
+    if (!entry.edition.protennislive_code) continue;
+    const existing = bySlug.get(entry.tournament.slug);
+    if (!existing || entry.edition.year > existing.edition.year) {
+      bySlug.set(entry.tournament.slug, entry);
+    }
+  }
+  return Array.from(bySlug.values())
     .map((entry) => ({
       slug: entry.tournament.slug,
       year,
