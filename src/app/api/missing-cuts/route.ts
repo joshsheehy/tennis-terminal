@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { ALL_EDITIONS } from '@/lib/tournament-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const SLUG_HAS_DOUBLES_QUAL = new Set(
+  ALL_EDITIONS.filter((e) => e.edition.has_doubles_qualifying).map((e) => e.tournament.slug)
+);
+const ALL_KNOWN_SLUGS = new Set(ALL_EDITIONS.map((e) => e.tournament.slug));
 
 // Lists every tournament edition with at least one missing cut snapshot.
 // Used for visibility into how complete the cut data is.
@@ -65,7 +71,10 @@ export async function GET(request: NextRequest) {
 
   const editions = result.rows.map((r) => {
     const isChallenger = r.level.toLowerCase().includes('challenger');
-    const expectedDoublesQual = !isChallenger;
+    const expectedDoublesQual = !isChallenger && (
+      SLUG_HAS_DOUBLES_QUAL.has(r.slug) ||
+      (!ALL_KNOWN_SLUGS.has(r.slug) && (r.level.includes('500') || r.level.includes('1000')))
+    );
     const missing: string[] = [];
     if (!r.has_singles_main) missing.push('singles_main');
     if (!r.has_singles_qual) missing.push('singles_qual');

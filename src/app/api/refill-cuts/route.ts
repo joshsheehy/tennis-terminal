@@ -19,6 +19,11 @@ const SLUG_TO_CODE = new Map<string, string>(
     .map((e) => [e.tournament.slug, String(e.edition.protennislive_code)])
 );
 
+const SLUG_HAS_DOUBLES_QUAL_REFILL = new Set(
+  ALL_EDITIONS.filter((e) => e.edition.has_doubles_qualifying).map((e) => e.tournament.slug)
+);
+const ALL_KNOWN_SLUGS_REFILL = new Set(ALL_EDITIONS.map((e) => e.tournament.slug));
+
 const PDF_PATTERNS = {
   singles_main: ['mds.pdf', 'mds-1.pdf', 'mds-2.pdf', 'mds-3.pdf', 'md.pdf', 'ms.pdf', 'ad.pdf', 'mds-final.pdf'],
   singles_qual: ['qs.pdf', 'qs-1.pdf', 'qs-2.pdf', 'q.pdf', 'qd.pdf', 'qsa.pdf', 'qs-final.pdf'],
@@ -152,7 +157,10 @@ export async function GET(request: NextRequest) {
   // Filter to those missing something
   const incomplete = editionsResult.rows.filter((r) => {
     const isChallenger = r.level.toLowerCase().includes('challenger');
-    const needsDoublesQual = !isChallenger;
+    const needsDoublesQual = !isChallenger && (
+      SLUG_HAS_DOUBLES_QUAL_REFILL.has(r.slug) ||
+      (!ALL_KNOWN_SLUGS_REFILL.has(r.slug) && (r.level.includes('500') || r.level.includes('1000')))
+    );
     return !r.has_singles_main || !r.has_singles_qual || !r.has_doubles_main || (needsDoublesQual && !r.has_doubles_qual);
   });
 
@@ -192,6 +200,10 @@ export async function GET(request: NextRequest) {
     const candidateYears = Array.from(new Set([startCalendarYear, startCalendarYear - 1, startCalendarYear + 1, r.year, r.year - 1]));
 
     const isChallenger = r.level.toLowerCase().includes('challenger');
+    const needsDoublesQualFill = !isChallenger && (
+      SLUG_HAS_DOUBLES_QUAL_REFILL.has(r.slug) ||
+      (!ALL_KNOWN_SLUGS_REFILL.has(r.slug) && (r.level.includes('500') || r.level.includes('1000')))
+    );
     const filledThis: string[] = [];
 
     if (!r.has_singles_main) {
@@ -206,7 +218,7 @@ export async function GET(request: NextRequest) {
       const res = await tryCut(r.edition_id, code, candidateYears, 'doubles', 'main', PDF_PATTERNS.doubles_main);
       if (res.ok) filledThis.push(`doubles_main(rank=${res.rank})`);
     }
-    if (!isChallenger && !r.has_doubles_qual) {
+    if (needsDoublesQualFill && !r.has_doubles_qual) {
       const res = await tryCut(r.edition_id, code, candidateYears, 'doubles', 'qualifying', PDF_PATTERNS.doubles_qual);
       if (res.ok) filledThis.push(`doubles_qual(rank=${res.rank})`);
     }
@@ -218,7 +230,7 @@ export async function GET(request: NextRequest) {
       if (!r.has_singles_main) stillMissingDraws.push('singles_main');
       if (!r.has_singles_qual) stillMissingDraws.push('singles_qual');
       if (!r.has_doubles_main) stillMissingDraws.push('doubles_main');
-      if (!isChallenger && !r.has_doubles_qual) stillMissingDraws.push('doubles_qual');
+      if (needsDoublesQualFill && !r.has_doubles_qual) stillMissingDraws.push('doubles_qual');
       stillMissing.push({
         slug: r.slug,
         year: r.year,
