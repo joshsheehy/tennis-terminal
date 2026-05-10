@@ -13,6 +13,10 @@ function formatDate(dateString: string | null) {
   }).format(new Date(dateString));
 }
 
+function displayName(name: string): string {
+  return name.replace(/,\s*[A-Z]{2}$/, '');
+}
+
 function compareLabel(value: boolean | null) {
   if (value === null) return 'No prior year / not held';
   return value ? 'Same' : 'Different';
@@ -151,7 +155,7 @@ export default async function TournamentDetailPage({
         <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#999', marginBottom: 6 }}>
           Tournament
         </p>
-        <h1 style={{ margin: 0, marginBottom: 4, fontSize: 28, fontWeight: 700 }}>{current.name}</h1>
+        <h1 style={{ margin: 0, marginBottom: 4, fontSize: 28, fontWeight: 700 }}>{displayName(current.name)}</h1>
         <p style={{ margin: 0, color: '#666', fontSize: 15 }}>
           {current.city}{current.country ? `, ${current.country}` : ''}
         </p>

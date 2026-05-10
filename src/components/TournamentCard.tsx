@@ -9,6 +9,11 @@ function formatDate(dateString: string | null) {
   }).format(new Date(dateString));
 }
 
+// Strip US state abbreviation suffix: "Savannah, GA" → "Savannah"
+function displayName(name: string): string {
+  return name.replace(/,\s*[A-Z]{2}$/, '');
+}
+
 export default function TournamentCard({ tournament }: { tournament: ScheduleRow }) {
   return (
     <Link
@@ -17,7 +22,7 @@ export default function TournamentCard({ tournament }: { tournament: ScheduleRow
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-white">{tournament.name}</h3>
+          <h3 className="text-base font-semibold text-white">{displayName(tournament.name)}</h3>
           <p className="text-sm text-neutral-400">
             {tournament.city}
             {tournament.country ? `, ${tournament.country}` : ''}

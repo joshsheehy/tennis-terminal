@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { ScheduleRow } from '@/lib/types';
 
+function displayName(name: string): string {
+  return name.replace(/,\s*[A-Z]{2}$/, '');
+}
+
 function formatDate(dateString: string | null) {
   if (!dateString) return 'NA';
 
@@ -257,7 +261,7 @@ export default function WeekTournamentPicker({
                       gap: 10,
                     }}
                   >
-                    {tournament.name}
+                    {displayName(tournament.name)}
                     {displayWeek !== null && displayWeek !== tournament.week && (
                       <span
                         style={{
