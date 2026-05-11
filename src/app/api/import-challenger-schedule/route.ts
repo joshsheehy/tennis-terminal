@@ -6,11 +6,19 @@ import { ALL_EDITIONS } from '@/lib/tournament-data';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const CODE_TO_EDITION = new Map(
-  ALL_EDITIONS
-    .filter((e) => e.edition.protennislive_code)
-    .map((e) => [Number(e.edition.protennislive_code), e])
-);
+function getBestEditionForCode(code: number, requestedYear: number) {
+  const matches = ALL_EDITIONS.filter(
+    (e) => Number(e.edition.protennislive_code) === code
+  );
+
+  if (matches.length === 0) return null;
+
+  return (
+    matches.find((e) => e.edition.year === requestedYear) ??
+    matches.find((e) => e.edition.year === 2026) ??
+    [...matches].sort((a, b) => b.edition.year - a.edition.year)[0]
+  );
+}
 
 type SackmannTournament = {
   tourneyId: string;
@@ -142,7 +150,7 @@ export async function GET(request: NextRequest) {
 
     for (const t of tournaments) {
       try {
-        const editionEntry = CODE_TO_EDITION.get(t.code);
+        const editionEntry = getBestEditionForCode(t.code, year);
 
         let slug: string;
         let name: string;
