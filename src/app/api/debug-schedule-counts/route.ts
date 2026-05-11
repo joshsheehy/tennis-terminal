@@ -51,6 +51,16 @@ export async function GET(request: NextRequest) {
     [year]
   );
 
+
+  const levelCountsByYear = await pool.query<{ year: number; level: string; count: string }>(
+    `select te.year, te.level, count(*)::text as count
+     from tournament_editions te
+     where te.status = 'held'
+       and te.level in ('ATP 250', 'ATP 500', 'ATP 1000', 'Challenger')
+     group by te.year, te.level
+     order by te.year, te.level`
+  );
+
   const cutoffByYear = await pool.query<{ year: number; cutoff_count: string }>(
     `select te.year, count(cs.id)::text as cutoff_count
      from tournament_editions te
@@ -68,5 +78,6 @@ export async function GET(request: NextRequest) {
     decemberBadExcludedCount: Number(decemberBad.rows[0]?.count ?? 0),
     cutoffSnapshotsByYear: cutoffByYear.rows,
     sampleVisibleWeeks: visibleWeekCounts.rows.slice(0, 12),
+    levelCountsByYear: levelCountsByYear.rows,
   });
 }
