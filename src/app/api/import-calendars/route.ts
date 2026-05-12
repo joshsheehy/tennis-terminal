@@ -97,7 +97,13 @@ export async function GET() {
 
   const staleCleanup = [];
 
-  for (const year of syncedYears) {
+  // Only run destructive stale cleanup against the current canonical 2026 calendar.
+  // Historical 2024/2025 rows are backfilled from actual played tournaments, so the
+  // static 2026 calendar is not allowed to mark them as not held.
+  const staleCleanupYears = syncedYears.filter((year) => year === 2026);
+  const staleCleanupSkippedYears = syncedYears.filter((year) => year !== 2026);
+
+  for (const year of staleCleanupYears) {
     const slugsForYear = Array.from(
       new Set(
         ALL_EDITIONS.filter((item) => item.edition.year === year).map((item) => item.tournament.slug)
@@ -135,6 +141,8 @@ export async function GET() {
     importedCount: imported.length,
     failedCount: failed.length,
     syncedYears,
+    staleCleanupYears,
+    staleCleanupSkippedYears,
     staleCleanup,
     imported,
     failed,
