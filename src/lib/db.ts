@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { CutoffSnapshot, ScheduleRow } from './types';
+import { getAtpWeekForSeason } from './atp-week';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -38,10 +39,7 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
         t.city,
         t.country,
         te.year,
-        -- ATP week: days since the first Monday of the ATP year, divided by 7.
-        -- date_trunc('week', Jan 7) gives the first Monday of the year (Jan 7 is always in week 1).
-        -- greatest(1,...) clamps pre-Jan-1 starters (e.g. Dec 30) to week 1.
-        greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 7))::date) / 7 + 1) as week,
+        te.week,
         te.start_date,
         te.end_date,
         te.level,
@@ -89,7 +87,10 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
     [year]
   );
 
-  return result.rows;
+  return result.rows.map((row) => ({
+    ...row,
+    week: getAtpWeekForSeason(row.start_date, row.year) ?? row.week,
+  }));
 }
 
 export async function getTournamentHistoryBySlug(
@@ -178,7 +179,7 @@ export async function getTournamentDetailRowsBySlug(
       t.city,
       t.country,
       te.year,
-      greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 7))::date) / 7 + 1) as week,
+      te.week,
       te.start_date,
       te.end_date,
       te.level,
@@ -197,7 +198,10 @@ export async function getTournamentDetailRowsBySlug(
     [slug, limit, maxYear]
   );
 
-  const editions = editionsResult.rows;
+  const editions = editionsResult.rows.map((row) => ({
+    ...row,
+    week: getAtpWeekForSeason(row.start_date, row.year) ?? row.week,
+  }));
   const editionIds = editions.map((edition) => edition.edition_id);
   const cutoffs = await getCutoffSnapshotsForEditionIds(editionIds);
 
