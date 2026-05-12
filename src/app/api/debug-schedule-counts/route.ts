@@ -70,6 +70,30 @@ export async function GET(request: NextRequest) {
      order by te.year`
   );
 
+  const unitedCupVisibleCount = await pool.query<{ count: string }>(
+    `select count(*)::text as count
+     from tournament_editions te
+     join tournaments t on t.id = te.tournament_id
+     where te.status = 'held'
+       and te.year = $1
+       and (
+         lower(trim(t.name)) = 'united cup'
+         or t.slug like 'united-cup%'
+       )`,
+    [year]
+  );
+
+  const invalidDoublesQualifyingCutoffCount = await pool.query<{ count: string }>(
+    `select count(cs.id)::text as count
+     from cutoff_snapshots cs
+     join tournament_editions te on te.id = cs.tournament_edition_id
+     where te.year = $1
+       and cs.event_type = 'doubles'
+       and cs.draw_type = 'qualifying'
+       and te.level <> 'ATP 500'`,
+    [year]
+  );
+
   return NextResponse.json({
     ok: true,
     year,
@@ -79,5 +103,7 @@ export async function GET(request: NextRequest) {
     cutoffSnapshotsByYear: cutoffByYear.rows,
     sampleVisibleWeeks: visibleWeekCounts.rows.slice(0, 12),
     levelCountsByYear: levelCountsByYear.rows,
+    unitedCupVisibleCount: Number(unitedCupVisibleCount.rows[0]?.count ?? 0),
+    invalidDoublesQualifyingCutoffCount: Number(invalidDoublesQualifyingCutoffCount.rows[0]?.count ?? 0),
   });
 }

@@ -87,8 +87,9 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
   }
 
   const isChallenger = isChallengerLevel(level);
+  const isAtp500 = level === 'ATP 500';
   const rows = cutoffs.filter(
-    (cutoff) => !(isChallenger && cutoff.event_type === 'doubles' && cutoff.draw_type === 'qualifying')
+    (cutoff) => !(cutoff.event_type === 'doubles' && cutoff.draw_type === 'qualifying' && !isAtp500)
   );
 
   return (
