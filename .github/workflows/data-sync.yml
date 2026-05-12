@@ -89,7 +89,10 @@ jobs:
                   max_pages=10,
               )
 
-          # 4) Fill any remaining missing cuts. /api/run-all has its own 22s server-side budget,
+          # 4) Restore any historical rows that were previously hidden by stale cleanup.
+          request_json('/api/restore-historical-status')
+
+          # 5) Fill any remaining missing cuts. /api/run-all has its own 22s server-side budget,
           # so call it repeatedly until it reports completion.
           print('\n=== Missing cut refill ===', flush=True)
           for attempt in range(30):
@@ -101,6 +104,8 @@ jobs:
               time.sleep(3)
           else:
               raise RuntimeError('run-all still had more work after 30 attempts')
+
+          request_json('/api/restore-historical-status')
 
           print('\nData sync complete.', flush=True)
           PY
