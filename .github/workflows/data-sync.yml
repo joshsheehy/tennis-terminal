@@ -1,0 +1,106 @@
+name: Tennis Terminal data sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily at 08:15 UTC. This keeps the production DB refreshed without manual page opens.
+    - cron: '15 8 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Sync production tournament data
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ]; then
+            echo "Missing APP_URL repository secret. Set it to the production Railway URL, for example https://tennis-terminal-production.up.railway.app"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          base_url = os.environ['APP_URL'].strip().rstrip('/')
+          if not base_url.startswith(('http://', 'https://')):
+              base_url = 'https://' + base_url
+
+          def request_json(path: str, *, required: bool = True, timeout: int = 90):
+              url = base_url + path
+              print(f'\nGET {url}', flush=True)
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      'Accept': 'application/json',
+                      'User-Agent': 'TennisTerminalDataSync/1.0',
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as res:
+                      body = res.read().decode('utf-8', errors='replace')
+                      print(body[:5000], flush=True)
+                      return json.loads(body)
+              except Exception as exc:
+                  print(f'ERROR: {exc}', flush=True)
+                  if required:
+                      raise
+                  return {'ok': False, 'error': str(exc)}
+
+          def run_paged(label: str, path_factory, *, required: bool = True, max_pages: int = 20):
+              print(f'\n=== {label} ===', flush=True)
+              offset = 0
+              for _ in range(max_pages):
+                  data = request_json(path_factory(offset), required=required)
+                  if not data.get('hasMore'):
+                      return data
+                  next_offset = data.get('nextOffset')
+                  if next_offset is None or next_offset == offset:
+                      raise RuntimeError(f'{label} did not return a valid nextOffset')
+                  offset = int(next_offset)
+                  time.sleep(2)
+              raise RuntimeError(f'{label} exceeded max_pages={max_pages}')
+
+          # 1) Sync canonical hardcoded calendar rows.
+          request_json('/api/import-calendars')
+
+          # 2) Try ATP's public result archive discovery. If ATP blocks/changes the page,
+          # keep going because the JeffSackmann fallback + run-all still fill the DB.
+          run_paged(
+              'ATP schedule/code discovery',
+              lambda offset: f'/api/sync-atp-schedule?year=2026&type=all&limit=100&offset={offset}&importCuts=true',
+              required=False,
+              max_pages=10,
+          )
+
+          # 3) Challenger backfill. These are idempotent, so rerunning is safe.
+          for year in (2024, 2025, 2026):
+              run_paged(
+                  f'Challenger season import {year}',
+                  lambda offset, y=year: f'/api/import-challenger-season?year={y}&limit=100&offset={offset}',
+                  required=(year == 2026),
+                  max_pages=10,
+              )
+
+          # 4) Fill any remaining missing cuts. /api/run-all has its own 22s server-side budget,
+          # so call it repeatedly until it reports completion.
+          print('\n=== Missing cut refill ===', flush=True)
+          for attempt in range(30):
+              data = request_json('/api/run-all')
+              if not data.get('hasMore'):
+                  print('run-all complete', flush=True)
+                  break
+              print(f'run-all has more work; attempt {attempt + 1}/30', flush=True)
+              time.sleep(3)
+          else:
+              raise RuntimeError('run-all still had more work after 30 attempts')
+
+          print('\nData sync complete.', flush=True)
+          PY
