@@ -191,7 +191,7 @@ function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] 
         pdf_url_candidates: [`${baseUrl}/mdd.pdf`, `${baseUrl}/mdd-1.pdf`, `${baseUrl}/mdd-2.pdf`, `${baseUrl}/mdd-3.pdf`, `${baseUrl}/md.pdf`, `${baseUrl}/dd.pdf`, `${baseUrl}/mdd-final.pdf`],
       },
     ];
-    if (source.has_doubles_qualifying) {
+    if (source.level === 'atp_500') {
       targets.push({ slug: source.slug, year: source.year, event_type: 'doubles', draw_type: 'qualifying', pdf_url_candidates: [`${baseUrl}/qd.pdf`, `${baseUrl}/qd-1.pdf`, `${baseUrl}/qdd.pdf`] });
     }
     return targets;

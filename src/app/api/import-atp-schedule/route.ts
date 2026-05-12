@@ -7,6 +7,10 @@ import { getAtpEditionYearForStartDate, getAtpWeekForSeason } from '@/lib/atp-we
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function normalizeName(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
 function parseCsvLine(line: string): string[] {
   const out: string[] = [];
   let current = '';
@@ -115,6 +119,7 @@ export async function GET(request: NextRequest) {
     const failed: Array<{ tourneyId: string; code: number; name: string; error: string }> = [];
 
     for (const t of tournaments) {
+      if (normalizeName(t.name) === 'united cup') continue;
       try {
         const editionEntry = getBestEditionForCode(t.code, year);
         let slug: string;
