@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import slugify from 'slugify';
 import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { getAtpEditionYearForStartDate, getAtpWeekForSeason } from '@/lib/atp-week';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,16 +33,6 @@ function parseCsvLine(line: string): string[] {
   return out.map((v) => v.trim());
 }
 
-function getAtpWeek(dateStr: string): number {
-  const date = new Date(`${dateStr}T00:00:00Z`);
-  if (date.getUTCMonth() === 11) return 1;
-  const jan7 = new Date(Date.UTC(date.getUTCFullYear(), 0, 7));
-  const jan7Day = jan7.getUTCDay();
-  const daysBack = jan7Day === 0 ? 6 : jan7Day - 1;
-  const firstMonday = new Date(jan7.getTime() - daysBack * 24 * 60 * 60 * 1000);
-  const daysSince = Math.floor((date.getTime() - firstMonday.getTime()) / (24 * 60 * 60 * 1000));
-  return Math.max(1, Math.floor(daysSince / 7) + 1);
-}
 
 function getBestEditionForCode(code: number, requestedYear: number) {
   const matches = ALL_EDITIONS.filter((e) => Number(e.edition.protennislive_code) === code);
@@ -149,9 +140,8 @@ export async function GET(request: NextRequest) {
           slug = slugify(`${name}-${city}`, { lower: true, strict: true, trim: true });
         }
 
-        const startDateObj = new Date(`${t.startDate}T00:00:00Z`);
-        const editionYear = startDateObj.getUTCMonth() === 11 ? startDateObj.getUTCFullYear() + 1 : year;
-        const week = startDateObj.getUTCMonth() === 11 ? 1 : getAtpWeek(t.startDate);
+        const editionYear = getAtpEditionYearForStartDate(t.startDate, year);
+        const week = getAtpWeekForSeason(t.startDate, editionYear) ?? 1;
 
         const slugifiedName = slugify(name, { lower: true, strict: true, trim: true });
         const sourceUrl = `https://www.atptour.com/en/scores/archive/${slugifiedName}/${t.code}/${year}/results`;

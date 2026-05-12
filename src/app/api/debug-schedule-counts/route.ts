@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const visibleWeekCounts = await pool.query<{ week: number; tournament_count: string }>(
     `with visible as (
        select
-         greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 7))::date) / 7 + 1) as week
+         greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1) as week
        from tournament_editions te
        where te.status = 'held'
          and te.year = $1

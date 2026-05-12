@@ -74,7 +74,7 @@ export async function GET() {
     [2024, 2025].map((year) =>
       pool.query<{ count: string }>(
         `update tournament_editions te
-         set week = greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 7))::date) / 7 + 1),
+         set week = greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1),
              updated_at = now()
          where te.year = $1
            and te.start_date is not null
