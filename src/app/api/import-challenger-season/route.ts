@@ -103,7 +103,11 @@ async function ensureTournamentRow(
   const result = await pool.query<{ id: string }>(
     `insert into tournaments (slug, name, city, country, updated_at)
      values ($1, $2, $3, $4, now())
-     on conflict (slug) do update set updated_at = now()
+     on conflict (slug) do update set
+       name = excluded.name,
+       city = excluded.city,
+       country = excluded.country,
+       updated_at = now()
      returning id`,
     [slug, name, city, country]
   );
@@ -127,7 +131,10 @@ async function ensureEditionRow(
      on conflict (tournament_id, year) do update set
        week = excluded.week,
        start_date = excluded.start_date,
+       level = excluded.level,
        surface = excluded.surface,
+       source = excluded.source,
+       status = 'held',
        updated_at = now()
      returning id`,
     [tournamentId, year, week, startDate, level, surface, source]
