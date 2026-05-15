@@ -69,13 +69,19 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
       where te.status = 'held'
         and te.year = $1
         and te.start_date is not null
-        -- Exclude editions where start_date is in December of the same calendar year as
-        -- te.year — those are bad records (e.g. year=2025, start='2025-12-30', week=53).
-        -- December starts that belong to the NEXT ATP year (e.g. year=2026, start='2025-12-30')
-        -- are kept and correctly compute to week 1.
-        and not (
-          extract(month from te.start_date) = 12
-          and extract(year from te.start_date) = te.year
+        -- Keep only dates that belong to the selected ATP season:
+        -- normal rows start in the same calendar year, while Week 1 carryover
+        -- rows may start in December of the previous calendar year.
+        -- This blocks stale rows such as year=2026 with start_date='2025-03-17'.
+        and (
+          (
+            extract(year from te.start_date) = te.year
+            and extract(month from te.start_date) <> 12
+          )
+          or (
+            extract(year from te.start_date) = te.year - 1
+            and extract(month from te.start_date) = 12
+          )
         )
     )
     select edition_id, tournament_id, slug, name, city, country,
@@ -192,6 +198,16 @@ export async function getTournamentDetailRowsBySlug(
     where t.slug = $1
       and te.year <= $3
       and te.start_date is not null
+      and (
+        (
+          extract(year from te.start_date) = te.year
+          and extract(month from te.start_date) <> 12
+        )
+        or (
+          extract(year from te.start_date) = te.year - 1
+          and extract(month from te.start_date) = 12
+        )
+      )
     order by te.year desc
     limit $2
     `,
