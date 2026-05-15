@@ -95,7 +95,10 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
 
   return result.rows.map((row) => ({
     ...row,
-    week: row.week ?? getAtpWeekForSeason(row.start_date, row.year),
+    // Always recalculate the display week from the date + ATP season year.
+    // This fixes bad stored historical weeks like Jan 6 showing in Week 1,
+    // while the SQL season-date filter above prevents stale wrong-year rows.
+    week: getAtpWeekForSeason(row.start_date, row.year) ?? row.week,
   }));
 }
 
@@ -216,7 +219,7 @@ export async function getTournamentDetailRowsBySlug(
 
   const editions = editionsResult.rows.map((row) => ({
     ...row,
-    week: row.week ?? getAtpWeekForSeason(row.start_date, row.year),
+    week: getAtpWeekForSeason(row.start_date, row.year) ?? row.week,
   }));
   const editionIds = editions.map((edition) => edition.edition_id);
   const cutoffs = await getCutoffSnapshotsForEditionIds(editionIds);
