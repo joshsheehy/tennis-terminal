@@ -4,16 +4,16 @@ import { pool } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Recomputes and updates the `week` column for all editions of a given year
-// using the correct ATP week formula: days since the first Monday of the ATP year
-// (= Monday of the week containing Jan 7), divided by 7, plus 1.
-// greatest(1,...) clamps pre-Jan-1 starters (e.g. Dec 30) to week 1.
+// Recomputes the `week` column using the ATP season Week-1 Monday rule from
+// src/lib/atp-week.ts:
+//   - Jan 1 on Mon/Tue/Wed → season starts on the Monday on or before Jan 1
+//   - Jan 1 on Thu/Fri/Sat/Sun → season starts on the Monday after Jan 1
+// greatest(1,...) clamps pre-season-start dates (e.g. Dec 29, 2025 for 2026) to week 1.
 //
-// Examples for 2026 (first Monday = Jan 5, 2026):
-//   Dec 30, 2025 → week 1
-//   Jan 5, 2026  → week 1
-//   Jan 12, 2026 → week 2
-//   Jan 13, 2026 → week 2
+// Examples:
+//   2024 Jan 1 (Mon)  → week 1; 2024 Jan 8 → week 2
+//   2024 Dec 30 (Mon) → week 1 (counts as 2025); 2025 Jan 6 → week 2
+//   2025 Dec 29 (Mon) → week 1 (counts as 2026); 2026 Jan 5 → week 1; 2026 Jan 12 → week 2
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -27,7 +27,17 @@ export async function GET(request: NextRequest) {
   const result = await pool.query<{ id: string; start_date: string; new_week: number }>(
     `
     update tournament_editions te
-    set week = greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 7))::date) / 7 + 1)
+    set week = greatest(
+      1,
+      (te.start_date::date - (
+        make_date(te.year, 1, 1)
+        + case
+            when extract(isodow from make_date(te.year, 1, 1))::int <= 3
+              then 1 - extract(isodow from make_date(te.year, 1, 1))::int
+            else 8 - extract(isodow from make_date(te.year, 1, 1))::int
+          end
+      )) / 7 + 1
+    )
     where te.year = $1
       and te.start_date is not null
       -- Skip the bad "same-year December" records (e.g. year=2025, start=2025-12-30)

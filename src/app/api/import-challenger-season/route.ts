@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { getAtpEditionYearForStartDate, getAtpWeekForSeason } from '@/lib/atp-week';
 import slugify from 'slugify';
 
 export const runtime = 'nodejs';
@@ -78,20 +79,6 @@ async function fetchSackmannChallengerList(year: number): Promise<SackmannTourna
   }
 
   return Array.from(seen.values()).sort((a, b) => a.startDate.localeCompare(b.startDate));
-}
-
-function getAtpWeek(dateStr: string): number {
-  const date = new Date(`${dateStr}T00:00:00Z`);
-  // December tournaments belong to the next ATP season as Week 1
-  if (date.getUTCMonth() === 11) return 1;
-  // First Monday of the ATP year = Monday of the week containing Jan 7
-  // (Jan 7 is always in the first full week, so its week-start is the first Monday)
-  const jan7 = new Date(Date.UTC(date.getUTCFullYear(), 0, 7));
-  const jan7Day = jan7.getUTCDay(); // 0=Sun … 6=Sat
-  const daysBack = jan7Day === 0 ? 6 : jan7Day - 1;
-  const firstMonday = new Date(jan7.getTime() - daysBack * 24 * 60 * 60 * 1000);
-  const daysSince = Math.floor((date.getTime() - firstMonday.getTime()) / (24 * 60 * 60 * 1000));
-  return Math.max(1, Math.floor(daysSince / 7) + 1);
 }
 
 async function ensureTournamentRow(
@@ -269,11 +256,9 @@ export async function GET(request: NextRequest) {
       }
 
       const effectiveStartDate = canonicalStartDate ?? t.startDate;
-      const startDate = new Date(`${effectiveStartDate}T00:00:00Z`);
-      const isDecember = startDate.getUTCMonth() === 11;
-      const week = canonicalWeek ?? (isDecember ? 1 : getAtpWeek(effectiveStartDate));
       // December starts belong to the next ATP season (e.g. Dec 30, 2025 = ATP 2026 Week 1)
-      const editionYear = isDecember ? startDate.getUTCFullYear() + 1 : year;
+      const editionYear = getAtpEditionYearForStartDate(effectiveStartDate, year);
+      const week = canonicalWeek ?? (getAtpWeekForSeason(effectiveStartDate, editionYear) ?? 1);
       const tournamentId = await ensureTournamentRow(slug, name, city, country);
       const editionId = await ensureEditionRow(tournamentId, editionYear, week, effectiveStartDate, level, t.surface, source);
 

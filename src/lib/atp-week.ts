@@ -11,11 +11,18 @@ function parseUtcDateOnly(value: string | Date): Date | null {
   return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
 }
 
+// Week 1 Monday of the ATP season.
+// Rule: if Jan 1 is Mon/Tue/Wed, season starts on the Monday on or before Jan 1
+// (so 2024 Jan 1 Mon -> Jan 1, 2025 Jan 1 Wed -> Dec 30, 2024).
+// If Jan 1 is Thu/Fri/Sat/Sun, season starts on the Monday after Jan 1
+// (so 2026 Jan 1 Thu -> Jan 5, 2026). Anything that starts before that Monday
+// is clamped to week 1 by getAtpWeekForSeason.
 export function getAtpSeasonStartDateUtc(seasonYear: number): Date {
   const jan1 = new Date(Date.UTC(seasonYear, 0, 1));
   const day = jan1.getUTCDay();
-  const daysBack = day === 0 ? 6 : day - 1;
-  return new Date(jan1.getTime() - daysBack * MS_PER_DAY);
+  const isoDow = day === 0 ? 7 : day;
+  const offsetDays = isoDow <= 3 ? 1 - isoDow : 8 - isoDow;
+  return new Date(jan1.getTime() + offsetDays * MS_PER_DAY);
 }
 
 export function getAtpWeekForSeason(
@@ -43,9 +50,12 @@ export function getAtpEditionYearForStartDate(
 
 // Internal sanity checks for ATP season week rules.
 void [
+  getAtpWeekForSeason('2024-01-01', 2024) === 1,
+  getAtpWeekForSeason('2024-01-08', 2024) === 2,
   getAtpWeekForSeason('2024-12-30', 2025) === 1,
   getAtpWeekForSeason('2025-01-06', 2025) === 2,
   getAtpWeekForSeason('2025-01-13', 2025) === 3,
-  getAtpWeekForSeason('2024-01-01', 2024) === 1,
-  getAtpWeekForSeason('2024-01-08', 2024) === 2,
+  getAtpWeekForSeason('2025-12-29', 2026) === 1,
+  getAtpWeekForSeason('2026-01-05', 2026) === 1,
+  getAtpWeekForSeason('2026-01-12', 2026) === 2,
 ];

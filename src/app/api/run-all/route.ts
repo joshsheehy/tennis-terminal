@@ -117,11 +117,25 @@ export async function GET() {
      where name ~* '\\s+ch(\\s+\\d+)?$' or city ~* '\\s+ch(\\s+\\d+)?$'`
   );
 
+  // Stored week = days since the ATP season's Week 1 Monday / 7 + 1, clamped to 1.
+  // Season start rule matches src/lib/atp-week.ts: Mon/Tue/Wed Jan 1 rolls back to
+  // the Monday on or before; Thu/Fri/Sat/Sun Jan 1 rolls forward to the next Monday
+  // (so 2026 Jan 5 is week 1, not week 2).
   await Promise.all(
     [2024, 2025, 2026].map((year) =>
       pool.query(
         `update tournament_editions te
-         set week = greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1)
+         set week = greatest(
+           1,
+           (te.start_date::date - (
+             make_date(te.year, 1, 1)
+             + case
+                 when extract(isodow from make_date(te.year, 1, 1))::int <= 3
+                   then 1 - extract(isodow from make_date(te.year, 1, 1))::int
+                 else 8 - extract(isodow from make_date(te.year, 1, 1))::int
+               end
+           )) / 7 + 1
+         )
          where te.year = $1
            and te.start_date is not null
            and not (extract(month from te.start_date) = 12 and extract(year from te.start_date) = te.year)`,

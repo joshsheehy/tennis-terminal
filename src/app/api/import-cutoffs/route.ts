@@ -53,27 +53,39 @@ async function getEditionSlugsForYear(year: number) {
   return result.rows;
 }
 
-// Extracts PTL codes from ATP archive source_url values stored in the DB.
-// Covers tournaments that are in the DB for the requested year but have no
-// entry in the static ALL_EDITIONS catalogue.
+// Extracts PTL codes from stored source URLs and existing cutoff source notes
+// for editions of the requested year. Covers tournaments that are in the DB
+// but have no entry in the static ALL_EDITIONS catalogue, including historical
+// 2024/2025 editions that already have one PDF imported and can now be reused
+// to fill the missing draws.
 async function getCodesFromEditionSourceUrls(year: number): Promise<Map<string, string>> {
-  const result = await pool.query<{ slug: string; source_url: string | null }>(
+  const result = await pool.query<{ slug: string; source_url: string | null; source_notes: string | null }>(
     `
-    select t.slug, te.source_url
+    select t.slug, te.source_url, cs.source_notes
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
+    left join cutoff_snapshots cs on cs.tournament_edition_id = te.id
     where te.year = $1
       and te.status = 'held'
-      and te.source_url is not null
       and (te.start_date is null or te.start_date <= current_date)
     `,
     [year]
   );
 
+  const ATP_ARCHIVE = /\/archive\/[^/]+\/(\d+)\/\d{4}\/results/i;
+  const PROTENNISLIVE = /\/posting\/\d+\/(\d+)\//;
+
   const codeBySlug = new Map<string, string>();
   for (const row of result.rows) {
-    const match = (row.source_url ?? '').match(/\/archive\/[^/]+\/(\d+)\/\d{4}\/results/i);
-    if (match?.[1]) codeBySlug.set(row.slug, match[1]);
+    if (codeBySlug.has(row.slug)) continue;
+    for (const candidate of [row.source_url, row.source_notes]) {
+      if (!candidate) continue;
+      const match = candidate.match(ATP_ARCHIVE) ?? candidate.match(PROTENNISLIVE);
+      if (match?.[1]) {
+        codeBySlug.set(row.slug, match[1]);
+        break;
+      }
+    }
   }
   return codeBySlug;
 }
