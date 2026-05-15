@@ -37,6 +37,7 @@ type EditionRow = {
   year: number;
   start_date: string;
   level: string;
+  source_url: string | null;
   has_singles_main: boolean;
   has_singles_qual: boolean;
   has_doubles_main: boolean;
@@ -44,10 +45,11 @@ type EditionRow = {
   existing_source_notes: string[];
 };
 
-function extractCodeFromSourceNotes(notes: string[]): string | null {
-  for (const note of notes) {
-    const m = note.match(/\/posting\/\d+\/(\d+)\//);
-    if (m) return m[1];
+function extractCodeFromTextSources(sources: Array<string | null | undefined>): string | null {
+  for (const source of sources) {
+    if (!source) continue;
+    const match = source.match(/\/posting\/\d+\/(\d+)\//);
+    if (match) return match[1];
   }
   return null;
 }
@@ -119,7 +121,7 @@ export async function GET() {
     [2024, 2025, 2026].map((year) =>
       pool.query(
         `update tournament_editions te
-         set week = greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 7))::date) / 7 + 1)
+         set week = greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1)
          where te.year = $1
            and te.start_date is not null
            and not (extract(month from te.start_date) = 12 and extract(year from te.start_date) = te.year)`,
@@ -138,6 +140,7 @@ export async function GET() {
        te.year,
        te.start_date::text as start_date,
        te.level,
+       te.source_url,
        exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'main' and cs.last_direct_acceptance_rank is not null) as has_singles_main,
        exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'qualifying' and cs.last_direct_acceptance_rank is not null) as has_singles_qual,
        exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'main' and (cs.last_direct_acceptance_rank is not null or cs.challenger_doubles_advanced_cut_rank is not null or cs.challenger_doubles_onsite_cut_rank is not null)) as has_doubles_main,
@@ -149,7 +152,7 @@ export async function GET() {
      where te.status = 'held'
        and te.start_date is not null
        and te.year >= 2024
-     group by te.id, t.slug, t.name, te.year, te.start_date, te.level
+     group by te.id, t.slug, t.name, te.year, te.start_date, te.level, te.source_url
      order by te.year, te.start_date, t.name`
   );
 
@@ -182,7 +185,7 @@ export async function GET() {
 
     processed++;
 
-    const code = SLUG_TO_CODE.get(r.slug) ?? extractCodeFromSourceNotes(r.existing_source_notes);
+    const code = SLUG_TO_CODE.get(r.slug) ?? extractCodeFromTextSources([r.source_url, ...r.existing_source_notes]);
     if (!code) {
       noCode++;
       continue;
