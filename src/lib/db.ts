@@ -95,7 +95,7 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
 
   return result.rows.map((row) => ({
     ...row,
-    week: getAtpWeekForSeason(row.start_date, row.year) ?? row.week,
+    week: row.week ?? getAtpWeekForSeason(row.start_date, row.year),
   }));
 }
 
@@ -216,7 +216,7 @@ export async function getTournamentDetailRowsBySlug(
 
   const editions = editionsResult.rows.map((row) => ({
     ...row,
-    week: getAtpWeekForSeason(row.start_date, row.year) ?? row.week,
+    week: row.week ?? getAtpWeekForSeason(row.start_date, row.year),
   }));
   const editionIds = editions.map((edition) => edition.edition_id);
   const cutoffs = await getCutoffSnapshotsForEditionIds(editionIds);
