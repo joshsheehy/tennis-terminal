@@ -199,14 +199,38 @@ async function fetchPdfBuffer(url: string, timeoutMs = 8000): Promise<Buffer> {
   }
 }
 
-// When PTL blocks a historical PDF, try the Wayback Machine in parallel.
+// When PTL blocks a historical PDF, try the Wayback Machine.
+// First ask the availability API for any snapshot near the URL's posting year;
+// fall back to a couple of fixed mid-year timestamps if availability fails.
 // Uses the "if_" modifier so we get the raw file, not the Wayback UI wrapper.
 async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
   const yearMatch = pdfUrl.match(/\/posting\/(\d{4})\//);
-  if (!yearMatch) return null;
-  const year = yearMatch[1];
+  const year = yearMatch?.[1];
 
-  // Race all timestamps simultaneously — first success wins, 6s per attempt
+  if (year) {
+    try {
+      const availUrl = `https://archive.org/wayback/available?url=${encodeURIComponent(pdfUrl)}&timestamp=${year}0601`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      const availRes = await fetch(availUrl, { cache: 'no-store', signal: controller.signal });
+      clearTimeout(timer);
+      if (availRes.ok) {
+        const json = (await availRes.json()) as {
+          archived_snapshots?: { closest?: { available?: boolean; url?: string; timestamp?: string } };
+        };
+        const closest = json.archived_snapshots?.closest;
+        if (closest?.available && closest.timestamp) {
+          const rawUrl = `https://web.archive.org/web/${closest.timestamp}if_/${pdfUrl}`;
+          const buf = await fetchPdfBuffer(rawUrl, 8000).catch(() => null);
+          if (buf) return buf;
+        }
+      }
+    } catch {
+      // fall through to fixed-timestamp probes
+    }
+  }
+
+  if (!year) return null;
   const timestamps = [`${year}1201`, `${year}0901`, `${year}0601`, `${year}0401`];
   const results = await Promise.all(
     timestamps.map((ts) =>

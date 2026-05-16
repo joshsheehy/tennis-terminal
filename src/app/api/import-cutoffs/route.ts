@@ -438,7 +438,15 @@ export async function GET(request: NextRequest) {
       let importedPdfUrl: string | null = null;
       for (const pdfUrl of target.pdf_url_candidates) {
         try {
-          parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+          const attempt = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+          // Skip results-sheet PDFs served at entry-list URLs that parse
+          // successfully but contain no rank data.
+          const hasRank =
+            attempt.last_direct_acceptance_rank !== null ||
+            attempt.challenger_doubles_advanced_cut_rank !== null ||
+            attempt.challenger_doubles_onsite_cut_rank !== null;
+          if (!hasRank) continue;
+          parsed = attempt;
           importedPdfUrl = pdfUrl;
           break;
         } catch {

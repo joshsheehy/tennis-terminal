@@ -68,6 +68,14 @@ async function tryFill(
       const pdfUrl = `${baseUrl}/${pdfName}`;
       try {
         const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+        // PTL sometimes serves results sheets at entry-list URLs after the event runs.
+        // Those parse without throwing but have no rank data, so we'd record a null
+        // and stop trying. Skip them so the next candidate URL gets a chance.
+        const hasRank =
+          parsed.last_direct_acceptance_rank !== null ||
+          parsed.challenger_doubles_advanced_cut_rank !== null ||
+          parsed.challenger_doubles_onsite_cut_rank !== null;
+        if (!hasRank) continue;
         await pool.query(
           `insert into cutoff_snapshots (
              tournament_edition_id, event_type, draw_type, source_type,

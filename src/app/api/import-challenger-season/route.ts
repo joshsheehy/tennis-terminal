@@ -143,6 +143,13 @@ async function tryImportCut(
     const pdfUrl = `${baseUrl}/${pdfName}`;
     try {
       const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+      // Skip results-sheet PDFs served at entry-list URLs: they parse without
+      // throwing but have no rank data, so recording them would mask the gap.
+      const hasRank =
+        parsed.last_direct_acceptance_rank !== null ||
+        parsed.challenger_doubles_advanced_cut_rank !== null ||
+        parsed.challenger_doubles_onsite_cut_rank !== null;
+      if (!hasRank) continue;
       await pool.query(
         `insert into cutoff_snapshots (
            tournament_edition_id, event_type, draw_type, source_type,
