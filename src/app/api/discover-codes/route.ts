@@ -43,8 +43,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const PDF_TYPES = ['mds.pdf', 'qs.pdf', 'mdd.pdf'] as const;
-const DEFAULT_MAX_REQUESTS = 300;
-const HARD_MAX_REQUESTS = 500;
+const DEFAULT_MAX_REQUESTS = 500;
+const HARD_MAX_REQUESTS = 1000;
 const DEFAULT_CONCURRENCY = 5;
 const HARD_MAX_CONCURRENCY = 8;
 const FETCH_TIMEOUT_MS = 9000;
