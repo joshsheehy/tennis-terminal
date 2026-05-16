@@ -127,6 +127,7 @@ export async function GET(request: NextRequest) {
   const year = Number(params.get('year') ?? '2024');
   const limit = Math.min(Number(params.get('limit') ?? '500'), 1000);
   const offset = Number(params.get('offset') ?? '0');
+  const compact = params.get('compact') === 'true';
 
   if (![2024, 2025, 2026].includes(year)) {
     return NextResponse.json(
@@ -214,6 +215,21 @@ export async function GET(request: NextRequest) {
     const present = expected.filter((draw) => hasDraw(row, draw));
     const confidence = confidenceFor(row, code);
 
+    if (compact) {
+      // Tiny shape per row so the whole report fits in a chat paste.
+      // Skip the verbose URL candidate list and the per-row reason text.
+      return {
+        slug: row.slug,
+        name: row.name,
+        week: row.week,
+        start_date: row.start_date,
+        level: row.level,
+        code,
+        missing: missing,
+        confidence: confidence.level,
+      };
+    }
+
     return {
       slug: row.slug,
       name: row.name,
@@ -241,13 +257,36 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  const missingReport = report.filter((row) => row.missing_count > 0);
-  const completeReport = report.filter((row) => row.missing_count === 0);
+  const missingReport = report.filter((row) =>
+    compact ? (row as { missing: DrawKey[] }).missing.length > 0 : (row as { missing_count: number }).missing_count > 0
+  );
+  const completeReport = report.filter((row) =>
+    compact ? (row as { missing: DrawKey[] }).missing.length === 0 : (row as { missing_count: number }).missing_count === 0
+  );
 
   const confidenceCounts = missingReport.reduce<Record<string, number>>((acc, row) => {
-    acc[row.confidence.level] = (acc[row.confidence.level] ?? 0) + 1;
+    const level = compact
+      ? (row as { confidence: string }).confidence
+      : (row as { confidence: { level: string } }).confidence.level;
+    acc[level] = (acc[level] ?? 0) + 1;
     return acc;
   }, {});
+
+  if (compact) {
+    return NextResponse.json({
+      ok: true,
+      year,
+      totalReturned: report.length,
+      completeCount: completeReport.length,
+      missingEditionCount: missingReport.length,
+      missingDrawCount: missingReport.reduce(
+        (sum, row) => sum + (row as { missing: DrawKey[] }).missing.length,
+        0
+      ),
+      confidenceCounts,
+      missing: missingReport,
+    });
+  }
 
   return NextResponse.json({
     ok: true,
@@ -257,7 +296,10 @@ export async function GET(request: NextRequest) {
     totalReturned: report.length,
     completeCount: completeReport.length,
     missingEditionCount: missingReport.length,
-    missingDrawCount: missingReport.reduce((sum, row) => sum + row.missing_count, 0),
+    missingDrawCount: missingReport.reduce(
+      (sum, row) => sum + (row as { missing_count: number }).missing_count,
+      0
+    ),
     confidenceCounts,
     missing: missingReport,
     complete: completeReport,
