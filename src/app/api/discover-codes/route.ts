@@ -48,6 +48,9 @@ const HARD_MAX_REQUESTS = 1000;
 const DEFAULT_CONCURRENCY = 5;
 const HARD_MAX_CONCURRENCY = 8;
 const FETCH_TIMEOUT_MS = 9000;
+// Soft wall-time budget per request. Browsers and many edge proxies cap at ~30s,
+// so we return progress + nextStartCode just under that and let the caller retry.
+const TIME_BUDGET_MS = 22000;
 
 function normalize(value: string) {
   return value
@@ -357,62 +360,80 @@ export async function GET(request: NextRequest) {
     const applyMinConfidence = (searchParams.get('applyMinConfidence') ?? 'high') as MatchConfidence;
 
     const missing = await resolveMissingEditions(year, weekFilter);
-    const tasks: Array<() => Promise<{ code: number; pdf_url: string; text: string | null }>> = [];
-
-    for (let code = startCode; code <= endCode; code += 1) {
-      for (const pdfType of PDF_TYPES) {
-        const pdf_url = `https://www.protennislive.com/posting/${year}/${code}/${pdfType}`;
-        tasks.push(async () => ({ code, pdf_url, text: await fetchPdfText(pdf_url) }));
-      }
-    }
-
-    const results = await runWithConcurrency(tasks, concurrency);
     const matches: MatchCandidate[] = [];
     const workingUnknown: WorkingUnknown[] = [];
     let workingPdfCount = 0;
+    let testedCount = 0;
 
-    for (const result of results) {
-      if (!result.text) continue;
-      workingPdfCount += 1;
-
-      const titleSnippet = extractTitleSnippet(result.text);
-      const scoredMatches: Array<MatchCandidate & { scoreRank: number }> = [];
-
-      for (const candidate of missing) {
-        const evaluated = evaluateMatch(result.text, candidate);
-        if (!evaluated) continue;
-
-        const scoreRank = evaluated.confidence === 'high' ? 3 : evaluated.confidence === 'medium' ? 2 : 1;
-        scoredMatches.push({
-          code: result.code,
-          pdf_url: result.pdf_url,
-          titleSnippet,
-          matched_slug: candidate.slug,
-          matched_name: candidate.name,
-          matched_city: candidate.city,
-          confidence: evaluated.confidence,
-          evidence: evaluated.evidence,
-          scoreRank,
-        });
+    const start = Date.now();
+    let lastProcessedCode = startCode - 1;
+    let timedOut = false;
+    // Process one code at a time (3 PDFs concurrently within the code, plus pipelined
+    // across codes via runWithConcurrency in small batches). After each batch, check
+    // the time budget and bail out so the caller can resume from nextStartCode.
+    const BATCH = Math.max(1, concurrency);
+    for (let code = startCode; code <= endCode; code += BATCH) {
+      if (Date.now() - start > TIME_BUDGET_MS) {
+        timedOut = true;
+        break;
       }
-
-      if (scoredMatches.length > 0) {
-        scoredMatches.sort((a, b) => b.scoreRank - a.scoreRank);
-        const bestRank = scoredMatches[0].scoreRank;
-        const strongestMatches = scoredMatches.filter((match) => match.scoreRank === bestRank);
-        for (const strongest of strongestMatches) {
-          const { scoreRank: _, ...record } = strongest;
-          matches.push(record);
+      const batchEnd = Math.min(endCode, code + BATCH - 1);
+      const tasks: Array<() => Promise<{ code: number; pdf_url: string; text: string | null }>> = [];
+      for (let c = code; c <= batchEnd; c += 1) {
+        for (const pdfType of PDF_TYPES) {
+          const pdf_url = `https://www.protennislive.com/posting/${year}/${c}/${pdfType}`;
+          tasks.push(async () => ({ code: c, pdf_url, text: await fetchPdfText(pdf_url) }));
         }
-      } else {
-        workingUnknown.push({
-          code: result.code,
-          pdf_url: result.pdf_url,
-          titleSnippet,
-          possibleMatches: [],
-        });
+      }
+      const results = await runWithConcurrency(tasks, concurrency);
+      testedCount += tasks.length;
+      lastProcessedCode = batchEnd;
+
+      for (const result of results) {
+        if (!result.text) continue;
+        workingPdfCount += 1;
+
+        const titleSnippet = extractTitleSnippet(result.text);
+        const scoredMatches: Array<MatchCandidate & { scoreRank: number }> = [];
+
+        for (const candidate of missing) {
+          const evaluated = evaluateMatch(result.text, candidate);
+          if (!evaluated) continue;
+
+          const scoreRank = evaluated.confidence === 'high' ? 3 : evaluated.confidence === 'medium' ? 2 : 1;
+          scoredMatches.push({
+            code: result.code,
+            pdf_url: result.pdf_url,
+            titleSnippet,
+            matched_slug: candidate.slug,
+            matched_name: candidate.name,
+            matched_city: candidate.city,
+            confidence: evaluated.confidence,
+            evidence: evaluated.evidence,
+            scoreRank,
+          });
+        }
+
+        if (scoredMatches.length > 0) {
+          scoredMatches.sort((a, b) => b.scoreRank - a.scoreRank);
+          const bestRank = scoredMatches[0].scoreRank;
+          const strongestMatches = scoredMatches.filter((match) => match.scoreRank === bestRank);
+          for (const strongest of strongestMatches) {
+            const { scoreRank: _, ...record } = strongest;
+            matches.push(record);
+          }
+        } else {
+          workingUnknown.push({
+            code: result.code,
+            pdf_url: result.pdf_url,
+            titleSnippet,
+            possibleMatches: [],
+          });
+        }
       }
     }
+    const hasMore = timedOut && lastProcessedCode < endCode;
+    const nextStartCode = hasMore ? lastProcessedCode + 1 : null;
 
     const applied: Array<{ slug: string; code: number; pdf_url: string; confidence: MatchConfidence }> = [];
     if (apply && matches.length > 0) {
@@ -453,7 +474,10 @@ export async function GET(request: NextRequest) {
       ok: true,
       year,
       range: { startCode, endCode },
-      testedCount: tasks.length,
+      lastProcessedCode,
+      nextStartCode,
+      hasMore,
+      testedCount,
       workingPdfCount,
       matches,
       workingUnknown,
