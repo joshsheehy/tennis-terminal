@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
@@ -42,8 +42,17 @@ type EditionRow = {
   has_singles_qual: boolean;
   has_doubles_main: boolean;
   has_doubles_qual: boolean;
+  recently_tried_singles_main: boolean;
+  recently_tried_singles_qual: boolean;
+  recently_tried_doubles_main: boolean;
+  recently_tried_doubles_qual: boolean;
   existing_source_notes: string[];
 };
+
+// How long after a failed attempt we skip the draw before retrying. Keeps each
+// run-all call making forward progress instead of looping over the same dead
+// editions every time.
+const TOMBSTONE_TTL = '6 hours';
 
 function extractCodeFromTextSources(sources: Array<string | null | undefined>): string | null {
   for (const source of sources) {
@@ -113,8 +122,49 @@ async function tryFill(
   return false;
 }
 
-export async function GET() {
+async function markDrawAttempted(
+  editionId: string,
+  eventType: 'singles' | 'doubles',
+  drawType: 'main' | 'qualifying'
+) {
+  // Tombstone: we tried every candidate PDF for this draw and none worked.
+  // Stops run-all from re-burning the time budget on the same dead draw for a
+  // while. If a real PDF turns up later, tryFill's full upsert above replaces
+  // this row; the case-expression here makes sure we never clobber a real
+  // rank row with this placeholder.
+  await pool.query(
+    `insert into cutoff_snapshots (
+       tournament_edition_id, event_type, draw_type, source_type,
+       parsed_at, parser_version, source_notes, updated_at
+     ) values (
+       $1, $2, $3, 'official_pdf', now(), 'tombstone-v1', 'PDF_NOT_FOUND', now()
+     )
+     on conflict (tournament_edition_id, event_type, draw_type) do update set
+       source_notes = case
+         when cutoff_snapshots.last_direct_acceptance_rank is not null
+           or cutoff_snapshots.challenger_doubles_advanced_cut_rank is not null
+           or cutoff_snapshots.challenger_doubles_onsite_cut_rank is not null
+         then cutoff_snapshots.source_notes
+         else excluded.source_notes end,
+       parsed_at = case
+         when cutoff_snapshots.last_direct_acceptance_rank is not null
+           or cutoff_snapshots.challenger_doubles_advanced_cut_rank is not null
+           or cutoff_snapshots.challenger_doubles_onsite_cut_rank is not null
+         then cutoff_snapshots.parsed_at
+         else excluded.parsed_at end,
+       updated_at = case
+         when cutoff_snapshots.last_direct_acceptance_rank is not null
+           or cutoff_snapshots.challenger_doubles_advanced_cut_rank is not null
+           or cutoff_snapshots.challenger_doubles_onsite_cut_rank is not null
+         then cutoff_snapshots.updated_at
+         else now() end`,
+    [editionId, eventType, drawType]
+  );
+}
+
+export async function GET(request: NextRequest) {
   const startTime = Date.now();
+  const force = request.nextUrl.searchParams.get('force') === 'true';
 
   // ── Phase 1: Cleanup (fast, idempotent) ──────────────────────────────────────────
 
@@ -167,6 +217,10 @@ export async function GET() {
        exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'qualifying' and cs.last_direct_acceptance_rank is not null) as has_singles_qual,
        exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'main' and (cs.last_direct_acceptance_rank is not null or cs.challenger_doubles_advanced_cut_rank is not null or cs.challenger_doubles_onsite_cut_rank is not null)) as has_doubles_main,
        exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'qualifying' and cs.last_direct_acceptance_rank is not null) as has_doubles_qual,
+       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'main' and cs.source_notes = 'PDF_NOT_FOUND' and cs.updated_at > now() - interval '${TOMBSTONE_TTL}') as recently_tried_singles_main,
+       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'qualifying' and cs.source_notes = 'PDF_NOT_FOUND' and cs.updated_at > now() - interval '${TOMBSTONE_TTL}') as recently_tried_singles_qual,
+       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'main' and cs.source_notes = 'PDF_NOT_FOUND' and cs.updated_at > now() - interval '${TOMBSTONE_TTL}') as recently_tried_doubles_main,
+       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'qualifying' and cs.source_notes = 'PDF_NOT_FOUND' and cs.updated_at > now() - interval '${TOMBSTONE_TTL}') as recently_tried_doubles_qual,
        coalesce(array_agg(cs.source_notes) filter (where cs.source_notes is not null), array[]::text[]) as existing_source_notes
      from tournament_editions te
      join tournaments t on t.id = te.tournament_id
@@ -178,18 +232,20 @@ export async function GET() {
      order by te.year, te.start_date, t.name`
   );
 
+  // An edition is "actionable" if at least one expected draw is still missing
+  // AND we haven't recently tombstoned that draw (unless force=true).
   const incomplete = editionsResult.rows.filter((r) => {
     const isChallenger = r.level.toLowerCase().includes('challenger');
     const needsDoublesQual = !isChallenger && (
       SLUG_HAS_DOUBLES_QUAL.has(r.slug) ||
       (!ALL_KNOWN_SLUGS.has(r.slug) && (r.level.includes('500') || r.level.includes('1000')))
     );
-    return (
-      !r.has_singles_main ||
-      !r.has_singles_qual ||
-      !r.has_doubles_main ||
-      (needsDoublesQual && !r.has_doubles_qual)
-    );
+    const needsSinglesMain = !r.has_singles_main && (force || !r.recently_tried_singles_main);
+    const needsSinglesQual = !r.has_singles_qual && (force || !r.recently_tried_singles_qual);
+    const needsDoublesMain = !r.has_doubles_main && (force || !r.recently_tried_doubles_main);
+    const needsDoublesQualifying =
+      needsDoublesQual && !r.has_doubles_qual && (force || !r.recently_tried_doubles_qual);
+    return needsSinglesMain || needsSinglesQual || needsDoublesMain || needsDoublesQualifying;
   });
 
   // ── Phase 3: Fill within time budget ───────────────────────────────────────
@@ -223,14 +279,31 @@ export async function GET() {
       (!ALL_KNOWN_SLUGS.has(r.slug) && (r.level.includes('500') || r.level.includes('1000')))
     );
 
-    const tasks: Promise<boolean>[] = [];
-    if (!r.has_singles_main) tasks.push(tryFill(r.edition_id, code, candidateYears, 'singles', 'main', PDF_PATTERNS.singles_main));
-    if (!r.has_singles_qual) tasks.push(tryFill(r.edition_id, code, candidateYears, 'singles', 'qualifying', PDF_PATTERNS.singles_qual));
-    if (!r.has_doubles_main) tasks.push(tryFill(r.edition_id, code, candidateYears, 'doubles', 'main', PDF_PATTERNS.doubles_main));
-    if (needsDoublesQual && !r.has_doubles_qual) tasks.push(tryFill(r.edition_id, code, candidateYears, 'doubles', 'qualifying', PDF_PATTERNS.doubles_qual));
+    type DrawAttempt = {
+      eventType: 'singles' | 'doubles';
+      drawType: 'main' | 'qualifying';
+      run: () => Promise<boolean>;
+    };
+    const drawAttempts: DrawAttempt[] = [];
+    if (!r.has_singles_main && (force || !r.recently_tried_singles_main)) {
+      drawAttempts.push({ eventType: 'singles', drawType: 'main', run: () => tryFill(r.edition_id, code, candidateYears, 'singles', 'main', PDF_PATTERNS.singles_main) });
+    }
+    if (!r.has_singles_qual && (force || !r.recently_tried_singles_qual)) {
+      drawAttempts.push({ eventType: 'singles', drawType: 'qualifying', run: () => tryFill(r.edition_id, code, candidateYears, 'singles', 'qualifying', PDF_PATTERNS.singles_qual) });
+    }
+    if (!r.has_doubles_main && (force || !r.recently_tried_doubles_main)) {
+      drawAttempts.push({ eventType: 'doubles', drawType: 'main', run: () => tryFill(r.edition_id, code, candidateYears, 'doubles', 'main', PDF_PATTERNS.doubles_main) });
+    }
+    if (needsDoublesQual && !r.has_doubles_qual && (force || !r.recently_tried_doubles_qual)) {
+      drawAttempts.push({ eventType: 'doubles', drawType: 'qualifying', run: () => tryFill(r.edition_id, code, candidateYears, 'doubles', 'qualifying', PDF_PATTERNS.doubles_qual) });
+    }
 
-    const results = await Promise.all(tasks);
+    const results = await Promise.all(drawAttempts.map((d) => d.run()));
     if (results.some(Boolean)) filled++;
+    // Tombstone draws that came up empty so the next call doesn't waste budget here.
+    await Promise.all(
+      drawAttempts.map((d, i) => (results[i] ? Promise.resolve() : markDrawAttempted(r.edition_id, d.eventType, d.drawType)))
+    );
   }
 
   const remaining = incomplete.length - processed;
@@ -245,8 +318,9 @@ export async function GET() {
     noCode,
     remaining,
     hasMore,
+    force,
     message: hasMore
       ? `Filled ${filled} editions. ${remaining} remaining — call again to continue.`
-      : `Done. Filled ${filled} editions. ${noCode} have no ProTennisLive code (can't be auto-filled).`,
+      : `Done. Filled ${filled} editions. ${noCode} have no ProTennisLive code. Use ?force=true to retry editions previously marked PDF_NOT_FOUND.`,
   });
 }
