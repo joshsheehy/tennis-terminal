@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 
 type MissingEdition = {
@@ -103,7 +104,7 @@ function parseYearParam(value: string | null): number {
   return year;
 }
 
-function getMissingEditions(weekFilter: number | null): MissingEdition[] {
+function getMissingEditionsFromCanonical(weekFilter: number | null): MissingEdition[] {
   return ALL_EDITIONS
     .filter((item) => item.edition.status === 'held' && item.edition.year === 2026 && item.edition.protennislive_code === null)
     .filter((item) => (weekFilter === null ? true : item.edition.week === weekFilter))
@@ -114,6 +115,95 @@ function getMissingEditions(weekFilter: number | null): MissingEdition[] {
       city: item.tournament.city,
       start_date: item.edition.start_date,
     }));
+}
+
+// Returns DB editions for a historical year (2024/2025) that have no
+// recoverable ProTennisLive code anywhere — not in the static catalogue,
+// not in te.source_url, and not in cutoff_snapshots.source_notes.
+// These are the tournaments that need brute-force code discovery to fill.
+async function getMissingEditionsFromDb(
+  year: number,
+  weekFilter: number | null
+): Promise<MissingEdition[]> {
+  const canonicalCoded = new Set(
+    ALL_EDITIONS
+      .filter((item) => item.edition.protennislive_code !== null)
+      .map((item) => item.tournament.slug)
+  );
+
+  const result = await pool.query<{
+    slug: string;
+    name: string;
+    city: string;
+    week: number | null;
+    start_date: string;
+    source_url: string | null;
+    source_notes: string | null;
+  }>(
+    `
+    select
+      t.slug, t.name, t.city,
+      te.week, te.start_date::text as start_date,
+      te.source_url, cs.source_notes
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    left join cutoff_snapshots cs on cs.tournament_edition_id = te.id
+    where te.year = $1
+      and te.status = 'held'
+      and te.start_date is not null
+      and (
+        (
+          extract(year from te.start_date) = te.year
+          and extract(month from te.start_date) <> 12
+        )
+        or (
+          extract(year from te.start_date) = te.year - 1
+          and extract(month from te.start_date) = 12
+        )
+      )
+    `,
+    [year]
+  );
+
+  const PROTENNISLIVE = /\/posting\/\d+\/(\d+)\//;
+  const ATP_ARCHIVE = /\/archive\/[^/]+\/(\d+)\/\d{4}\/results/i;
+
+  const bySlug = new Map<string, MissingEdition>();
+  const slugsWithCode = new Set<string>();
+
+  for (const row of result.rows) {
+    if (canonicalCoded.has(row.slug)) {
+      slugsWithCode.add(row.slug);
+      continue;
+    }
+    const sources = [row.source_url, row.source_notes];
+    const hasCode = sources.some((s) => s && (PROTENNISLIVE.test(s) || ATP_ARCHIVE.test(s)));
+    if (hasCode) {
+      slugsWithCode.add(row.slug);
+      continue;
+    }
+    if (weekFilter !== null && row.week !== weekFilter) continue;
+    if (!bySlug.has(row.slug)) {
+      bySlug.set(row.slug, {
+        week: row.week,
+        slug: row.slug,
+        name: row.name,
+        city: row.city,
+        start_date: row.start_date,
+      });
+    }
+  }
+
+  for (const slug of slugsWithCode) bySlug.delete(slug);
+  return Array.from(bySlug.values());
+}
+
+async function resolveMissingEditions(
+  year: number,
+  weekFilter: number | null
+): Promise<MissingEdition[]> {
+  if (year === 2026) return getMissingEditionsFromCanonical(weekFilter);
+  return getMissingEditionsFromDb(year, weekFilter);
 }
 
 async function fetchPdfText(url: string) {
@@ -263,8 +353,10 @@ export async function GET(request: NextRequest) {
     }
 
     const year = parseYearParam(searchParams.get('year'));
+    const apply = searchParams.get('apply') === 'true';
+    const applyMinConfidence = (searchParams.get('applyMinConfidence') ?? 'high') as MatchConfidence;
 
-    const missing = getMissingEditions(weekFilter);
+    const missing = await resolveMissingEditions(year, weekFilter);
     const tasks: Array<() => Promise<{ code: number; pdf_url: string; text: string | null }>> = [];
 
     for (let code = startCode; code <= endCode; code += 1) {
@@ -322,6 +414,41 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const applied: Array<{ slug: string; code: number; pdf_url: string; confidence: MatchConfidence }> = [];
+    if (apply && matches.length > 0) {
+      const confidenceRank: Record<MatchConfidence, number> = { high: 3, medium: 2, low: 1 };
+      const minRank = confidenceRank[applyMinConfidence] ?? confidenceRank.high;
+      // Take the highest-confidence match per slug to avoid writing the wrong code.
+      const bestBySlug = new Map<string, MatchCandidate>();
+      for (const m of matches) {
+        if (confidenceRank[m.confidence] < minRank) continue;
+        const existing = bestBySlug.get(m.matched_slug);
+        if (!existing || confidenceRank[m.confidence] > confidenceRank[existing.confidence]) {
+          bestBySlug.set(m.matched_slug, m);
+        }
+      }
+      for (const match of bestBySlug.values()) {
+        // Write the ProTennisLive URL to te.source_url for the matching edition(s) in the requested year.
+        // Subsequent /api/run-all and /api/import-cutoffs will pick this up via the URL regex.
+        await pool.query(
+          `update tournament_editions te
+           set source_url = $3, updated_at = now()
+           from tournaments t
+           where te.tournament_id = t.id
+             and t.slug = $1
+             and te.year = $2
+             and (te.source_url is null or te.source_url !~ '/posting/\\d+/\\d+/')`,
+          [match.matched_slug, year, match.pdf_url]
+        );
+        applied.push({
+          slug: match.matched_slug,
+          code: match.code,
+          pdf_url: match.pdf_url,
+          confidence: match.confidence,
+        });
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       year,
@@ -331,6 +458,9 @@ export async function GET(request: NextRequest) {
       matches,
       workingUnknown,
       unmatchedMissingCodes: missing,
+      apply,
+      applyMinConfidence,
+      applied,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Invalid request';

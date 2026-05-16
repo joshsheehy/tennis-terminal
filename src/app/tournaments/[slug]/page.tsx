@@ -18,12 +18,18 @@ function displayName(name: string): string {
 }
 
 function compareLabel(value: boolean | null) {
-  if (value === null) return 'No prior year / not held';
+  if (value === null) return 'N/A';
   return value ? 'Same' : 'Different';
 }
 
 function isChallengerLevel(level: string) {
   return level.toLowerCase().includes('challenger');
+}
+
+function fallback(value: string | number | null | undefined, placeholder = 'N/A') {
+  if (value === null || value === undefined) return placeholder;
+  const text = String(value).trim();
+  return text.length === 0 ? placeholder : text;
 }
 
 function editionSummary(edition: {
@@ -34,11 +40,15 @@ function editionSummary(edition: {
   surface: string;
   status: string;
 }) {
-  if (edition.status === 'not_held') return 'Not Held / NA';
-  const dateRange = edition.end_date
-    ? `${formatDate(edition.start_date)} – ${formatDate(edition.end_date)}`
-    : formatDate(edition.start_date);
-  return `${dateRange} · Week ${edition.week ?? 'NA'} · ${edition.level} · ${edition.surface}`;
+  const dateRange = edition.start_date
+    ? edition.end_date
+      ? `${formatDate(edition.start_date)} – ${formatDate(edition.end_date)}`
+      : formatDate(edition.start_date)
+    : 'N/A';
+  const week = `Week ${fallback(edition.week)}`;
+  const level = fallback(edition.level);
+  const surface = fallback(edition.surface);
+  return `${dateRange} · ${week} · ${level} · ${surface}`;
 }
 
 function cutoffLabel(cutoff: CutoffSnapshot) {
