@@ -52,17 +52,19 @@ const URL_PATTERNS = [
   /\/en\/scores\/archive\/([a-z0-9-]+)\/(\d{2,6})\/\d{4}\//gi,
 ];
 
+const BROWSER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.5',
+};
+
 async function fetchHtml(url: string): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
     const res = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-      },
+      headers: BROWSER_HEADERS,
       cache: 'no-store',
       signal: controller.signal,
     });
@@ -71,6 +73,159 @@ async function fetchHtml(url: string): Promise<string> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchPdfBuffer(url: string): Promise<Buffer> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await fetch(url, {
+      headers: { ...BROWSER_HEADERS, Accept: 'application/pdf,*/*;q=0.8' },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`PDF fetch returned ${res.status} for ${url}`);
+    return Buffer.from(await res.arrayBuffer());
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Find calendar PDF links in the page HTML. The "2026-27 Calendar PDF"
+// button on atptour.com renders as a normal <a href="...pdf"> link, so a
+// regex sweep over the HTML is enough.
+function findCalendarPdfUrls(html: string, baseUrl: string): string[] {
+  const found = new Set<string>();
+  const hrefPattern = /(?:href|data-url|src)=["']([^"']*\.pdf[^"']*)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = hrefPattern.exec(html)) !== null) {
+    const raw = m[1];
+    // Only keep links that look like a calendar download (the button label
+    // / file name usually contains "calendar").
+    if (!/calendar/i.test(raw)) continue;
+    let abs: string;
+    if (raw.startsWith('http')) abs = raw;
+    else if (raw.startsWith('//')) abs = `https:${raw}`;
+    else if (raw.startsWith('/')) abs = `https://www.atptour.com${raw}`;
+    else {
+      try {
+        abs = new URL(raw, baseUrl).toString();
+      } catch {
+        continue;
+      }
+    }
+    found.add(abs);
+  }
+  return Array.from(found);
+}
+
+const MONTHS: Record<string, number> = {
+  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
+  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
+  aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10,
+  nov: 11, november: 11, dec: 12, december: 12,
+};
+
+function parseCalendarPdfDate(text: string, fallbackYear: number): string | null {
+  // Accept "Dec 29", "Dec 29, 2025", "29 Dec", "29 December 2025".
+  const usMatch = text.match(/\b([A-Za-z]{3,9})\s+(\d{1,2})(?:,\s*(\d{4}))?\b/);
+  const intlMatch = text.match(/\b(\d{1,2})\s+([A-Za-z]{3,9})(?:\s+(\d{4}))?\b/);
+  const groups = usMatch ?? intlMatch;
+  if (!groups) return null;
+  const monthRaw = (usMatch ? groups[1] : groups[2]).toLowerCase();
+  const dayRaw = usMatch ? groups[2] : groups[1];
+  const yearRaw = groups[3];
+  const month = MONTHS[monthRaw];
+  const day = Number(dayRaw);
+  if (!month || !day || day < 1 || day > 31) return null;
+  const year = yearRaw ? Number(yearRaw) : (month === 12 ? fallbackYear - 1 : fallbackYear);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function parseLevelFromPdfRow(line: string): string | null {
+  if (/\bgrand slam\b/i.test(line)) return 'Grand Slam';
+  if (/\batp\s*finals\b/i.test(line)) return 'ATP Finals';
+  if (/\bnext\s*gen/i.test(line)) return 'Next Gen Finals';
+  if (/\b1000\b/.test(line) || /\bmasters\b/i.test(line)) return 'ATP 1000';
+  if (/\b500\b/.test(line)) return 'ATP 500';
+  if (/\b250\b/.test(line)) return 'ATP 250';
+  if (/challenger\s*175/i.test(line)) return 'Challenger 175';
+  if (/challenger\s*125/i.test(line)) return 'Challenger 125';
+  if (/challenger\s*100/i.test(line)) return 'Challenger 100';
+  if (/challenger\s*75/i.test(line)) return 'Challenger 75';
+  if (/challenger\s*50/i.test(line)) return 'Challenger 50';
+  if (/\bch\b/i.test(line) || /challenger/i.test(line)) return 'Challenger';
+  return null;
+}
+
+function parseSurfaceFromPdfRow(line: string): string | null {
+  if (/\bclay\b/i.test(line)) return 'Clay';
+  if (/\bgrass\b/i.test(line)) return 'Grass';
+  if (/\bcarpet\b/i.test(line)) return 'Carpet';
+  if (/\bhard\b/i.test(line) || /\b(?:i\/h|o\/h|indoor|outdoor)\b/i.test(line)) return 'Hard';
+  return null;
+}
+
+// Extract tournament rows from a calendar PDF text dump. The ATP calendar
+// PDF is roughly tabular: week, dates, tournament name, city/country,
+// level, surface, prize money. Lines vary by year and we don't have a
+// machine-readable feed, so best-effort parsing: anchor on a date token,
+// pull the line + neighbours, and emit one CalendarTournament per match.
+function parseCalendarPdfText(text: string, hintYear: number): CalendarTournament[] {
+  const lines = text
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((l) => l.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  const out: CalendarTournament[] = [];
+  let pseudoCode = 9_000_000; // synthetic ids for PDF-only rows (real codes come from HTML/JSON paths)
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const startDate = parseCalendarPdfDate(line, hintYear);
+    if (!startDate) continue;
+
+    // Pull a small window of neighbouring text to extract the rest of the
+    // row in case the PDF wrapped it across visual lines.
+    const window = [lines[i - 1], line, lines[i + 1], lines[i + 2]].filter(Boolean).join(' ');
+    const level = parseLevelFromPdfRow(window);
+    if (!level) continue;
+    const surface = parseSurfaceFromPdfRow(window);
+
+    // Find a "Name, City, Country" or "City, Country" segment. Pick the
+    // longest title-cased fragment before the date that looks tournament-y.
+    const before = line.replace(/^\s*(?:week\s*\d+\s*)?\d{0,2}\s*/i, '').replace(parseCalendarPdfDate(line, hintYear) ?? '', '');
+    const titleMatch = before.match(/([A-Z][A-Za-z'.\- ]{2,}?)\s*(?:[-,–|]\s*([A-Z][A-Za-z'.\- ]{2,}?))?(?:\s*,\s*([A-Z][A-Za-z .\-]{2,}))?\s*$/);
+    if (!titleMatch) continue;
+    const name = titleMatch[1]?.trim();
+    const city = titleMatch[2]?.trim() ?? name;
+    const country = titleMatch[3]?.trim() ?? null;
+    if (!name || name.length < 3) continue;
+
+    const code = pseudoCode++;
+    out.push({
+      code,
+      citySlug: slugify(city, { lower: true, strict: true }) || 'unknown',
+      name,
+      city,
+      country,
+      startDate,
+      endDate: null,
+      level,
+      surface,
+      isChallenger: level.toLowerCase().includes('challenger'),
+    });
+  }
+  return out;
+}
+
+async function scrapeCalendarPdf(pdfUrl: string, hintYear: number): Promise<CalendarTournament[]> {
+  const buffer = await fetchPdfBuffer(pdfUrl);
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const pdfParse = require('pdf-parse') as (b: Buffer) => Promise<{ text: string }>;
+  const parsed = await pdfParse(buffer);
+  return parseCalendarPdfText(parsed.text, hintYear);
 }
 
 function normalizeLevelString(raw: string | null | undefined): string | null {
@@ -169,7 +324,7 @@ function harvestTournaments(
   for (const v of Object.values(rec)) harvestTournaments(v, out, contextIsChallenger);
 }
 
-async function scrapeOne(url: string, isChallenger: boolean) {
+async function scrapeOne(url: string, isChallenger: boolean, hintYear: number) {
   const html = await fetchHtml(url);
   const tournaments = new Map<number, CalendarTournament>();
 
@@ -200,7 +355,41 @@ async function scrapeOne(url: string, isChallenger: boolean) {
     }
   }
 
-  return { url, count: tournaments.size, tournaments: Array.from(tournaments.values()) };
+  // Method 3: the "20YY-YY Calendar PDF" button. The PDF is the authoritative
+  // calendar so we always prefer its dates/level/surface when present.
+  const pdfUrls = findCalendarPdfUrls(html, url);
+  const pdfResults: Array<{ url: string; count: number; error?: string }> = [];
+  for (const pdfUrl of pdfUrls) {
+    try {
+      const fromPdf = await scrapeCalendarPdf(pdfUrl, hintYear);
+      pdfResults.push({ url: pdfUrl, count: fromPdf.length });
+      for (const t of fromPdf) {
+        const existing = tournaments.get(t.code);
+        tournaments.set(t.code, {
+          ...t,
+          // PDF data wins over what we had from HTML guesses except for the
+          // numeric tournament code which only comes from the URL/JSON path.
+          ...(existing
+            ? {
+                code: existing.code,
+                citySlug: existing.citySlug || t.citySlug,
+                isChallenger: existing.isChallenger || t.isChallenger,
+              }
+            : {}),
+        });
+      }
+    } catch (err) {
+      pdfResults.push({ url: pdfUrl, count: 0, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  return {
+    url,
+    count: tournaments.size,
+    pdfsFound: pdfUrls,
+    pdfResults,
+    tournaments: Array.from(tournaments.values()),
+  };
 }
 
 async function upsertTournament(t: CalendarTournament, year: number) {
@@ -278,7 +467,7 @@ export async function GET(request: NextRequest) {
 
   for (const t of targets) {
     try {
-      scrapeResults.push(await scrapeOne(t.url, t.isChallenger));
+      scrapeResults.push(await scrapeOne(t.url, t.isChallenger, year));
     } catch (err) {
       scrapeErrors.push({ url: t.url, error: err instanceof Error ? err.message : String(err) });
     }
@@ -319,7 +508,12 @@ export async function GET(request: NextRequest) {
       ok: true,
       dryRun: true,
       year,
-      scrapeResultsCount: scrapeResults.map((r) => ({ url: r.url, count: r.count })),
+      scrapeResultsCount: scrapeResults.map((r) => ({
+        url: r.url,
+        count: r.count,
+        pdfsFound: r.pdfsFound,
+        pdfResults: r.pdfResults,
+      })),
       scrapeErrors,
       uniqueTournamentCount: merged.size,
       sample: Array.from(merged.values()).slice(0, 25),
@@ -339,7 +533,12 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     year,
-    scrapeResultsCount: scrapeResults.map((r) => ({ url: r.url, count: r.count })),
+    scrapeResultsCount: scrapeResults.map((r) => ({
+      url: r.url,
+      count: r.count,
+      pdfsFound: r.pdfsFound,
+      pdfResults: r.pdfResults,
+    })),
     scrapeErrors,
     upsertedCount: upserted.length,
     failedCount: failed.length,
