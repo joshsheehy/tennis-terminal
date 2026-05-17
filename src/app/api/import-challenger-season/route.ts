@@ -253,13 +253,17 @@ export async function GET(request: NextRequest) {
           canonicalWeek = editionEntry.edition.week;
         }
       } else {
-        // Tournament not in our 2026 calendar — derive from JeffSackmann name
-        name = t.name;
-        city = t.name; // JeffSackmann tourney_name is typically the city
+        // Tournament not in our 2026 calendar — derive from JeffSackmann name.
+        // JeffSackmann's `tourney_name` often has a trailing " CH" / " CH 2" tag
+        // and we double-up name + city, which generated slugs like
+        // "burnie-ch-burnie-ch". Strip the tag so the slug stays clean.
+        const cleanedName = t.name.replace(/\s+CH(\s+\d+)?$/i, '$1').replace(/\s{2,}/g, ' ').trim();
+        name = cleanedName;
+        city = cleanedName;
         country = null;
         level = 'Challenger';
         source = 'atp_challenger_pdf';
-        slug = slugify(`${name}-${city}`, { lower: true, strict: true, trim: true });
+        slug = slugify(cleanedName, { lower: true, strict: true, trim: true });
       }
 
       const effectiveStartDate = canonicalStartDate ?? t.startDate;

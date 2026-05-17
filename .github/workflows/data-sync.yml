@@ -104,6 +104,13 @@ jobs:
                   max_pages=30,
               )
 
+          # 3a) Merge tournaments that share a ProTennisLive code. The challenger
+          # importer used to create double-slug duplicates like
+          # "burnie-ch-burnie-ch" alongside "burnie-burnie"; this folds them
+          # back into one row so the schedule and missing-cuts report aren't
+          # noisy.
+          request_json('/api/dedupe-by-code?apply=true', required=False)
+
           # 4) ATP-level cutoff refill for each historical year. Page through so each
           # request is bounded; one giant call would happily blow the 180s timeout.
           for year in (2024, 2025, 2026):
