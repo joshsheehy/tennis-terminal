@@ -665,7 +665,7 @@ export async function GET(request: NextRequest) {
         const pdfParse = require('pdf-parse') as (b: Buffer) => Promise<{ text: string }>;
         const parsed = await pdfParse(buffer);
         const text = parsed.text ?? '';
-        samples.push({ url, textHead: text.slice(0, 8000), textLength: text.length });
+        samples.push({ url, textHead: text.slice(0, 40000), textLength: text.length });
       } catch (err) {
         samples.push({ url, textHead: '', textLength: 0, error: err instanceof Error ? err.message : String(err) });
       }
