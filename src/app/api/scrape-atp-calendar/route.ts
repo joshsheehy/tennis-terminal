@@ -532,6 +532,7 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const year = Number(params.get('year') ?? new Date().getFullYear());
   const dryRun = params.get('apply') === 'false';
+  const debug = params.get('debug') === 'true';
   // ?pdfUrl=... lets the caller pin an explicit PDF (e.g. a known URL the
   // user pasted) instead of relying on discovery. Accepts a comma-separated
   // list so both the ATP Tour and Challenger PDFs can be passed at once.
@@ -543,6 +544,26 @@ export async function GET(request: NextRequest) {
   // and goes straight to PDF discovery + parsing. Defaults to true because
   // the PDFs are the canonical source and HTML pages have CF protection.
   const skipHtml = params.get('skipHtml') !== 'false';
+
+  // Debug mode: download each PDF, return the first ~8KB of raw text so we
+  // can see the actual layout and iterate on the row parser.
+  if (debug) {
+    const urls = explicitPdfUrls.length > 0 ? explicitPdfUrls : await discoverLatestCalendarPdfs(year);
+    const samples: Array<{ url: string; textHead: string; textLength: number; error?: string }> = [];
+    for (const url of urls) {
+      try {
+        const buffer = await fetchPdfBuffer(url);
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const pdfParse = require('pdf-parse') as (b: Buffer) => Promise<{ text: string }>;
+        const parsed = await pdfParse(buffer);
+        const text = parsed.text ?? '';
+        samples.push({ url, textHead: text.slice(0, 8000), textLength: text.length });
+      } catch (err) {
+        samples.push({ url, textHead: '', textLength: 0, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    return NextResponse.json({ ok: true, debug: true, year, samples });
+  }
 
   const targets = [
     { url: 'https://www.atptour.com/en/tournaments', isChallenger: false },
