@@ -195,104 +195,212 @@ function findCalendarPdfUrls(html: string, baseUrl: string): string[] {
   return Array.from(found);
 }
 
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
+// Extract tournament rows from a calendar PDF text dump. ATP's calendar
+// PDFs are designed for visual layout, so pdf-parse linearises them in
+// reading-column order and concatenates table cells without delimiters,
+// e.g. "BRISBANEBRISBANE INTERNATIONAL PRESENTED BY ANZHATP 2503 2".
+//
+// Approach:
+//  1. Split into per-year sections at "YYYY CALENDAR" headers (the PDF
+//     covers the current + next ATP season).
+//  2. For each category anchor (ATP 250 / ATP 500 / ATP MASTERS 1000 /
+//     GRAND SLAM / ATP FINALS / UNITED CUP / etc.) scan a window of text
+//     immediately before the anchor for:
+//       - the tournament name (uppercase phrase ending with a tournament
+//         keyword: OPEN, CHAMPIONSHIPS, MASTERS, CLASSIC, CUP, FINALS, ...)
+//       - the city (uppercase phrase immediately before the name)
+//       - the surface letter(s) right before the category token
+//       - the nearest "DD-MMM" date token
+//  3. Look up the canonical slug + ProTennisLive code by tournament name
+//     so the resulting row can flow into run-all for cuts.
+//
+// This is best-effort: layout-recovery from a marketing PDF will always
+// miss a few rows. We emit what we can and log totals so the operator
+// can spot-check via ?apply=false.
+
+const MONTH_ABBR: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
 };
 
-function parseCalendarPdfDate(text: string, fallbackYear: number): string | null {
-  // Accept "Dec 29", "Dec 29, 2025", "29 Dec", "29 December 2025".
-  const usMatch = text.match(/\b([A-Za-z]{3,9})\s+(\d{1,2})(?:,\s*(\d{4}))?\b/);
-  const intlMatch = text.match(/\b(\d{1,2})\s+([A-Za-z]{3,9})(?:\s+(\d{4}))?\b/);
-  const groups = usMatch ?? intlMatch;
-  if (!groups) return null;
-  const monthRaw = (usMatch ? groups[1] : groups[2]).toLowerCase();
-  const dayRaw = usMatch ? groups[2] : groups[1];
-  const yearRaw = groups[3];
-  const month = MONTHS[monthRaw];
-  const day = Number(dayRaw);
-  if (!month || !day || day < 1 || day > 31) return null;
-  const year = yearRaw ? Number(yearRaw) : (month === 12 ? fallbackYear - 1 : fallbackYear);
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+const NAME_KEYWORDS = [
+  'OPEN', 'CHAMPIONSHIPS', 'CHAMPIONSHIP', 'MASTERS', 'CLASSIC', 'FINALS',
+  'CUP', 'PRIX', 'INTERNATIONAL', 'INDOORS', 'ROLAND-GARROS', 'WIMBLEDON',
+  'AUSTRALIAN', 'US OPEN', 'NITTO', 'GENERALI', 'CITI', 'MIFEL', 'NORDEA',
+  'SWISS', 'BANK', 'BMW', 'ROLEX', 'ROTHESAY', 'MUBADALA', 'ERSTE',
+  'MUTUA', 'NEXO', 'INTERNAZIONALI', 'TIRIAC', 'GONET', 'BITPANDA',
+  'ABN', 'TERRA', 'LEXUS', 'VANDA', 'BCI', 'IEB', 'ABIERTO', 'QATAR',
+  'PLAVA', 'MILLENNIUM', 'BNP', 'KINOSHITA', 'CHINA', 'CHENGDU', 'HANGZHOU',
+  'BYBIT', 'BOSS', 'EFG', 'LIBEMA', 'EUROPEAN', 'DAVIS',
+];
+
+const CATEGORY_PATTERNS: Array<{ regex: RegExp; level: string }> = [
+  { regex: /ATP\s*MASTERS\s*1000/i, level: 'ATP 1000' },
+  { regex: /ATP\s*FINALS/i, level: 'ATP Finals' },
+  { regex: /NEXT\s*GEN\s*ATP\s*FIN(?:ALS)?/i, level: 'Next Gen Finals' },
+  { regex: /GRAND\s*SLAM/i, level: 'Grand Slam' },
+  { regex: /UNITED\s*CUP/i, level: 'United Cup' },
+  { regex: /DAVIS\s*CUP/i, level: 'Davis Cup' },
+  { regex: /LAVER\s*CUP/i, level: 'Laver Cup' },
+  { regex: /ATP\s*500/i, level: 'ATP 500' },
+  { regex: /ATP\s*250/i, level: 'ATP 250' },
+  { regex: /CHALLENGER\s*175/i, level: 'Challenger 175' },
+  { regex: /CHALLENGER\s*125/i, level: 'Challenger 125' },
+  { regex: /CHALLENGER\s*100/i, level: 'Challenger 100' },
+  { regex: /CHALLENGER\s*75/i, level: 'Challenger 75' },
+  { regex: /CHALLENGER\s*50/i, level: 'Challenger 50' },
+];
+
+const NAME_TO_CANONICAL = new Map<string, (typeof ALL_EDITIONS)[number]>();
+for (const entry of ALL_EDITIONS) {
+  const key = entry.tournament.name.toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  if (!NAME_TO_CANONICAL.has(key)) NAME_TO_CANONICAL.set(key, entry);
 }
 
-function parseLevelFromPdfRow(line: string): string | null {
-  if (/\bgrand slam\b/i.test(line)) return 'Grand Slam';
-  if (/\batp\s*finals\b/i.test(line)) return 'ATP Finals';
-  if (/\bnext\s*gen/i.test(line)) return 'Next Gen Finals';
-  if (/\b1000\b/.test(line) || /\bmasters\b/i.test(line)) return 'ATP 1000';
-  if (/\b500\b/.test(line)) return 'ATP 500';
-  if (/\b250\b/.test(line)) return 'ATP 250';
-  if (/challenger\s*175/i.test(line)) return 'Challenger 175';
-  if (/challenger\s*125/i.test(line)) return 'Challenger 125';
-  if (/challenger\s*100/i.test(line)) return 'Challenger 100';
-  if (/challenger\s*75/i.test(line)) return 'Challenger 75';
-  if (/challenger\s*50/i.test(line)) return 'Challenger 50';
-  if (/\bch\b/i.test(line) || /challenger/i.test(line)) return 'Challenger';
-  return null;
-}
-
-function parseSurfaceFromPdfRow(line: string): string | null {
-  if (/\bclay\b/i.test(line)) return 'Clay';
-  if (/\bgrass\b/i.test(line)) return 'Grass';
-  if (/\bcarpet\b/i.test(line)) return 'Carpet';
-  if (/\bhard\b/i.test(line) || /\b(?:i\/h|o\/h|indoor|outdoor)\b/i.test(line)) return 'Hard';
-  return null;
-}
-
-// Extract tournament rows from a calendar PDF text dump. The ATP calendar
-// PDF is roughly tabular: week, dates, tournament name, city/country,
-// level, surface, prize money. Lines vary by year and we don't have a
-// machine-readable feed, so best-effort parsing: anchor on a date token,
-// pull the line + neighbours, and emit one CalendarTournament per match.
-function parseCalendarPdfText(text: string, hintYear: number): CalendarTournament[] {
-  const lines = text
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map((l) => l.replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
-
-  const out: CalendarTournament[] = [];
-  let pseudoCode = 9_000_000; // synthetic ids for PDF-only rows (real codes come from HTML/JSON paths)
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    const startDate = parseCalendarPdfDate(line, hintYear);
-    if (!startDate) continue;
-
-    // Pull a small window of neighbouring text to extract the rest of the
-    // row in case the PDF wrapped it across visual lines.
-    const window = [lines[i - 1], line, lines[i + 1], lines[i + 2]].filter(Boolean).join(' ');
-    const level = parseLevelFromPdfRow(window);
-    if (!level) continue;
-    const surface = parseSurfaceFromPdfRow(window);
-
-    // Find a "Name, City, Country" or "City, Country" segment. Pick the
-    // longest title-cased fragment before the date that looks tournament-y.
-    const before = line.replace(/^\s*(?:week\s*\d+\s*)?\d{0,2}\s*/i, '').replace(parseCalendarPdfDate(line, hintYear) ?? '', '');
-    const titleMatch = before.match(/([A-Z][A-Za-z'.\- ]{2,}?)\s*(?:[-,–|]\s*([A-Z][A-Za-z'.\- ]{2,}?))?(?:\s*,\s*([A-Z][A-Za-z .\-]{2,}))?\s*$/);
-    if (!titleMatch) continue;
-    const name = titleMatch[1]?.trim();
-    const city = titleMatch[2]?.trim() ?? name;
-    const country = titleMatch[3]?.trim() ?? null;
-    if (!name || name.length < 3) continue;
-
-    const code = pseudoCode++;
-    out.push({
-      code,
-      citySlug: slugify(city, { lower: true, strict: true }) || 'unknown',
-      name,
-      city,
-      country,
-      startDate,
-      endDate: null,
-      level,
-      surface,
-      isChallenger: level.toLowerCase().includes('challenger'),
-    });
+function findAllCategoryHits(text: string): Array<{ start: number; end: number; level: string; raw: string }> {
+  const hits: Array<{ start: number; end: number; level: string; raw: string }> = [];
+  for (const { regex, level } of CATEGORY_PATTERNS) {
+    const re = new RegExp(regex.source, 'gi');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      hits.push({ start: m.index, end: m.index + m[0].length, level, raw: m[0] });
+    }
   }
+  // Sort by position, then prefer longer/more specific matches that share a start.
+  hits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  // Deduplicate overlapping hits at the same span.
+  const filtered: typeof hits = [];
+  let lastEnd = -1;
+  for (const h of hits) {
+    if (h.start < lastEnd) continue;
+    filtered.push(h);
+    lastEnd = h.end;
+  }
+  return filtered;
+}
+
+function extractDateNear(text: string, hintYear: number): string | null {
+  // DD-MMM (most common in ATP PDFs). Also tolerate "DD MMM".
+  const m = text.match(/(\d{1,2})[-\s](JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/i);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = MONTH_ABBR[m[2].toLowerCase()];
+  if (!day || !month || day < 1 || day > 31) return null;
+  // PDFs include both current + next year; assume the year is the one of the
+  // surrounding section. The caller scopes us by section already.
+  const sectionYear = hintYear;
+  return `${sectionYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function extractNameAndCityBefore(window: string): { name: string | null; city: string | null } {
+  // Walk backward from the end of the window collecting the uppercase phrase
+  // that ends just before the category token. The trailing fragment is the
+  // tournament name; whatever uppercase block precedes it is the city.
+  const cleaned = window
+    .replace(/[\s\n]+/g, ' ')
+    .replace(/[‘’′]/g, "'")
+    .trim();
+
+  // Pull the last contiguous run of uppercase-ish words (letters, digits,
+  // punctuation but not lower-case). Stop at the first lowercase letter.
+  const upperRun = cleaned.match(/[A-Z0-9'’.&,\- ]{4,}$/);
+  if (!upperRun) return { name: null, city: null };
+  const tokens = upperRun[0].trim().split(/\s+/);
+
+  // Find a tournament-name keyword and treat words from there to the end as
+  // the name; words before are the city.
+  let keywordIndex = -1;
+  for (let i = tokens.length - 1; i >= 0; i -= 1) {
+    if (NAME_KEYWORDS.includes(tokens[i].replace(/[^A-Z]/g, ''))) {
+      keywordIndex = i;
+      break;
+    }
+  }
+  if (keywordIndex === -1) return { name: null, city: null };
+
+  // Walk left from the keyword to capture the full tournament name (4-10 tokens).
+  let nameStart = Math.max(0, keywordIndex - 8);
+  // Skip surface/draws junk: drop tokens that are 1-2 letter codes (H, CL, G, IH).
+  while (nameStart < keywordIndex && /^[A-Z]{1,2}$/.test(tokens[nameStart])) {
+    nameStart += 1;
+  }
+  const name = tokens.slice(nameStart, tokens.length).join(' ').replace(/\s{2,}/g, ' ').trim();
+
+  // City: everything before the name, but trim digits/surface noise.
+  const cityTokens = tokens.slice(0, nameStart).filter((t) => !/^[0-9]+$/.test(t) && !/^[A-Z]{1,2}$/.test(t));
+  const city = cityTokens.length > 0 ? cityTokens.join(' ').trim() : null;
+
+  return { name: name || null, city: city || (name ? name.split(' ')[0] : null) };
+}
+
+function extractSurface(window: string): string | null {
+  // The surface letter sits right before the category token. Catch one or
+  // two letters from the set {H, CL, G, IH} optionally followed by a comma.
+  const m = window.match(/\b(IH|CL|H|G)\b\s*$/);
+  if (!m) return null;
+  switch (m[1].toUpperCase()) {
+    case 'IH': return 'Hard';
+    case 'CL': return 'Clay';
+    case 'H': return 'Hard';
+    case 'G': return 'Grass';
+    default: return null;
+  }
+}
+
+function parseCalendarPdfText(text: string, hintYear: number): CalendarTournament[] {
+  const out: CalendarTournament[] = [];
+  let pseudoCode = 9_000_000;
+  const seen = new Set<string>();
+
+  // Split into per-year sections; each PDF covers the current + next season.
+  const yearHeaderRe = /(20\d{2})\s*CALENDAR/g;
+  const yearMatches: Array<{ year: number; index: number }> = [];
+  let yhMatch: RegExpExecArray | null;
+  while ((yhMatch = yearHeaderRe.exec(text)) !== null) {
+    yearMatches.push({ year: Number(yhMatch[1]), index: yhMatch.index });
+  }
+  if (yearMatches.length === 0) {
+    yearMatches.push({ year: hintYear, index: 0 });
+  }
+
+  for (let s = 0; s < yearMatches.length; s += 1) {
+    const sectionYear = yearMatches[s].year;
+    const sectionStart = yearMatches[s].index;
+    const sectionEnd = s + 1 < yearMatches.length ? yearMatches[s + 1].index : text.length;
+    const sectionText = text.slice(sectionStart, sectionEnd);
+
+    for (const hit of findAllCategoryHits(sectionText)) {
+      const lookBack = sectionText.slice(Math.max(0, hit.start - 220), hit.start);
+      const surface = extractSurface(lookBack);
+      const { name, city } = extractNameAndCityBefore(lookBack);
+      if (!name) continue;
+
+      // Find the nearest date token within a slightly wider window.
+      const dateWindow = sectionText.slice(Math.max(0, hit.start - 320), hit.start + 50);
+      const startDate = extractDateNear(dateWindow, sectionYear);
+
+      const canonical = NAME_TO_CANONICAL.get(name.toUpperCase().replace(/[^A-Z0-9]+/g, ''));
+      const code = canonical ? Number(canonical.edition.protennislive_code ?? pseudoCode++) : pseudoCode++;
+
+      const dedupKey = `${sectionYear}|${name.toUpperCase()}|${startDate ?? ''}`;
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+
+      out.push({
+        code,
+        citySlug: (canonical?.tournament.slug) ?? slugify(city ?? name, { lower: true, strict: true }),
+        name: canonical?.tournament.name ?? name,
+        city: canonical?.tournament.city ?? city ?? name,
+        country: canonical?.tournament.country ?? null,
+        startDate: startDate ?? null,
+        endDate: null,
+        level: hit.level,
+        surface: surface ?? null,
+        isChallenger: hit.level.toLowerCase().includes('challenger'),
+      });
+    }
+  }
+
   return out;
 }
 
