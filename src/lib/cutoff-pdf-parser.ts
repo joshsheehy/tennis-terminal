@@ -77,6 +77,45 @@ function isFooterHeading(line: string) {
   return /^(atp supervisor|tournament director|seeded players|seeded teams|alternates\/lucky losers|withdrawals|retirements|released)/i.test(line);
 }
 
+// Reject lines that pattern-match like "name + rank" but are actually scores,
+// prize money, tournament titles, or section headings. These are the dominant
+// false positives we saw in the 2024 import — e.g. "FIRST ROUND€ 745",
+// "62 75" (a set score), "PRIZE MONEY (PER TEAM)SEEDED TEAMS 31",
+// "Falkensteiner Punta Skala-Zadar Open 2024".
+function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
+  // ATP rankings cap well under 5000; a 4-digit number that looks like a year
+  // is almost always a calendar year embedded in a tournament title.
+  if (rank >= 1900 && rank <= 2100) return true;
+  if (rank > 5000) return true;
+  if (rank < 1) return true;
+
+  const trimmedName = name.trim();
+  if (trimmedName.length < 2) return true;
+
+  // Names must contain at least one alphabetic character.
+  if (!/[A-Za-zÀ-ÿ]/.test(trimmedName)) return true;
+
+  // Pure-digit names are scores or counts, never player names.
+  if (/^\d+$/.test(trimmedName)) return true;
+
+  const upper = raw.toUpperCase();
+  // Prize-money tells: currency symbols, the literal "PRIZE", or French "FIRST ROUND" with €.
+  if (/[€$£]/.test(raw)) return true;
+  if (/PRIZE\s*MONEY/.test(upper)) return true;
+  if (/FIRST\s*ROUND/.test(upper) && /\d/.test(raw)) return true;
+  if (/SEEDED\s*(PLAYERS|TEAMS)/.test(upper)) return true;
+  if (/QUALIFIER/.test(upper) && rank < 100) return true; // "QUALIFIER 0" / "QUALIFIER 4" headings.
+
+  // Tennis set scores like "62 75", "64 26 10-8", "76(5) 64".
+  // Strip parentheses/dashes and check if every token is a 2-digit short score.
+  const tokens = raw.replace(/[()\-]/g, ' ').split(/\s+/).filter(Boolean);
+  if (tokens.length >= 2 && tokens.every((t) => /^\d{1,2}$/.test(t) && Number(t) <= 79)) {
+    return true;
+  }
+
+  return false;
+}
+
 function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
   const index = lines.findIndex((line) => /last direct acceptance/i.test(line));
 
@@ -88,17 +127,22 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
     if (isFooterHeading(line)) continue;
 
     const parsed = parseNameAndRank(line);
-    if (parsed) return parsed;
+    if (parsed && !isSpuriousNameRank(parsed.name, parsed.rank, parsed.raw)) {
+      return parsed;
+    }
 
     const nextLine = lines[index + offset + 1];
     const rankFromNextLine = nextLine ? parseStandaloneRank(nextLine) : null;
 
     if (rankFromNextLine !== null && !isFooterHeading(nextLine)) {
-      return {
+      const candidate = {
         name: cleanAcceptanceName(line),
         rank: rankFromNextLine,
         raw: `${line.trim()} ${nextLine.trim()}`,
       };
+      if (!isSpuriousNameRank(candidate.name, candidate.rank, candidate.raw)) {
+        return candidate;
+      }
     }
   }
 
