@@ -84,8 +84,17 @@ jobs:
           # 1) Sync canonical hardcoded calendar rows.
           request_json('/api/import-calendars')
 
-          # 2) Try ATP's public result archive discovery. If ATP blocks/changes the page,
-          # keep going because the JeffSackmann fallback + run-all still fill the DB.
+          # 2) Primary calendar source: atptour.com. Pull this season + next.
+          # This is the source of truth — JeffSackmann's CSVs derive from the
+          # same data after matches are played, so we no longer need to wait
+          # on him for new tournament announcements.
+          import datetime
+          current_year = datetime.date.today().year
+          request_json(f'/api/scrape-atp-calendar?year={current_year}', required=False)
+          request_json(f'/api/scrape-atp-calendar?year={current_year + 1}', required=False)
+
+          # 3) ATP result-archive discovery (older fallback). Keep around for
+          # historical years where atptour.com hides the upcoming-calendar UI.
           run_paged(
               'ATP schedule/code discovery',
               lambda offset: f'/api/sync-atp-schedule?year=2026&type=all&limit=100&offset={offset}&importCuts=true',
@@ -93,14 +102,14 @@ jobs:
               max_pages=10,
           )
 
-          # 3) Challenger backfill. These are idempotent, so rerunning is safe.
-          # Smaller per-page limit keeps each request well under the 180s timeout
-          # even when ProTennisLive is slow or Wayback fallbacks fire.
+          # 4) JeffSackmann backfill (fallback for completed tournaments where
+          # we still want the cut PDFs but the atptour.com page no longer
+          # lists them). Idempotent.
           for year in (2024, 2025, 2026):
               run_paged(
                   f'Challenger season import {year}',
                   lambda offset, y=year: f'/api/import-challenger-season?year={y}&limit=50&offset={offset}',
-                  required=(year == 2026),
+                  required=False,
                   max_pages=30,
               )
 
