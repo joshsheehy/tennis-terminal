@@ -379,19 +379,36 @@ function parseCalendarPdfText(text: string, hintYear: number): CalendarTournamen
       const dateWindow = sectionText.slice(Math.max(0, hit.start - 320), hit.start + 50);
       const startDate = extractDateNear(dateWindow, sectionYear);
 
-      const canonical = NAME_TO_CANONICAL.get(name.toUpperCase().replace(/[^A-Z0-9]+/g, ''));
-      const code = canonical ? Number(canonical.edition.protennislive_code ?? pseudoCode++) : pseudoCode++;
+      // Try a full-name match first; if that fails, fall back to a
+      // suffix-keyword search through canonical names so we still link rows
+      // where extractNameAndCityBefore over-captured neighbouring cells.
+      const upperKey = name.toUpperCase().replace(/[^A-Z0-9]+/g, '');
+      let canonical = NAME_TO_CANONICAL.get(upperKey);
+      if (!canonical) {
+        for (const [key, entry] of NAME_TO_CANONICAL) {
+          if (upperKey.includes(key) && key.length >= 8) {
+            canonical = entry;
+            break;
+          }
+        }
+      }
 
-      const dedupKey = `${sectionYear}|${name.toUpperCase()}|${startDate ?? ''}`;
+      // Skip rows that we couldn't resolve to a canonical tournament. Without
+      // a canonical match we have no reliable name/city/code, and emitting a
+      // pseudo-tournament here just creates ghost rows in the schedule.
+      if (!canonical) continue;
+
+      const code = Number(canonical.edition.protennislive_code ?? pseudoCode++);
+      const dedupKey = `${sectionYear}|${canonical.tournament.slug}|${startDate ?? ''}`;
       if (seen.has(dedupKey)) continue;
       seen.add(dedupKey);
 
       out.push({
         code,
-        citySlug: (canonical?.tournament.slug) ?? slugify(city ?? name, { lower: true, strict: true }),
-        name: canonical?.tournament.name ?? name,
-        city: canonical?.tournament.city ?? city ?? name,
-        country: canonical?.tournament.country ?? null,
+        citySlug: canonical.tournament.slug,
+        name: canonical.tournament.name,
+        city: canonical.tournament.city,
+        country: canonical.tournament.country,
         startDate: startDate ?? null,
         endDate: null,
         level: hit.level,
