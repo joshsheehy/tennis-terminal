@@ -91,6 +91,82 @@ async function fetchPdfBuffer(url: string): Promise<Buffer> {
   }
 }
 
+// ATP CMS hosts calendar PDFs at /-/media/files/calendar-pdfs/{year}/...
+// with filenames like "2026-27-atp-challenger-calendar-as-of-10-may-2026.pdf".
+// Those filenames change on every update, so we discover the latest by HEAD-
+// probing the last 90 days for each known prefix. First hit wins per prefix.
+const MONTH_NAMES = [
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december',
+];
+
+function buildCalendarPdfPrefixes(year: number): string[] {
+  const yy2 = String((year + 1) % 100).padStart(2, '0');
+  return [
+    `${year}-${yy2}-atp-challenger-calendar`,
+    `${year}-atp-challenger-calendar`,
+    `${year}-${yy2}-atp-tour-calendar`,
+    `${year}-atp-tour-calendar`,
+  ];
+}
+
+async function probeUrlExists(url: string, timeoutMs = 8000): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    // HEAD is cheap, but some CDNs only return GET; fall back to a range GET
+    // to avoid downloading the whole PDF just to test existence.
+    let res = await fetch(url, {
+      method: 'HEAD',
+      headers: BROWSER_HEADERS,
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (res.status === 405) {
+      res = await fetch(url, {
+        method: 'GET',
+        headers: { ...BROWSER_HEADERS, Range: 'bytes=0-0' },
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+    }
+    return res.ok || res.status === 206;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function discoverLatestCalendarPdfs(year: number, lookBackDays = 90): Promise<string[]> {
+  const today = new Date();
+  const prefixes = buildCalendarPdfPrefixes(year);
+  const discovered: string[] = [];
+
+  for (const prefix of prefixes) {
+    let foundForPrefix: string | null = null;
+    for (let back = 0; back <= lookBackDays && !foundForPrefix; back += 1) {
+      const probeDate = new Date(today.getTime() - back * 24 * 60 * 60 * 1000);
+      const day = probeDate.getUTCDate();
+      const month = MONTH_NAMES[probeDate.getUTCMonth()];
+      const probeYear = probeDate.getUTCFullYear();
+      // The user-supplied example uses "10-may-2026" (one-digit day, no zero
+      // padding). Try both the zero-padded and unpadded variants.
+      for (const dayVariant of [String(day), String(day).padStart(2, '0')]) {
+        const filename = `${prefix}-as-of-${dayVariant}-${month}-${probeYear}.pdf`;
+        const url = `https://www.atptour.com/-/media/files/calendar-pdfs/${year}/${filename}`;
+        if (await probeUrlExists(url)) {
+          foundForPrefix = url;
+          break;
+        }
+      }
+    }
+    if (foundForPrefix) discovered.push(foundForPrefix);
+  }
+
+  return discovered;
+}
+
 // Find calendar PDF links in the page HTML. The "2026-27 Calendar PDF"
 // button on atptour.com renders as a normal <a href="...pdf"> link, so a
 // regex sweep over the HTML is enough.
@@ -456,6 +532,17 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const year = Number(params.get('year') ?? new Date().getFullYear());
   const dryRun = params.get('apply') === 'false';
+  // ?pdfUrl=... lets the caller pin an explicit PDF (e.g. a known URL the
+  // user pasted) instead of relying on discovery. Accepts a comma-separated
+  // list so both the ATP Tour and Challenger PDFs can be passed at once.
+  const explicitPdfUrls = (params.get('pdfUrl') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  // ?skipHtml=true bypasses atptour.com page fetches (which currently 403)
+  // and goes straight to PDF discovery + parsing. Defaults to true because
+  // the PDFs are the canonical source and HTML pages have CF protection.
+  const skipHtml = params.get('skipHtml') !== 'false';
 
   const targets = [
     { url: 'https://www.atptour.com/en/tournaments', isChallenger: false },
@@ -465,11 +552,37 @@ export async function GET(request: NextRequest) {
   const scrapeResults: Array<Awaited<ReturnType<typeof scrapeOne>>> = [];
   const scrapeErrors: Array<{ url: string; error: string }> = [];
 
-  for (const t of targets) {
+  if (!skipHtml) {
+    for (const t of targets) {
+      try {
+        scrapeResults.push(await scrapeOne(t.url, t.isChallenger, year));
+      } catch (err) {
+        scrapeErrors.push({ url: t.url, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+  }
+
+  // Direct PDF path: works even when the HTML calendar pages are blocked.
+  // explicit URLs first, then probe for the latest by date pattern.
+  const directPdfUrls: string[] = [...explicitPdfUrls];
+  const probedPdfUrls = explicitPdfUrls.length > 0 ? [] : await discoverLatestCalendarPdfs(year);
+  directPdfUrls.push(...probedPdfUrls);
+
+  const directPdfResults: Array<{ url: string; count: number; error?: string }> = [];
+  for (const pdfUrl of directPdfUrls) {
     try {
-      scrapeResults.push(await scrapeOne(t.url, t.isChallenger, year));
+      const fromPdf = await scrapeCalendarPdf(pdfUrl, year);
+      directPdfResults.push({ url: pdfUrl, count: fromPdf.length });
+      // Stitch into a pseudo-scrapeResult so the merge step below picks them up.
+      scrapeResults.push({
+        url: pdfUrl,
+        count: fromPdf.length,
+        pdfsFound: [pdfUrl],
+        pdfResults: [{ url: pdfUrl, count: fromPdf.length }],
+        tournaments: fromPdf,
+      });
     } catch (err) {
-      scrapeErrors.push({ url: t.url, error: err instanceof Error ? err.message : String(err) });
+      directPdfResults.push({ url: pdfUrl, count: 0, error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -497,9 +610,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: false,
       error:
-        'No tournaments extracted from atptour.com. The pages may have changed structure or are blocking the request. Inspect the response and update URL_PATTERNS or harvestTournaments() in scrape-atp-calendar.',
+        'No tournaments extracted. The HTML pages return 403 (Cloudflare); we also could not find or parse a media PDF for this year. Pass an explicit ?pdfUrl=https://www.atptour.com/-/media/files/calendar-pdfs/YEAR/...pdf with the link from the calendar button.',
       scrapeErrors,
-      scrapeResultsCount: scrapeResults.map((r) => ({ url: r.url, count: r.count })),
+      scrapeResultsCount: scrapeResults.map((r) => ({
+        url: r.url,
+        count: r.count,
+        pdfsFound: r.pdfsFound,
+        pdfResults: r.pdfResults,
+      })),
+      directPdfResults,
     }, { status: 502 });
   }
 
@@ -540,6 +659,7 @@ export async function GET(request: NextRequest) {
       pdfResults: r.pdfResults,
     })),
     scrapeErrors,
+    directPdfResults,
     upsertedCount: upserted.length,
     failedCount: failed.length,
     sampleUpserted: upserted.slice(0, 25),
