@@ -25,6 +25,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import socket
           import time
           import urllib.error
           import urllib.request
@@ -33,32 +34,44 @@ jobs:
           if not base_url.startswith(('http://', 'https://')):
               base_url = 'https://' + base_url
 
-          def request_json(path: str, *, required: bool = True, timeout: int = 90):
+          def request_json(path: str, *, required: bool = True, timeout: int = 180, retries: int = 3):
               url = base_url + path
-              print(f'\nGET {url}', flush=True)
-              req = urllib.request.Request(
-                  url,
-                  headers={
-                      'Accept': 'application/json',
-                      'User-Agent': 'TennisTerminalDataSync/1.0',
-                  },
-              )
-              try:
-                  with urllib.request.urlopen(req, timeout=timeout) as res:
-                      body = res.read().decode('utf-8', errors='replace')
-                      print(body[:5000], flush=True)
-                      return json.loads(body)
-              except Exception as exc:
-                  print(f'ERROR: {exc}', flush=True)
-                  if required:
-                      raise
-                  return {'ok': False, 'error': str(exc)}
+              last_error = None
+              for attempt in range(1, retries + 1):
+                  print(f'\nGET {url} (attempt {attempt}/{retries}, timeout={timeout}s)', flush=True)
+                  req = urllib.request.Request(
+                      url,
+                      headers={
+                          'Accept': 'application/json',
+                          'User-Agent': 'TennisTerminalDataSync/1.0',
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(req, timeout=timeout) as res:
+                          body = res.read().decode('utf-8', errors='replace')
+                          print(body[:5000], flush=True)
+                          return json.loads(body)
+                  except (socket.timeout, TimeoutError, urllib.error.URLError, ConnectionError) as exc:
+                      last_error = exc
+                      print(f'TRANSIENT ERROR (attempt {attempt}): {exc}', flush=True)
+                      if attempt < retries:
+                          backoff = 5 * attempt
+                          print(f'Retrying in {backoff}s...', flush=True)
+                          time.sleep(backoff)
+                          continue
+                  except Exception as exc:
+                      last_error = exc
+                      print(f'ERROR: {exc}', flush=True)
+                      break
+              if required:
+                  raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
+              return {'ok': False, 'error': str(last_error)}
 
-          def run_paged(label: str, path_factory, *, required: bool = True, max_pages: int = 20):
+          def run_paged(label: str, path_factory, *, required: bool = True, max_pages: int = 20, timeout: int = 180):
               print(f'\n=== {label} ===', flush=True)
               offset = 0
               for _ in range(max_pages):
-                  data = request_json(path_factory(offset), required=required)
+                  data = request_json(path_factory(offset), required=required, timeout=timeout)
                   if not data.get('hasMore'):
                       return data
                   next_offset = data.get('nextOffset')
@@ -81,35 +94,42 @@ jobs:
           )
 
           # 3) Challenger backfill. These are idempotent, so rerunning is safe.
+          # Smaller per-page limit keeps each request well under the 180s timeout
+          # even when ProTennisLive is slow or Wayback fallbacks fire.
           for year in (2024, 2025, 2026):
               run_paged(
                   f'Challenger season import {year}',
-                  lambda offset, y=year: f'/api/import-challenger-season?year={y}&limit=100&offset={offset}',
+                  lambda offset, y=year: f'/api/import-challenger-season?year={y}&limit=50&offset={offset}',
                   required=(year == 2026),
-                  max_pages=10,
+                  max_pages=30,
               )
 
-          # 4) ATP-level cutoff refill for each historical year. Uses canonical PTL codes
-          # plus DB source_url and source_notes fallbacks. Non-fatal so 2024/2025 hiccups
-          # don't block the 2026 sync.
+          # 4) ATP-level cutoff refill for each historical year. Page through so each
+          # request is bounded; one giant call would happily blow the 180s timeout.
           for year in (2024, 2025, 2026):
-              request_json(f'/api/import-cutoffs?year={year}', required=(year == 2026))
+              run_paged(
+                  f'ATP cutoff refill {year}',
+                  lambda offset, y=year: f'/api/import-cutoffs?year={y}&limit=40&offset={offset}',
+                  required=(year == 2026),
+                  max_pages=30,
+              )
 
           # 5) Restore any historical rows that were previously hidden by stale cleanup.
           request_json('/api/restore-historical-status')
 
           # 6) Fill any remaining missing cuts. /api/run-all has its own 22s server-side budget,
-          # so call it repeatedly until it reports completion.
+          # so call it repeatedly until it reports completion. Tombstones make each call
+          # process new editions instead of re-grinding the dead ones.
           print('\n=== Missing cut refill ===', flush=True)
-          for attempt in range(30):
-              data = request_json('/api/run-all')
+          for attempt in range(60):
+              data = request_json('/api/run-all', timeout=60)
               if not data.get('hasMore'):
                   print('run-all complete', flush=True)
                   break
-              print(f'run-all has more work; attempt {attempt + 1}/30', flush=True)
+              print(f'run-all has more work; attempt {attempt + 1}/60', flush=True)
               time.sleep(3)
           else:
-              raise RuntimeError('run-all still had more work after 30 attempts')
+              raise RuntimeError('run-all still had more work after 60 attempts')
 
           request_json('/api/restore-historical-status')
 
