@@ -80,6 +80,10 @@ async function findGroups(): Promise<CodeGroup[]> {
             from tournament_editions te
             where te.tournament_id = t.id and te.source_url is not null
             union
+            select substring(te.source_url from '/tournaments/[^/]+/(\\d+)/') as code
+            from tournament_editions te
+            where te.tournament_id = t.id and te.source_url is not null
+            union
             select substring(cs.source_notes from '/posting/\\d+/(\\d+)/') as code
             from cutoff_snapshots cs
             join tournament_editions te on te.id = cs.tournament_edition_id
@@ -138,6 +142,7 @@ async function mergeGroup(group: CodeGroup) {
   let movedEditions = 0;
   let mergedSnapshots = 0;
   let deletedGhostEditions = 0;
+  let upgradedWinnerMetadata = 0;
 
   for (const ghost of ghosts) {
     await pool.query('BEGIN');
@@ -155,6 +160,46 @@ async function mergeGroup(group: CodeGroup) {
       for (const ed of ghostEditions.rows) {
         const winnerEditionId = winnerYearMap.get(ed.year);
         if (winnerEditionId) {
+          // If one duplicate has exact Challenger level metadata and the other
+          // has older generic "Challenger" metadata, preserve the exact row's
+          // level/date/surface on the surviving edition before deleting it.
+          const metadataResult = await pool.query(
+            `update tournament_editions winner
+             set
+               week = case
+                 when winner.level = 'Challenger' and ghost.level ~* '^Challenger\\s+(50|75|100|125|175)$'
+                 then ghost.week else winner.week end,
+               start_date = case
+                 when winner.level = 'Challenger' and ghost.level ~* '^Challenger\\s+(50|75|100|125|175)$'
+                 then ghost.start_date else winner.start_date end,
+               end_date = case
+                 when winner.level = 'Challenger' and ghost.level ~* '^Challenger\\s+(50|75|100|125|175)$'
+                 then ghost.end_date else winner.end_date end,
+               level = case
+                 when winner.level = 'Challenger' and ghost.level ~* '^Challenger\\s+(50|75|100|125|175)$'
+                 then ghost.level else winner.level end,
+               surface = case
+                 when winner.level = 'Challenger' and ghost.level ~* '^Challenger\\s+(50|75|100|125|175)$'
+                 then ghost.surface else winner.surface end,
+               indoor = case
+                 when winner.level = 'Challenger' and ghost.level ~* '^Challenger\\s+(50|75|100|125|175)$'
+                 then ghost.indoor else winner.indoor end,
+               source_url = case
+                 when ghost.source_url is null or ghost.source_url = '' then winner.source_url
+                 when winner.source_url is null or winner.source_url = '' then ghost.source_url
+                 when winner.source_url ilike '%' || ghost.source_url || '%' then winner.source_url
+                 else winner.source_url || ' | ' || ghost.source_url
+               end,
+               updated_at = now()
+             from tournament_editions ghost
+             where winner.id = $1
+               and ghost.id = $2
+               and winner.level = 'Challenger'
+               and ghost.level ~* '^Challenger\\s+(50|75|100|125|175)$'`,
+            [winnerEditionId, ed.id]
+          );
+          upgradedWinnerMetadata += metadataResult.rowCount ?? 0;
+
           // Move cutoff_snapshots; on conflict prefer existing winner row if
           // its rank is filled, else replace with ghost's row.
           await pool.query(
@@ -205,7 +250,7 @@ async function mergeGroup(group: CodeGroup) {
     }
   }
 
-  return { winner: winner.slug, ghosts: ghosts.map((g) => g.slug), movedEditions, mergedSnapshots, deletedGhostEditions };
+  return { winner: winner.slug, ghosts: ghosts.map((g) => g.slug), movedEditions, mergedSnapshots, deletedGhostEditions, upgradedWinnerMetadata };
 }
 
 export async function GET(request: NextRequest) {
