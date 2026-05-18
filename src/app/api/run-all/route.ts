@@ -55,10 +55,19 @@ type EditionRow = {
 const TOMBSTONE_TTL = '6 hours';
 
 function extractCodeFromTextSources(sources: Array<string | null | undefined>): string | null {
+  const patterns = [
+    /\/posting\/\d+\/(\d+)\//,
+    /\/scores\/archive\/[^/]+\/(\d+)\/\d{4}\//,
+    /\/atp-challenger-tour\/tournaments\/[^/]+\/(\d+)\//,
+    /\/tournaments\/[^/]+\/(\d+)\//,
+  ];
+
   for (const source of sources) {
     if (!source) continue;
-    const match = source.match(/\/posting\/\d+\/(\d+)\//);
-    if (match) return match[1];
+    for (const pattern of patterns) {
+      const match = source.match(pattern);
+      if (match) return match[1];
+    }
   }
   return null;
 }
