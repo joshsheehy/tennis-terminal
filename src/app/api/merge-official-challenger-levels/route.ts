@@ -38,7 +38,6 @@ function candidateSql(year: number | null) {
       join tournaments t on t.id = te.tournament_id
       where te.status = 'held'
         and te.level ~* '^Challenger\\s+(50|75|100|125|175)$'
-        and (te.source = 'atp_official_calendar_pdf' or te.source_url ilike '%calendar-pdfs%')
         ${year ? `and te.year = ${year}` : ''}
     ),
     generic_rows as (
@@ -145,6 +144,19 @@ export async function GET(request: NextRequest) {
     );
     const mergeCandidateCount = Number(countResult.rows[0]?.count ?? 0);
 
+    const diagnostics = await client.query(
+      `select
+         te.year,
+         case when te.level = 'Challenger' then 'generic' else 'exact' end as level_kind,
+         count(*)::text as count
+       from tournament_editions te
+       where te.status = 'held'
+         and (te.level = 'Challenger' or te.level ~* '^Challenger\\s+(50|75|100|125|175)$')
+         ${year ? `and te.year = ${year}` : ''}
+       group by te.year, case when te.level = 'Challenger' then 'generic' else 'exact' end
+       order by te.year, level_kind`
+    );
+
     if (!apply) {
       await client.query('rollback');
       return NextResponse.json({
@@ -152,6 +164,7 @@ export async function GET(request: NextRequest) {
         dryRun: true,
         year,
         mergeCandidateCount,
+        diagnostics: diagnostics.rows,
         sampleCandidates: candidates.rows,
       });
     }
@@ -215,7 +228,7 @@ export async function GET(request: NextRequest) {
          level = exact.level,
          surface = exact.surface,
          indoor = exact.indoor,
-         source = 'atp_official_calendar_pdf_merged',
+         source = 'challenger_level_merged',
          source_url = case
            when generic.source_url is null or generic.source_url = '' then exact.source_url
            when exact.source_url is null or exact.source_url = '' then generic.source_url
@@ -248,6 +261,7 @@ export async function GET(request: NextRequest) {
       dryRun: false,
       year,
       mergeCandidateCount,
+      diagnostics: diagnostics.rows,
       movedCutoffCount: movedCutoffs.rowCount ?? 0,
       updatedGenericEditionCount: updatedGenericEditions.rowCount ?? 0,
       deletedDuplicateEditionCount: deletedExactEditions.rowCount ?? 0,
