@@ -7,6 +7,7 @@ What is included:
 - schedule page for first 10 ATP Tour + first 10 Challenger events
 - checker page scaffold that uses singles rank + combined doubles ranking input only
 - official-source-backed calendar import script
+- official ATP Challenger Calendar PDF sync endpoint and workflows
 
 Important note:
 - the calendar importer is **not** a PDF parser yet
