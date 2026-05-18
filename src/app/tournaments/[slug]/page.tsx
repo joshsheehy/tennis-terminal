@@ -19,7 +19,7 @@ function displayName(name: string): string {
 
 function compareLabel(value: boolean | null) {
   if (value === null) return 'N/A';
-  return value ? 'Same' : 'Different';
+  return value ? 'same' : 'different';
 }
 
 function isChallengerLevel(level: string) {
@@ -81,6 +81,12 @@ function altLlText(cutoff: CutoffSnapshot) {
   return '0';
 }
 
+function sourceHref(cutoff: CutoffSnapshot) {
+  const notes = cutoff.source_notes ?? '';
+  const match = notes.match(/https:\/\/[^\s|]+\.pdf/i);
+  return match?.[0] ?? null;
+}
+
 function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: string }) {
   if (cutoffs.length === 0) {
     return (
@@ -113,23 +119,33 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
           </tr>
         </thead>
         <tbody>
-          {rows.map((cutoff, i) => (
-            <tr
-              key={cutoff.id}
-              style={{
-                background: i % 2 === 0 ? '#ffffff' : '#fafafa',
-                borderBottom: '1px solid #e8e8e8',
-              }}
-            >
-              <td style={{ padding: '12px 16px', color: '#555' }}>{cutoffLabel(cutoff)}</td>
-              <td style={{ padding: '12px 16px', fontWeight: 700, color: '#111', fontVariantNumeric: 'tabular-nums' }}>
-                {isChallenger && cutoff.event_type === 'doubles'
-                  ? challengerDoublesCutText(cutoff)
-                  : rankText(cutoff.last_direct_acceptance_rank)}
-              </td>
-              <td style={{ padding: '12px 16px', color: '#555', fontVariantNumeric: 'tabular-nums' }}>{altLlText(cutoff)}</td>
-            </tr>
-          ))}
+          {rows.map((cutoff, i) => {
+            const href = sourceHref(cutoff);
+            return (
+              <tr
+                key={cutoff.id}
+                style={{
+                  background: i % 2 === 0 ? '#ffffff' : '#fafafa',
+                  borderBottom: '1px solid #e8e8e8',
+                }}
+              >
+                <td style={{ padding: '12px 16px', color: '#555' }}>
+                  <div>{cutoffLabel(cutoff)}</div>
+                  {href ? (
+                    <a href={href} target="_blank" rel="noreferrer" style={{ color: '#888', fontSize: 11, textDecoration: 'underline' }}>
+                      PDF source
+                    </a>
+                  ) : null}
+                </td>
+                <td style={{ padding: '12px 16px', fontWeight: 700, color: '#111', fontVariantNumeric: 'tabular-nums' }}>
+                  {isChallenger && cutoff.event_type === 'doubles'
+                    ? challengerDoublesCutText(cutoff)
+                    : rankText(cutoff.last_direct_acceptance_rank)}
+                </td>
+                <td style={{ padding: '12px 16px', color: '#555', fontVariantNumeric: 'tabular-nums' }}>{altLlText(cutoff)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -195,10 +211,10 @@ export default async function TournamentDetailPage({
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, padding: '4px 10px', background: '#fff', border: '1px solid #ddd', borderRadius: 6, color: '#555' }}>
-                  Level: <strong>{compareLabel(row.same_level_as_previous_year)}</strong>
+                  Level: <strong>{fallback(row.edition.level)}</strong> <span style={{ color: '#888' }}>({compareLabel(row.same_level_as_previous_year)})</span>
                 </span>
                 <span style={{ fontSize: 12, padding: '4px 10px', background: '#fff', border: '1px solid #ddd', borderRadius: 6, color: '#555' }}>
-                  Week: <strong>{compareLabel(row.same_week_as_previous_year)}</strong>
+                  Week: <strong>{fallback(row.edition.week)}</strong> <span style={{ color: '#888' }}>({compareLabel(row.same_week_as_previous_year)})</span>
                 </span>
               </div>
             </div>
