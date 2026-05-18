@@ -27,18 +27,24 @@ export type TournamentDetailRow = {
   same_week_as_previous_year: boolean | null;
 };
 
-const NORMALIZED_TOURNAMENT_KEY_SQL = (column: string) => `
+const STRICT_TOURNAMENT_KEY_SQL = (column: string) => `
   regexp_replace(
     regexp_replace(
-      regexp_replace(
-        translate(lower(${column}), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
-        '\\s+ch(\\s+\\d+)?$', ''
-      ),
-      '\\s+\\d+$', ''
+      translate(lower(${column}), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+      '\\s+ch(\\s+\\d+)?$', ''
     ),
     '[^a-z0-9]+', '', 'g'
   )
 `;
+
+const BASE_TOURNAMENT_KEY_SQL = (column: string) => `
+  regexp_replace(
+    ${STRICT_TOURNAMENT_KEY_SQL(column)},
+    '\\d+$', ''
+  )
+`;
+
+const HAS_DIGIT_SQL = (column: string) => `${column} ~ '\\d'`;
 
 const EXACT_CHALLENGER_LEVEL_JOIN_SQL = `
   left join lateral (
@@ -55,13 +61,29 @@ const EXACT_CHALLENGER_LEVEL_JOIN_SQL = `
       and te2.year = te.year
       and te2.id <> te.id
       and te2.level ~* '^Challenger\\s+(50|75|100|125|175)$'
-      and abs(te2.start_date - te.start_date) <= 3
+      and abs(te2.start_date - te.start_date) <= 21
       and (
-        ${NORMALIZED_TOURNAMENT_KEY_SQL('t2.name')} = ${NORMALIZED_TOURNAMENT_KEY_SQL('t.name')}
-        or ${NORMALIZED_TOURNAMENT_KEY_SQL('t2.city')} = ${NORMALIZED_TOURNAMENT_KEY_SQL('t.city')}
+        ${STRICT_TOURNAMENT_KEY_SQL('t2.name')} = ${STRICT_TOURNAMENT_KEY_SQL('t.name')}
+        or ${STRICT_TOURNAMENT_KEY_SQL('t2.city')} = ${STRICT_TOURNAMENT_KEY_SQL('t.city')}
+        or (
+          not ${HAS_DIGIT_SQL('t.name')}
+          and not ${HAS_DIGIT_SQL('t2.name')}
+          and ${BASE_TOURNAMENT_KEY_SQL('t2.name')} = ${BASE_TOURNAMENT_KEY_SQL('t.name')}
+        )
+        or (
+          not ${HAS_DIGIT_SQL('t.city')}
+          and not ${HAS_DIGIT_SQL('t2.city')}
+          and ${BASE_TOURNAMENT_KEY_SQL('t2.city')} = ${BASE_TOURNAMENT_KEY_SQL('t.city')}
+        )
       )
     order by
-      case when ${NORMALIZED_TOURNAMENT_KEY_SQL('t2.name')} = ${NORMALIZED_TOURNAMENT_KEY_SQL('t.name')} then 0 else 1 end,
+      case
+        when ${STRICT_TOURNAMENT_KEY_SQL('t2.name')} = ${STRICT_TOURNAMENT_KEY_SQL('t.name')} then 0
+        when ${STRICT_TOURNAMENT_KEY_SQL('t2.city')} = ${STRICT_TOURNAMENT_KEY_SQL('t.city')} then 1
+        when ${BASE_TOURNAMENT_KEY_SQL('t2.name')} = ${BASE_TOURNAMENT_KEY_SQL('t.name')} then 2
+        when ${BASE_TOURNAMENT_KEY_SQL('t2.city')} = ${BASE_TOURNAMENT_KEY_SQL('t.city')} then 3
+        else 4
+      end,
       abs(te2.start_date - te.start_date),
       te2.updated_at desc nulls last
     limit 1
