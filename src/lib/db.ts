@@ -27,6 +27,47 @@ export type TournamentDetailRow = {
   same_week_as_previous_year: boolean | null;
 };
 
+const NORMALIZED_TOURNAMENT_KEY_SQL = (column: string) => `
+  regexp_replace(
+    regexp_replace(
+      regexp_replace(
+        translate(lower(${column}), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+        '\\s+ch(\\s+\\d+)?$', ''
+      ),
+      '\\s+\\d+$', ''
+    ),
+    '[^a-z0-9]+', '', 'g'
+  )
+`;
+
+const EXACT_CHALLENGER_LEVEL_JOIN_SQL = `
+  left join lateral (
+    select
+      te2.level,
+      te2.week,
+      te2.start_date,
+      te2.surface,
+      te2.indoor
+    from tournament_editions te2
+    join tournaments t2 on t2.id = te2.tournament_id
+    where te.level = 'Challenger'
+      and te2.status = 'held'
+      and te2.year = te.year
+      and te2.id <> te.id
+      and te2.level ~* '^Challenger\\s+(50|75|100|125|175)$'
+      and abs(te2.start_date - te.start_date) <= 3
+      and (
+        ${NORMALIZED_TOURNAMENT_KEY_SQL('t2.name')} = ${NORMALIZED_TOURNAMENT_KEY_SQL('t.name')}
+        or ${NORMALIZED_TOURNAMENT_KEY_SQL('t2.city')} = ${NORMALIZED_TOURNAMENT_KEY_SQL('t.city')}
+      )
+    order by
+      case when ${NORMALIZED_TOURNAMENT_KEY_SQL('t2.name')} = ${NORMALIZED_TOURNAMENT_KEY_SQL('t.name')} then 0 else 1 end,
+      abs(te2.start_date - te.start_date),
+      te2.updated_at desc nulls last
+    limit 1
+  ) exact_challenger on true
+`;
+
 export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
   const result = await pool.query<ScheduleRow>(
     `
@@ -39,12 +80,12 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
         t.city,
         t.country,
         te.year,
-        te.week,
-        te.start_date,
+        coalesce(exact_challenger.week, te.week) as week,
+        coalesce(exact_challenger.start_date, te.start_date) as start_date,
         te.end_date,
-        te.level,
-        te.surface,
-        te.indoor,
+        coalesce(exact_challenger.level, te.level) as level,
+        coalesce(exact_challenger.surface, te.surface) as surface,
+        coalesce(exact_challenger.indoor, te.indoor) as indoor,
         te.source,
         te.status,
         row_number() over (
@@ -66,6 +107,7 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
         ) as rn
       from tournament_editions te
       join tournaments t on t.id = te.tournament_id
+      ${EXACT_CHALLENGER_LEVEL_JOIN_SQL}
       where te.status = 'held'
         and te.year = $1
         and te.start_date is not null
@@ -188,16 +230,17 @@ export async function getTournamentDetailRowsBySlug(
       t.city,
       t.country,
       te.year,
-      te.week,
-      te.start_date,
+      coalesce(exact_challenger.week, te.week) as week,
+      coalesce(exact_challenger.start_date, te.start_date) as start_date,
       te.end_date,
-      te.level,
-      te.surface,
-      te.indoor,
+      coalesce(exact_challenger.level, te.level) as level,
+      coalesce(exact_challenger.surface, te.surface) as surface,
+      coalesce(exact_challenger.indoor, te.indoor) as indoor,
       te.source,
       te.status
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
+    ${EXACT_CHALLENGER_LEVEL_JOIN_SQL}
     where t.slug = $1
       and te.year <= $3
       and te.start_date is not null
