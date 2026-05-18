@@ -84,14 +84,16 @@ jobs:
           # 1) Sync canonical hardcoded calendar rows.
           request_json('/api/import-calendars')
 
-          # 2) Primary calendar source: atptour.com. Pull this season + next.
-          # This is the source of truth — JeffSackmann's CSVs derive from the
-          # same data after matches are played, so we no longer need to wait
-          # on him for new tournament announcements.
+          # 2) Primary calendar source: atptour.com. Import the official
+          # Challenger Calendar PDF first so newly announced 2026 rows do not
+          # wait for JeffSackmann or completed-match data.
           import datetime
           current_year = datetime.date.today().year
+          request_json(f'/api/sync-official-calendar?year={current_year}', required=False)
+
+          # 2a) Broader atptour.com scraper. Keep as fallback for ATP Tour rows
+          # and any page/JSON data that is richer than the PDF.
           request_json(f'/api/scrape-atp-calendar?year={current_year}', required=False)
-          request_json(f'/api/scrape-atp-calendar?year={current_year + 1}', required=False)
 
           # 3) ATP result-archive discovery (older fallback). Keep around for
           # historical years where atptour.com hides the upcoming-calendar UI.
@@ -104,7 +106,7 @@ jobs:
 
           # 4) JeffSackmann backfill (fallback for completed tournaments where
           # we still want the cut PDFs but the atptour.com page no longer
-          # lists them). Idempotent.
+          # lists them). Idempotent and deliberately second-priority.
           for year in (2024, 2025, 2026):
               run_paged(
                   f'Challenger season import {year}',
