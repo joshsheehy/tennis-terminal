@@ -51,12 +51,33 @@ export async function GET(request: NextRequest) {
     [year]
   );
 
-
   const levelCountsByYear = await pool.query<{ year: number; level: string; count: string }>(
+    `select
+       te.year,
+       case
+         when te.level ilike 'Challenger%' then 'Challenger'
+         else te.level
+       end as level,
+       count(*)::text as count
+     from tournament_editions te
+     where te.status = 'held'
+       and (
+         te.level in ('ATP 250', 'ATP 500', 'ATP 1000')
+         or te.level ilike 'Challenger%'
+       )
+     group by te.year,
+       case
+         when te.level ilike 'Challenger%' then 'Challenger'
+         else te.level
+       end
+     order by te.year, level`
+  );
+
+  const challengerLevelBreakdown = await pool.query<{ year: number; level: string; count: string }>(
     `select te.year, te.level, count(*)::text as count
      from tournament_editions te
      where te.status = 'held'
-       and te.level in ('ATP 250', 'ATP 500', 'ATP 1000', 'Challenger')
+       and te.level ilike 'Challenger%'
      group by te.year, te.level
      order by te.year, te.level`
   );
@@ -103,6 +124,7 @@ export async function GET(request: NextRequest) {
     cutoffSnapshotsByYear: cutoffByYear.rows,
     sampleVisibleWeeks: visibleWeekCounts.rows.slice(0, 12),
     levelCountsByYear: levelCountsByYear.rows,
+    challengerLevelBreakdown: challengerLevelBreakdown.rows,
     unitedCupVisibleCount: Number(unitedCupVisibleCount.rows[0]?.count ?? 0),
     invalidDoublesQualifyingCutoffCount: Number(invalidDoublesQualifyingCutoffCount.rows[0]?.count ?? 0),
   });
