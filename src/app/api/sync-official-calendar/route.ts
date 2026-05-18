@@ -102,6 +102,7 @@ const COUNTRY_BY_ATP_CODE: Record<string, string> = {
   SUI: 'Switzerland',
   SVK: 'Slovakia',
   THA: 'Thailand',
+  TPE: 'Chinese Taipei',
   TUN: 'Tunisia',
   TUR: 'Turkey',
   UAE: 'United Arab Emirates',
@@ -134,6 +135,11 @@ function deriveCity(name: string) {
     .trim();
 }
 
+function fallbackSlugFor(name: string, city: string) {
+  const base = deriveCity(name) || city || name;
+  return slugify(base, { lower: true, strict: true, trim: true });
+}
+
 function parseDateToken(token: string, year: number): string | null {
   const match = token.trim().match(/^(\d{1,2})[-\s]([A-Za-z]{3})$/);
   if (!match) return null;
@@ -147,7 +153,7 @@ function normalizeSurface(code: string) {
   const normalized = code.replace(/[^A-Za-z]/g, '').toUpperCase();
   if (normalized === 'IH') return { surface: 'Indoor Hard', indoor: true };
   if (normalized === 'H') return { surface: 'Hard', indoor: false };
-  if (normalized === 'C') return { surface: 'Clay', indoor: false };
+  if (normalized === 'C' || normalized === 'CL') return { surface: 'Clay', indoor: false };
   if (normalized === 'G') return { surface: 'Grass', indoor: false };
   return { surface: 'Hard', indoor: false };
 }
@@ -324,7 +330,7 @@ function parseOfficialChallengerRows(text: string, year: number, sourcePdfUrl: s
   let currentStartDate: string | null = null;
 
   const rowPattern =
-    /^(?:(\d{1,2})\s+(\d{1,2}[-\s][A-Za-z]{3})\s+)?(.+?)\s+([A-Z]{3})\s+(50|75|100|125|175)\s+(?:USD|EUR)\s+[0-9,]+\s+((?:IH|H|C|G)\*?)\b(.*)$/i;
+    /^(?:(\d{1,2})\s+(\d{1,2}[-\s][A-Za-z]{3})\s+)?(.+?)\s+([A-Z]{3})\s+(50|75|100|125|175)\s+(?:USD|EUR)\s+[0-9,]+\s+((?:IH|CL|H|C|G)\*?)\b(.*)$/i;
 
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.replace(/\s+/g, ' ').trim();
@@ -378,7 +384,7 @@ async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear: number
   const name = canonical?.tournament.name ?? row.name;
   const city = canonical?.tournament.city ?? row.city;
   const country = canonical?.tournament.country ?? row.country;
-  const slug = canonical?.tournament.slug ?? slugify(`${name}-${city}`, { lower: true, strict: true, trim: true });
+  const slug = canonical?.tournament.slug ?? fallbackSlugFor(name, city);
   const code = canonical?.edition.protennislive_code ?? null;
   const sourceUrl = code
     ? `${row.sourcePdfUrl} | https://www.protennislive.com/posting/${editionYear}/${code}/`
