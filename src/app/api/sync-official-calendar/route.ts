@@ -76,7 +76,12 @@ function normalizeKey(value: string) {
 }
 
 function cleanName(value: string) {
-  return value.replace(/[•†‡*]+/g, '').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/[•†‡*]+/g, '')
+    .replace(/^#+\s*/, '')
+    .replace(/^[-*]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function deriveCity(name: string) {
@@ -176,10 +181,9 @@ function rebuildLinesFromPositionedItems(items: PositionedText[]) {
   return lines;
 }
 
-async function extractPositionedPdfLines(buffer: Buffer): Promise<string[]> {
-  // Use pdf-parse's pagerender hook instead of importing pdfjs-dist directly.
-  // Direct pdfjs-dist imports make Next/Railway try to bundle the optional
-  // native canvas package and fail the production build.
+async function extractPdfParseLines(buffer: Buffer): Promise<string[]> {
+  // This works for normal text PDFs. It returns zero lines for some ATP calendar
+  // PDFs, so the endpoint falls back to Reader below.
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const pdfParse = require('pdf-parse') as (
     b: Buffer,
@@ -195,27 +199,57 @@ async function extractPositionedPdfLines(buffer: Buffer): Promise<string[]> {
           const str = typeof item.str === 'string' ? item.str.trim() : '';
           const transform = item.transform;
           if (!str || !Array.isArray(transform) || transform.length < 6) return null;
-          return {
-            str,
-            x: Number(transform[4] ?? 0),
-            y: Number(transform[5] ?? 0),
-            pageWidth: viewport.width,
-          };
+          return { str, x: Number(transform[4] ?? 0), y: Number(transform[5] ?? 0), pageWidth: viewport.width };
         })
         .filter((item): item is PositionedText => item !== null);
-
       return rebuildLinesFromPositionedItems(items).join('\n');
     },
   });
 
+  return normalizeReaderTextToLines(parsed.text ?? '');
+}
+
+function normalizeReaderTextToLines(text: string): string[] {
   return Array.from(
     new Set(
-      (parsed.text ?? '')
-        .split(/\r?\n/)
-        .map((line) => line.replace(/\s+/g, ' ').trim())
+      text
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .flatMap((rawLine) => {
+          const line = rawLine
+            .replace(/^Title:\s*/i, '')
+            .replace(/^URL Source:\s*/i, '')
+            .replace(/^Markdown Content:\s*/i, '')
+            .replace(/^#+\s*/, '')
+            .replace(/^[-*]\s*/, '')
+            .replace(/\|/g, ' | ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          return line ? [line] : [];
+        })
         .filter(Boolean)
     )
   );
+}
+
+async function fetchReaderLinesForPdf(pdfUrl: string): Promise<string[]> {
+  const readerUrl = `https://r.jina.ai/${pdfUrl}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  try {
+    const res = await fetch(readerUrl, {
+      headers: {
+        Accept: 'text/plain, text/markdown, */*',
+        'User-Agent': 'TennisTerminalCalendarSync/1.0',
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Reader returned ${res.status}`);
+    return normalizeReaderTextToLines(await res.text());
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function findCalendarPdfUrls(html: string, baseUrl: string): string[] {
@@ -412,26 +446,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'No official ATP Challenger calendar PDF found.', pageErrors: discovered.pageErrors }, { status: 502 });
   }
 
-  const pdfResults: Array<{ url: string; extractedLines: number; parsedRows: number; skippedRows: number; sampleLines?: string[]; error?: string }> = [];
+  const pdfResults: Array<{ url: string; extractionSource: string; extractedLines: number; parsedRows: number; skippedRows: number; sampleLines?: string[]; error?: string }> = [];
   const allRows: OfficialCalendarRow[] = [];
   const skippedRows: Array<{ name: string; reason: string; line: string }> = [];
 
   for (const pdfUrl of discovered.urls) {
     try {
       const buffer = await fetchPdfBuffer(pdfUrl);
-      const lines = await extractPositionedPdfLines(buffer);
+      let lines = await extractPdfParseLines(buffer);
+      let extractionSource = 'pdf-parse';
+      if (lines.length === 0) {
+        lines = await fetchReaderLinesForPdf(pdfUrl);
+        extractionSource = 'jina-reader';
+      }
       const parsed = parseOfficialChallengerRows(lines, year, pdfUrl);
       allRows.push(...parsed.rows);
       skippedRows.push(...parsed.skipped);
       pdfResults.push({
         url: pdfUrl,
+        extractionSource,
         extractedLines: lines.length,
         parsedRows: parsed.rows.length,
         skippedRows: parsed.skipped.length,
-        ...(debug || parsed.rows.length === 0 ? { sampleLines: lines.slice(0, 80) } : {}),
+        ...(debug || parsed.rows.length === 0 ? { sampleLines: lines.slice(0, 120) } : {}),
       });
     } catch (error) {
-      pdfResults.push({ url: pdfUrl, extractedLines: 0, parsedRows: 0, skippedRows: 0, error: error instanceof Error ? error.message : String(error) });
+      pdfResults.push({ url: pdfUrl, extractionSource: 'failed', extractedLines: 0, parsedRows: 0, skippedRows: 0, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
