@@ -26,6 +26,13 @@ type PositionedText = {
   pageWidth: number;
 };
 
+type PdfPageLike = {
+  getViewport?: (opts: { scale: number }) => { width: number };
+  getTextContent: (opts?: { normalizeWhitespace?: boolean; disableCombineTextItems?: boolean }) => Promise<{
+    items: Array<{ str?: string; transform?: number[] }>;
+  }>;
+};
+
 const BROWSER_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -143,64 +150,72 @@ async function fetchPdfBuffer(url: string): Promise<Buffer> {
   }
 }
 
-async function extractPositionedPdfLines(buffer: Buffer): Promise<string[]> {
-  // pdf-parse collapses ATP's table into unusable text for this specific calendar.
-  // pdfjs keeps item coordinates, so we rebuild rows from x/y positions and split
-  // two-column pages into separate row strings.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const pdfjs = require('pdfjs-dist/legacy/build/pdf.js') as {
-    getDocument: (src: unknown) => {
-      promise: Promise<{
-        numPages: number;
-        getPage: (pageNumber: number) => Promise<{
-          getViewport: (opts: { scale: number }) => { width: number };
-          getTextContent: () => Promise<{ items: unknown[] }>;
-        }>;
-      }>;
-    };
-  };
-
-  const document = await pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: true }).promise;
-  const lines: string[] = [];
-
-  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-    const page = await document.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: 1 });
-    const content = await page.getTextContent();
-    const items: PositionedText[] = [];
-
-    for (const raw of content.items) {
-      const item = raw as { str?: string; transform?: number[] };
-      const str = typeof item.str === 'string' ? item.str.trim() : '';
-      const transform = item.transform;
-      if (!str || !Array.isArray(transform) || transform.length < 6) continue;
-      items.push({ str, x: Number(transform[4] ?? 0), y: Number(transform[5] ?? 0), pageWidth: viewport.width });
-    }
-
-    const sortedByY = items.sort((a, b) => b.y - a.y || a.x - b.x);
-    const groups: PositionedText[][] = [];
-    for (const item of sortedByY) {
-      const group = groups.find((existing) => Math.abs(existing[0].y - item.y) <= 2.5);
-      if (group) group.push(item);
-      else groups.push([item]);
-    }
-
-    for (const group of groups) {
-      const left = group.filter((item) => item.x < item.pageWidth * 0.52);
-      const right = group.filter((item) => item.x >= item.pageWidth * 0.48);
-      for (const side of [left, right]) {
-        const text = side
-          .sort((a, b) => a.x - b.x)
-          .map((item) => item.str)
-          .join(' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        if (text.length > 0) lines.push(text);
-      }
-    }
+function rebuildLinesFromPositionedItems(items: PositionedText[]) {
+  const sortedByY = items.sort((a, b) => b.y - a.y || a.x - b.x);
+  const groups: PositionedText[][] = [];
+  for (const item of sortedByY) {
+    const group = groups.find((existing) => Math.abs(existing[0].y - item.y) <= 2.5);
+    if (group) group.push(item);
+    else groups.push([item]);
   }
 
-  return Array.from(new Set(lines));
+  const lines: string[] = [];
+  for (const group of groups) {
+    const left = group.filter((item) => item.x < item.pageWidth * 0.52);
+    const right = group.filter((item) => item.x >= item.pageWidth * 0.48);
+    for (const side of [left, right]) {
+      const text = side
+        .sort((a, b) => a.x - b.x)
+        .map((item) => item.str)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (text.length > 0) lines.push(text);
+    }
+  }
+  return lines;
+}
+
+async function extractPositionedPdfLines(buffer: Buffer): Promise<string[]> {
+  // Use pdf-parse's pagerender hook instead of importing pdfjs-dist directly.
+  // Direct pdfjs-dist imports make Next/Railway try to bundle the optional
+  // native canvas package and fail the production build.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const pdfParse = require('pdf-parse') as (
+    b: Buffer,
+    options?: { pagerender?: (pageData: PdfPageLike) => Promise<string> }
+  ) => Promise<{ text: string }>;
+
+  const parsed = await pdfParse(buffer, {
+    pagerender: async (pageData: PdfPageLike) => {
+      const viewport = typeof pageData.getViewport === 'function' ? pageData.getViewport({ scale: 1 }) : { width: 612 };
+      const content = await pageData.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+      const items: PositionedText[] = content.items
+        .map((item) => {
+          const str = typeof item.str === 'string' ? item.str.trim() : '';
+          const transform = item.transform;
+          if (!str || !Array.isArray(transform) || transform.length < 6) return null;
+          return {
+            str,
+            x: Number(transform[4] ?? 0),
+            y: Number(transform[5] ?? 0),
+            pageWidth: viewport.width,
+          };
+        })
+        .filter((item): item is PositionedText => item !== null);
+
+      return rebuildLinesFromPositionedItems(items).join('\n');
+    },
+  });
+
+  return Array.from(
+    new Set(
+      (parsed.text ?? '')
+        .split(/\r?\n/)
+        .map((line) => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+    )
+  );
 }
 
 function findCalendarPdfUrls(html: string, baseUrl: string): string[] {
