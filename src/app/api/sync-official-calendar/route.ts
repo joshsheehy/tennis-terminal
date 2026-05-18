@@ -19,6 +19,13 @@ type OfficialCalendarRow = {
   sourcePdfUrl: string;
 };
 
+type PositionedText = {
+  str: string;
+  x: number;
+  y: number;
+  pageWidth: number;
+};
+
 const BROWSER_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -27,88 +34,28 @@ const BROWSER_HEADERS = {
 };
 
 const MONTH_NAMES = [
-  'january',
-  'february',
-  'march',
-  'april',
-  'may',
-  'june',
-  'july',
-  'august',
-  'september',
-  'october',
-  'november',
-  'december',
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december',
 ];
 
 const MONTH_ABBR: Record<string, number> = {
-  jan: 1,
-  feb: 2,
-  mar: 3,
-  apr: 4,
-  may: 5,
-  jun: 6,
-  jul: 7,
-  aug: 8,
-  sep: 9,
-  oct: 10,
-  nov: 11,
-  dec: 12,
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
 };
 
 const COUNTRY_BY_ATP_CODE: Record<string, string> = {
-  ARG: 'Argentina',
-  AUS: 'Australia',
-  AUT: 'Austria',
-  BEL: 'Belgium',
-  BOL: 'Bolivia',
-  BRA: 'Brazil',
-  BRN: 'Bahrain',
-  CAN: 'Canada',
-  CGO: 'Congo',
-  CHI: 'Chile',
-  CHN: 'China',
-  CIV: "Côte d'Ivoire",
-  COL: 'Colombia',
-  CRO: 'Croatia',
-  CZE: 'Czech Republic',
-  DOM: 'Dominican Republic',
-  ECU: 'Ecuador',
-  EGY: 'Egypt',
-  ESP: 'Spain',
-  FIN: 'Finland',
-  FRA: 'France',
-  GBR: 'Great Britain',
-  GER: 'Germany',
-  GRE: 'Greece',
-  IND: 'India',
-  IRL: 'Ireland',
-  ITA: 'Italy',
-  JAM: 'Jamaica',
-  JPN: 'Japan',
-  KAZ: 'Kazakhstan',
-  KOR: 'South Korea',
-  MDA: 'Moldova',
-  MEX: 'Mexico',
-  NCL: 'New Caledonia',
-  NED: 'Netherlands',
-  PAR: 'Paraguay',
-  POL: 'Poland',
-  POR: 'Portugal',
-  ROU: 'Romania',
-  RSA: 'South Africa',
-  RWA: 'Rwanda',
-  SMR: 'San Marino',
-  SUI: 'Switzerland',
-  SVK: 'Slovakia',
-  THA: 'Thailand',
-  TPE: 'Chinese Taipei',
-  TUN: 'Tunisia',
-  TUR: 'Turkey',
-  UAE: 'United Arab Emirates',
-  USA: 'United States',
-  UZB: 'Uzbekistan',
-  VIE: 'Vietnam',
+  ARG: 'Argentina', AUS: 'Australia', AUT: 'Austria', BEL: 'Belgium', BIH: 'Bosnia and Herzegovina',
+  BOL: 'Bolivia', BRA: 'Brazil', BRN: 'Bahrain', BUL: 'Bulgaria', CAN: 'Canada', CGO: 'Congo',
+  CHI: 'Chile', CHN: 'China', CIV: "Côte d'Ivoire", COL: 'Colombia', CRO: 'Croatia',
+  CYP: 'Cyprus', CZE: 'Czech Republic', DOM: 'Dominican Republic', ECU: 'Ecuador', EGY: 'Egypt',
+  ESP: 'Spain', FIN: 'Finland', FRA: 'France', GBR: 'Great Britain', GER: 'Germany', GRE: 'Greece',
+  HKG: 'Hong Kong', HUN: 'Hungary', INA: 'Indonesia', IND: 'India', IRL: 'Ireland', ISR: 'Israel',
+  ITA: 'Italy', JAM: 'Jamaica', JPN: 'Japan', KAZ: 'Kazakhstan', KOR: 'South Korea',
+  MDA: 'Moldova', MEX: 'Mexico', NCL: 'New Caledonia', NED: 'Netherlands', NOR: 'Norway',
+  NZL: 'New Zealand', PAR: 'Paraguay', POL: 'Poland', POR: 'Portugal', ROU: 'Romania',
+  RSA: 'South Africa', RWA: 'Rwanda', SMR: 'San Marino', SUI: 'Switzerland', SVK: 'Slovakia',
+  THA: 'Thailand', TPE: 'Chinese Taipei', TUN: 'Tunisia', TUR: 'Turkey', UAE: 'United Arab Emirates',
+  USA: 'United States', UZB: 'Uzbekistan', VIE: 'Vietnam',
 };
 
 function normalizeKey(value: string) {
@@ -122,17 +69,11 @@ function normalizeKey(value: string) {
 }
 
 function cleanName(value: string) {
-  return value
-    .replace(/[•†‡*]+/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return value.replace(/[•†‡*]+/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function deriveCity(name: string) {
-  return cleanName(name)
-    .replace(/\s*\([^)]*\)/g, '')
-    .replace(/,\s*[A-Z]{2}$/g, '')
-    .trim();
+  return cleanName(name).replace(/\s*\([^)]*\)/g, '').replace(/,\s*[A-Z]{2}$/g, '').trim();
 }
 
 function fallbackSlugFor(name: string, city: string) {
@@ -161,11 +102,8 @@ function normalizeSurface(code: string) {
 function findCanonical(name: string, city: string, editionYear: number) {
   const nameKey = normalizeKey(name);
   const cityKey = normalizeKey(city);
-
   return (
-    ALL_EDITIONS.find(
-      (entry) => entry.edition.year === editionYear && normalizeKey(entry.tournament.name) === nameKey
-    ) ??
+    ALL_EDITIONS.find((entry) => entry.edition.year === editionYear && normalizeKey(entry.tournament.name) === nameKey) ??
     ALL_EDITIONS.find(
       (entry) =>
         entry.edition.year === editionYear &&
@@ -181,11 +119,7 @@ async function fetchHtml(url: string): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const res = await fetch(url, {
-      headers: BROWSER_HEADERS,
-      cache: 'no-store',
-      signal: controller.signal,
-    });
+    const res = await fetch(url, { headers: BROWSER_HEADERS, cache: 'no-store', signal: controller.signal });
     if (!res.ok) throw new Error(`ATP Tour returned ${res.status} for ${url}`);
     return await res.text();
   } finally {
@@ -193,7 +127,7 @@ async function fetchHtml(url: string): Promise<string> {
   }
 }
 
-async function fetchPdfText(url: string): Promise<string> {
+async function fetchPdfBuffer(url: string): Promise<Buffer> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25000);
   try {
@@ -203,25 +137,79 @@ async function fetchPdfText(url: string): Promise<string> {
       signal: controller.signal,
     });
     if (!res.ok) throw new Error(`PDF fetch returned ${res.status} for ${url}`);
-    const buffer = Buffer.from(await res.arrayBuffer());
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const pdfParse = require('pdf-parse') as (b: Buffer) => Promise<{ text: string }>;
-    const parsed = await pdfParse(buffer);
-    return parsed.text ?? '';
+    return Buffer.from(await res.arrayBuffer());
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function extractPositionedPdfLines(buffer: Buffer): Promise<string[]> {
+  // pdf-parse collapses ATP's table into unusable text for this specific calendar.
+  // pdfjs keeps item coordinates, so we rebuild rows from x/y positions and split
+  // two-column pages into separate row strings.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const pdfjs = require('pdfjs-dist/legacy/build/pdf.js') as {
+    getDocument: (src: unknown) => {
+      promise: Promise<{
+        numPages: number;
+        getPage: (pageNumber: number) => Promise<{
+          getViewport: (opts: { scale: number }) => { width: number };
+          getTextContent: () => Promise<{ items: unknown[] }>;
+        }>;
+      }>;
+    };
+  };
+
+  const document = await pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: true }).promise;
+  const lines: string[] = [];
+
+  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+    const page = await document.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 1 });
+    const content = await page.getTextContent();
+    const items: PositionedText[] = [];
+
+    for (const raw of content.items) {
+      const item = raw as { str?: string; transform?: number[] };
+      const str = typeof item.str === 'string' ? item.str.trim() : '';
+      const transform = item.transform;
+      if (!str || !Array.isArray(transform) || transform.length < 6) continue;
+      items.push({ str, x: Number(transform[4] ?? 0), y: Number(transform[5] ?? 0), pageWidth: viewport.width });
+    }
+
+    const sortedByY = items.sort((a, b) => b.y - a.y || a.x - b.x);
+    const groups: PositionedText[][] = [];
+    for (const item of sortedByY) {
+      const group = groups.find((existing) => Math.abs(existing[0].y - item.y) <= 2.5);
+      if (group) group.push(item);
+      else groups.push([item]);
+    }
+
+    for (const group of groups) {
+      const left = group.filter((item) => item.x < item.pageWidth * 0.52);
+      const right = group.filter((item) => item.x >= item.pageWidth * 0.48);
+      for (const side of [left, right]) {
+        const text = side
+          .sort((a, b) => a.x - b.x)
+          .map((item) => item.str)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (text.length > 0) lines.push(text);
+      }
+    }
+  }
+
+  return Array.from(new Set(lines));
 }
 
 function findCalendarPdfUrls(html: string, baseUrl: string): string[] {
   const found = new Set<string>();
   const hrefPattern = /(?:href|data-url|src)=["']([^"']*\.pdf[^"']*)["']/gi;
   let match: RegExpExecArray | null;
-
   while ((match = hrefPattern.exec(html)) !== null) {
     const raw = match[1];
     if (!/calendar/i.test(raw)) continue;
-
     let absoluteUrl: string;
     if (raw.startsWith('http')) absoluteUrl = raw;
     else if (raw.startsWith('//')) absoluteUrl = `https:${raw}`;
@@ -233,10 +221,8 @@ function findCalendarPdfUrls(html: string, baseUrl: string): string[] {
         continue;
       }
     }
-
     if (/challenger-calendar/i.test(absoluteUrl)) found.add(absoluteUrl);
   }
-
   return Array.from(found);
 }
 
@@ -244,22 +230,10 @@ async function probeUrlExists(url: string, timeoutMs = 8000): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    let res = await fetch(url, {
-      method: 'HEAD',
-      headers: BROWSER_HEADERS,
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-
+    let res = await fetch(url, { method: 'HEAD', headers: BROWSER_HEADERS, cache: 'no-store', signal: controller.signal });
     if (res.status === 405) {
-      res = await fetch(url, {
-        method: 'GET',
-        headers: { ...BROWSER_HEADERS, Range: 'bytes=0-0' },
-        cache: 'no-store',
-        signal: controller.signal,
-      });
+      res = await fetch(url, { method: 'GET', headers: { ...BROWSER_HEADERS, Range: 'bytes=0-0' }, cache: 'no-store', signal: controller.signal });
     }
-
     return res.ok || res.status === 206;
   } catch {
     return false;
@@ -273,16 +247,13 @@ async function discoverLatestChallengerCalendarPdfs(year: number, lookBackDays =
   const yy2 = String((year + 1) % 100).padStart(2, '0');
   const prefixes = [`${year}-${yy2}-atp-challenger-calendar`, `${year}-atp-challenger-calendar`];
   const discovered: string[] = [];
-
   for (const prefix of prefixes) {
     let foundForPrefix: string | null = null;
-
     for (let back = 0; back <= lookBackDays && !foundForPrefix; back += 1) {
       const probeDate = new Date(today.getTime() - back * 24 * 60 * 60 * 1000);
       const day = probeDate.getUTCDate();
       const month = MONTH_NAMES[probeDate.getUTCMonth()];
       const probeYear = probeDate.getUTCFullYear();
-
       for (const dayVariant of [String(day), String(day).padStart(2, '0')]) {
         const filename = `${prefix}-as-of-${dayVariant}-${month}-${probeYear}.pdf`;
         const url = `https://www.atptour.com/-/media/files/calendar-pdfs/${year}/${filename}`;
@@ -292,21 +263,15 @@ async function discoverLatestChallengerCalendarPdfs(year: number, lookBackDays =
         }
       }
     }
-
     if (foundForPrefix) discovered.push(foundForPrefix);
   }
-
   return discovered;
 }
 
 async function discoverOfficialPdfUrls(year: number) {
-  const pages = [
-    'https://www.atptour.com/en/tournaments',
-    'https://www.atptour.com/en/atp-challenger-tour/calendar',
-  ];
+  const pages = ['https://www.atptour.com/en/tournaments', 'https://www.atptour.com/en/atp-challenger-tour/calendar'];
   const urls = new Set<string>();
   const pageErrors: Array<{ url: string; error: string }> = [];
-
   for (const pageUrl of pages) {
     try {
       const html = await fetchHtml(pageUrl);
@@ -315,27 +280,23 @@ async function discoverOfficialPdfUrls(year: number) {
       pageErrors.push({ url: pageUrl, error: error instanceof Error ? error.message : String(error) });
     }
   }
-
   if (urls.size === 0) {
     for (const pdfUrl of await discoverLatestChallengerCalendarPdfs(year)) urls.add(pdfUrl);
   }
-
   return { urls: Array.from(urls), pageErrors };
 }
 
-function parseOfficialChallengerRows(text: string, year: number, sourcePdfUrl: string) {
+function parseOfficialChallengerRows(lines: string[], year: number, sourcePdfUrl: string) {
   const rows: OfficialCalendarRow[] = [];
   const skipped: Array<{ name: string; reason: string; line: string }> = [];
   let currentWeek: number | null = null;
   let currentStartDate: string | null = null;
 
-  const rowPattern =
-    /^(?:(\d{1,2})\s+(\d{1,2}[-\s][A-Za-z]{3})\s+)?(.+?)\s+([A-Z]{3})\s+(50|75|100|125|175)\s+(?:USD|EUR)\s+[0-9,]+\s+((?:IH|CL|H|C|G)\*?)\b(.*)$/i;
+  const rowPattern = /^(?:(\d{1,2})\s+(\d{1,2}[-\s][A-Za-z]{3})\s+)?(.+?)\s+([A-Z]{3})\s+(50|75|100|125|175)\s+(?:(?:USD|EUR|€|\$)\s*)?[0-9][0-9,\.]*\s+((?:IH|CL|H|C|G)\*?)\b(.*)$/i;
 
-  for (const rawLine of text.split(/\r?\n/)) {
+  for (const rawLine of lines) {
     const line = rawLine.replace(/\s+/g, ' ').trim();
     if (!line) continue;
-
     const match = rowPattern.exec(line);
     if (!match) continue;
 
@@ -343,7 +304,6 @@ function parseOfficialChallengerRows(text: string, year: number, sourcePdfUrl: s
       currentWeek = Number(match[1]);
       currentStartDate = parseDateToken(match[2], year);
     }
-
     if (currentWeek === null || !currentStartDate) continue;
 
     const name = cleanName(match[3]);
@@ -359,7 +319,6 @@ function parseOfficialChallengerRows(text: string, year: number, sourcePdfUrl: s
 
     const { surface, indoor } = normalizeSurface(surfaceCode);
     const city = deriveCity(name);
-
     rows.push({
       name,
       city,
@@ -372,7 +331,6 @@ function parseOfficialChallengerRows(text: string, year: number, sourcePdfUrl: s
       sourcePdfUrl,
     });
   }
-
   return { rows, skipped };
 }
 
@@ -380,30 +338,14 @@ async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear: number
   const editionYear = getAtpEditionYearForStartDate(row.startDate, requestedYear);
   const week = getAtpWeekForSeason(row.startDate, editionYear) ?? row.week;
   const canonical = findCanonical(row.name, row.city, editionYear);
-
   const name = canonical?.tournament.name ?? row.name;
   const city = canonical?.tournament.city ?? row.city;
   const country = canonical?.tournament.country ?? row.country;
   const slug = canonical?.tournament.slug ?? fallbackSlugFor(name, city);
   const code = canonical?.edition.protennislive_code ?? null;
-  const sourceUrl = code
-    ? `${row.sourcePdfUrl} | https://www.protennislive.com/posting/${editionYear}/${code}/`
-    : row.sourcePdfUrl;
+  const sourceUrl = code ? `${row.sourcePdfUrl} | https://www.protennislive.com/posting/${editionYear}/${code}/` : row.sourcePdfUrl;
 
-  const result = {
-    slug,
-    name,
-    city,
-    country,
-    year: editionYear,
-    week,
-    startDate: row.startDate,
-    level: row.level,
-    surface: row.surface,
-    sourceUrl,
-    hasProTennisLiveCode: Boolean(code),
-  };
-
+  const result = { slug, name, city, country, year: editionYear, week, startDate: row.startDate, level: row.level, surface: row.surface, sourceUrl, hasProTennisLiveCode: Boolean(code) };
   if (dryRun) return result;
 
   const tournamentResult = await pool.query<{ id: string }>(
@@ -420,18 +362,8 @@ async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear: number
 
   await pool.query(
     `insert into tournament_editions (
-       tournament_id,
-       year,
-       week,
-       start_date,
-       end_date,
-       level,
-       surface,
-       indoor,
-       source,
-       source_url,
-       status,
-       updated_at
+       tournament_id, year, week, start_date, end_date, level, surface,
+       indoor, source, source_url, status, updated_at
      ) values ($1, $2, $3, $4, null, $5, $6, $7, 'atp_official_calendar_pdf', $8, 'held', now())
      on conflict (tournament_id, year) do update set
        week = excluded.week,
@@ -457,66 +389,51 @@ export async function GET(request: NextRequest) {
   }
 
   const dryRun = params.get('apply') === 'false';
-  const explicitPdfUrls = (params.get('pdfUrl') ?? '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
+  const debug = params.get('debug') === 'true';
+  const explicitPdfUrls = (params.get('pdfUrl') ?? '').split(',').map((item) => item.trim()).filter(Boolean);
   const discovered = explicitPdfUrls.length > 0 ? { urls: explicitPdfUrls, pageErrors: [] } : await discoverOfficialPdfUrls(year);
 
   if (discovered.urls.length === 0) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'No official ATP Challenger calendar PDF found. Pass ?pdfUrl= with the Calendar PDF link.',
-        pageErrors: discovered.pageErrors,
-      },
-      { status: 502 }
-    );
+    return NextResponse.json({ ok: false, error: 'No official ATP Challenger calendar PDF found.', pageErrors: discovered.pageErrors }, { status: 502 });
   }
 
-  const pdfResults: Array<{ url: string; parsedRows: number; skippedRows: number; error?: string }> = [];
+  const pdfResults: Array<{ url: string; extractedLines: number; parsedRows: number; skippedRows: number; sampleLines?: string[]; error?: string }> = [];
   const allRows: OfficialCalendarRow[] = [];
   const skippedRows: Array<{ name: string; reason: string; line: string }> = [];
 
   for (const pdfUrl of discovered.urls) {
     try {
-      const text = await fetchPdfText(pdfUrl);
-      const parsed = parseOfficialChallengerRows(text, year, pdfUrl);
+      const buffer = await fetchPdfBuffer(pdfUrl);
+      const lines = await extractPositionedPdfLines(buffer);
+      const parsed = parseOfficialChallengerRows(lines, year, pdfUrl);
       allRows.push(...parsed.rows);
       skippedRows.push(...parsed.skipped);
-      pdfResults.push({ url: pdfUrl, parsedRows: parsed.rows.length, skippedRows: parsed.skipped.length });
-    } catch (error) {
       pdfResults.push({
         url: pdfUrl,
-        parsedRows: 0,
-        skippedRows: 0,
-        error: error instanceof Error ? error.message : String(error),
+        extractedLines: lines.length,
+        parsedRows: parsed.rows.length,
+        skippedRows: parsed.skipped.length,
+        ...(debug || parsed.rows.length === 0 ? { sampleLines: lines.slice(0, 80) } : {}),
       });
+    } catch (error) {
+      pdfResults.push({ url: pdfUrl, extractedLines: 0, parsedRows: 0, skippedRows: 0, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
   const uniqueRows = new Map<string, OfficialCalendarRow>();
   for (const row of allRows) {
     const editionYear = getAtpEditionYearForStartDate(row.startDate, year);
-    // The 2026-27 PDF includes the next season. For now this endpoint is meant
-    // to import the requested season only.
     if (editionYear !== year) continue;
     uniqueRows.set(`${editionYear}|${normalizeKey(row.name)}|${row.startDate}`, row);
   }
 
   const upserted = [];
   const failed = [];
-
   for (const row of uniqueRows.values()) {
     try {
       upserted.push(await upsertOfficialRow(row, year, dryRun));
     } catch (error) {
-      failed.push({
-        name: row.name,
-        startDate: row.startDate,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      failed.push({ name: row.name, startDate: row.startDate, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
