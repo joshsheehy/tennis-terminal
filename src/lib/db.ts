@@ -46,6 +46,9 @@ const BASE_TOURNAMENT_KEY_SQL = (column: string) => `
 
 const HAS_DIGIT_SQL = (column: string) => `${column} ~ '\\d'`;
 
+// Overlay exact Challenger levels (Challenger 50/75/100/125/175) on older
+// generic Challenger rows for display. This is intentionally read-only: it
+// does not merge/delete rows, so bad fuzzy matches cannot destroy cut data.
 const EXACT_CHALLENGER_LEVEL_JOIN_SQL = `
   left join lateral (
     select
@@ -61,28 +64,37 @@ const EXACT_CHALLENGER_LEVEL_JOIN_SQL = `
       and te2.year = te.year
       and te2.id <> te.id
       and te2.level ~* '^Challenger\\s+(50|75|100|125|175)$'
-      and abs(te2.start_date - te.start_date) <= 21
       and (
-        ${STRICT_TOURNAMENT_KEY_SQL('t2.name')} = ${STRICT_TOURNAMENT_KEY_SQL('t.name')}
-        or ${STRICT_TOURNAMENT_KEY_SQL('t2.city')} = ${STRICT_TOURNAMENT_KEY_SQL('t.city')}
-        or (
-          not ${HAS_DIGIT_SQL('t.name')}
-          and not ${HAS_DIGIT_SQL('t2.name')}
-          and ${BASE_TOURNAMENT_KEY_SQL('t2.name')} = ${BASE_TOURNAMENT_KEY_SQL('t.name')}
+        (
+          abs(te2.start_date - te.start_date) <= 3
+          and (
+            ${STRICT_TOURNAMENT_KEY_SQL('t2.slug')} = ${STRICT_TOURNAMENT_KEY_SQL('t.slug')}
+            or ${STRICT_TOURNAMENT_KEY_SQL('t2.name')} = ${STRICT_TOURNAMENT_KEY_SQL('t.name')}
+            or ${STRICT_TOURNAMENT_KEY_SQL('t2.city')} = ${STRICT_TOURNAMENT_KEY_SQL('t.city')}
+          )
         )
         or (
-          not ${HAS_DIGIT_SQL('t.city')}
-          and not ${HAS_DIGIT_SQL('t2.city')}
-          and ${BASE_TOURNAMENT_KEY_SQL('t2.city')} = ${BASE_TOURNAMENT_KEY_SQL('t.city')}
+          abs(te2.start_date - te.start_date) <= 90
+          and not ${HAS_DIGIT_SQL('t.name')}
+          and not ${HAS_DIGIT_SQL('t2.name')}
+          and not ${HAS_DIGIT_SQL('t.slug')}
+          and not ${HAS_DIGIT_SQL('t2.slug')}
+          and (
+            ${BASE_TOURNAMENT_KEY_SQL('t2.slug')} = ${BASE_TOURNAMENT_KEY_SQL('t.slug')}
+            or ${BASE_TOURNAMENT_KEY_SQL('t2.name')} = ${BASE_TOURNAMENT_KEY_SQL('t.name')}
+            or ${BASE_TOURNAMENT_KEY_SQL('t2.city')} = ${BASE_TOURNAMENT_KEY_SQL('t.city')}
+          )
         )
       )
     order by
       case
-        when ${STRICT_TOURNAMENT_KEY_SQL('t2.name')} = ${STRICT_TOURNAMENT_KEY_SQL('t.name')} then 0
-        when ${STRICT_TOURNAMENT_KEY_SQL('t2.city')} = ${STRICT_TOURNAMENT_KEY_SQL('t.city')} then 1
-        when ${BASE_TOURNAMENT_KEY_SQL('t2.name')} = ${BASE_TOURNAMENT_KEY_SQL('t.name')} then 2
-        when ${BASE_TOURNAMENT_KEY_SQL('t2.city')} = ${BASE_TOURNAMENT_KEY_SQL('t.city')} then 3
-        else 4
+        when ${STRICT_TOURNAMENT_KEY_SQL('t2.slug')} = ${STRICT_TOURNAMENT_KEY_SQL('t.slug')} then 0
+        when ${STRICT_TOURNAMENT_KEY_SQL('t2.name')} = ${STRICT_TOURNAMENT_KEY_SQL('t.name')} then 1
+        when ${STRICT_TOURNAMENT_KEY_SQL('t2.city')} = ${STRICT_TOURNAMENT_KEY_SQL('t.city')} then 2
+        when ${BASE_TOURNAMENT_KEY_SQL('t2.slug')} = ${BASE_TOURNAMENT_KEY_SQL('t.slug')} then 3
+        when ${BASE_TOURNAMENT_KEY_SQL('t2.name')} = ${BASE_TOURNAMENT_KEY_SQL('t.name')} then 4
+        when ${BASE_TOURNAMENT_KEY_SQL('t2.city')} = ${BASE_TOURNAMENT_KEY_SQL('t.city')} then 5
+        else 6
       end,
       abs(te2.start_date - te.start_date),
       te2.updated_at desc nulls last
