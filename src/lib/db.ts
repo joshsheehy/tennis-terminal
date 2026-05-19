@@ -45,6 +45,11 @@ const BASE_TOURNAMENT_KEY_SQL = (column: string) => `
 `;
 
 const HAS_DIGIT_SQL = (column: string) => `${column} ~ '\\d'`;
+const NON_EMPTY_CONTAINS_SQL = (left: string, right: string) => `
+  length(${left}) >= 5
+  and length(${right}) >= 5
+  and (${left} like '%' || ${right} || '%' or ${right} like '%' || ${left} || '%')
+`;
 
 // Overlay exact Challenger levels (Challenger 50/75/100/125/175) on older
 // generic Challenger rows for display. This is intentionally read-only: it
@@ -66,7 +71,7 @@ const EXACT_CHALLENGER_LEVEL_JOIN_SQL = `
       and te2.level ~* '^Challenger\\s+(50|75|100|125|175)$'
       and (
         (
-          abs(te2.start_date - te.start_date) <= 3
+          abs(te2.start_date - te.start_date) <= 7
           and (
             ${STRICT_TOURNAMENT_KEY_SQL('t2.slug')} = ${STRICT_TOURNAMENT_KEY_SQL('t.slug')}
             or ${STRICT_TOURNAMENT_KEY_SQL('t2.name')} = ${STRICT_TOURNAMENT_KEY_SQL('t.name')}
@@ -74,7 +79,7 @@ const EXACT_CHALLENGER_LEVEL_JOIN_SQL = `
           )
         )
         or (
-          abs(te2.start_date - te.start_date) <= 90
+          abs(te2.start_date - te.start_date) <= 120
           and not ${HAS_DIGIT_SQL('t.name')}
           and not ${HAS_DIGIT_SQL('t2.name')}
           and not ${HAS_DIGIT_SQL('t.slug')}
@@ -83,6 +88,9 @@ const EXACT_CHALLENGER_LEVEL_JOIN_SQL = `
             ${BASE_TOURNAMENT_KEY_SQL('t2.slug')} = ${BASE_TOURNAMENT_KEY_SQL('t.slug')}
             or ${BASE_TOURNAMENT_KEY_SQL('t2.name')} = ${BASE_TOURNAMENT_KEY_SQL('t.name')}
             or ${BASE_TOURNAMENT_KEY_SQL('t2.city')} = ${BASE_TOURNAMENT_KEY_SQL('t.city')}
+            or ${NON_EMPTY_CONTAINS_SQL(BASE_TOURNAMENT_KEY_SQL('t2.slug'), BASE_TOURNAMENT_KEY_SQL('t.slug'))}
+            or ${NON_EMPTY_CONTAINS_SQL(BASE_TOURNAMENT_KEY_SQL('t2.name'), BASE_TOURNAMENT_KEY_SQL('t.name'))}
+            or ${NON_EMPTY_CONTAINS_SQL(BASE_TOURNAMENT_KEY_SQL('t2.city'), BASE_TOURNAMENT_KEY_SQL('t.city'))}
           )
         )
       )
