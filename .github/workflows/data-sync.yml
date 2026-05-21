@@ -91,10 +91,6 @@ jobs:
           current_year = datetime.date.today().year
           request_json(f'/api/sync-official-calendar?year={current_year}', required=False)
 
-          # 2a) Broader atptour.com scraper. Keep as fallback for ATP Tour rows
-          # and any page/JSON data that is richer than the PDF.
-          request_json(f'/api/scrape-atp-calendar?year={current_year}', required=False)
-
           # 3) ATP result-archive discovery (older fallback). Keep around for
           # historical years where atptour.com hides the upcoming-calendar UI.
           run_paged(
@@ -115,14 +111,19 @@ jobs:
                   max_pages=30,
               )
 
-          # 3a) Merge tournaments that share a ProTennisLive code. The challenger
-          # importer used to create double-slug duplicates like
-          # "burnie-ch-burnie-ch" alongside "burnie-burnie"; this folds them
-          # back into one row so the schedule and missing-cuts report aren't
-          # noisy.
+          # 5) Merge tournaments that share a ProTennisLive code, then collapse
+          # any remaining duplicate Challenger-level rows. JeffSackmann's
+          # importer used to create "burnie-ch-burnie-ch" alongside "burnie";
+          # this folds them back into one row.
           request_json('/api/dedupe-by-code?apply=true', required=False)
+          request_json('/api/merge-official-challenger-levels?apply=true', required=False)
 
-          # 4) ATP-level cutoff refill for each historical year. Page through so each
+          # 6) Wipe rows where the PDF parser misread scores / prize money /
+          # tournament titles as last_direct_acceptance. Safe daily: only
+          # touches rows that match the garbage heuristics.
+          request_json('/api/cleanup-bad-cuts?apply=true', required=False)
+
+          # 7) ATP-level cutoff refill for each historical year. Page through so each
           # request is bounded; one giant call would happily blow the 180s timeout.
           for year in (2024, 2025, 2026):
               run_paged(
@@ -132,10 +133,10 @@ jobs:
                   max_pages=30,
               )
 
-          # 5) Restore any historical rows that were previously hidden by stale cleanup.
+          # 8) Restore any historical rows that were previously hidden by stale cleanup.
           request_json('/api/restore-historical-status')
 
-          # 6) Fill any remaining missing cuts. /api/run-all has its own 22s server-side budget,
+          # 9) Fill any remaining missing cuts. /api/run-all has its own 22s server-side budget,
           # so call it repeatedly until it reports completion. Tombstones make each call
           # process new editions instead of re-grinding the dead ones.
           print('\n=== Missing cut refill ===', flush=True)

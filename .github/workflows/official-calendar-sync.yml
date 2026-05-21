@@ -72,9 +72,6 @@ jobs:
           # Challenger announcements are added before any fallback import runs.
           request_json(f'/api/sync-official-calendar?year={current_year}')
 
-          # Keep the existing broader scraper as a non-blocking fallback for ATP Tour rows.
-          request_json(f'/api/scrape-atp-calendar?year={current_year}', required=False)
-
           # Fill cuts if official PDFs are already posted. This is bounded and idempotent.
           for attempt in range(20):
               data = request_json('/api/run-all', timeout=60, required=False)

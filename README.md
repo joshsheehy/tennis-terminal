@@ -1,40 +1,50 @@
 # Tennis Terminal
 
-Starter repo for the Tennis Terminal build.
+Tournament schedule and entry-cutoff data for the men's pro tour, served as a small Next.js + Postgres app.
 
-What is included:
-- corrected 3-table schema: `tournaments`, `tournament_editions`, `cutoff_snapshots`
-- schedule page for first 10 ATP Tour + first 10 Challenger events
-- checker page scaffold that uses singles rank + combined doubles ranking input only
-- official-source-backed calendar import script
-- official ATP Challenger Calendar PDF sync endpoint and workflows
+## What it does
 
-Important note:
-- the calendar importer is **not** a PDF parser yet
-- it is an honest official-source-backed importer for the first 10 ATP Tour events and first 10 Challenger events
-- next step after this repo is live: replace the seeded official-source rows with real PDF parsing
+- Pulls the ATP Tour and Challenger calendars from official sources (atptour.com calendar PDFs, ATP archive pages, ProTennisLive postings, JeffSackmann's GitHub backup).
+- Stores tournaments, editions, and per-draw cutoff snapshots in a three-table schema (`tournaments`, `tournament_editions`, `cutoff_snapshots`).
+- Renders the schedule by week + the per-tournament history of cuts at `/` and `/tournaments/[slug]`.
+- Runs a daily GitHub Actions sync to keep the data fresh, plus a weekly official-calendar refresh.
 
-## No-terminal setup path
+## Architecture (high level)
 
-### Put this into GitHub without terminal
-Option A: GitHub Desktop
-1. Install GitHub Desktop.
-2. Choose **Add an Existing Repository from your Hard Drive** after unzipping this folder.
-3. Publish it to GitHub.
+- **`src/app`** – Next.js app router pages and API routes.
+- **`src/lib`** – shared helpers (db pool, ATP week math, PDF cutoff parser, canonical tournament catalogue).
+- **`src/components`** – schedule UI (week picker, year picker, tournament card).
+- **`sql/`** – schema and migration helpers.
+- **`.github/workflows`** – the automated sync jobs.
 
-Option B: GitHub website
-1. Create a new empty GitHub repo.
-2. Unzip this folder.
-3. Drag all files into the repo upload screen on GitHub.
-4. Commit the upload.
+## Local development
 
-## Deploy later
-Recommended easiest production path with few moving parts:
-- Railway for app + Postgres
+```bash
+npm install
+echo 'DATABASE_URL=postgres://...' > .env.local
+npm run dev
+```
 
-## Environment variable
-Add this in Railway later:
-- `DATABASE_URL`
+## Deploy
 
-## Database
-Run the SQL in `sql/schema.sql` in your Postgres database before importing calendars.
+- App + Postgres on Railway. Set `DATABASE_URL` and `APP_URL` (your Railway URL) as GitHub Actions secrets so the sync workflows can call back into the deployed API.
+- Run the SQL in `sql/schema.sql` once on the database.
+
+## Sync workflows
+
+- `data-sync.yml` – daily 08:15 UTC. Pulls calendars, dedupes, refills cuts.
+- `official-calendar-sync.yml` – weekly Monday 07:45 UTC. Re-parses the official ATP calendar PDF in case new tournaments were announced.
+
+## Key API endpoints
+
+| Endpoint | Purpose |
+| --- | --- |
+| `/api/sync-official-calendar?year=YYYY` | Import the official ATP Tour calendar PDF for the given season. |
+| `/api/import-calendars` | Refresh the canonical hardcoded calendar. |
+| `/api/import-challenger-season?year=YYYY` | Backfill challenger schedules from JeffSackmann (fallback source). |
+| `/api/import-cutoffs?year=YYYY` | Pull cutoff PDFs from ProTennisLive for known codes. |
+| `/api/run-all?force=true` | Sweep remaining missing cuts within a per-call time budget. |
+| `/api/missing-cuts-report?year=YYYY&compact=true` | Snapshot of what's still missing, with confidence levels. |
+| `/api/dedupe-by-code?apply=true` | Merge duplicate tournaments that share a ProTennisLive code. |
+| `/api/cleanup-bad-cuts?apply=true` | Delete cuts the parser mis-extracted from results sheets / prize money. |
+| `/api/status` | JSON snapshot of cut coverage across all editions. |
