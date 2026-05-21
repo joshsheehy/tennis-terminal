@@ -1,8 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ScheduleRow } from '@/lib/types';
+
+function normalizeForSearch(value: string | null | undefined) {
+  if (!value) return '';
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
 
 function displayName(name: string): string {
   return name.replace(/,\s*[A-Z]{2}$/, '');
@@ -92,10 +100,23 @@ export default function WeekTournamentPicker({
   tournaments: ScheduleRow[];
   year?: number;
 }) {
+  const [search, setSearch] = useState('');
+  const trimmedSearch = search.trim();
+  const isSearching = trimmedSearch.length > 0;
+
+  const filteredTournaments = useMemo(() => {
+    if (!isSearching) return tournaments;
+    const needle = normalizeForSearch(trimmedSearch);
+    return tournaments.filter((t) => {
+      const haystack = normalizeForSearch(`${t.name} ${t.city} ${t.country ?? ''} ${t.level}`);
+      return haystack.includes(needle);
+    });
+  }, [tournaments, trimmedSearch, isSearching]);
+
   const weekGroups = useMemo<WeekGroup[]>(() => {
     const expanded: DisplayTournament[] = [];
 
-    for (const tournament of tournaments) {
+    for (const tournament of filteredTournaments) {
       expanded.push({
         tournament,
         displayWeek: tournament.week,
@@ -166,13 +187,63 @@ export default function WeekTournamentPicker({
         if (b.week === null) return -1;
         return a.week - b.week;
       });
-  }, [tournaments]);
+  }, [filteredTournaments]);
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
+      <div style={{ position: 'relative' }}>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search tournaments by name, city, or level"
+          aria-label="Search tournaments"
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '12px 40px 12px 14px',
+            borderRadius: 12,
+            border: '1px solid #d6d6d6',
+            background: '#fff',
+            color: '#0f172a',
+            fontSize: 16,
+            outline: 'none',
+          }}
+        />
+        {isSearching ? (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            aria-label="Clear search"
+            style={{
+              position: 'absolute',
+              top: '50%',
+              right: 8,
+              transform: 'translateY(-50%)',
+              background: 'transparent',
+              border: 'none',
+              color: '#64748b',
+              cursor: 'pointer',
+              fontSize: 18,
+              padding: 6,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
+
+      {isSearching && weekGroups.length === 0 ? (
+        <div style={{ color: '#64748b', padding: '8px 4px', fontSize: 14 }}>
+          No tournaments match &ldquo;{trimmedSearch}&rdquo; for {year}.
+        </div>
+      ) : null}
+
       {weekGroups.map((group) => (
         <details
           key={group.key}
+          open={isSearching}
           style={{
             border: '1px solid #d6d6d6',
             borderRadius: 16,
