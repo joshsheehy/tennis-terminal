@@ -109,8 +109,21 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
   );
 
   return (
-    <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+    <div
+      // Narrow viewports (iPhones ~390px) were squishing the three columns
+      // onto two lines and clipping ALT/LL. Force a min table width so the
+      // row stays legible and let the wrapper scroll horizontally. The right
+      // edge gradient is a visual hint that the table can be swiped sideways.
+      className="cutoff-table-scroll"
+      style={{
+        position: 'relative',
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        borderRadius: 8,
+        border: '1px solid #e0e0e0',
+      }}
+    >
+      <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ background: '#f0f0f0', borderBottom: '2px solid #d0d0d0' }}>
             <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666' }}>Draw</th>
