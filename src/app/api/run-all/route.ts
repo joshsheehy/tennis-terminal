@@ -80,53 +80,57 @@ async function tryFill(
   drawType: 'main' | 'qualifying',
   pdfNames: string[]
 ): Promise<boolean> {
+  // Race every candidate PDF in parallel. Without this, an edition with 5
+  // dead candidate URLs (each costing ~8s of PTL+Wayback timeout) burns the
+  // 22s budget by itself. With Promise.allSettled the slowest URL alone
+  // bounds the wall time, and the first successful parse wins.
   for (const year of candidateYears) {
     const baseUrl = `https://www.protennislive.com/posting/${year}/${code}`;
-    for (const pdfName of pdfNames) {
+    const attempts = pdfNames.map(async (pdfName) => {
       const pdfUrl = `${baseUrl}/${pdfName}`;
-      try {
-        const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
-        // PTL sometimes serves results sheets at entry-list URLs after the event runs.
-        // Those parse without throwing but have no rank data, so we'd record a null
-        // and stop trying. Skip them so the next candidate URL gets a chance.
-        const hasRank =
-          parsed.last_direct_acceptance_rank !== null ||
-          parsed.challenger_doubles_advanced_cut_rank !== null ||
-          parsed.challenger_doubles_onsite_cut_rank !== null;
-        if (!hasRank) continue;
-        await pool.query(
-          `insert into cutoff_snapshots (
-             tournament_edition_id, event_type, draw_type, source_type,
-             last_direct_acceptance_rank, last_direct_acceptance_player_name,
-             last_alternate_rank, last_alternate_player_name,
-             challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
-             challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-             parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
-           ) values (
-             $1, $2, $3, 'official_pdf', $4, $5, null, null, $6, null, $7, null,
-             now(), 'official-pdf-bottom-left-v4', $8, $9, $10, now()
-           )
-           on conflict (tournament_edition_id, event_type, draw_type) do update set
-             last_direct_acceptance_rank = excluded.last_direct_acceptance_rank,
-             last_direct_acceptance_player_name = excluded.last_direct_acceptance_player_name,
-             challenger_doubles_advanced_cut_rank = excluded.challenger_doubles_advanced_cut_rank,
-             challenger_doubles_onsite_cut_rank = excluded.challenger_doubles_onsite_cut_rank,
-             parsed_at = excluded.parsed_at, source_notes = excluded.source_notes,
-             alternate_entries_count = excluded.alternate_entries_count,
-             lucky_loser_count = excluded.lucky_loser_count, updated_at = now()`,
-          [
-            editionId, eventType, drawType,
-            parsed.last_direct_acceptance_rank, parsed.last_direct_acceptance_name,
-            parsed.challenger_doubles_advanced_cut_rank, parsed.challenger_doubles_onsite_cut_rank,
-            `Official PDF: ${pdfUrl}`,
-            parsed.alternate_entries_count, parsed.lucky_loser_count,
-          ]
-        );
-        return true;
-      } catch {
-        // try next
-      }
-    }
+      const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+      const hasRank =
+        parsed.last_direct_acceptance_rank !== null ||
+        parsed.challenger_doubles_advanced_cut_rank !== null ||
+        parsed.challenger_doubles_onsite_cut_rank !== null;
+      if (!hasRank) throw new Error('no rank data');
+      return { parsed, pdfUrl };
+    });
+    const results = await Promise.allSettled(attempts);
+    const winner = results.find((r) => r.status === 'fulfilled') as
+      | PromiseFulfilledResult<{ parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>>; pdfUrl: string }>
+      | undefined;
+    if (!winner) continue;
+    const { parsed, pdfUrl } = winner.value;
+    await pool.query(
+      `insert into cutoff_snapshots (
+         tournament_edition_id, event_type, draw_type, source_type,
+         last_direct_acceptance_rank, last_direct_acceptance_player_name,
+         last_alternate_rank, last_alternate_player_name,
+         challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
+         challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
+         parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
+       ) values (
+         $1, $2, $3, 'official_pdf', $4, $5, null, null, $6, null, $7, null,
+         now(), 'official-pdf-bottom-left-v4', $8, $9, $10, now()
+       )
+       on conflict (tournament_edition_id, event_type, draw_type) do update set
+         last_direct_acceptance_rank = excluded.last_direct_acceptance_rank,
+         last_direct_acceptance_player_name = excluded.last_direct_acceptance_player_name,
+         challenger_doubles_advanced_cut_rank = excluded.challenger_doubles_advanced_cut_rank,
+         challenger_doubles_onsite_cut_rank = excluded.challenger_doubles_onsite_cut_rank,
+         parsed_at = excluded.parsed_at, source_notes = excluded.source_notes,
+         alternate_entries_count = excluded.alternate_entries_count,
+         lucky_loser_count = excluded.lucky_loser_count, updated_at = now()`,
+      [
+        editionId, eventType, drawType,
+        parsed.last_direct_acceptance_rank, parsed.last_direct_acceptance_name,
+        parsed.challenger_doubles_advanced_cut_rank, parsed.challenger_doubles_onsite_cut_rank,
+        `Official PDF: ${pdfUrl}`,
+        parsed.alternate_entries_count, parsed.lucky_loser_count,
+      ]
+    );
+    return true;
   }
   return false;
 }

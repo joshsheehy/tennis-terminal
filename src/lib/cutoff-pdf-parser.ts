@@ -223,7 +223,7 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
   };
 }
 
-async function fetchPdfBuffer(url: string, timeoutMs = 8000): Promise<Buffer> {
+async function fetchPdfBuffer(url: string, timeoutMs = 4000): Promise<Buffer> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -255,7 +255,7 @@ async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
     try {
       const availUrl = `https://archive.org/wayback/available?url=${encodeURIComponent(pdfUrl)}&timestamp=${year}0601`;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5000);
+      const timer = setTimeout(() => controller.abort(), 3000);
       const availRes = await fetch(availUrl, { cache: 'no-store', signal: controller.signal });
       clearTimeout(timer);
       if (availRes.ok) {
@@ -265,7 +265,7 @@ async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
         const closest = json.archived_snapshots?.closest;
         if (closest?.available && closest.timestamp) {
           const rawUrl = `https://web.archive.org/web/${closest.timestamp}if_/${pdfUrl}`;
-          const buf = await fetchPdfBuffer(rawUrl, 8000).catch(() => null);
+          const buf = await fetchPdfBuffer(rawUrl, 5000).catch(() => null);
           if (buf) return buf;
         }
       }
@@ -278,7 +278,7 @@ async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
   const timestamps = [`${year}1201`, `${year}0901`, `${year}0601`, `${year}0401`];
   const results = await Promise.all(
     timestamps.map((ts) =>
-      fetchPdfBuffer(`https://web.archive.org/web/${ts}000000if_/${pdfUrl}`, 6000)
+      fetchPdfBuffer(`https://web.archive.org/web/${ts}000000if_/${pdfUrl}`, 4000)
         .catch(() => null)
     )
   );
