@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScheduleRow } from '@/lib/types';
 
 function normalizeForSearch(value: string | null | undefined) {
@@ -101,6 +101,15 @@ export default function WeekTournamentPicker({
   year?: number;
 }) {
   const [search, setSearch] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // On mobile, users often type before React hydrates. After hydration, sync
+  // whatever the browser already has in the input so results appear correctly.
+  useEffect(() => {
+    const native = inputRef.current?.value ?? '';
+    if (native) setSearch(native);
+  }, []);
+
   const trimmedSearch = search.trim();
   const isSearching = trimmedSearch.length > 0;
 
@@ -200,13 +209,18 @@ export default function WeekTournamentPicker({
     <div style={{ display: 'grid', gap: 16 }}>
       <div style={{ position: 'relative' }}>
         <input
+          ref={inputRef}
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search tournaments by name, city, or level"
           aria-label="Search tournaments"
           autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
           spellCheck={false}
+          inputMode="search"
+          enterKeyHint="search"
           style={{
             width: '100%',
             boxSizing: 'border-box',
