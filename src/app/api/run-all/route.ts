@@ -278,10 +278,14 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
-    const startCalendarYear = Number(r.start_date.slice(0, 4));
-    const candidateYears = Array.from(
-      new Set([startCalendarYear, startCalendarYear - 1, startCalendarYear + 1, r.year, r.year - 1])
-    );
+    // Always pull only the season year's PDF. The old code also tried
+    // r.year-1 / r.year+1 / start_date.year ± 1 to be tolerant of PTL's
+    // URL conventions, but that was actively wrong: if PTL still served
+    // the previous season's PDF at the neighbour-year URL, we accepted
+    // last year's cut data and stored it against this year's edition.
+    // That's the "same cut two years in a row" bug. For Brisbane-style
+    // December starts, r.year already holds the correct ATP season year.
+    const candidateYears = [r.year];
     const isChallenger = r.level.toLowerCase().includes('challenger');
     const needsDoublesQual = !isChallenger && (
       SLUG_HAS_DOUBLES_QUAL.has(r.slug) ||

@@ -123,6 +123,12 @@ jobs:
           # touches rows that match the garbage heuristics.
           request_json('/api/cleanup-bad-cuts?apply=true', required=False)
 
+          # 6a) Remove cuts that were stored against the wrong edition. The
+          # old run-all tried neighbour-year PDF URLs as fallbacks and would
+          # accept last year's data for this year's edition. Idempotent: if
+          # no mismatches exist, this is a no-op.
+          request_json('/api/cleanup-mismatched-cuts?apply=true', required=False)
+
           # 7) ATP-level cutoff refill for each historical year. Page through so each
           # request is bounded; one giant call would happily blow the 180s timeout.
           for year in (2024, 2025, 2026):
