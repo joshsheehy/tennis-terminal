@@ -104,19 +104,26 @@ export default function WeekTournamentPicker({
   const trimmedSearch = search.trim();
   const isSearching = trimmedSearch.length > 0;
 
-  const filteredTournaments = useMemo(() => {
-    if (!isSearching) return tournaments;
+  const searchMatches = useMemo(() => {
+    if (!isSearching) return [];
     const needle = normalizeForSearch(trimmedSearch);
-    return tournaments.filter((t) => {
-      const haystack = normalizeForSearch(`${t.name} ${t.city} ${t.country ?? ''} ${t.level}`);
-      return haystack.includes(needle);
-    });
+    return tournaments
+      .filter((t) => {
+        const haystack = normalizeForSearch(`${t.name} ${t.city} ${t.country ?? ''} ${t.level}`);
+        return haystack.includes(needle);
+      })
+      .sort((a, b) => {
+        const aDate = getDateValue(a.start_date);
+        const bDate = getDateValue(b.start_date);
+        if (aDate !== bDate) return aDate - bDate;
+        return a.name.localeCompare(b.name);
+      });
   }, [tournaments, trimmedSearch, isSearching]);
 
   const weekGroups = useMemo<WeekGroup[]>(() => {
     const expanded: DisplayTournament[] = [];
 
-    for (const tournament of filteredTournaments) {
+    for (const tournament of tournaments) {
       expanded.push({
         tournament,
         displayWeek: tournament.week,
@@ -187,17 +194,19 @@ export default function WeekTournamentPicker({
         if (b.week === null) return -1;
         return a.week - b.week;
       });
-  }, [filteredTournaments]);
+  }, [tournaments]);
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <div style={{ position: 'relative' }}>
         <input
-          type="search"
+          type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search tournaments by name, city, or level"
           aria-label="Search tournaments"
+          autoComplete="off"
+          spellCheck={false}
           style={{
             width: '100%',
             boxSizing: 'border-box',
@@ -234,24 +243,78 @@ export default function WeekTournamentPicker({
         ) : null}
       </div>
 
-      {isSearching && weekGroups.length === 0 ? (
-        <div style={{ color: '#64748b', padding: '8px 4px', fontSize: 14 }}>
-          No tournaments match &ldquo;{trimmedSearch}&rdquo; for {year}.
-        </div>
-      ) : null}
-
-      {weekGroups.map((group) => (
-        <details
-          key={group.key}
-          open={isSearching}
-          style={{
-            border: '1px solid #d6d6d6',
-            borderRadius: 16,
-            overflow: 'hidden',
-            background: '#fff',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-          }}
-        >
+      {isSearching ? (
+        searchMatches.length === 0 ? (
+          <div style={{ color: '#64748b', padding: '12px 4px', fontSize: 14 }}>
+            No tournaments match &ldquo;{trimmedSearch}&rdquo; for {year}.
+          </div>
+        ) : (
+          <div>
+            <div style={{ color: '#64748b', padding: '4px 4px 8px', fontSize: 13 }}>
+              {searchMatches.length} {searchMatches.length === 1 ? 'match' : 'matches'} for &ldquo;{trimmedSearch}&rdquo;
+            </div>
+            <div style={{ border: '1px solid #d6d6d6', borderRadius: 16, overflow: 'hidden', background: '#fff' }}>
+              {searchMatches.map((tournament, index) => (
+                <Link
+                  key={tournament.edition_id}
+                  href={`/tournaments/${tournament.slug}${year !== 2026 ? `?year=${year}` : ''}`}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 20,
+                    padding: '20px 24px',
+                    borderTop: index === 0 ? 'none' : '1px solid #e5e7eb',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>
+                      {displayName(tournament.name)}
+                    </div>
+                    <div style={{ fontSize: 16, color: '#334155', marginBottom: 4 }}>
+                      {tournament.city}
+                      {tournament.country ? `, ${tournament.country}` : ''}
+                      {' | '}
+                      {tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
+                      {tournament.week ? ` | Week ${tournament.week}` : ''}
+                    </div>
+                    <div style={{ fontSize: 16, color: '#0f172a', fontWeight: 600 }}>
+                      {tournament.level} · {tournament.surface}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      whiteSpace: 'nowrap',
+                      padding: '12px 18px',
+                      borderRadius: 12,
+                      border: '2px solid #0f172a',
+                      background: '#fff',
+                      color: '#0f172a',
+                      fontWeight: 700,
+                      fontSize: 14,
+                    }}
+                  >
+                    Open
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )
+      ) : (
+        weekGroups.map((group) => (
+          <details
+            key={group.key}
+            style={{
+              border: '1px solid #d6d6d6',
+              borderRadius: 16,
+              overflow: 'hidden',
+              background: '#fff',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+            }}
+          >
           <summary
             style={{
               listStyle: 'none',
@@ -393,7 +456,8 @@ export default function WeekTournamentPicker({
             ))}
           </div>
         </details>
-      ))}
+        ))
+      )}
     </div>
   );
 }
