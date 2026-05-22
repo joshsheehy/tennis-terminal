@@ -103,11 +103,16 @@ export default function WeekTournamentPicker({
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // On mobile, users often type before React hydrates. After hydration, sync
-  // whatever the browser already has in the input so results appear correctly.
   useEffect(() => {
-    const native = inputRef.current?.value ?? '';
-    if (native) setSearch(native);
+    const el = inputRef.current;
+    if (!el) return;
+    // Sync any text the user typed before React hydrated this input.
+    if (el.value) setSearch(el.value);
+    // Attach a direct DOM listener so typing always updates state regardless
+    // of whether React's synthetic event delegation is fully initialised.
+    const sync = () => setSearch(el.value);
+    el.addEventListener('input', sync);
+    return () => el.removeEventListener('input', sync);
   }, []);
 
   const trimmedSearch = search.trim();
