@@ -87,26 +87,64 @@ function sourceHref(cutoff: CutoffSnapshot) {
   return match?.[0] ?? null;
 }
 
+function isTombstone(cutoff: CutoffSnapshot) {
+  return cutoff.source_notes === 'PDF_NOT_FOUND';
+}
+
+// Events without rank-based direct-acceptance — invitation-only, team
+// formats, year-end ATP and Next Gen finals. We don't expect or display
+// a cutoff table for these; the UI shows a one-line explanation instead.
+function isInvitationOnlyLevel(level: string): boolean {
+  const t = level.toLowerCase();
+  return (
+    t.includes('laver cup') ||
+    t.includes('united cup') ||
+    t.includes('davis cup') ||
+    t.includes('atp finals') ||
+    t.includes('next gen')
+  );
+}
+
+type DrawKey = 'singles_main' | 'singles_qualifying' | 'doubles_main' | 'doubles_qualifying';
+
+function expectedDrawsForLevel(level: string): DrawKey[] {
+  const draws: DrawKey[] = ['singles_main', 'singles_qualifying', 'doubles_main'];
+  if (level === 'ATP 500') draws.push('doubles_qualifying');
+  return draws;
+}
+
+function findCutoff(cutoffs: CutoffSnapshot[], event: 'singles' | 'doubles', draw: 'main' | 'qualifying') {
+  return cutoffs.find((c) => c.event_type === event && c.draw_type === draw) ?? null;
+}
+
+function drawLabel(draw: DrawKey): string {
+  switch (draw) {
+    case 'singles_main': return 'Singles main';
+    case 'singles_qualifying': return 'Singles qualifying';
+    case 'doubles_main': return 'Doubles main';
+    case 'doubles_qualifying': return 'Doubles qualifying';
+  }
+}
+
 function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: string }) {
-  if (cutoffs.length === 0) {
+  // Exhibition / team events have no ranking-based entry — render a small
+  // explanation card instead of an empty table.
+  if (isInvitationOnlyLevel(level)) {
     return (
       <div style={{
         padding: '12px 16px',
         background: '#f5f5f5',
         borderRadius: 8,
-        color: '#888',
+        color: '#555',
         fontSize: 14,
       }}>
-        No cut data imported yet for this year.
+        Invitation-only / team format — no ranking-based cutoff applies.
       </div>
     );
   }
 
   const isChallenger = isChallengerLevel(level);
-  const isAtp500 = level === 'ATP 500';
-  const rows = cutoffs.filter(
-    (cutoff) => !(cutoff.event_type === 'doubles' && cutoff.draw_type === 'qualifying' && !isAtp500)
-  );
+  const expected = expectedDrawsForLevel(level);
 
   return (
     <div
@@ -132,30 +170,48 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
           </tr>
         </thead>
         <tbody>
-          {rows.map((cutoff, i) => {
-            const href = sourceHref(cutoff);
+          {expected.map((draw, i) => {
+            const [eventType, drawType] = draw.split('_') as ['singles' | 'doubles', 'main' | 'qualifying'];
+            const cutoff = findCutoff(cutoffs, eventType, drawType);
+            const tombstoned = cutoff ? isTombstone(cutoff) : false;
+            const href = cutoff ? sourceHref(cutoff) : null;
+            const hasRank =
+              cutoff !== null &&
+              (cutoff.last_direct_acceptance_rank !== null ||
+                cutoff.challenger_doubles_advanced_cut_rank !== null ||
+                cutoff.challenger_doubles_onsite_cut_rank !== null);
+
+            let cutCell: React.ReactNode;
+            if (!cutoff) {
+              cutCell = <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>Not yet imported</span>;
+            } else if (!hasRank || tombstoned) {
+              cutCell = <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>Not on record</span>;
+            } else if (isChallenger && eventType === 'doubles') {
+              cutCell = <span style={{ color: '#111', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{challengerDoublesCutText(cutoff)}</span>;
+            } else {
+              cutCell = <span style={{ color: '#111', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)}</span>;
+            }
+
+            const altCell = hasRank && cutoff ? altLlText(cutoff) : '—';
+
             return (
               <tr
-                key={cutoff.id}
+                key={draw}
                 style={{
                   background: i % 2 === 0 ? '#ffffff' : '#fafafa',
                   borderBottom: '1px solid #e8e8e8',
                 }}
               >
                 <td style={{ padding: '12px 16px', color: '#555' }}>
-                  <div>{cutoffLabel(cutoff)}</div>
-                  {href ? (
+                  <div>{drawLabel(draw)}</div>
+                  {href && !tombstoned ? (
                     <a href={href} target="_blank" rel="noreferrer" style={{ color: '#888', fontSize: 11, textDecoration: 'underline' }}>
                       PDF source
                     </a>
                   ) : null}
                 </td>
-                <td style={{ padding: '12px 16px', fontWeight: 700, color: '#111', fontVariantNumeric: 'tabular-nums' }}>
-                  {isChallenger && cutoff.event_type === 'doubles'
-                    ? challengerDoublesCutText(cutoff)
-                    : rankText(cutoff.last_direct_acceptance_rank)}
-                </td>
-                <td style={{ padding: '12px 16px', color: '#555', fontVariantNumeric: 'tabular-nums' }}>{altLlText(cutoff)}</td>
+                <td style={{ padding: '12px 16px' }}>{cutCell}</td>
+                <td style={{ padding: '12px 16px', color: '#555', fontVariantNumeric: 'tabular-nums' }}>{altCell}</td>
               </tr>
             );
           })}
