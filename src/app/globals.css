@@ -448,3 +448,17 @@ td {
     align-items: flex-start;
   }
 }
+
+/* Tournament detail metadata grid — 2 cols on mobile, 4 on wider screens */
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+@media (min-width: 480px) {
+  .meta-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

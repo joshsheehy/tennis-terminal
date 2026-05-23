@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScheduleRow } from '@/lib/types';
 
 function normalizeForSearch(value: string | null | undefined) {
@@ -41,6 +41,15 @@ function getLevelSortValue(level: string) {
   if (n.includes('challenger 50')) return 50;
   if (n.includes('challenger')) return 1;
   return 0;
+}
+
+function getLevelCategory(level: string): string {
+  const n = level.toLowerCase();
+  if (n.includes('1000')) return 'ATP 1000';
+  if (n.includes('500')) return 'ATP 500';
+  if (n.includes('250')) return 'ATP 250';
+  if (n.includes('challenger')) return 'Challenger';
+  return 'Other';
 }
 
 type WeekGroup = { key: string; week: number | null; tournaments: DisplayTournament[]; startDate: string | null };
@@ -84,6 +93,12 @@ export default function WeekTournamentPicker({
   const noMatchRef  = useRef<HTMLDivElement>(null);
   const countRef    = useRef<HTMLDivElement>(null);
   const clearRef    = useRef<HTMLButtonElement>(null);
+
+  // Chip filter state — refs drive the DOM filter logic; state drives the chip button re-renders
+  const activeSurfacesRef = useRef<Set<string>>(new Set());
+  const activeLevelsRef   = useRef<Set<string>>(new Set());
+  const [chipSurfaces, setChipSurfaces] = useState<Set<string>>(new Set());
+  const [chipLevels,   setChipLevels]   = useState<Set<string>>(new Set());
 
   const sortedTournaments = useMemo(() =>
     [...tournaments].sort((a, b) => {
@@ -129,15 +144,57 @@ export default function WeekTournamentPicker({
       .sort((a, b) => a.week === null ? 1 : b.week === null ? -1 : a.week - b.week);
   }, [tournaments]);
 
+  // Available filter options derived from data
+  const surfaces = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of tournaments) if (t.surface) s.add(t.surface);
+    const preferred = ['Hard', 'Clay', 'Grass', 'Indoor Hard', 'Carpet'];
+    const ordered = preferred.filter(x => s.has(x));
+    for (const x of s) if (!ordered.includes(x)) ordered.push(x);
+    return ordered;
+  }, [tournaments]);
+
+  const levelCategories = useMemo(() => {
+    const cats = new Set<string>();
+    for (const t of tournaments) cats.add(getLevelCategory(t.level));
+    return ['ATP 1000', 'ATP 500', 'ATP 250', 'Challenger', 'Other'].filter(c => cats.has(c));
+  }, [tournaments]);
+
+  // Key of the week group that contains today — used to auto-open it on mount
+  const currentWeekKey = useMemo(() => {
+    const today = Date.now();
+    let bestKey: string | null = null;
+    let bestTime = -Infinity;
+    for (const g of weekGroups) {
+      if (!g.startDate) continue;
+      const t = new Date(g.startDate + 'T00:00:00Z').getTime();
+      if (t <= today && t > bestTime) {
+        bestTime = t;
+        bestKey = g.key;
+      }
+    }
+    return bestKey;
+  }, [weekGroups]);
+
+  // Auto-open the current week on mount
+  useEffect(() => {
+    if (!currentWeekKey || !weekRef.current) return;
+    const el = weekRef.current.querySelector<HTMLDetailsElement>(`[data-week-key="${currentWeekKey}"]`);
+    if (el) el.open = true;
+  }, [currentWeekKey]);
+
   const applyFilter = useCallback((rawValue: string) => {
     const query = rawValue.trim();
     const needle = normalizeForSearch(query);
+    const surfaces = activeSurfacesRef.current;
+    const levels   = activeLevelsRef.current;
+    const hasChips = surfaces.size > 0 || levels.size > 0;
 
     const show = (el: HTMLElement | null, visible: boolean) => {
       if (el) el.style.display = visible ? '' : 'none';
     };
 
-    if (!needle) {
+    if (!needle && !hasChips) {
       show(weekRef.current, true);
       show(resultsRef.current, false);
       show(noMatchRef.current, false);
@@ -146,12 +203,15 @@ export default function WeekTournamentPicker({
       return;
     }
 
-    show(clearRef.current, true);
+    if (needle) show(clearRef.current, true);
     show(weekRef.current, false);
 
     let count = 0;
     resultsRef.current?.querySelectorAll<HTMLElement>('[data-search]').forEach(el => {
-      const matches = (el.getAttribute('data-search') ?? '').includes(needle);
+      const searchMatch  = !needle || (el.getAttribute('data-search') ?? '').includes(needle);
+      const surfaceMatch = surfaces.size === 0 || surfaces.has(el.getAttribute('data-surface') ?? '');
+      const levelMatch   = levels.size === 0 || levels.has(el.getAttribute('data-level-cat') ?? '');
+      const matches = searchMatch && surfaceMatch && levelMatch;
       el.style.display = matches ? '' : 'none';
       if (matches) count++;
     });
@@ -162,10 +222,10 @@ export default function WeekTournamentPicker({
 
     if (countRef.current) {
       countRef.current.textContent =
-        `${count} ${count === 1 ? 'match' : 'matches'} for "${query}"`;
+        `${count} ${count === 1 ? 'match' : 'matches'}${needle ? ` for "${query}"` : ''}`;
     }
     if (noMatchRef.current && count === 0) {
-      noMatchRef.current.textContent = `No tournaments match "${query}" for ${year}.`;
+      noMatchRef.current.textContent = `No tournaments match your filters for ${year}.`;
     }
   }, [year]);
 
@@ -183,6 +243,34 @@ export default function WeekTournamentPicker({
     applyFilter('');
   }, [applyFilter]);
 
+  const toggleSurface = useCallback((surface: string) => {
+    const next = new Set(activeSurfacesRef.current);
+    if (next.has(surface)) next.delete(surface); else next.add(surface);
+    activeSurfacesRef.current = next;
+    setChipSurfaces(new Set(next));
+    applyFilter(inputRef.current?.value ?? '');
+  }, [applyFilter]);
+
+  const toggleLevel = useCallback((level: string) => {
+    const next = new Set(activeLevelsRef.current);
+    if (next.has(level)) next.delete(level); else next.add(level);
+    activeLevelsRef.current = next;
+    setChipLevels(new Set(next));
+    applyFilter(inputRef.current?.value ?? '');
+  }, [applyFilter]);
+
+  const chipStyle = (active: boolean): React.CSSProperties => ({
+    padding: '6px 14px',
+    borderRadius: 20,
+    border: active ? '2px solid var(--text-strong)' : '1px solid var(--border-tag)',
+    background: active ? 'var(--text-strong)' : 'var(--surface)',
+    color: active ? 'var(--bg)' : 'var(--text-secondary)',
+    fontSize: 14,
+    fontWeight: active ? 700 : 400,
+    cursor: 'pointer',
+    lineHeight: 1.4,
+  });
+
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       {/* Search input */}
@@ -192,7 +280,7 @@ export default function WeekTournamentPicker({
           type="text"
           defaultValue=""
           onChange={e => applyFilter(e.target.value)}
-          placeholder="Search tournaments by name, city, or level"
+          placeholder="Search tournaments by name, city, surface, or level"
           aria-label="Search tournaments"
           autoComplete="off"
           autoCorrect="off"
@@ -236,6 +324,20 @@ export default function WeekTournamentPicker({
         </button>
       </div>
 
+      {/* Filter chips */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {surfaces.map(surface => (
+          <button key={surface} onClick={() => toggleSurface(surface)} style={chipStyle(chipSurfaces.has(surface))}>
+            {surface}
+          </button>
+        ))}
+        {levelCategories.map(level => (
+          <button key={level} onClick={() => toggleLevel(level)} style={chipStyle(chipLevels.has(level))}>
+            {level}
+          </button>
+        ))}
+      </div>
+
       {/* Match count */}
       <div
         ref={countRef}
@@ -248,7 +350,7 @@ export default function WeekTournamentPicker({
         style={{ display: 'none', color: 'var(--text-muted)', padding: '12px 4px', fontSize: 14 }}
       />
 
-      {/* Flat search results — always in DOM, shown/hidden via ref */}
+      {/* Flat search/filter results — always in DOM, shown/hidden via ref */}
       <div
         ref={resultsRef}
         style={{ display: 'none', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: 'var(--surface)' }}
@@ -256,7 +358,9 @@ export default function WeekTournamentPicker({
         {sortedTournaments.map((t, index) => (
           <div
             key={t.edition_id}
-            data-search={normalizeForSearch(`${t.name} ${t.city} ${t.country ?? ''} ${t.level}`)}
+            data-search={normalizeForSearch(`${t.name} ${t.city} ${t.country ?? ''} ${t.level} ${t.surface}`)}
+            data-surface={t.surface ?? ''}
+            data-level-cat={getLevelCategory(t.level)}
           >
             <Link
               href={`/tournaments/${t.slug}${year !== 2026 ? `?year=${year}` : ''}`}
@@ -292,11 +396,12 @@ export default function WeekTournamentPicker({
         ))}
       </div>
 
-      {/* Week groups — always in DOM, hidden while searching */}
+      {/* Week groups — always in DOM, hidden while searching/filtering */}
       <div ref={weekRef}>
         {weekGroups.map((group) => (
           <details
             key={group.key}
+            data-week-key={group.key}
             style={{
               border: '1px solid var(--border)',
               borderRadius: 16,

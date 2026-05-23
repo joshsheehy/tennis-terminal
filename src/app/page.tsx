@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import WeekTournamentPicker from '@/components/WeekTournamentPicker';
 import YearPicker from '@/components/YearPicker';
 import { getScheduleForYear } from '@/lib/db';
@@ -5,6 +6,12 @@ import { getScheduleForYear } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 const VALID_YEARS = [2024, 2025, 2026];
+
+const getCachedSchedule = unstable_cache(
+  async (year: number) => getScheduleForYear(year),
+  ['schedule'],
+  { revalidate: 300 },
+);
 
 export default async function HomePage({
   searchParams,
@@ -14,7 +21,7 @@ export default async function HomePage({
   const { year: yearParam } = await searchParams;
   const year = yearParam && VALID_YEARS.includes(Number(yearParam)) ? Number(yearParam) : 2026;
 
-  const tournaments = await getScheduleForYear(year);
+  const tournaments = await getCachedSchedule(year);
 
   return (
     <main

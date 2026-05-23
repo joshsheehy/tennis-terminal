@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTournamentDetailRowsBySlug } from '@/lib/db';
@@ -51,13 +52,6 @@ function editionSummary(edition: {
   return `${dateRange} · ${week} · ${level} · ${surface}`;
 }
 
-function cutoffLabel(cutoff: CutoffSnapshot) {
-  if (cutoff.event_type === 'singles' && cutoff.draw_type === 'main') return 'Singles main';
-  if (cutoff.event_type === 'singles' && cutoff.draw_type === 'qualifying') return 'Singles qualifying';
-  if (cutoff.event_type === 'doubles' && cutoff.draw_type === 'main') return 'Doubles main';
-  return 'Doubles qualifying';
-}
-
 function rankText(rank: number | null) {
   return rank ? String(rank) : '—';
 }
@@ -91,9 +85,6 @@ function isTombstone(cutoff: CutoffSnapshot) {
   return cutoff.source_notes === 'PDF_NOT_FOUND';
 }
 
-// Events without rank-based direct-acceptance — invitation-only, team
-// formats, year-end ATP and Next Gen finals. We don't expect or display
-// a cutoff table for these; the UI shows a one-line explanation instead.
 function isInvitationOnlyLevel(level: string): boolean {
   const t = level.toLowerCase();
   return (
@@ -217,6 +208,13 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
 
 const VALID_YEARS = [2024, 2025, 2026];
 
+const getCachedDetail = unstable_cache(
+  async (slug: string, limit: number, year: number) =>
+    getTournamentDetailRowsBySlug(slug, limit, year),
+  ['tournament-detail'],
+  { revalidate: 300 },
+);
+
 export default async function TournamentDetailPage({
   params,
   searchParams,
@@ -229,7 +227,7 @@ export default async function TournamentDetailPage({
   const year = yearParam && VALID_YEARS.includes(Number(yearParam)) ? Number(yearParam) : 2026;
 
   const editionLimit = Math.max(1, year - 2023);
-  const rows = await getTournamentDetailRowsBySlug(slug, editionLimit, year);
+  const rows = await getCachedDetail(slug, editionLimit, year);
 
   if (rows.length === 0) notFound();
 
@@ -249,7 +247,7 @@ export default async function TournamentDetailPage({
         <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 15 }}>
           {current.city}{current.country ? `, ${current.country}` : ''}
         </p>
-        <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <div className="meta-grid">
           {[
             ['Viewing year', year],
             ['Week', current.week ?? 'NA'],
