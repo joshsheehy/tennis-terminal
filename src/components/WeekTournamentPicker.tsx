@@ -505,23 +505,23 @@ export default function WeekTournamentPicker({
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {displayName(tournament.name)}
                       {displayWeek !== null && displayWeek !== tournament.week && (
-                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>
                           in progress
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 18, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                    <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 3 }}>
                       {tournament.city}{tournament.country ? `, ${tournament.country}` : ''}{' | '}
                       {tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
                     </div>
-                    <div style={{ fontSize: 18, color: 'var(--text-strong)', fontWeight: 600 }}>
+                    <div style={{ fontSize: 14, color: 'var(--text-strong)', fontWeight: 600 }}>
                       {tournament.level} · {tournament.surface}
                     </div>
                   </div>
-                  <div style={{ whiteSpace: 'nowrap', padding: '14px 20px', borderRadius: 12, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 16 }}>
+                  <div style={{ whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: 10, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 13 }}>
                     Open
                   </div>
                 </Link>
