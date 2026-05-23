@@ -18,11 +18,6 @@ function displayName(name: string): string {
   return name.replace(/,\s*[A-Z]{2}$/, '');
 }
 
-function compareLabel(value: boolean | null) {
-  if (value === null) return 'N/A';
-  return value ? 'same' : 'different';
-}
-
 function isChallengerLevel(level: string) {
   return level.toLowerCase().includes('challenger');
 }
@@ -253,7 +248,9 @@ export default async function TournamentDetailPage({
       </div>
 
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {rows.map((row) => (
+        {rows.map((row, i) => {
+          const prevRow = rows[i + 1] ?? null;
+          return (
           <div key={row.edition.edition_id} style={{ border: '1px solid var(--border-table)', borderRadius: 10, overflow: 'hidden' }}>
             <div style={{ background: 'var(--surface-raised)', padding: '14px 16px', borderBottom: '1px solid var(--border-table)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
               <div>
@@ -262,10 +259,16 @@ export default async function TournamentDetailPage({
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border-tag)', borderRadius: 6, color: 'var(--text-muted)' }}>
-                  Level: <strong>{fallback(row.edition.level)}</strong> <span style={{ color: 'var(--text-faint)' }}>({compareLabel(row.same_level_as_previous_year)})</span>
+                  Level: <strong>{fallback(row.edition.level)}</strong>
+                  {row.same_level_as_previous_year === false && prevRow && (
+                    <span style={{ color: 'var(--text-faint)' }}> ← was {fallback(prevRow.edition.level)}</span>
+                  )}
                 </span>
                 <span style={{ fontSize: 12, padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border-tag)', borderRadius: 6, color: 'var(--text-muted)' }}>
-                  Week: <strong>{fallback(row.edition.week)}</strong> <span style={{ color: 'var(--text-faint)' }}>({compareLabel(row.same_week_as_previous_year)})</span>
+                  Week: <strong>{fallback(row.edition.week)}</strong>
+                  {row.same_week_as_previous_year === false && prevRow && (
+                    <span style={{ color: 'var(--text-faint)' }}> ← was {fallback(prevRow.edition.week)}</span>
+                  )}
                 </span>
               </div>
             </div>
@@ -283,7 +286,8 @@ export default async function TournamentDetailPage({
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </main>
   );
