@@ -182,17 +182,15 @@ export default function WeekTournamentPicker({
     return bestKey;
   }, [weekGroups]);
 
-  // URL week (from ?week=) takes priority; fall back to the computed current week
-  const targetWeekKey = defaultWeekKey ?? currentWeekKey;
-
   // Open the target week before first paint, then scroll to it.
-  // useLayoutEffect fires synchronously before the browser paints, so the
-  // details is already open when the user sees the page.
-  // Two scroll attempts handle devices where the browser's own scroll
-  // restoration fires after our first attempt and resets the position.
+  // Priority: URL ?week= param → sessionStorage (back-navigation) → computed current week.
+  // sessionStorage is the reliable fallback for back navigation because
+  // history.replaceState can be lost when Next.js's router pushes a new entry.
   useLayoutEffect(() => {
-    if (!targetWeekKey || !weekRef.current) return;
-    const el = weekRef.current.querySelector<HTMLDetailsElement>(`[data-week-key="${targetWeekKey}"]`);
+    const stored = sessionStorage.getItem('openWeek');
+    const keyToOpen = defaultWeekKey ?? stored ?? currentWeekKey;
+    if (!keyToOpen || !weekRef.current) return;
+    const el = weekRef.current.querySelector<HTMLDetailsElement>(`[data-week-key="${keyToOpen}"]`);
     if (!el) return;
     el.open = true;
     const scroll = () => {
@@ -202,30 +200,7 @@ export default function WeekTournamentPicker({
     const t1 = window.setTimeout(scroll, 100);
     const t2 = window.setTimeout(scroll, 400);
     return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
-  }, [targetWeekKey]);
-
-  // Keep ?week= in the URL in sync with whichever accordion is open,
-  // so back-navigation and sharing land on the right week.
-  useEffect(() => {
-    const container = weekRef.current;
-    if (!container) return;
-    const handleToggle = (e: Event) => {
-      const target = e.target as HTMLDetailsElement;
-      if (target.tagName !== 'DETAILS') return;
-      const weekKey = target.getAttribute('data-week-key');
-      if (!weekKey) return;
-      const params = new URLSearchParams(window.location.search);
-      if (target.open) {
-        params.set('week', weekKey);
-      } else if (params.get('week') === weekKey) {
-        params.delete('week');
-      }
-      const search = params.toString();
-      history.replaceState(null, '', search ? `?${search}` : window.location.pathname);
-    };
-    container.addEventListener('toggle', handleToggle, true);
-    return () => container.removeEventListener('toggle', handleToggle, true);
-  }, []);
+  }, [defaultWeekKey, currentWeekKey]);
 
   const applyFilter = useCallback((rawValue: string) => {
     const query = rawValue.trim();
@@ -449,6 +424,13 @@ export default function WeekTournamentPicker({
           <details
             key={group.key}
             data-week-key={group.key}
+            onToggle={(e) => {
+              if (!e.currentTarget.open) return;
+              sessionStorage.setItem('openWeek', group.key);
+              const params = new URLSearchParams(window.location.search);
+              params.set('week', group.key);
+              history.replaceState(null, '', `?${params.toString()}`);
+            }}
             style={{
               border: '1px solid var(--border)',
               borderRadius: 16,
