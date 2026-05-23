@@ -42,7 +42,7 @@ export default function ThemeToggle() {
         lineHeight: 1,
       }}
     >
-      {isDark ? '☀' : '☾'}
+      {isDark ? '☀︎' : '☾︎'}
     </button>
   );
 }
