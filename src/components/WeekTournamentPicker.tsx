@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScheduleRow } from '@/lib/types';
 
 function normalizeForSearch(value: string | null | undefined) {
@@ -76,6 +76,12 @@ function extraWeeks(startDate: string | null, endDate: string | null) {
   const sw = getWeekStartUtc(s).getTime();
   const ew = getWeekStartUtc(e).getTime();
   return ew <= sw ? 0 : Math.floor((ew - sw) / MS_PER_WEEK);
+}
+
+function vibrate() {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate(8);
+  }
 }
 
 export default function WeekTournamentPicker({
@@ -174,16 +180,23 @@ export default function WeekTournamentPicker({
     return bestKey;
   }, [weekGroups]);
 
-  // Auto-open and scroll to the current week on mount.
-  // The timeout outlasts mobile browsers' scroll-restoration which fires
-  // after useEffect and would otherwise reset the position to 0.
-  useEffect(() => {
+  // Open the current week before first paint, then scroll to it.
+  // useLayoutEffect fires synchronously before the browser paints, so the
+  // details is already open when the user sees the page.
+  // Two scroll attempts handle devices where the browser's own scroll
+  // restoration fires after our first attempt and resets the position.
+  useLayoutEffect(() => {
     if (!currentWeekKey || !weekRef.current) return;
     const el = weekRef.current.querySelector<HTMLDetailsElement>(`[data-week-key="${currentWeekKey}"]`);
     if (!el) return;
     el.open = true;
-    const id = window.setTimeout(() => el.scrollIntoView({ block: 'start' }), 120);
-    return () => window.clearTimeout(id);
+    const scroll = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo(0, Math.max(0, top));
+    };
+    const t1 = window.setTimeout(scroll, 100);
+    const t2 = window.setTimeout(scroll, 400);
+    return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
   }, [currentWeekKey]);
 
   const applyFilter = useCallback((rawValue: string) => {
@@ -242,11 +255,13 @@ export default function WeekTournamentPicker({
   }, [applyFilter]);
 
   const clearSearch = useCallback(() => {
+    vibrate();
     if (inputRef.current) { inputRef.current.value = ''; inputRef.current.focus(); }
     applyFilter('');
   }, [applyFilter]);
 
   const toggleSurface = useCallback((surface: string) => {
+    vibrate();
     const next = new Set(activeSurfacesRef.current);
     if (next.has(surface)) next.delete(surface); else next.add(surface);
     activeSurfacesRef.current = next;
@@ -255,6 +270,7 @@ export default function WeekTournamentPicker({
   }, [applyFilter]);
 
   const toggleLevel = useCallback((level: string) => {
+    vibrate();
     const next = new Set(activeLevelsRef.current);
     if (next.has(level)) next.delete(level); else next.add(level);
     activeLevelsRef.current = next;
