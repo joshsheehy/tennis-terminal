@@ -120,13 +120,7 @@ function drawLabel(draw: DrawKey): string {
 function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: string }) {
   if (isInvitationOnlyLevel(level)) {
     return (
-      <div style={{
-        padding: '12px 16px',
-        background: 'var(--surface-subtle)',
-        borderRadius: 8,
-        color: 'var(--text-muted)',
-        fontSize: 14,
-      }}>
+      <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
         Invitation-only / team format — no ranking-based cutoff applies.
       </div>
     );
@@ -136,72 +130,71 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
   const expected = expectedDrawsForLevel(level);
 
   return (
-    <div
-      className="cutoff-table-scroll"
-      style={{
-        position: 'relative',
-        overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        borderRadius: 8,
-        border: '1px solid var(--border-table)',
-      }}
-    >
-      <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: 14 }}>
-        <thead>
-          <tr style={{ background: 'var(--surface-table-head)', borderBottom: '2px solid var(--border-table-head)' }}>
-            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Draw</th>
-            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Cut</th>
-            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>ALT / LL in draw</th>
-          </tr>
-        </thead>
-        <tbody>
-          {expected.map((draw, i) => {
-            const [eventType, drawType] = draw.split('_') as ['singles' | 'doubles', 'main' | 'qualifying'];
-            const cutoff = findCutoff(cutoffs, eventType, drawType);
-            const tombstoned = cutoff ? isTombstone(cutoff) : false;
-            const href = cutoff ? sourceHref(cutoff) : null;
-            const hasRank =
-              cutoff !== null &&
-              (cutoff.last_direct_acceptance_rank !== null ||
-                cutoff.challenger_doubles_advanced_cut_rank !== null ||
-                cutoff.challenger_doubles_onsite_cut_rank !== null);
+    <div style={{ borderRadius: 8, border: '1px solid var(--border-table)', overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 16px', background: 'var(--surface-table-head)', borderBottom: '2px solid var(--border-table-head)' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Draw</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cut · ALT/LL</span>
+      </div>
 
-            let cutCell: React.ReactNode;
-            if (!cutoff) {
-              cutCell = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontWeight: 500 }}>Not yet imported</span>;
-            } else if (!hasRank || tombstoned) {
-              cutCell = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontWeight: 500 }}>Not on record</span>;
-            } else if (isChallenger && eventType === 'doubles') {
-              cutCell = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{challengerDoublesCutText(cutoff)}</span>;
-            } else {
-              cutCell = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)}</span>;
-            }
+      {/* Rows */}
+      {expected.map((draw, i) => {
+        const [eventType, drawType] = draw.split('_') as ['singles' | 'doubles', 'main' | 'qualifying'];
+        const cutoff = findCutoff(cutoffs, eventType, drawType);
+        const tombstoned = cutoff ? isTombstone(cutoff) : false;
+        const href = cutoff ? sourceHref(cutoff) : null;
+        const hasRank =
+          cutoff !== null &&
+          (cutoff.last_direct_acceptance_rank !== null ||
+            cutoff.challenger_doubles_advanced_cut_rank !== null ||
+            cutoff.challenger_doubles_onsite_cut_rank !== null);
 
-            const altCell = hasRank && cutoff ? altLlText(cutoff) : '—';
+        let cutDisplay: React.ReactNode;
+        if (!cutoff) {
+          cutDisplay = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontSize: 13 }}>Not yet imported</span>;
+        } else if (!hasRank || tombstoned) {
+          cutDisplay = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontSize: 13 }}>Not on record</span>;
+        } else if (isChallenger && eventType === 'doubles') {
+          cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{challengerDoublesCutText(cutoff)}</span>;
+        } else {
+          cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)}</span>;
+        }
 
-            return (
-              <tr
-                key={draw}
-                style={{
-                  background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)',
-                  borderBottom: '1px solid var(--border-table)',
-                }}
-              >
-                <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                  <div>{drawLabel(draw)}</div>
-                  {href && !tombstoned ? (
-                    <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--text-faint)', fontSize: 11, textDecoration: 'underline' }}>
-                      PDF source
-                    </a>
-                  ) : null}
-                </td>
-                <td style={{ padding: '12px 16px' }}>{cutCell}</td>
-                <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{altCell}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+        return (
+          <div
+            key={draw}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: 16,
+              padding: '14px 16px',
+              background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)',
+              borderTop: i === 0 ? 'none' : '1px solid var(--border-table)',
+            }}
+          >
+            {/* Left: draw label + PDF link */}
+            <div>
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{drawLabel(draw)}</div>
+              {href && !tombstoned && (
+                <a href={href} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--text-faint)', textDecoration: 'underline' }}>
+                  PDF source
+                </a>
+              )}
+            </div>
+
+            {/* Right: cut rank + ALT/LL stacked */}
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div>{cutDisplay}</div>
+              {hasRank && cutoff && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
+                  {altLlText(cutoff)} ALT/LL
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -45,9 +45,7 @@ function getLevelSortValue(level: string) {
 
 function getLevelCategory(level: string): string {
   const n = level.toLowerCase();
-  if (n.includes('1000')) return 'ATP 1000';
-  if (n.includes('500')) return 'ATP 500';
-  if (n.includes('250')) return 'ATP 250';
+  if (n.includes('1000') || n.includes('500') || n.includes('250')) return 'ATP';
   if (n.includes('challenger')) return 'Challenger';
   return 'Other';
 }
@@ -157,7 +155,7 @@ export default function WeekTournamentPicker({
   const levelCategories = useMemo(() => {
     const cats = new Set<string>();
     for (const t of tournaments) cats.add(getLevelCategory(t.level));
-    return ['ATP 1000', 'ATP 500', 'ATP 250', 'Challenger', 'Other'].filter(c => cats.has(c));
+    return ['ATP', 'Challenger', 'Other'].filter(c => cats.has(c));
   }, [tournaments]);
 
   // Key of the week group that contains today — used to auto-open it on mount
@@ -176,11 +174,14 @@ export default function WeekTournamentPicker({
     return bestKey;
   }, [weekGroups]);
 
-  // Auto-open the current week on mount
+  // Auto-open and scroll to the current week on mount
   useEffect(() => {
     if (!currentWeekKey || !weekRef.current) return;
     const el = weekRef.current.querySelector<HTMLDetailsElement>(`[data-week-key="${currentWeekKey}"]`);
-    if (el) el.open = true;
+    if (el) {
+      el.open = true;
+      el.scrollIntoView({ block: 'start' });
+    }
   }, [currentWeekKey]);
 
   const applyFilter = useCallback((rawValue: string) => {
