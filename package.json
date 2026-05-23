@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node .next/standalone/server.js",
+    "start": "next start",
     "lint": "next lint",
     "import:calendars": "tsx src/scripts/import-official-calendars.ts",
     "import:cutoffs": "tsx src/scripts/run-cutoff-import.ts"
