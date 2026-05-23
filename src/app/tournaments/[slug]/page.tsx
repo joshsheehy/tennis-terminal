@@ -152,9 +152,9 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
         } else if (!hasRank || tombstoned) {
           cutDisplay = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontSize: 13 }}>Not on record</span>;
         } else if (isChallenger && eventType === 'doubles') {
-          cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{challengerDoublesCutText(cutoff)}</span>;
+          cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{challengerDoublesCutText(cutoff)}</span>;
         } else {
-          cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)}</span>;
+          cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)}</span>;
         }
 
         return (
