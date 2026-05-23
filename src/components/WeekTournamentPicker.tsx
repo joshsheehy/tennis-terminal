@@ -129,8 +129,6 @@ export default function WeekTournamentPicker({
       .sort((a, b) => a.week === null ? 1 : b.week === null ? -1 : a.week - b.week);
   }, [tournaments]);
 
-  // Direct DOM filter — works without React re-renders, unaffected by
-  // whether React's synthetic event delegation has fully initialised.
   const applyFilter = useCallback((rawValue: string) => {
     const query = rawValue.trim();
     const needle = normalizeForSearch(query);
@@ -207,9 +205,9 @@ export default function WeekTournamentPicker({
             boxSizing: 'border-box',
             padding: '12px 40px 12px 14px',
             borderRadius: 12,
-            border: '1px solid #d6d6d6',
-            background: '#fff',
-            color: '#0f172a',
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            color: 'var(--text-strong)',
             fontSize: 16,
             outline: 'none',
           }}
@@ -227,7 +225,7 @@ export default function WeekTournamentPicker({
             transform: 'translateY(-50%)',
             background: 'transparent',
             border: 'none',
-            color: '#64748b',
+            color: 'var(--text-muted)',
             cursor: 'pointer',
             fontSize: 18,
             padding: 6,
@@ -241,19 +239,19 @@ export default function WeekTournamentPicker({
       {/* Match count */}
       <div
         ref={countRef}
-        style={{ display: 'none', color: '#64748b', padding: '4px 4px 0', fontSize: 13 }}
+        style={{ display: 'none', color: 'var(--text-muted)', padding: '4px 4px 0', fontSize: 13 }}
       />
 
       {/* No-match message */}
       <div
         ref={noMatchRef}
-        style={{ display: 'none', color: '#64748b', padding: '12px 4px', fontSize: 14 }}
+        style={{ display: 'none', color: 'var(--text-muted)', padding: '12px 4px', fontSize: 14 }}
       />
 
       {/* Flat search results — always in DOM, shown/hidden via ref */}
       <div
         ref={resultsRef}
-        style={{ display: 'none', border: '1px solid #d6d6d6', borderRadius: 16, overflow: 'hidden', background: '#fff' }}
+        style={{ display: 'none', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: 'var(--surface)' }}
       >
         {sortedTournaments.map((t, index) => (
           <div
@@ -268,25 +266,25 @@ export default function WeekTournamentPicker({
                 alignItems: 'center',
                 gap: 20,
                 padding: '20px 24px',
-                borderTop: index === 0 ? 'none' : '1px solid #e5e7eb',
+                borderTop: index === 0 ? 'none' : '1px solid var(--border-inner)',
                 textDecoration: 'none',
                 color: 'inherit',
               }}
             >
               <div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 6 }}>
                   {displayName(t.name)}
                 </div>
-                <div style={{ fontSize: 16, color: '#334155', marginBottom: 4 }}>
+                <div style={{ fontSize: 16, color: 'var(--text-secondary)', marginBottom: 4 }}>
                   {t.city}{t.country ? `, ${t.country}` : ''}{' | '}
                   {t.start_date ? formatDate(t.start_date) : 'NA'}
                   {t.week ? ` | Week ${t.week}` : ''}
                 </div>
-                <div style={{ fontSize: 16, color: '#0f172a', fontWeight: 600 }}>
+                <div style={{ fontSize: 16, color: 'var(--text-strong)', fontWeight: 600 }}>
                   {t.level} · {t.surface}
                 </div>
               </div>
-              <div style={{ whiteSpace: 'nowrap', padding: '12px 18px', borderRadius: 12, border: '2px solid #0f172a', background: '#fff', color: '#0f172a', fontWeight: 700, fontSize: 14 }}>
+              <div style={{ whiteSpace: 'nowrap', padding: '12px 18px', borderRadius: 12, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 14 }}>
                 Open
               </div>
             </Link>
@@ -300,10 +298,10 @@ export default function WeekTournamentPicker({
           <details
             key={group.key}
             style={{
-              border: '1px solid #d6d6d6',
+              border: '1px solid var(--border)',
               borderRadius: 16,
               overflow: 'hidden',
-              background: '#fff',
+              background: 'var(--surface)',
               boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
               marginBottom: 16,
             }}
@@ -319,21 +317,21 @@ export default function WeekTournamentPicker({
               }}
             >
               <div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 6 }}>
                   {group.week === null ? 'Week NA' : `Week ${group.week}`}
                 </div>
-                <div style={{ fontSize: 18, color: '#334155' }}>
+                <div style={{ fontSize: 18, color: 'var(--text-secondary)' }}>
                   {group.startDate ? formatDate(group.startDate) : 'NA'}
                   {' | '}
                   {group.tournaments.length}{' '}
                   {group.tournaments.length === 1 ? 'tournament' : 'tournaments'}
                 </div>
               </div>
-              <div style={{ fontSize: 18, color: '#334155', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 18, color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 View all ▾
               </div>
             </summary>
-            <div style={{ borderTop: '1px solid #e5e7eb', background: '#fafafa' }}>
+            <div style={{ borderTop: '1px solid var(--border-inner)', background: 'var(--surface-alt)' }}>
               {group.tournaments.map(({ tournament, displayWeek }, i) => (
                 <Link
                   key={`${tournament.edition_id}-${displayWeek ?? 'na'}`}
@@ -344,29 +342,29 @@ export default function WeekTournamentPicker({
                     alignItems: 'center',
                     gap: 20,
                     padding: '20px 24px',
-                    borderTop: i === 0 ? 'none' : '1px solid #e5e7eb',
+                    borderTop: i === 0 ? 'none' : '1px solid var(--border-inner)',
                     textDecoration: 'none',
                     color: 'inherit',
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
                       {displayName(tournament.name)}
                       {displayWeek !== null && displayWeek !== tournament.week && (
-                        <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                           in progress
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 18, color: '#334155', marginBottom: 6 }}>
+                    <div style={{ fontSize: 18, color: 'var(--text-secondary)', marginBottom: 6 }}>
                       {tournament.city}{tournament.country ? `, ${tournament.country}` : ''}{' | '}
                       {tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
                     </div>
-                    <div style={{ fontSize: 18, color: '#0f172a', fontWeight: 600 }}>
+                    <div style={{ fontSize: 18, color: 'var(--text-strong)', fontWeight: 600 }}>
                       {tournament.level} · {tournament.surface}
                     </div>
                   </div>
-                  <div style={{ whiteSpace: 'nowrap', padding: '14px 20px', borderRadius: 12, border: '2px solid #0f172a', background: '#fff', color: '#0f172a', fontWeight: 700, fontSize: 16 }}>
+                  <div style={{ whiteSpace: 'nowrap', padding: '14px 20px', borderRadius: 12, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 16 }}>
                     Open
                   </div>
                 </Link>

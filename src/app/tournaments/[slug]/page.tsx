@@ -127,15 +127,13 @@ function drawLabel(draw: DrawKey): string {
 }
 
 function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: string }) {
-  // Exhibition / team events have no ranking-based entry — render a small
-  // explanation card instead of an empty table.
   if (isInvitationOnlyLevel(level)) {
     return (
       <div style={{
         padding: '12px 16px',
-        background: '#f5f5f5',
+        background: 'var(--surface-subtle)',
         borderRadius: 8,
-        color: '#555',
+        color: 'var(--text-muted)',
         fontSize: 14,
       }}>
         Invitation-only / team format — no ranking-based cutoff applies.
@@ -148,25 +146,21 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
 
   return (
     <div
-      // Narrow viewports (iPhones ~390px) were squishing the three columns
-      // onto two lines and clipping ALT/LL. Force a min table width so the
-      // row stays legible and let the wrapper scroll horizontally. The right
-      // edge gradient is a visual hint that the table can be swiped sideways.
       className="cutoff-table-scroll"
       style={{
         position: 'relative',
         overflowX: 'auto',
         WebkitOverflowScrolling: 'touch',
         borderRadius: 8,
-        border: '1px solid #e0e0e0',
+        border: '1px solid var(--border-table)',
       }}
     >
       <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
-          <tr style={{ background: '#f0f0f0', borderBottom: '2px solid #d0d0d0' }}>
-            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666' }}>Draw</th>
-            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666' }}>Cut</th>
-            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666' }}>ALT / LL in draw</th>
+          <tr style={{ background: 'var(--surface-table-head)', borderBottom: '2px solid var(--border-table-head)' }}>
+            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Draw</th>
+            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Cut</th>
+            <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>ALT / LL in draw</th>
           </tr>
         </thead>
         <tbody>
@@ -183,13 +177,13 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
 
             let cutCell: React.ReactNode;
             if (!cutoff) {
-              cutCell = <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>Not yet imported</span>;
+              cutCell = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontWeight: 500 }}>Not yet imported</span>;
             } else if (!hasRank || tombstoned) {
-              cutCell = <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>Not on record</span>;
+              cutCell = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontWeight: 500 }}>Not on record</span>;
             } else if (isChallenger && eventType === 'doubles') {
-              cutCell = <span style={{ color: '#111', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{challengerDoublesCutText(cutoff)}</span>;
+              cutCell = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{challengerDoublesCutText(cutoff)}</span>;
             } else {
-              cutCell = <span style={{ color: '#111', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)}</span>;
+              cutCell = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)}</span>;
             }
 
             const altCell = hasRank && cutoff ? altLlText(cutoff) : '—';
@@ -198,20 +192,20 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
               <tr
                 key={draw}
                 style={{
-                  background: i % 2 === 0 ? '#ffffff' : '#fafafa',
-                  borderBottom: '1px solid #e8e8e8',
+                  background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)',
+                  borderBottom: '1px solid var(--border-table)',
                 }}
               >
-                <td style={{ padding: '12px 16px', color: '#555' }}>
+                <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
                   <div>{drawLabel(draw)}</div>
                   {href && !tombstoned ? (
-                    <a href={href} target="_blank" rel="noreferrer" style={{ color: '#888', fontSize: 11, textDecoration: 'underline' }}>
+                    <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--text-faint)', fontSize: 11, textDecoration: 'underline' }}>
                       PDF source
                     </a>
                   ) : null}
                 </td>
                 <td style={{ padding: '12px 16px' }}>{cutCell}</td>
-                <td style={{ padding: '12px 16px', color: '#555', fontVariantNumeric: 'tabular-nums' }}>{altCell}</td>
+                <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{altCell}</td>
               </tr>
             );
           })}
@@ -242,17 +236,17 @@ export default async function TournamentDetailPage({
   const current = rows[0].edition;
 
   return (
-    <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: '#ffffff', color: '#111', minHeight: '100vh' }}>
-      <Link href={year !== 2026 ? `/?year=${year}` : '/'} style={{ fontSize: 14, color: '#888' }}>
+    <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
+      <Link href={year !== 2026 ? `/?year=${year}` : '/'} style={{ fontSize: 14, color: 'var(--text-muted)' }}>
         ← Back to {year} schedule
       </Link>
 
-      <div style={{ marginTop: 24, paddingBottom: 20, borderBottom: '1px solid #e8e8e8' }}>
-        <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#999', marginBottom: 6 }}>
+      <div style={{ marginTop: 24, paddingBottom: 20, borderBottom: '1px solid var(--border-table)' }}>
+        <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--text-faint)', marginBottom: 6 }}>
           Tournament
         </p>
         <h1 style={{ margin: 0, marginBottom: 4, fontSize: 28, fontWeight: 700 }}>{displayName(current.name)}</h1>
-        <p style={{ margin: 0, color: '#666', fontSize: 15 }}>
+        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 15 }}>
           {current.city}{current.country ? `, ${current.country}` : ''}
         </p>
         <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
@@ -263,8 +257,8 @@ export default async function TournamentDetailPage({
             ['Start', formatDate(current.start_date)],
           ].map(([label, value]) => (
             <div key={String(label)}>
-              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#999', marginBottom: 2 }}>{label}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>{value}</div>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-faint)', marginBottom: 2 }}>{label}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>{value}</div>
             </div>
           ))}
         </div>
@@ -272,28 +266,28 @@ export default async function TournamentDetailPage({
 
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {rows.map((row) => (
-          <div key={row.edition.edition_id} style={{ border: '1px solid #e0e0e0', borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ background: '#f8f8f8', padding: '14px 16px', borderBottom: '1px solid #e0e0e0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+          <div key={row.edition.edition_id} style={{ border: '1px solid var(--border-table)', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ background: 'var(--surface-raised)', padding: '14px 16px', borderBottom: '1px solid var(--border-table)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{row.edition.year}</h3>
-                <p style={{ margin: 0, fontSize: 13, color: '#666', marginTop: 2 }}>{editionSummary(row.edition)}</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{editionSummary(row.edition)}</p>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12, padding: '4px 10px', background: '#fff', border: '1px solid #ddd', borderRadius: 6, color: '#555' }}>
-                  Level: <strong>{fallback(row.edition.level)}</strong> <span style={{ color: '#888' }}>({compareLabel(row.same_level_as_previous_year)})</span>
+                <span style={{ fontSize: 12, padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border-tag)', borderRadius: 6, color: 'var(--text-muted)' }}>
+                  Level: <strong>{fallback(row.edition.level)}</strong> <span style={{ color: 'var(--text-faint)' }}>({compareLabel(row.same_level_as_previous_year)})</span>
                 </span>
-                <span style={{ fontSize: 12, padding: '4px 10px', background: '#fff', border: '1px solid #ddd', borderRadius: 6, color: '#555' }}>
-                  Week: <strong>{fallback(row.edition.week)}</strong> <span style={{ color: '#888' }}>({compareLabel(row.same_week_as_previous_year)})</span>
+                <span style={{ fontSize: 12, padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border-tag)', borderRadius: 6, color: 'var(--text-muted)' }}>
+                  Week: <strong>{fallback(row.edition.week)}</strong> <span style={{ color: 'var(--text-faint)' }}>({compareLabel(row.same_week_as_previous_year)})</span>
                 </span>
               </div>
             </div>
             <div style={{ padding: 16 }}>
               {row.edition.status === 'not_held' ? (
-                <div style={{ padding: '12px 16px', background: '#f5f5f5', borderRadius: 8, color: '#888', fontSize: 14 }}>
+                <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
                   Tournament not held this year.
                 </div>
               ) : row.edition.start_date && new Date(row.edition.start_date) > new Date() ? (
-                <div style={{ padding: '12px 16px', background: '#f5f5f5', borderRadius: 8, color: '#888', fontSize: 14 }}>
+                <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
                   Tournament has not started yet.
                 </div>
               ) : (

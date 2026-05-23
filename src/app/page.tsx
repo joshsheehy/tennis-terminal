@@ -22,8 +22,8 @@ export default async function HomePage({
         maxWidth: 900,
         margin: '0 auto',
         padding: '32px 16px',
-        background: '#ffffff',
-        color: '#111111',
+        background: 'var(--bg)',
+        color: 'var(--text)',
         minHeight: '100vh',
       }}
     >
@@ -33,7 +33,7 @@ export default async function HomePage({
             fontSize: 12,
             textTransform: 'uppercase',
             letterSpacing: '0.2em',
-            color: '#666',
+            color: 'var(--text-muted)',
             marginBottom: 8,
           }}
         >
@@ -44,13 +44,13 @@ export default async function HomePage({
 
         <YearPicker currentYear={year} />
 
-        <p style={{ margin: 0, color: '#444' }}>
+        <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
           Pick a week first, then choose a tournament to open its historical page.
         </p>
       </div>
 
       {tournaments.length === 0 ? (
-        <div style={{ color: '#444' }}>No tournaments found for {year}.</div>
+        <div style={{ color: 'var(--text-secondary)' }}>No tournaments found for {year}.</div>
       ) : (
         <WeekTournamentPicker tournaments={tournaments} year={year} />
       )}

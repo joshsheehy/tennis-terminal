@@ -14,9 +14,9 @@ export default function YearPicker({ currentYear }: { currentYear: number }) {
             style={{
               padding: '8px 20px',
               borderRadius: 20,
-              border: active ? '2px solid #0f172a' : '1px solid #d1d5db',
-              background: active ? '#0f172a' : '#ffffff',
-              color: active ? '#ffffff' : '#374151',
+              border: active ? '2px solid var(--text-strong)' : '1px solid var(--border-tag)',
+              background: active ? 'var(--text-strong)' : 'var(--surface)',
+              color: active ? 'var(--bg)' : 'var(--text-secondary)',
               fontWeight: active ? 700 : 400,
               fontSize: 15,
               textDecoration: 'none',
