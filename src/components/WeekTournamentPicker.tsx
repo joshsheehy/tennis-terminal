@@ -174,14 +174,16 @@ export default function WeekTournamentPicker({
     return bestKey;
   }, [weekGroups]);
 
-  // Auto-open and scroll to the current week on mount
+  // Auto-open and scroll to the current week on mount.
+  // The timeout outlasts mobile browsers' scroll-restoration which fires
+  // after useEffect and would otherwise reset the position to 0.
   useEffect(() => {
     if (!currentWeekKey || !weekRef.current) return;
     const el = weekRef.current.querySelector<HTMLDetailsElement>(`[data-week-key="${currentWeekKey}"]`);
-    if (el) {
-      el.open = true;
-      el.scrollIntoView({ block: 'start' });
-    }
+    if (!el) return;
+    el.open = true;
+    const id = window.setTimeout(() => el.scrollIntoView({ block: 'start' }), 120);
+    return () => window.clearTimeout(id);
   }, [currentWeekKey]);
 
   const applyFilter = useCallback((rawValue: string) => {
@@ -423,8 +425,13 @@ export default function WeekTournamentPicker({
               }}
             >
               <div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 6 }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
                   {group.week === null ? 'Week NA' : `Week ${group.week}`}
+                  {group.key === currentWeekKey && (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 8px' }}>
+                      Current
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: 18, color: 'var(--text-secondary)' }}>
                   {group.startDate ? formatDate(group.startDate) : 'NA'}

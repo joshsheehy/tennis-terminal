@@ -69,10 +69,7 @@ function challengerDoublesCutText(cutoff: CutoffSnapshot) {
 function altLlText(cutoff: CutoffSnapshot) {
   const alt = cutoff.alternate_entries_count ?? 0;
   const ll = cutoff.lucky_loser_count ?? 0;
-  if (alt > 0 && ll > 0) return `${alt} ALT / ${ll} LL`;
-  if (alt > 0) return `${alt} ALT`;
-  if (ll > 0) return `${ll} LL`;
-  return '0';
+  return `${alt} ALT / ${ll} LL`;
 }
 
 function sourceHref(cutoff: CutoffSnapshot) {
@@ -188,7 +185,7 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
               <div>{cutDisplay}</div>
               {hasRank && cutoff && (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
-                  {altLlText(cutoff)} ALT/LL
+                  {altLlText(cutoff)}
                 </div>
               )}
             </div>
