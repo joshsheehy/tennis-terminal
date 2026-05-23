@@ -16,9 +16,9 @@ const getCachedSchedule = unstable_cache(
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string }>;
+  searchParams: Promise<{ year?: string; week?: string }>;
 }) {
-  const { year: yearParam } = await searchParams;
+  const { year: yearParam, week: weekParam } = await searchParams;
   const year = yearParam && VALID_YEARS.includes(Number(yearParam)) ? Number(yearParam) : 2026;
 
   const tournaments = await getCachedSchedule(year);
@@ -59,7 +59,7 @@ export default async function HomePage({
       {tournaments.length === 0 ? (
         <div style={{ color: 'var(--text-secondary)' }}>No tournaments found for {year}.</div>
       ) : (
-        <WeekTournamentPicker tournaments={tournaments} year={year} />
+        <WeekTournamentPicker tournaments={tournaments} year={year} defaultWeekKey={weekParam} />
       )}
     </main>
   );

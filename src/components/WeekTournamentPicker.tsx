@@ -87,9 +87,11 @@ function vibrate() {
 export default function WeekTournamentPicker({
   tournaments,
   year = 2026,
+  defaultWeekKey,
 }: {
   tournaments: ScheduleRow[];
   year?: number;
+  defaultWeekKey?: string;
 }) {
   const inputRef    = useRef<HTMLInputElement>(null);
   const weekRef     = useRef<HTMLDivElement>(null);
@@ -180,14 +182,17 @@ export default function WeekTournamentPicker({
     return bestKey;
   }, [weekGroups]);
 
-  // Open the current week before first paint, then scroll to it.
+  // URL week (from ?week=) takes priority; fall back to the computed current week
+  const targetWeekKey = defaultWeekKey ?? currentWeekKey;
+
+  // Open the target week before first paint, then scroll to it.
   // useLayoutEffect fires synchronously before the browser paints, so the
   // details is already open when the user sees the page.
   // Two scroll attempts handle devices where the browser's own scroll
   // restoration fires after our first attempt and resets the position.
   useLayoutEffect(() => {
-    if (!currentWeekKey || !weekRef.current) return;
-    const el = weekRef.current.querySelector<HTMLDetailsElement>(`[data-week-key="${currentWeekKey}"]`);
+    if (!targetWeekKey || !weekRef.current) return;
+    const el = weekRef.current.querySelector<HTMLDetailsElement>(`[data-week-key="${targetWeekKey}"]`);
     if (!el) return;
     el.open = true;
     const scroll = () => {
@@ -197,7 +202,30 @@ export default function WeekTournamentPicker({
     const t1 = window.setTimeout(scroll, 100);
     const t2 = window.setTimeout(scroll, 400);
     return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
-  }, [currentWeekKey]);
+  }, [targetWeekKey]);
+
+  // Keep ?week= in the URL in sync with whichever accordion is open,
+  // so back-navigation and sharing land on the right week.
+  useEffect(() => {
+    const container = weekRef.current;
+    if (!container) return;
+    const handleToggle = (e: Event) => {
+      const target = e.target as HTMLDetailsElement;
+      if (target.tagName !== 'DETAILS') return;
+      const weekKey = target.getAttribute('data-week-key');
+      if (!weekKey) return;
+      const params = new URLSearchParams(window.location.search);
+      if (target.open) {
+        params.set('week', weekKey);
+      } else if (params.get('week') === weekKey) {
+        params.delete('week');
+      }
+      const search = params.toString();
+      history.replaceState(null, '', search ? `?${search}` : window.location.pathname);
+    };
+    container.addEventListener('toggle', handleToggle, true);
+    return () => container.removeEventListener('toggle', handleToggle, true);
+  }, []);
 
   const applyFilter = useCallback((rawValue: string) => {
     const query = rawValue.trim();
