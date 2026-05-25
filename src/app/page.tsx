@@ -61,6 +61,13 @@ export default async function HomePage({
       ) : (
         <WeekTournamentPicker tournaments={tournaments} year={year} defaultWeekKey={weekParam} />
       )}
+
+      <p style={{ marginTop: 48, fontSize: 13, color: 'var(--text-faint)', textAlign: 'center' }}>
+        Questions or comments?{' '}
+        <a href="mailto:josh@tenniscuts.com" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
+          josh@tenniscuts.com
+        </a>
+      </p>
     </main>
   );
 }
