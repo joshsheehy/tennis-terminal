@@ -63,7 +63,7 @@ export default async function HomePage({
       )}
 
       <p style={{ marginTop: 48, fontSize: 13, color: 'var(--text-faint)', textAlign: 'center' }}>
-        Questions or comments?{' '}
+        Questions, comments, or just want to talk tennis?{' '}
         <a href="mailto:josh@tenniscuts.com" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
           josh@tenniscuts.com
         </a>
