@@ -364,9 +364,11 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   // ─── WEEK 19 (May 6) — ATP 1000 ──────────────────────────────────────────────
   tourEvent("Internazionali BNL d'Italia", 'Rome', 'Italy', 2026, 18, '2026-05-06', '2026-05-17', 'ATP 1000', 'Clay', false, '416', false),
 
-  // ─── WEEK 20 (May 17) — clay before Roland Garros ───────────────────────────
-  tourEvent('Gonet Geneva Open', 'Geneva', 'Switzerland', 2026, 20, '2026-05-17', null, 'ATP 250', 'Clay', false, '322', false),
-  tourEvent('Bitpanda Hamburg Open', 'Hamburg', 'Germany', 2026, 20, '2026-05-17', null, 'ATP 500', 'Clay', false, '414', true),
+  // ─── WEEK 20 (May 18) — clay before Roland Garros ───────────────────────────
+  // Week is computed from start_date at read time; the Monday (May 18) lands in
+  // week 20. A Sunday (May 17) start would compute to week 19.
+  tourEvent('Gonet Geneva Open', 'Geneva', 'Switzerland', 2026, 20, '2026-05-18', null, 'ATP 250', 'Clay', false, '322', false),
+  tourEvent('Bitpanda Hamburg Open', 'Hamburg', 'Germany', 2026, 20, '2026-05-18', null, 'ATP 500', 'Clay', false, '414', true),
 
   // ─── WEEKS 21–23: Roland Garros (Grand Slam — excluded) ──────────────────────
 
