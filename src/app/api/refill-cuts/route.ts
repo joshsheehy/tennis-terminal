@@ -61,12 +61,14 @@ async function tryCut(
   drawType: 'main' | 'qualifying',
   pdfNames: string[]
 ): Promise<{ ok: boolean; pdfUrl?: string; rank?: number | null }> {
+  const currentYear = new Date().getFullYear();
   for (const year of candidateYears) {
+    const archiveFirst = year < currentYear;
     const baseUrl = `https://www.protennislive.com/posting/${year}/${code}`;
     for (const pdfName of pdfNames) {
       const pdfUrl = `${baseUrl}/${pdfName}`;
       try {
-        const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+        const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl, archiveFirst);
         await pool.query(
           `insert into cutoff_snapshots (
              tournament_edition_id, event_type, draw_type, source_type,

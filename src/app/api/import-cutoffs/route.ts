@@ -420,13 +420,16 @@ export async function GET(request: NextRequest) {
   const allTargets = buildPdfImportTargets(officialPdfSources);
   const pdfImportTargets = allTargets.slice(offset, offset + limit);
 
+  const currentYear = new Date().getFullYear();
+  const archiveFirst = requestedYear < currentYear;
+
   for (const target of pdfImportTargets) {
     try {
       let parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>> | null = null;
       let importedPdfUrl: string | null = null;
       for (const pdfUrl of target.pdf_url_candidates) {
         try {
-          parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+          parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl, archiveFirst);
           importedPdfUrl = pdfUrl;
           break;
         } catch {

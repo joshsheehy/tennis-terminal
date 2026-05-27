@@ -199,15 +199,45 @@ async function fetchPdfBuffer(url: string, timeoutMs = 8000): Promise<Buffer> {
   }
 }
 
-// When PTL blocks a historical PDF, try the Wayback Machine in parallel.
-// Uses the "if_" modifier so we get the raw file, not the Wayback UI wrapper.
+// Query the Wayback CDX API for snapshot timestamps of a URL within a given year.
+// Returns actual archived timestamps (e.g. "20240715134523"), most recent first.
+// Having a real timestamp from within the target year guarantees the PDF is from that year,
+// not whatever PTL currently serves at that path.
+async function queryCDXTimestamps(pdfUrl: string, year: number): Promise<string[]> {
+  const cdx = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(pdfUrl)}&output=json&limit=10&from=${year}0101&to=${year}1231&filter=statuscode:200&fl=timestamp&collapse=digest`;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch(cdx, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!response.ok) return [];
+    const rows = await response.json() as string[][];
+    // First row is the header ["timestamp"]; rest are data rows
+    return rows.slice(1).map((r) => r[0]).reverse(); // most recent first
+  } catch {
+    return [];
+  }
+}
+
+// Fetch a PDF from the Wayback Machine.
+// Uses the CDX API first to find real snapshot timestamps from within the target year,
+// then falls back to fixed monthly guesses. The "if_" modifier returns the raw file.
 async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
   const yearMatch = pdfUrl.match(/\/posting\/(\d{4})\//);
   if (!yearMatch) return null;
-  const year = yearMatch[1];
+  const year = Number(yearMatch[1]);
 
-  // Race all timestamps simultaneously — first success wins, 6s per attempt
-  const timestamps = [`${year}1201`, `${year}0901`, `${year}0601`, `${year}0401`];
+  // Try CDX first — real timestamps from within the target year
+  const cdxTimestamps = await queryCDXTimestamps(pdfUrl, year);
+
+  // Fallback guesses covering each quarter; covers cases where CDX returns nothing
+  const guessTimestamps = [
+    `${year}1201`, `${year}1001`, `${year}0801`, `${year}0601`,
+    `${year}0401`, `${year}0201`,
+  ];
+
+  const timestamps = [...new Set([...cdxTimestamps, ...guessTimestamps])];
+
   const results = await Promise.all(
     timestamps.map((ts) =>
       fetchPdfBuffer(`https://web.archive.org/web/${ts}000000if_/${pdfUrl}`, 6000)
@@ -217,18 +247,32 @@ async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
   return results.find((r) => r !== null) ?? null;
 }
 
+// archiveFirst=true: try Wayback before PTL.
+// Use this for historical years — PTL silently serves current-year PDFs at old paths,
+// so a live fetch returns HTTP 200 with the wrong data and we'd never know.
+// A Wayback snapshot from within the target year is guaranteed to be the right version.
 export async function fetchAndParseOfficialPdfCutoff(
-  pdfUrl: string
+  pdfUrl: string,
+  archiveFirst = false,
 ): Promise<ParsedOfficialPdfCutoff> {
   let buffer: Buffer;
 
-  try {
-    buffer = await fetchPdfBuffer(pdfUrl);
-  } catch {
-    // PTL may block historical PDFs — fall back to Wayback Machine
+  if (archiveFirst) {
     const archived = await fetchViaWayback(pdfUrl);
-    if (!archived) throw new Error(`PDF unavailable (PTL + Wayback both failed) for ${pdfUrl}`);
-    buffer = archived;
+    if (archived) {
+      buffer = archived;
+    } else {
+      // Wayback has no snapshot — try PTL as last resort
+      buffer = await fetchPdfBuffer(pdfUrl);
+    }
+  } else {
+    try {
+      buffer = await fetchPdfBuffer(pdfUrl);
+    } catch {
+      const archived = await fetchViaWayback(pdfUrl);
+      if (!archived) throw new Error(`PDF unavailable (PTL + Wayback both failed) for ${pdfUrl}`);
+      buffer = archived;
+    }
   }
 
   // pdf-parse has no bundled TypeScript types in this project.
