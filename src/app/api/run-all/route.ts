@@ -84,11 +84,13 @@ async function tryFill(
   // dead candidate URLs (each costing ~8s of PTL+Wayback timeout) burns the
   // 22s budget by itself. With Promise.allSettled the slowest URL alone
   // bounds the wall time, and the first successful parse wins.
+  const currentYear = new Date().getFullYear();
   for (const year of candidateYears) {
+    const archiveFirst = year < currentYear;
     const baseUrl = `https://www.protennislive.com/posting/${year}/${code}`;
     const attempts = pdfNames.map(async (pdfName) => {
       const pdfUrl = `${baseUrl}/${pdfName}`;
-      const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+      const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl, archiveFirst);
       const hasRank =
         parsed.last_direct_acceptance_rank !== null ||
         parsed.challenger_doubles_advanced_cut_rank !== null ||
