@@ -470,4 +470,40 @@ export const ALL_EDITIONS: TournamentEdition[] = [
     },
   },
 
+  // İstanbul (İstinye) 2024 and 2025 — same venue/code as the 2026 entry (code 7083).
+  {
+    tournament: { slug: makeSlug('İstanbul (İstinye)', 'İstanbul'), name: 'İstanbul (İstinye)', city: 'İstanbul', country: 'Turkey' },
+    edition: {
+      year: 2025,
+      week: 20,
+      start_date: '2025-05-19',
+      end_date: null,
+      level: 'Challenger 75',
+      surface: 'Clay',
+      indoor: false,
+      source: 'atp_challenger_pdf',
+      source_url: 'https://www.protennislive.com/posting/2025/7083/',
+      status: 'held',
+      protennislive_code: '7083',
+      has_doubles_qualifying: false,
+    },
+  },
+  {
+    tournament: { slug: makeSlug('İstanbul (İstinye)', 'İstanbul'), name: 'İstanbul (İstinye)', city: 'İstanbul', country: 'Turkey' },
+    edition: {
+      year: 2024,
+      week: 20,
+      start_date: '2024-05-13',
+      end_date: null,
+      level: 'Challenger 75',
+      surface: 'Clay',
+      indoor: false,
+      source: 'atp_challenger_pdf',
+      source_url: 'https://www.protennislive.com/posting/2024/7083/',
+      status: 'held',
+      protennislive_code: '7083',
+      has_doubles_qualifying: false,
+    },
+  },
+
 ];
