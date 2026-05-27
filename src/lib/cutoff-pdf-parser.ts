@@ -323,3 +323,34 @@ export async function fetchAndParseOfficialPdfCutoff(
 
   return parseOfficialPdfCutoffText(parsedPdf.text);
 }
+
+// Returns the raw extracted PDF text alongside the parsed result, for debugging
+// why a particular PDF did not yield a cut. Uses the same fetch path as the parser.
+export async function fetchOfficialPdfDebug(
+  pdfUrl: string,
+  archiveFirst = false,
+): Promise<{ text: string; lines: string[]; parsed: ParsedOfficialPdfCutoff }> {
+  let buffer: Buffer;
+  if (archiveFirst) {
+    const archived = await fetchViaWayback(pdfUrl);
+    buffer = archived ?? (await fetchPdfBuffer(pdfUrl));
+  } else {
+    try {
+      buffer = await fetchPdfBuffer(pdfUrl);
+    } catch {
+      const archived = await fetchViaWayback(pdfUrl);
+      if (!archived) throw new Error(`PDF unavailable (PTL + Wayback both failed) for ${pdfUrl}`);
+      buffer = archived;
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const pdfParse = require('pdf-parse') as PdfParseFunction;
+  const parsedPdf = await pdfParse(buffer);
+
+  return {
+    text: parsedPdf.text,
+    lines: getUsefulLines(parsedPdf.text),
+    parsed: parseOfficialPdfCutoffText(parsedPdf.text),
+  };
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
+import { fetchAndParseOfficialPdfCutoff, fetchOfficialPdfDebug } from '@/lib/cutoff-pdf-parser';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -84,6 +84,21 @@ export async function GET(request: NextRequest) {
   const event = sp.get('event');
   const draw = sp.get('draw');
   const archiveFirst = sp.get('archiveFirst') === 'true';
+  const debug = sp.get('debug') === 'true';
+
+  // Debug mode: only needs the url. Returns the raw extracted text and useful
+  // lines so we can see why the parser found no cut. Does not write to DB.
+  if (debug) {
+    if (!url || !url.startsWith('https://www.protennislive.com/posting/')) {
+      return NextResponse.json({ ok: false, error: 'debug mode requires a protennislive.com/posting/ url' }, { status: 400 });
+    }
+    try {
+      const result = await fetchOfficialPdfDebug(url, archiveFirst);
+      return NextResponse.json({ ok: true, debug: true, url, parsed: result.parsed, lineCount: result.lines.length, lines: result.lines, text: result.text });
+    } catch (err) {
+      return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 502 });
+    }
+  }
 
   if (!url || !slug || !yearParam || !event || !draw) {
     return NextResponse.json(
