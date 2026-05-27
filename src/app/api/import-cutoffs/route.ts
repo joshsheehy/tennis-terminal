@@ -432,13 +432,15 @@ export async function GET(request: NextRequest) {
   const allTargets = buildPdfImportTargets(officialPdfSources);
   const pdfImportTargets = allTargets.slice(offset, offset + limit);
 
+  const archiveFirst = requestedYear < new Date().getFullYear();
+
   for (const target of pdfImportTargets) {
     try {
       let parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>> | null = null;
       let importedPdfUrl: string | null = null;
       for (const pdfUrl of target.pdf_url_candidates) {
         try {
-          const attempt = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+          const attempt = await fetchAndParseOfficialPdfCutoff(pdfUrl, archiveFirst);
           // Skip results-sheet PDFs served at entry-list URLs that parse
           // successfully but contain no rank data.
           const hasRank =
