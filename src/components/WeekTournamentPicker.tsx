@@ -106,6 +106,10 @@ export default function WeekTournamentPicker({
   const [chipSurfaces, setChipSurfaces] = useState<Set<string>>(new Set());
   const [chipLevels,   setChipLevels]   = useState<Set<string>>(new Set());
 
+  // Snapshot of week-group open states captured when chip-only filtering begins,
+  // so the original expand/collapse state can be restored when filters clear.
+  const weekOpenSnapshot = useRef<Map<string, boolean> | null>(null);
+
   const sortedTournaments = useMemo(() =>
     [...tournaments].sort((a, b) => {
       const d = getDateValue(a.start_date) - getDateValue(b.start_date);
@@ -202,6 +206,32 @@ export default function WeekTournamentPicker({
     return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
   }, [defaultWeekKey, currentWeekKey]);
 
+  const show = (el: HTMLElement | null, visible: boolean) => {
+    if (el) el.style.display = visible ? '' : 'none';
+  };
+
+  // Undo the in-place mutations chip filtering makes to the week groups:
+  // un-hide rows/weeks, reset each week's tournament count, and restore the
+  // expand/collapse state that was in effect before filtering started.
+  const restoreWeekGroups = useCallback(() => {
+    const snap = weekOpenSnapshot.current;
+    if (!snap) return;
+    const root = weekRef.current;
+    if (root) {
+      root.querySelectorAll<HTMLElement>('[data-week-row]').forEach(el => { el.style.display = ''; });
+      root.querySelectorAll<HTMLDetailsElement>('details[data-week-key]').forEach(d => {
+        d.style.display = '';
+        const countEl = d.querySelector<HTMLElement>('[data-week-count]');
+        if (countEl) {
+          const total = Number(countEl.dataset.weekTotal ?? '0');
+          countEl.textContent = `${total} ${total === 1 ? 'tournament' : 'tournaments'}`;
+        }
+        d.open = snap.get(d.dataset.weekKey ?? '') ?? false;
+      });
+    }
+    weekOpenSnapshot.current = null;
+  }, []);
+
   const applyFilter = useCallback((rawValue: string) => {
     const query = rawValue.trim();
     const needle = normalizeForSearch(query);
@@ -209,11 +239,9 @@ export default function WeekTournamentPicker({
     const levels   = activeLevelsRef.current;
     const hasChips = surfaces.size > 0 || levels.size > 0;
 
-    const show = (el: HTMLElement | null, visible: boolean) => {
-      if (el) el.style.display = visible ? '' : 'none';
-    };
-
+    // Nothing active → default week-grouped view.
     if (!needle && !hasChips) {
+      restoreWeekGroups();
       show(weekRef.current, true);
       show(resultsRef.current, false);
       show(noMatchRef.current, false);
@@ -222,31 +250,73 @@ export default function WeekTournamentPicker({
       return;
     }
 
-    if (needle) show(clearRef.current, true);
-    show(weekRef.current, false);
+    // Search text active → flat results list (chips, if any, also narrow it).
+    if (needle) {
+      restoreWeekGroups();
+      show(clearRef.current, true);
+      show(weekRef.current, false);
 
-    let count = 0;
-    resultsRef.current?.querySelectorAll<HTMLElement>('[data-search]').forEach(el => {
-      const searchMatch  = !needle || (el.getAttribute('data-search') ?? '').includes(needle);
-      const surfaceMatch = surfaces.size === 0 || surfaces.has(el.getAttribute('data-surface') ?? '');
-      const levelMatch   = levels.size === 0 || levels.has(el.getAttribute('data-level-cat') ?? '');
-      const matches = searchMatch && surfaceMatch && levelMatch;
-      el.style.display = matches ? '' : 'none';
-      if (matches) count++;
+      let count = 0;
+      resultsRef.current?.querySelectorAll<HTMLElement>('[data-search]').forEach(el => {
+        const searchMatch  = (el.getAttribute('data-search') ?? '').includes(needle);
+        const surfaceMatch = surfaces.size === 0 || surfaces.has(el.getAttribute('data-surface') ?? '');
+        const levelMatch   = levels.size === 0 || levels.has(el.getAttribute('data-level-cat') ?? '');
+        const matches = searchMatch && surfaceMatch && levelMatch;
+        el.style.display = matches ? '' : 'none';
+        if (matches) count++;
+      });
+
+      show(resultsRef.current, count > 0);
+      show(noMatchRef.current, count === 0);
+      show(countRef.current, count > 0);
+      if (countRef.current) {
+        countRef.current.textContent = `${count} ${count === 1 ? 'match' : 'matches'} for "${query}"`;
+      }
+      if (noMatchRef.current && count === 0) {
+        noMatchRef.current.textContent = `No tournaments match your filters for ${year}.`;
+      }
+      return;
+    }
+
+    // Chips only → keep the week-grouped dropdown view, filtering rows within it.
+    show(resultsRef.current, false);
+    show(weekRef.current, true);
+    show(clearRef.current, false);
+    show(countRef.current, false);
+
+    const root = weekRef.current;
+    if (!root) return;
+
+    if (!weekOpenSnapshot.current) {
+      const snap = new Map<string, boolean>();
+      root.querySelectorAll<HTMLDetailsElement>('details[data-week-key]').forEach(d => {
+        snap.set(d.dataset.weekKey ?? '', d.open);
+      });
+      weekOpenSnapshot.current = snap;
+    }
+
+    let total = 0;
+    root.querySelectorAll<HTMLDetailsElement>('details[data-week-key]').forEach(d => {
+      let c = 0;
+      d.querySelectorAll<HTMLElement>('[data-week-row]').forEach(row => {
+        const surfaceMatch = surfaces.size === 0 || surfaces.has(row.getAttribute('data-surface') ?? '');
+        const levelMatch   = levels.size === 0 || levels.has(row.getAttribute('data-level-cat') ?? '');
+        const matches = surfaceMatch && levelMatch;
+        row.style.display = matches ? '' : 'none';
+        if (matches) c++;
+      });
+      const countEl = d.querySelector<HTMLElement>('[data-week-count]');
+      if (countEl) countEl.textContent = `${c} ${c === 1 ? 'tournament' : 'tournaments'}`;
+      d.style.display = c > 0 ? '' : 'none';
+      if (c > 0) d.open = true;
+      total += c;
     });
 
-    show(resultsRef.current, count > 0);
-    show(noMatchRef.current, count === 0);
-    show(countRef.current, count > 0);
-
-    if (countRef.current) {
-      countRef.current.textContent =
-        `${count} ${count === 1 ? 'match' : 'matches'}${needle ? ` for "${query}"` : ''}`;
-    }
-    if (noMatchRef.current && count === 0) {
+    show(noMatchRef.current, total === 0);
+    if (noMatchRef.current && total === 0) {
       noMatchRef.current.textContent = `No tournaments match your filters for ${year}.`;
     }
-  }, [year]);
+  }, [year, restoreWeekGroups]);
 
   useEffect(() => {
     const el = inputRef.current;
@@ -462,8 +532,10 @@ export default function WeekTournamentPicker({
                 <div style={{ fontSize: 18, color: 'var(--text-secondary)' }}>
                   {group.startDate ? formatDate(group.startDate) : 'NA'}
                   {' | '}
-                  {group.tournaments.length}{' '}
-                  {group.tournaments.length === 1 ? 'tournament' : 'tournaments'}
+                  <span data-week-count data-week-total={group.tournaments.length}>
+                    {group.tournaments.length}{' '}
+                    {group.tournaments.length === 1 ? 'tournament' : 'tournaments'}
+                  </span>
                 </div>
               </div>
               <div style={{ fontSize: 18, color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>
@@ -475,6 +547,9 @@ export default function WeekTournamentPicker({
                 <Link
                   key={`${tournament.edition_id}-${displayWeek ?? 'na'}`}
                   href={`/tournaments/${tournament.slug}${year !== 2026 ? `?year=${year}` : ''}`}
+                  data-week-row=""
+                  data-surface={tournament.surface ?? ''}
+                  data-level-cat={getLevelCategory(tournament.level)}
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
