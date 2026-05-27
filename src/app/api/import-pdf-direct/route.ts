@@ -94,7 +94,17 @@ export async function GET(request: NextRequest) {
     }
     try {
       const result = await fetchOfficialPdfDebug(url, archiveFirst);
-      return NextResponse.json({ ok: true, debug: true, url, parsed: result.parsed, lineCount: result.lines.length, lines: result.lines, text: result.text });
+      return NextResponse.json({
+        ok: true,
+        debug: true,
+        url,
+        streamParsed: result.parsed,
+        layoutParsed: result.layoutParsed,
+        streamLineCount: result.lines.length,
+        layoutLineCount: result.layoutLines.length,
+        streamLines: result.lines,
+        layoutLines: result.layoutLines,
+      });
     } catch (err) {
       return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 502 });
     }
