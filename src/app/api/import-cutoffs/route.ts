@@ -434,7 +434,19 @@ export async function GET(request: NextRequest) {
 
   const archiveFirst = requestedYear < new Date().getFullYear();
 
+  // 25-second server-side budget prevents Railway/Cloudflare timeouts.
+  // The loop checks elapsed time after each target and stops early if needed,
+  // returning hasMore=true so the caller can paginate to pick up where we left off.
+  const BUDGET_MS = 25_000;
+  const startedAt = Date.now();
+  let budgetExceeded = false;
+  let processedCount = 0;
+
   for (const target of pdfImportTargets) {
+    if (Date.now() - startedAt > BUDGET_MS) {
+      budgetExceeded = true;
+      break;
+    }
     try {
       let parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>> | null = null;
       let importedPdfUrl: string | null = null;
@@ -497,7 +509,14 @@ export async function GET(request: NextRequest) {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
+    processedCount += 1;
   }
+
+  // If we stopped early due to the time budget, the nextOffset reflects how far we got
+  // so the caller can resume from the right position.
+  const processedUpTo = offset + processedCount;
+  const hasMore = budgetExceeded ? true : processedUpTo < allTargets.length;
+  const nextOffset = hasMore ? processedUpTo : null;
 
   return NextResponse.json({
     ok: true,
@@ -508,8 +527,10 @@ export async function GET(request: NextRequest) {
     offset,
     limit,
     pageSize: pdfImportTargets.length,
-    hasMore: offset + limit < allTargets.length,
-    nextOffset: offset + limit < allTargets.length ? offset + limit : null,
+    processedCount,
+    budgetExceeded,
+    hasMore,
+    nextOffset,
     importedWithCutsCount: importedWithCuts.length,
     importedNullCutsCount: importedNullCuts.length,
     skippedNoPdfCount: skippedNoPdf.length,
