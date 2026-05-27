@@ -243,11 +243,13 @@ async function fetchPdfBuffer(url: string, timeoutMs = 4000): Promise<Buffer> {
   }
 }
 
-// Query the Wayback CDX API for snapshot timestamps of a URL strictly within a given year.
-// This guarantees the returned timestamps captured the file during that year — not whatever
-// PTL currently serves at that path (PTL silently overwrites old year paths with current data).
+// Query the Wayback CDX API for snapshot timestamps of a URL for a given ATP season year.
+// The window starts in October of the prior year because early-season PDFs (week 1-2
+// tournaments like Brisbane, Adelaide, Auckland) are often published in December and would
+// be missed by a strict Jan 1 start. The URL already encodes the target year (/posting/YYYY/)
+// so a snapshot from Dec of the prior year is still the correct-year PDF.
 async function queryCDXTimestamps(pdfUrl: string, year: number): Promise<string[]> {
-  const cdx = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(pdfUrl)}&output=json&limit=10&from=${year}0101&to=${year}1231&filter=statuscode:200&fl=timestamp&collapse=digest`;
+  const cdx = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(pdfUrl)}&output=json&limit=20&from=${year - 1}1001&to=${year}1231&filter=statuscode:200&fl=timestamp&collapse=digest`;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
@@ -262,8 +264,8 @@ async function queryCDXTimestamps(pdfUrl: string, year: number): Promise<string[
 }
 
 // Fetch a PDF from the Wayback Machine.
-// CDX API is tried first to find snapshots within the target year (guarantees correct version).
-// Falls back to fixed bi-monthly guesses when CDX returns nothing.
+// CDX API is tried first to find snapshots within the target season window.
+// Falls back to fixed bi-monthly guesses (including prior-Dec) when CDX returns nothing.
 // Uses the "if_" modifier so we get the raw file, not the Wayback UI wrapper.
 async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
   const yearMatch = pdfUrl.match(/\/posting\/(\d{4})\//);
@@ -272,8 +274,9 @@ async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
 
   const cdxTimestamps = await queryCDXTimestamps(pdfUrl, year);
   const guessTimestamps = [
-    `${year}1201`, `${year}1001`, `${year}0801`,
-    `${year}0601`, `${year}0401`, `${year}0201`,
+    `${year - 1}1201`, `${year - 1}1101`,
+    `${year}0201`, `${year}0401`, `${year}0601`,
+    `${year}0801`, `${year}1001`, `${year}1201`,
   ];
   const timestamps = [...new Set([...cdxTimestamps, ...guessTimestamps])];
 
