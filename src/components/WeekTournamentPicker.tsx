@@ -106,9 +106,9 @@ export default function WeekTournamentPicker({
   const [chipSurfaces, setChipSurfaces] = useState<Set<string>>(new Set());
   const [chipLevels,   setChipLevels]   = useState<Set<string>>(new Set());
 
-  // Snapshot of week-group open states captured when chip-only filtering begins,
-  // so the original expand/collapse state can be restored when filters clear.
-  const weekOpenSnapshot = useRef<Map<string, boolean> | null>(null);
+  // Tracks whether chip filtering has mutated the week groups (hidden rows /
+  // weeks, rewritten counts) so they can be restored when filters clear.
+  const weekGroupsMutated = useRef(false);
 
   const sortedTournaments = useMemo(() =>
     [...tournaments].sort((a, b) => {
@@ -214,8 +214,7 @@ export default function WeekTournamentPicker({
   // un-hide rows/weeks, reset each week's tournament count, and restore the
   // expand/collapse state that was in effect before filtering started.
   const restoreWeekGroups = useCallback(() => {
-    const snap = weekOpenSnapshot.current;
-    if (!snap) return;
+    if (!weekGroupsMutated.current) return;
     const root = weekRef.current;
     if (root) {
       root.querySelectorAll<HTMLElement>('[data-week-row]').forEach(el => { el.style.display = ''; });
@@ -226,10 +225,9 @@ export default function WeekTournamentPicker({
           const total = Number(countEl.dataset.weekTotal ?? '0');
           countEl.textContent = `${total} ${total === 1 ? 'tournament' : 'tournaments'}`;
         }
-        d.open = snap.get(d.dataset.weekKey ?? '') ?? false;
       });
     }
-    weekOpenSnapshot.current = null;
+    weekGroupsMutated.current = false;
   }, []);
 
   const applyFilter = useCallback((rawValue: string) => {
@@ -286,14 +284,7 @@ export default function WeekTournamentPicker({
 
     const root = weekRef.current;
     if (!root) return;
-
-    if (!weekOpenSnapshot.current) {
-      const snap = new Map<string, boolean>();
-      root.querySelectorAll<HTMLDetailsElement>('details[data-week-key]').forEach(d => {
-        snap.set(d.dataset.weekKey ?? '', d.open);
-      });
-      weekOpenSnapshot.current = snap;
-    }
+    weekGroupsMutated.current = true;
 
     let total = 0;
     root.querySelectorAll<HTMLDetailsElement>('details[data-week-key]').forEach(d => {
@@ -308,7 +299,6 @@ export default function WeekTournamentPicker({
       const countEl = d.querySelector<HTMLElement>('[data-week-count]');
       if (countEl) countEl.textContent = `${c} ${c === 1 ? 'tournament' : 'tournaments'}`;
       d.style.display = c > 0 ? '' : 'none';
-      if (c > 0) d.open = true;
       total += c;
     });
 
