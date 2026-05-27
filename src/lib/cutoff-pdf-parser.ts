@@ -3,7 +3,85 @@ type PdfParseResult = {
   numpages?: number;
 };
 
-type PdfParseFunction = (buffer: Buffer) => Promise<PdfParseResult>;
+type PdfParseOptions = {
+  pagerender?: (pageData: PdfPageProxy) => Promise<string>;
+};
+
+type PdfParseFunction = (buffer: Buffer, options?: PdfParseOptions) => Promise<PdfParseResult>;
+
+// Minimal shape of the pdf.js objects we touch via pdf-parse's pagerender hook.
+type PdfTextItem = { str: string; transform: number[]; width?: number };
+type PdfTextContent = { items: PdfTextItem[] };
+type PdfPageProxy = {
+  getTextContent: (opts?: { normalizeWhitespace?: boolean; disableCombineTextItems?: boolean }) => Promise<PdfTextContent>;
+};
+
+// Reconstructs page text using each fragment's x/y coordinates instead of the
+// content-stream order. pdf-parse's default renderer only uses the y coordinate,
+// which scrambles 2D layouts like draw-sheet brackets and the bottom-left
+// "LAST DIRECT ACCEPTANCE" box (the label and its value end up far apart).
+// Here we group fragments into rows by y, split columns on large x-gaps, and
+// emit each column segment as its own line so the value sits next to its label.
+export function layoutItemsToText(rawItems: PdfTextItem[]): string {
+  const items = rawItems
+    .map((it) => ({
+      str: String(it.str ?? ''),
+      x: it.transform[4],
+      y: it.transform[5],
+      width: it.width ?? 0,
+    }))
+    .filter((it) => it.str.trim().length > 0);
+
+  if (items.length === 0) return '';
+
+  // Top-to-bottom (PDF y grows upward), then left-to-right.
+  items.sort((a, b) => b.y - a.y || a.x - b.x);
+
+  const Y_TOLERANCE = 3; // fragments within this y delta belong to the same visual row
+  const COLUMN_GAP = 12; // x-gap larger than this starts a new column / logical line
+  const SPACE_GAP = 1; // x-gap larger than this inside a column needs a space
+
+  const rows: (typeof items)[] = [];
+  let currentRow: typeof items = [];
+  let rowY: number | null = null;
+  for (const it of items) {
+    if (rowY === null || Math.abs(it.y - rowY) <= Y_TOLERANCE) {
+      currentRow.push(it);
+      if (rowY === null) rowY = it.y;
+    } else {
+      rows.push(currentRow);
+      currentRow = [it];
+      rowY = it.y;
+    }
+  }
+  if (currentRow.length) rows.push(currentRow);
+
+  const lines: string[] = [];
+  for (const row of rows) {
+    row.sort((a, b) => a.x - b.x);
+    let line = row[0].str;
+    let prevRight = row[0].x + row[0].width;
+    for (let i = 1; i < row.length; i += 1) {
+      const gap = row[i].x - prevRight;
+      if (gap > COLUMN_GAP) {
+        lines.push(line.trim());
+        line = row[i].str;
+      } else {
+        line += (gap > SPACE_GAP ? ' ' : '') + row[i].str;
+      }
+      prevRight = row[i].x + row[i].width;
+    }
+    lines.push(line.trim());
+  }
+
+  return lines.filter((l) => l.length > 0).join('\n');
+}
+
+function renderPageWithLayout(pageData: PdfPageProxy): Promise<string> {
+  return pageData
+    .getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false })
+    .then((content) => layoutItemsToText(content.items));
+}
 
 export type ParsedOfficialPdfCutoff = {
   last_direct_acceptance_rank: number | null;
@@ -292,65 +370,80 @@ async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
 // archiveFirst=true: try Wayback before PTL.
 // Required for historical years — PTL returns HTTP 200 with the current-year draw at old
 // year paths, so a live fetch silently gives the wrong data with no error to trigger fallback.
+async function fetchPdfBufferWithFallback(pdfUrl: string, archiveFirst: boolean): Promise<Buffer> {
+  if (archiveFirst) {
+    const archived = await fetchViaWayback(pdfUrl);
+    if (archived) return archived;
+    return fetchPdfBuffer(pdfUrl); // PTL as last resort
+  }
+  try {
+    return await fetchPdfBuffer(pdfUrl);
+  } catch {
+    const archived = await fetchViaWayback(pdfUrl);
+    if (!archived) throw new Error(`PDF unavailable (PTL + Wayback both failed) for ${pdfUrl}`);
+    return archived;
+  }
+}
+
+function getPdfParse(): PdfParseFunction {
+  // pdf-parse has no bundled TypeScript types in this project.
+  // Using require here avoids adding another dependency just for this parser.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return require('pdf-parse') as PdfParseFunction;
+}
+
+function hasAnyRank(parsed: ParsedOfficialPdfCutoff): boolean {
+  return (
+    parsed.last_direct_acceptance_rank !== null ||
+    parsed.challenger_doubles_advanced_cut_rank !== null ||
+    parsed.challenger_doubles_onsite_cut_rank !== null
+  );
+}
+
 export async function fetchAndParseOfficialPdfCutoff(
   pdfUrl: string,
   archiveFirst = false,
 ): Promise<ParsedOfficialPdfCutoff> {
-  let buffer: Buffer;
+  const buffer = await fetchPdfBufferWithFallback(pdfUrl, archiveFirst);
+  const pdfParse = getPdfParse();
 
-  if (archiveFirst) {
-    const archived = await fetchViaWayback(pdfUrl);
-    if (archived) {
-      buffer = archived;
-    } else {
-      buffer = await fetchPdfBuffer(pdfUrl); // PTL as last resort
-    }
-  } else {
-    try {
-      buffer = await fetchPdfBuffer(pdfUrl);
-    } catch {
-      const archived = await fetchViaWayback(pdfUrl);
-      if (!archived) throw new Error(`PDF unavailable (PTL + Wayback both failed) for ${pdfUrl}`);
-      buffer = archived;
-    }
-  }
+  // First pass: default stream-order extraction (proven for entry-list PDFs).
+  const streamText = (await pdfParse(buffer)).text;
+  const streamParsed = parseOfficialPdfCutoffText(streamText);
+  if (hasAnyRank(streamParsed)) return streamParsed;
 
-  // pdf-parse has no bundled TypeScript types in this project.
-  // Using require here avoids adding another dependency just for this parser.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const pdfParse = require('pdf-parse') as PdfParseFunction;
-  const parsedPdf = await pdfParse(buffer);
-
-  return parseOfficialPdfCutoffText(parsedPdf.text);
+  // Second pass: coordinate-aware layout extraction. Needed for draw-sheet PDFs
+  // where stream order separates the "LAST DIRECT ACCEPTANCE" label from its value.
+  const layoutText = (await pdfParse(buffer, { pagerender: renderPageWithLayout })).text;
+  const layoutParsed = parseOfficialPdfCutoffText(layoutText);
+  return hasAnyRank(layoutParsed) ? layoutParsed : streamParsed;
 }
 
-// Returns the raw extracted PDF text alongside the parsed result, for debugging
-// why a particular PDF did not yield a cut. Uses the same fetch path as the parser.
+// Returns both extractions alongside the parsed results, for debugging why a
+// particular PDF did or did not yield a cut.
 export async function fetchOfficialPdfDebug(
   pdfUrl: string,
   archiveFirst = false,
-): Promise<{ text: string; lines: string[]; parsed: ParsedOfficialPdfCutoff }> {
-  let buffer: Buffer;
-  if (archiveFirst) {
-    const archived = await fetchViaWayback(pdfUrl);
-    buffer = archived ?? (await fetchPdfBuffer(pdfUrl));
-  } else {
-    try {
-      buffer = await fetchPdfBuffer(pdfUrl);
-    } catch {
-      const archived = await fetchViaWayback(pdfUrl);
-      if (!archived) throw new Error(`PDF unavailable (PTL + Wayback both failed) for ${pdfUrl}`);
-      buffer = archived;
-    }
-  }
+): Promise<{
+  text: string;
+  lines: string[];
+  parsed: ParsedOfficialPdfCutoff;
+  layoutText: string;
+  layoutLines: string[];
+  layoutParsed: ParsedOfficialPdfCutoff;
+}> {
+  const buffer = await fetchPdfBufferWithFallback(pdfUrl, archiveFirst);
+  const pdfParse = getPdfParse();
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const pdfParse = require('pdf-parse') as PdfParseFunction;
-  const parsedPdf = await pdfParse(buffer);
+  const streamText = (await pdfParse(buffer)).text;
+  const layoutText = (await pdfParse(buffer, { pagerender: renderPageWithLayout })).text;
 
   return {
-    text: parsedPdf.text,
-    lines: getUsefulLines(parsedPdf.text),
-    parsed: parseOfficialPdfCutoffText(parsedPdf.text),
+    text: streamText,
+    lines: getUsefulLines(streamText),
+    parsed: parseOfficialPdfCutoffText(streamText),
+    layoutText,
+    layoutLines: getUsefulLines(layoutText),
+    layoutParsed: parseOfficialPdfCutoffText(layoutText),
   };
 }
