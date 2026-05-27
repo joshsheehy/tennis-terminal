@@ -18,6 +18,12 @@ build/
 # TypeScript build cache
 tsconfig.tsbuildinfo
 
+# test / e2e artifacts
+coverage/
+test-results/
+playwright-report/
+.playwright/
+
 # misc
 .DS_Store
 *.pem
