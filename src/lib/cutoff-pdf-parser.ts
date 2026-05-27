@@ -283,7 +283,7 @@ async function fetchViaWayback(pdfUrl: string): Promise<Buffer | null> {
         .catch(() => null)
     )
   );
-  return results.find((r) => r !== null) ?? null;
+  return results.find((r): r is Buffer => r !== null) ?? null;
 }
 
 // archiveFirst=true: try Wayback before PTL.
