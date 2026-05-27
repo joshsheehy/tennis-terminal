@@ -5,9 +5,8 @@ import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Direct PDF import endpoint — used when the automatic discovery misses a PDF
-// that is known to exist. Accepts a specific PTL URL, slug, year, event, and draw.
-// Fetches the PDF directly (no archiveFirst logic), parses it, and upserts the snapshot.
+// Direct PDF import endpoint — used when automatic discovery misses a PDF
+// that is known to exist (found manually on PTL or Wayback).
 //
 // Usage:
 //   GET /api/import-pdf-direct
@@ -16,18 +15,65 @@ export const dynamic = 'force-dynamic';
 //     &year=2024
 //     &event=singles       (singles | doubles)
 //     &draw=main           (main | qualifying)
-//     &archiveFirst=false  (optional, default false — use true to try Wayback first)
+//     &archiveFirst=true   (optional — try Wayback before live PTL, default false)
+//
+// If no tournament_edition exists for the slug+year, one is created by copying
+// the most recent known edition for that slug (same pattern as import-cutoffs).
 
-async function getEditionId(slug: string, year: number): Promise<string | null> {
-  const result = await pool.query<{ id: string }>(
-    `select te.id
-     from tournament_editions te
+function shiftDateToYear(raw: string | Date | null, year: number): string | null {
+  if (!raw) return null;
+  const iso = raw instanceof Date
+    ? `${raw.getUTCFullYear()}-${String(raw.getUTCMonth() + 1).padStart(2, '0')}-${String(raw.getUTCDate()).padStart(2, '0')}`
+    : String(raw);
+  const parts = iso.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  const [, month, day] = parts;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+async function getOrCreateEditionId(slug: string, year: number): Promise<string | null> {
+  // Try existing edition first
+  const existing = await pool.query<{ id: string }>(
+    `select te.id from tournament_editions te
      join tournaments t on t.id = te.tournament_id
-     where t.slug = $1 and te.year = $2
-     limit 1`,
+     where t.slug = $1 and te.year = $2 limit 1`,
     [slug, year]
   );
-  return result.rows[0]?.id ?? null;
+  if (existing.rows[0]) return existing.rows[0].id;
+
+  // No edition — copy the most recent one as a template
+  const template = await pool.query<{
+    tournament_id: string; week: number | null;
+    start_date: string | Date | null; end_date: string | Date | null;
+    level: string; surface: string; indoor: boolean | null;
+    source: string; source_url: string | null;
+  }>(
+    `select te.tournament_id, te.week, te.start_date, te.end_date,
+            te.level, te.surface, te.indoor, te.source, te.source_url
+     from tournament_editions te
+     join tournaments t on t.id = te.tournament_id
+     where t.slug = $1 and te.status = 'held'
+     order by te.year desc limit 1`,
+    [slug]
+  );
+  if (!template.rows[0]) return null;
+
+  const t = template.rows[0];
+  const created = await pool.query<{ id: string }>(
+    `insert into tournament_editions
+       (tournament_id, year, week, start_date, end_date, level, surface, indoor,
+        source, source_url, status, updated_at)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'held',now())
+     on conflict (tournament_id, year) do update set updated_at = now()
+     returning id`,
+    [
+      t.tournament_id, year, t.week,
+      shiftDateToYear(t.start_date, year),
+      shiftDateToYear(t.end_date, year),
+      t.level, t.surface, t.indoor, t.source, t.source_url,
+    ]
+  );
+  return created.rows[0]?.id ?? null;
 }
 
 export async function GET(request: NextRequest) {
@@ -50,14 +96,12 @@ export async function GET(request: NextRequest) {
   if (!Number.isInteger(year) || year < 2020 || year > 2030) {
     return NextResponse.json({ ok: false, error: 'Invalid year' }, { status: 400 });
   }
-
   if (!['singles', 'doubles'].includes(event)) {
     return NextResponse.json({ ok: false, error: 'event must be singles or doubles' }, { status: 400 });
   }
   if (!['main', 'qualifying'].includes(draw)) {
     return NextResponse.json({ ok: false, error: 'draw must be main or qualifying' }, { status: 400 });
   }
-
   if (!url.startsWith('https://www.protennislive.com/posting/')) {
     return NextResponse.json({ ok: false, error: 'url must be a protennislive.com/posting/ PDF URL' }, { status: 400 });
   }
@@ -77,10 +121,10 @@ export async function GET(request: NextRequest) {
     parsed.challenger_doubles_advanced_cut_rank !== null ||
     parsed.challenger_doubles_onsite_cut_rank !== null;
 
-  const editionId = await getEditionId(slug, year);
+  const editionId = await getOrCreateEditionId(slug, year);
   if (!editionId) {
     return NextResponse.json(
-      { ok: false, error: `No tournament_edition row found for slug=${slug} year=${year}. Run sync-canonical or import-calendars first.` },
+      { ok: false, error: `Tournament slug "${slug}" not found in DB. Run /api/sync-canonical or /api/import-calendars first.` },
       { status: 404 }
     );
   }
@@ -96,10 +140,8 @@ export async function GET(request: NextRequest) {
        alternate_entries_count, lucky_loser_count, updated_at
      ) values (
        $1, $2, $3, 'official_pdf',
-       $4, $5, null, null,
-       $6, null, $7, null,
-       now(), 'official-pdf-bottom-left-v4', $8,
-       $9, $10, now()
+       $4, $5, null, null, $6, null, $7, null,
+       now(), 'official-pdf-bottom-left-v4', $8, $9, $10, now()
      )
      on conflict (tournament_edition_id, event_type, draw_type)
      do update set
@@ -120,7 +162,7 @@ export async function GET(request: NextRequest) {
       parsed.last_direct_acceptance_name,
       parsed.challenger_doubles_advanced_cut_rank,
       parsed.challenger_doubles_onsite_cut_rank,
-      `Official PDF (direct import): ${url}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}.`,
+      `Official PDF (direct import): ${url}. Raw: ${parsed.raw_last_direct_acceptance ?? 'not found'}.`,
       parsed.alternate_entries_count,
       parsed.lucky_loser_count,
     ]
