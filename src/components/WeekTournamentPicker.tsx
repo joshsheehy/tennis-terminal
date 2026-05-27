@@ -544,12 +544,14 @@ export default function WeekTournamentPicker({
             </summary>
             <div style={{ borderTop: '1px solid var(--border-inner)', background: 'var(--surface-alt)' }}>
               {group.tournaments.map(({ tournament, displayWeek }, i) => (
-                <Link
+                <div
                   key={`${tournament.edition_id}-${displayWeek ?? 'na'}`}
-                  href={`/tournaments/${tournament.slug}${year !== 2026 ? `?year=${year}` : ''}`}
                   data-week-row=""
                   data-surface={tournament.surface ?? ''}
                   data-level-cat={getLevelCategory(tournament.level)}
+                >
+                <Link
+                  href={`/tournaments/${tournament.slug}${year !== 2026 ? `?year=${year}` : ''}`}
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -582,6 +584,7 @@ export default function WeekTournamentPicker({
                     Open
                   </div>
                 </Link>
+                </div>
               ))}
             </div>
           </details>
