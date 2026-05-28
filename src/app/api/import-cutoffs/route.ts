@@ -447,6 +447,10 @@ export async function GET(request: NextRequest) {
       budgetExceeded = true;
       break;
     }
+    // Increment here so skipped and failed targets still advance the offset.
+    // Previously this was at the bottom, causing `continue` paths to leave
+    // nextOffset stuck at 0 and loop forever on the same target.
+    processedCount += 1;
     try {
       let parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>> | null = null;
       let importedPdfUrl: string | null = null;
@@ -509,7 +513,6 @@ export async function GET(request: NextRequest) {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
-    processedCount += 1;
   }
 
   // If we stopped early due to the time budget, the nextOffset reflects how far we got
