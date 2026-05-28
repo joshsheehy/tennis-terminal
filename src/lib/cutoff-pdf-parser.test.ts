@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { layoutItemsToText, parseOfficialPdfCutoffText } from './cutoff-pdf-parser';
 
+
 // pdf.js text item shape: transform[4]=x, transform[5]=y (y grows upward).
 function item(str: string, x: number, y: number, width: number) {
   return { str, transform: [1, 0, 0, 1, x, y], width };
@@ -50,5 +51,40 @@ describe('layoutItemsToText', () => {
 
     expect(parsed.last_direct_acceptance_rank).toBe(431);
     expect(parsed.last_direct_acceptance_name).toMatch(/Matusevich/);
+  });
+});
+
+describe('parseOfficialPdfCutoffText', () => {
+  it('counts [Alt] (square bracket) alternates — Glasgow doubles draw style', () => {
+    const text = [
+      'ALTERNATES/LUCKY LOSERS',
+      'J. Kym / A. McHugh [Alt]',
+      'A. Knaff / J. Mackinlay [Alt]',
+      'WITHDRAWALS',
+    ].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.alternate_entries_count).toBe(2);
+  });
+
+  it('counts (Alt) and [Alt] mixed notation in same draw', () => {
+    const text = [
+      'ALTERNATES/LUCKY LOSERS',
+      'Smith / Jones (Alt)',
+      'Brown / Davis [Alt]',
+      'WITHDRAWALS',
+    ].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.alternate_entries_count).toBe(2);
+  });
+
+  it('extracts both advanced and onsite doubles cuts from same-line format', () => {
+    const text = [
+      'LAST DIRECT ACCEPTANCE',
+      'J. Kym / A. McHugh',
+      'Advanced 978 / On-site 1040',
+    ].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.challenger_doubles_advanced_cut_rank).toBe(978);
+    expect(parsed.challenger_doubles_onsite_cut_rank).toBe(1040);
   });
 });
