@@ -228,37 +228,44 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
 }
 
 function parseChallengerDoublesCuts(lines: string[], lastDirectAcceptanceIndex: number) {
-  if (lastDirectAcceptanceIndex === -1) {
+  const extractCuts = (text: string) => {
+    const normalized = text.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+    const advancedMatch = normalized.match(/\badv(?:anced)?\.*\s*[:\-]?\s*(\d{1,5})\b/i);
+    const onsiteMatch = normalized.match(/\bon[-\s]?site\.*\s*[:\-]?\s*(\d{1,5})\b/i);
     return {
-      advanced: null,
-      onsite: null,
+      advanced: advancedMatch ? Number(advancedMatch[1]) : null,
+      onsite: onsiteMatch ? Number(onsiteMatch[1]) : null,
     };
+  };
+
+  // Try a window around the LDA label first (wider window than before to handle
+  // draw-sheet PDFs where adv/onsite appear several lines after the label).
+  if (lastDirectAcceptanceIndex !== -1) {
+    const windowResult = extractCuts(
+      lines.slice(lastDirectAcceptanceIndex, lastDirectAcceptanceIndex + 20).join(' ')
+    );
+    if (windowResult.advanced !== null || windowResult.onsite !== null) return windowResult;
   }
 
-  const windowText = lines.slice(lastDirectAcceptanceIndex, lastDirectAcceptanceIndex + 12).join(' ');
-  const normalized = windowText
-    .replace(/[–—]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const advancedMatch = normalized.match(/\badv(?:anced)?\.*\s*[:\-]?\s*(\d{1,5})\b/i);
-  const onsiteMatch = normalized.match(/\bon[-\s]?site\.*\s*[:\-]?\s*(\d{1,5})\b/i);
-
-  return {
-    advanced: advancedMatch ? Number(advancedMatch[1]) : null,
-    onsite: onsiteMatch ? Number(onsiteMatch[1]) : null,
-  };
+  // Fall back to a full-text scan — covers cases where the LDA label is absent
+  // (index === -1) or where adv/onsite appear outside the window in layout order.
+  return extractCuts(lines.join(' '));
 }
 
 function parseAlternateEntriesCount(lines: string[]): { alternate_count: number; lucky_loser_count: number } {
+  // Matches both parenthesis and square-bracket notation: (Alt), [Alt], (LL), [LL].
+  const ALT_RE = /(?:\(|\[)Alt(?:\)|\])/i;
+  const LL_RE = /(?:\(|\[)LL(?:\)|\])/i;
+  const EITHER_RE = /(?:\(|\[)(?:Alt|LL)(?:\)|\])/gi;
+
   const sectionStart = lines.findIndex((line) => /alternates\/lucky losers/i.test(line));
 
   if (sectionStart === -1) {
     const fullText = lines.join(' ');
-    const matches = fullText.match(/\((?:LL|Alt)\)/gi) ?? [];
+    const matches = fullText.match(EITHER_RE) ?? [];
     return {
-      alternate_count: matches.filter((m) => /alt/i.test(m)).length,
-      lucky_loser_count: matches.filter((m) => /^(ll)$/i.test(m.replace(/[()]/g, ''))).length,
+      alternate_count: matches.filter((m) => ALT_RE.test(m)).length,
+      lucky_loser_count: matches.filter((m) => LL_RE.test(m)).length,
     };
   }
 
@@ -272,9 +279,9 @@ function parseAlternateEntriesCount(lines: string[]): { alternate_count: number;
       break;
     }
 
-    if (/\(Alt\)/i.test(line)) {
+    if (ALT_RE.test(line)) {
       alternate_count += 1;
-    } else if (/\(LL\)/i.test(line)) {
+    } else if (LL_RE.test(line)) {
       lucky_loser_count += 1;
     }
   }
@@ -400,6 +407,23 @@ function hasAnyRank(parsed: ParsedOfficialPdfCutoff): boolean {
   );
 }
 
+// Merge two parse results, preferring non-null values from each pass.
+// This handles draw-sheet PDFs where stream order finds the advanced cut but
+// misses onsite (because adv/onsite appear near each other on the page but
+// stream order separates them), while layout finds both.
+function mergeResults(stream: ParsedOfficialPdfCutoff, layout: ParsedOfficialPdfCutoff): ParsedOfficialPdfCutoff {
+  return {
+    last_direct_acceptance_rank: stream.last_direct_acceptance_rank ?? layout.last_direct_acceptance_rank,
+    last_direct_acceptance_name: stream.last_direct_acceptance_name ?? layout.last_direct_acceptance_name,
+    raw_last_direct_acceptance: stream.raw_last_direct_acceptance ?? layout.raw_last_direct_acceptance,
+    challenger_doubles_advanced_cut_rank: stream.challenger_doubles_advanced_cut_rank ?? layout.challenger_doubles_advanced_cut_rank,
+    challenger_doubles_onsite_cut_rank: stream.challenger_doubles_onsite_cut_rank ?? layout.challenger_doubles_onsite_cut_rank,
+    alternate_entries_count: Math.max(stream.alternate_entries_count, layout.alternate_entries_count),
+    lucky_loser_count: Math.max(stream.lucky_loser_count, layout.lucky_loser_count),
+    pdf_text_length: stream.pdf_text_length,
+  };
+}
+
 export async function fetchAndParseOfficialPdfCutoff(
   pdfUrl: string,
   archiveFirst = false,
@@ -410,13 +434,15 @@ export async function fetchAndParseOfficialPdfCutoff(
   // First pass: default stream-order extraction (proven for entry-list PDFs).
   const streamText = (await pdfParse(buffer)).text;
   const streamParsed = parseOfficialPdfCutoffText(streamText);
-  if (hasAnyRank(streamParsed)) return streamParsed;
 
-  // Second pass: coordinate-aware layout extraction. Needed for draw-sheet PDFs
-  // where stream order separates the "LAST DIRECT ACCEPTANCE" label from its value.
+  // Always run layout pass too, so we can merge. Draw-sheet PDFs often have the
+  // stream order find the advanced cut but miss onsite (they appear close on page
+  // but far apart in content-stream order). Layout finds both; merging is safe.
   const layoutText = (await pdfParse(buffer, { pagerender: renderPageWithLayout })).text;
   const layoutParsed = parseOfficialPdfCutoffText(layoutText);
-  return hasAnyRank(layoutParsed) ? layoutParsed : streamParsed;
+
+  if (!hasAnyRank(streamParsed) && !hasAnyRank(layoutParsed)) return streamParsed;
+  return mergeResults(streamParsed, layoutParsed);
 }
 
 // Returns both extractions alongside the parsed results, for debugging why a
