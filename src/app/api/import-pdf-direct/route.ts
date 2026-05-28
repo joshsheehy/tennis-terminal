@@ -154,7 +154,27 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  await pool.query(
+  // When the parse found no cut data (flaky fetch, wrong/blank PDF served at a
+  // historical path, etc.) we must NOT clobber a previously-good row. Overwriting
+  // a real cut with nulls is never desirable — a re-import should only ever refine
+  // data. So a no-rank parse uses ON CONFLICT DO NOTHING (preserve existing); a
+  // successful parse uses the full destructive upsert.
+  const conflictClause = hasRank
+    ? `do update set
+         source_type = excluded.source_type,
+         last_direct_acceptance_rank = excluded.last_direct_acceptance_rank,
+         last_direct_acceptance_player_name = excluded.last_direct_acceptance_player_name,
+         challenger_doubles_advanced_cut_rank = excluded.challenger_doubles_advanced_cut_rank,
+         challenger_doubles_onsite_cut_rank = excluded.challenger_doubles_onsite_cut_rank,
+         parsed_at = excluded.parsed_at,
+         parser_version = excluded.parser_version,
+         source_notes = excluded.source_notes,
+         alternate_entries_count = excluded.alternate_entries_count,
+         lucky_loser_count = excluded.lucky_loser_count,
+         updated_at = now()`
+    : `do nothing`;
+
+  const writeResult = await pool.query(
     `insert into cutoff_snapshots (
        tournament_edition_id, event_type, draw_type, source_type,
        last_direct_acceptance_rank, last_direct_acceptance_player_name,
@@ -169,18 +189,7 @@ export async function GET(request: NextRequest) {
        now(), 'official-pdf-bottom-left-v4', $8, $9, $10, now()
      )
      on conflict (tournament_edition_id, event_type, draw_type)
-     do update set
-       source_type = excluded.source_type,
-       last_direct_acceptance_rank = excluded.last_direct_acceptance_rank,
-       last_direct_acceptance_player_name = excluded.last_direct_acceptance_player_name,
-       challenger_doubles_advanced_cut_rank = excluded.challenger_doubles_advanced_cut_rank,
-       challenger_doubles_onsite_cut_rank = excluded.challenger_doubles_onsite_cut_rank,
-       parsed_at = excluded.parsed_at,
-       parser_version = excluded.parser_version,
-       source_notes = excluded.source_notes,
-       alternate_entries_count = excluded.alternate_entries_count,
-       lucky_loser_count = excluded.lucky_loser_count,
-       updated_at = now()`,
+     ${conflictClause}`,
     [
       editionId, event, draw,
       parsed.last_direct_acceptance_rank,
@@ -193,6 +202,10 @@ export async function GET(request: NextRequest) {
     ]
   );
 
+  // rowCount is 0 when a no-rank parse hit an existing row and we left it alone.
+  const wrote = (writeResult.rowCount ?? 0) > 0;
+  const preservedExisting = !hasRank && !wrote;
+
   return NextResponse.json({
     ok: true,
     slug,
@@ -201,6 +214,11 @@ export async function GET(request: NextRequest) {
     draw_type: draw,
     pdf_url: url,
     hasRank,
+    wrote,
+    preservedExisting,
+    note: preservedExisting
+      ? 'Parse found no cut data; existing snapshot left untouched (not overwritten).'
+      : undefined,
     last_direct_acceptance_rank: parsed.last_direct_acceptance_rank,
     last_direct_acceptance_name: parsed.last_direct_acceptance_name,
     raw_last_direct_acceptance: parsed.raw_last_direct_acceptance,
