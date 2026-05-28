@@ -5,6 +5,25 @@ import { fetchAndParseOfficialPdfCutoff, fetchOfficialPdfDebug } from '@/lib/cut
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Hosts we're willing to fetch a draw-sheet PDF from. Kept to a tight allowlist
+// so this endpoint can't be used as a general server-side URL fetcher (SSRF).
+// - protennislive.com: the official ATP/Challenger draw-sheet host
+// - atptour.com: ATP archive "Download PDF" links for historical draws
+// - web.archive.org: Wayback copies of PTL PDFs that PTL itself has dropped
+const ALLOWED_PDF_HOSTS = ['protennislive.com', 'atptour.com', 'web.archive.org'];
+
+function isAllowedPdfUrl(raw: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:') return false;
+  const host = parsed.hostname.toLowerCase();
+  return ALLOWED_PDF_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+}
+
 // Direct PDF import endpoint — used when automatic discovery misses a PDF
 // that is known to exist (found manually on PTL or Wayback).
 //
@@ -89,8 +108,8 @@ export async function GET(request: NextRequest) {
   // Debug mode: only needs the url. Returns the raw extracted text and useful
   // lines so we can see why the parser found no cut. Does not write to DB.
   if (debug) {
-    if (!url || !url.startsWith('https://www.protennislive.com/posting/')) {
-      return NextResponse.json({ ok: false, error: 'debug mode requires a protennislive.com/posting/ url' }, { status: 400 });
+    if (!url || !isAllowedPdfUrl(url)) {
+      return NextResponse.json({ ok: false, error: `debug mode requires an https PDF URL on one of: ${ALLOWED_PDF_HOSTS.join(', ')}` }, { status: 400 });
     }
     try {
       const result = await fetchOfficialPdfDebug(url, archiveFirst);
@@ -127,8 +146,8 @@ export async function GET(request: NextRequest) {
   if (!['main', 'qualifying'].includes(draw)) {
     return NextResponse.json({ ok: false, error: 'draw must be main or qualifying' }, { status: 400 });
   }
-  if (!url.startsWith('https://www.protennislive.com/posting/')) {
-    return NextResponse.json({ ok: false, error: 'url must be a protennislive.com/posting/ PDF URL' }, { status: 400 });
+  if (!isAllowedPdfUrl(url)) {
+    return NextResponse.json({ ok: false, error: `url must be an https PDF URL on one of: ${ALLOWED_PDF_HOSTS.join(', ')}` }, { status: 400 });
   }
 
   let parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>>;
