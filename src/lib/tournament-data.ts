@@ -146,8 +146,6 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   tourEvent('Dallas Open', 'Dallas', 'United States', 2026, 6, '2026-02-09', null, 'ATP 500', 'Indoor Hard', true, '424', true),
   tourEvent('ABN AMRO Open', 'Rotterdam', 'Netherlands', 2026, 6, '2026-02-09', null, 'ATP 500', 'Indoor Hard', true, '407', true),
   tourEvent('IEB Argentina Open', 'Buenos Aires', 'Argentina', 2026, 6, '2026-02-09', null, 'ATP 250', 'Clay', false, '506', false),
-  tourEvent('Open Provence', 'Marseille', 'France', 2026, 6, '2026-02-09', null, 'ATP 250', 'Indoor Hard', true, '496', false),
-
   // ─── WEEK 7 (Feb 16) ─────────────────────────────────────────────────────────
   tourEvent('Qatar ExxonMobil Open', 'Doha', 'Qatar', 2026, 7, '2026-02-16', null, 'ATP 500', 'Hard', false, '451', true),
   tourEvent('Rio Open Presented by Claro', 'Rio de Janeiro', 'Brazil', 2026, 7, '2026-02-16', null, 'ATP 500', 'Clay', false, '6932', true),
@@ -433,6 +431,42 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   // ─── HISTORICAL EDITIONS (level changes, demotions, promotions) ───────────
   // Add entries here for prior-year editions missing from the main 2026 list.
   // The slug must match the current entry so history is stitched together correctly.
+
+  // Open Provence Marseille — ATP 250 that ran through 2025, then discontinued.
+  {
+    tournament: { slug: makeSlug('Open Provence', 'Marseille'), name: 'Open Provence', city: 'Marseille', country: 'France' },
+    edition: {
+      year: 2025,
+      week: 6,
+      start_date: '2025-02-10',
+      end_date: null,
+      level: 'ATP 250',
+      surface: 'Indoor Hard',
+      indoor: true,
+      source: 'atp_tour_pdf' as const,
+      source_url: 'https://www.protennislive.com/posting/2025/496/',
+      status: 'held' as const,
+      protennislive_code: '496',
+      has_doubles_qualifying: false,
+    },
+  },
+  {
+    tournament: { slug: makeSlug('Open Provence', 'Marseille'), name: 'Open Provence', city: 'Marseille', country: 'France' },
+    edition: {
+      year: 2024,
+      week: 6,
+      start_date: '2024-02-09',
+      end_date: null,
+      level: 'ATP 250',
+      surface: 'Indoor Hard',
+      indoor: true,
+      source: 'atp_tour_pdf' as const,
+      source_url: 'https://www.protennislive.com/posting/2024/496/',
+      status: 'held' as const,
+      protennislive_code: '496',
+      has_doubles_qualifying: false,
+    },
+  },
 
   // Asunción (Rakiura) 2025 — same level/surface as 2026, just a missing year entry.
   {

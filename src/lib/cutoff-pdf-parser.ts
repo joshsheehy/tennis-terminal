@@ -117,6 +117,11 @@ function getUsefulLines(text: string) {
 function cleanAcceptanceName(name: string) {
   return name
     .replace(/\s+/g, ' ')
+    // Strip leading draw-position / ranking markers: "1 Fritz, Taylor" → "Fritz, Taylor";
+    // "655 A. RUBLEV" → "A. RUBLEV"
+    .replace(/^\d+\s+(?=[A-Z.])/, '')
+    // Strip bracket seedings anywhere in the name: "A. RUBLEV [5]" → "A. RUBLEV"
+    .replace(/\s*\[\d+\]\s*/g, ' ')
     .replace(/[\s,;:-]+$/, '')
     .trim();
 }
@@ -167,7 +172,10 @@ function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   // is almost always a calendar year embedded in a tournament title.
   if (rank >= 1900 && rank <= 2100) return true;
   if (rank > 5000) return true;
-  if (rank < 1) return true;
+  // Rank 1 or 2 is never a valid LDA — those players are top seeds, not last direct
+  // acceptances. Values this low are almost always seed numbers or position markers
+  // that leaked into the rank field.
+  if (rank < 3) return true;
 
   const trimmedName = name.trim();
   if (trimmedName.length < 2) return true;
@@ -185,6 +193,12 @@ function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   if (/FIRST\s*ROUND/.test(upper) && /\d/.test(raw)) return true;
   if (/SEEDED\s*(PLAYERS|TEAMS)/.test(upper)) return true;
   if (/QUALIFIER/.test(upper) && rank < 100) return true; // "QUALIFIER 0" / "QUALIFIER 4" headings.
+  // Draw-round headings that appear near prize-money tables.
+  if (/^(QUARTER|SEMI)[\s-]FINALIST/i.test(trimmedName)) return true;
+  // The label line itself captured as a player name.
+  if (/^LAST\s+DIRECT\s+ACCEPTANCE/i.test(trimmedName)) return true;
+  // Madrid-style combined-ranking notation: "D+D 88; S+S 414".
+  if (/\b[A-Z]\+[A-Z]\b/.test(raw)) return true;
 
   // Tennis set scores like "62 75", "64 26 10-8", "76(5) 64".
   // Strip parentheses/dashes and check if every token is a 2-digit short score.

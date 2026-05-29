@@ -109,4 +109,37 @@ describe('parseOfficialPdfCutoffText', () => {
     expect(parsed.last_direct_acceptance_rank).toBe(319);
     expect(parsed.last_direct_acceptance_name).toMatch(/Kuznetsov/);
   });
+
+  it('rejects QUARTER-FINALIST draw-round heading as a player name (s-Hertogenbosch doubles)', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', 'QUARTER-FINALIST', '2', 'ALTERNATES'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+  });
+
+  it('rejects the label text captured as player name (Monte Carlo / Barcelona)', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', 'LAST DIRECT ACCEPTANCE IN DRAW', '50', 'Cobolli, Flavio - 50'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_name).not.toMatch(/LAST DIRECT ACCEPTANCE/i);
+  });
+
+  it('strips leading seed number from player name (Tokyo draw sheet)', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', '1 Fritz, Taylor - 12'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBe(12);
+    expect(parsed.last_direct_acceptance_name).not.toMatch(/^1 /);
+    expect(parsed.last_direct_acceptance_name).toMatch(/Fritz/);
+  });
+
+  it('strips bracket seeding from player name (Indian Wells draw sheet)', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', 'A. Rublev [5] - 66'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBe(66);
+    expect(parsed.last_direct_acceptance_name).not.toMatch(/\[5\]/);
+  });
+
+  it('rejects Madrid combined-ranking notation (D+D / S+S format)', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', 'D+D 88; S+S 414'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+  });
 });

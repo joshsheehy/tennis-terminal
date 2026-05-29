@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
       -- always calendar years extracted from a tournament title.
       (last_direct_acceptance_rank between 1900 and 2100)
       or last_direct_acceptance_rank > 5000
-      or last_direct_acceptance_rank < 1
+      -- Rank 1 or 2 is never a valid LDA; values this low are seed/position markers.
+      or last_direct_acceptance_rank < 3
       -- Names that are pure digits are scores, not players.
       or last_direct_acceptance_player_name ~ '^[[:space:]]*\\d+[[:space:]]*$'
       -- Currency-tagged prize-money lines.
@@ -35,6 +36,12 @@ export async function GET(request: NextRequest) {
       or last_direct_acceptance_player_name ~* '\\bMASTERS\\b'
       or last_direct_acceptance_player_name ~* '\\bCITTA\\b'
       or last_direct_acceptance_player_name ~* '\\bINDOOR\\b'
+      -- Draw-round headings near prize tables ("QUARTER-FINALIST 2").
+      or last_direct_acceptance_player_name ~* '(QUARTER|SEMI)[\\s-]FINALIST'
+      -- Label text captured as player name ("LAST DIRECT ACCEPTANCE IN DRAW 50").
+      or last_direct_acceptance_player_name ~* '^LAST\\s+DIRECT\\s+ACCEPTANCE'
+      -- Madrid combined-ranking notation ("D+D 88; S+S 414").
+      or last_direct_acceptance_player_name ~ '[A-Z]\\+[A-Z]'
       -- Names that look like tennis set scores (e.g. "62 75", "64 26 10").
       or last_direct_acceptance_player_name ~ '^\\d{2}(\\s+\\d{1,3})+$'
     )
