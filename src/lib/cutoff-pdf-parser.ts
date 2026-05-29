@@ -199,6 +199,8 @@ function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   if (/^LAST\s+DIRECT\s+ACCEPTANCE/i.test(trimmedName)) return true;
   // Madrid-style combined-ranking notation: "D+D 88; S+S 414".
   if (/\b[A-Z]\+[A-Z]\b/.test(raw)) return true;
+  // Entry-category codes, not player names: WC (wildcard), LL (lucky loser), etc.
+  if (/^(WC|LL|SE|PR|WR|Alt)$/i.test(trimmedName)) return true;
 
   // Tennis set scores like "62 75", "64 26 10-8", "76(5) 64".
   // Strip parentheses/dashes and check if every token is a 2-digit short score.
@@ -275,7 +277,7 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
 function parseChallengerDoublesCuts(lines: string[], lastDirectAcceptanceIndex: number) {
   const extractCuts = (text: string) => {
     const normalized = text.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
-    const advancedMatch = normalized.match(/\badv(?:anced)?\.*\s*[:\-]?\s*(\d{1,5})\b/i);
+    const advancedMatch = normalized.match(/\badv(?:anc(?:e(?:d)?)?)?\.*\s*[:\-]?\s*(\d{1,5})\b/i);
     const onsiteMatch = normalized.match(/\bon[-\s]?site\.*\s*[:\-]?\s*(\d{1,5})\b/i);
     return {
       advanced: advancedMatch ? Number(advancedMatch[1]) : null,

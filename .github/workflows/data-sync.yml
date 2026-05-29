@@ -79,7 +79,10 @@ jobs:
                       raise RuntimeError(f'{label} did not return a valid nextOffset')
                   offset = int(next_offset)
                   time.sleep(2)
-              raise RuntimeError(f'{label} exceeded max_pages={max_pages}')
+              if required:
+                  raise RuntimeError(f'{label} exceeded max_pages={max_pages}')
+              print(f'WARNING: {label} hit max_pages={max_pages}; some items may be incomplete', flush=True)
+              return {'ok': True, 'hasMore': False}
 
           # 1) Sync canonical hardcoded calendar rows.
           request_json('/api/import-calendars')
@@ -136,7 +139,9 @@ jobs:
                   f'ATP cutoff refill {year}',
                   lambda offset, y=year: f'/api/import-cutoffs?year={y}&limit=40&offset={offset}',
                   required=(year == 2026),
-                  max_pages=30,
+                  # 2024 has ~870 targets; small per-page budgets mean many round trips.
+                  # 2025/2026 have fewer entries and fewer Wayback fetches.
+                  max_pages=200 if year == 2024 else 60,
               )
 
           # 8) Restore any historical rows that were previously hidden by stale cleanup.

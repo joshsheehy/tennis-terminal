@@ -42,6 +42,8 @@ export async function GET(request: NextRequest) {
       or last_direct_acceptance_player_name ~* '^LAST\\s+DIRECT\\s+ACCEPTANCE'
       -- Madrid combined-ranking notation ("D+D 88; S+S 414").
       or last_direct_acceptance_player_name ~ '[A-Z]\\+[A-Z]'
+      -- Entry-category codes, not player names: WC, LL, SE, PR, WR, Alt.
+      or last_direct_acceptance_player_name ~* '^(WC|LL|SE|PR|WR|Alt)$'
       -- Names that look like tennis set scores (e.g. "62 75", "64 26 10").
       or last_direct_acceptance_player_name ~ '^\\d{2}(\\s+\\d{1,3})+$'
     )

@@ -142,4 +142,19 @@ describe('parseOfficialPdfCutoffText', () => {
     const parsed = parseOfficialPdfCutoffText(text);
     expect(parsed.last_direct_acceptance_rank).toBeNull();
   });
+
+  it('rejects WC wildcard marker as a player name (Hamburg Challenger doubles)', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', 'WC 3'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+  });
+});
+
+describe('parseChallengerDoublesCuts', () => {
+  it('captures advanced cut from "advance N / onsite M" format (Guangzhou)', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', 'advance 650 | onsite 998'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.challenger_doubles_advanced_cut_rank).toBe(650);
+    expect(parsed.challenger_doubles_onsite_cut_rank).toBe(998);
+  });
 });
