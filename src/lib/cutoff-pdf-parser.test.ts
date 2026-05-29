@@ -87,4 +87,26 @@ describe('parseOfficialPdfCutoffText', () => {
     expect(parsed.challenger_doubles_advanced_cut_rank).toBe(978);
     expect(parsed.challenger_doubles_onsite_cut_rank).toBe(1040);
   });
+
+  it('reads an inline cut value glued to trailing text (Gstaad doubles)', () => {
+    const text = 'LAST DIRECT ACCEPTANCE: M.Bortolotti/M.Romios - 215ATP SUPERVISOR(S)Cedric Mourier';
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBe(215);
+    expect(parsed.last_direct_acceptance_name).toMatch(/Bortolotti/);
+  });
+
+  it('reads an inline cut after AT DEADLINE / IN DRAW phrasing (Cordoba singles)', () => {
+    const text =
+      'LAST DIRECT ACCEPTANCE AT DEADLINE D.Schwartzman - 111 LAST DIRECT ACCEPTANCE IN DRAW D.Schwartzman - 111 ATP SUPERVISOR(S)';
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBe(111);
+    expect(parsed.last_direct_acceptance_name).toMatch(/Schwartzman/);
+  });
+
+  it('reads a protected-ranking cut on the following line (Brisbane qualifying)', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', 'Kuznetsov, Andrey - P319', 'ATP SUPERVISOR(S)'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBe(319);
+    expect(parsed.last_direct_acceptance_name).toMatch(/Kuznetsov/);
+  });
 });

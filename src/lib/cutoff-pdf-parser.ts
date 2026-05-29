@@ -124,10 +124,12 @@ function cleanAcceptanceName(name: string) {
 function parseNameAndRank(line: string): ParsedNameRank | null {
   const normalized = line.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
 
+  // The optional `P` handles protected-ranking entries (e.g. "Kuznetsov, Andrey - P319"),
+  // where the last direct acceptance used a protected ranking rather than a live one.
   const patterns = [
-    /^(.+?)\s*-\s*(\d{1,5})\b/,
+    /^(.+?)\s*-\s*P?(\d{1,5})\b/,
     /^(.+?)\s*\((\d{1,5})\)\s*$/,
-    /^(.+?)\s+(\d{1,5})\s*$/,
+    /^(.+?)\s+P?(\d{1,5})\s*$/,
   ];
 
   for (const pattern of patterns) {
@@ -147,7 +149,7 @@ function parseNameAndRank(line: string): ParsedNameRank | null {
 
 function parseStandaloneRank(line: string) {
   const normalized = line.replace(/\s+/g, ' ').trim();
-  const match = normalized.match(/^\(?(\d{1,5})\)?$/);
+  const match = normalized.match(/^\(?P?(\d{1,5})\)?$/);
   return match ? Number(match[1]) : null;
 }
 
@@ -194,10 +196,39 @@ function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   return false;
 }
 
+// Some draw sheets print the cut value on the SAME line as the label, e.g.
+//   "LAST DIRECT ACCEPTANCE: M.Bortolotti/M.Romios - 215ATP SUPERVISOR..."  (Gstaad doubles)
+//   "LAST DIRECT ACCEPTANCE AT DEADLINE D.Schwartzman - 111 LAST DIRECT ..."  (Cordoba singles)
+// The trailing text is often glued straight onto the rank ("215ATP"), so the rank
+// is deliberately NOT anchored to a word boundary here.
+function parseInlineLastDirectAcceptance(labelLine: string): ParsedNameRank | null {
+  const normalized = labelLine.replace(/[–—]/g, '-').replace(/\s+/g, ' ');
+  const afterLabel = normalized.match(
+    /last direct acceptance(?:\s+(?:at deadline|in draw))?\s*:?\s*(.+)/i
+  );
+  if (!afterLabel) return null;
+  const tail = afterLabel[1].trim();
+  if (!tail) return null;
+
+  const nameRank = tail.match(/^(.+?)\s*-\s*P?(\d{1,5})/);
+  if (!nameRank) return null;
+
+  const candidate = {
+    name: cleanAcceptanceName(nameRank[1]),
+    rank: Number(nameRank[2]),
+    raw: tail,
+  };
+  return isSpuriousNameRank(candidate.name, candidate.rank, candidate.raw) ? null : candidate;
+}
+
 function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
   const index = lines.findIndex((line) => /last direct acceptance/i.test(line));
 
   if (index === -1) return null;
+
+  // Prefer an inline value on the label line itself, before scanning following rows.
+  const inline = parseInlineLastDirectAcceptance(lines[index]);
+  if (inline) return inline;
 
   for (let offset = 1; offset <= 12; offset += 1) {
     const line = lines[index + offset];
