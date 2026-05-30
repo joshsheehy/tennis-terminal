@@ -114,7 +114,14 @@ jobs:
                   max_pages=30,
               )
 
-          # 5) Merge tournaments that share a ProTennisLive code, then collapse
+          # 5) Re-assert canonical calendar dates. JeffSackmann's importer in
+          # step 4 can overwrite week/start_date for tournaments that appear in
+          # both ALL_EDITIONS and the JeffSackmann feed (e.g. Oeiras 4 getting
+          # an April date instead of the correct May date). Running
+          # import-calendars again here ensures the hardcoded catalogue wins.
+          request_json('/api/import-calendars')
+
+          # 5b) Merge tournaments that share a ProTennisLive code, then collapse
           # any remaining duplicate Challenger-level rows. JeffSackmann's
           # importer used to create "burnie-ch-burnie-ch" alongside "burnie";
           # this folds them back into one row.
