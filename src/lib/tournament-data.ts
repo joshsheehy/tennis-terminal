@@ -117,7 +117,8 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Glasgow', 'Glasgow', 'Great Britain', 2026, 2, '2026-01-12', null, 'Challenger 50', 'Indoor Hard', true, '7916', false),
 
   // ─── WEEK 3 (Jan 19) — Australian Open ───────────────────────────────────────
-  tourEvent('Cordoba Open', 'Cordoba', 'Argentina', 2026, 3, '2026-01-19', null, 'ATP 250', 'Clay', false, '9158', false),
+  // (Cordoba Open dropped off the 2026 ATP Tour calendar; Cordoba now runs only
+  // as a Challenger — see "Córdoba Challenger", code 2981, in week 19.)
   challengerEvent('Oeiras 1', 'Oeiras', 'Portugal', 2026, 3, '2026-01-19', null, 'Challenger 100', 'Indoor Hard', true, '2831', false),
   challengerEvent('Itajaí', 'Itajaí', 'Brazil', 2026, 3, '2026-01-19', null, 'Challenger 75', 'Clay', false, '3053', false),
   challengerEvent('Soma Bay', 'Soma Bay', 'Egypt', 2026, 3, '2026-01-19', null, 'Challenger 75', 'Hard', false, '3039', false),
@@ -195,15 +196,16 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Split', 'Split', 'Croatia', 2026, 12, '2026-03-23', null, 'Challenger 50', 'Clay', false, '8388', false),
   challengerEvent('Yokkaichi', 'Yokkaichi', 'Japan', 2026, 12, '2026-03-23', null, 'Challenger 50', 'Hard', false, '8268', false),
 
-  // ─── WEEK 9 (Mar 2) ──────────────────────────────────────────────────────────
-  tourEvent('Delray Beach Open', 'Delray Beach', 'United States', 2026, 8, '2026-02-23', null, 'ATP 250', 'Hard', false, '499', false),
+  // ─── WEEK 7 (Feb 16) ─────────────────────────────────────────────────────────
+  tourEvent('Delray Beach Open', 'Delray Beach', 'United States', 2026, 7, '2026-02-16', null, 'ATP 250', 'Hard', false, '499', false),
+  // ─── WEEK 8 (Feb 23) ─────────────────────────────────────────────────────────
   tourEvent('Santiago Open', 'Santiago', 'Chile', 2026, 8, '2026-02-23', null, 'ATP 250', 'Clay', false, '8996', false),
 
   // ─── WEEK 10 (Mar 4) — ATP 1000 ──────────────────────────────────────────────
   tourEvent('BNP Paribas Open', 'Indian Wells', 'United States', 2026, 9, '2026-03-04', '2026-03-15', 'ATP 1000', 'Hard', false, '404', false),
 
-  // ─── WEEK 12 (Mar 18) — ATP 1000 ─────────────────────────────────────────────
-  tourEvent('Miami Open presented by Itau', 'Miami', 'United States', 2026, 12, '2026-03-18', '2026-03-29', 'ATP 1000', 'Hard', false, '403', false),
+  // ─── WEEK 11 (Mar 16) — ATP 1000 ─────────────────────────────────────────────
+  tourEvent('Miami Open presented by Itau', 'Miami', 'United States', 2026, 11, '2026-03-18', '2026-03-29', 'ATP 1000', 'Hard', false, '403', false),
 
   // ─── WEEK 13 (Mar 30) ────────────────────────────────────────────────────────
   tourEvent('Houston Open', 'Houston', 'United States', 2026, 13, '2026-03-30', null, 'ATP 250', 'Clay', false, '717', false),
@@ -236,8 +238,9 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Abidjan 1', 'Abidjan', "Côte d'Ivoire", 2026, 16, '2026-04-20', null, 'Challenger 50', 'Hard', false, '2995', false),
   challengerEvent('Shymkent 1', 'Shymkent', 'Kazakhstan', 2026, 16, '2026-04-20', null, 'Challenger 50', 'Clay', false, null, false),
 
-  // ─── WEEK 14 (Apr 5) — ATP 1000 ──────────────────────────────────────────────
-  tourEvent('Rolex Monte-Carlo Masters', 'Monte-Carlo', 'Monaco', 2026, 14, '2026-04-05', '2026-04-12', 'ATP 1000', 'Clay', false, '410', false),
+  // ─── WEEK 14 (Apr 6) — ATP 1000 ──────────────────────────────────────────────
+  // Monte-Carlo starts Sunday Apr 5; store the Monday so the computed week is 14.
+  tourEvent('Rolex Monte-Carlo Masters', 'Monte-Carlo', 'Monaco', 2026, 14, '2026-04-06', '2026-04-12', 'ATP 1000', 'Clay', false, '410', false),
 
   // ─── WEEK 15 (Apr 13) ────────────────────────────────────────────────────────
   tourEvent('Grand Prix Hassan II', 'Marrakech', 'Morocco', 2026, 13, '2026-03-30', null, 'ATP 250', 'Clay', false, '360', false),
@@ -380,7 +383,8 @@ export const ALL_EDITIONS: TournamentEdition[] = [
 
   // ─── WEEK 25 (Jun 22) ────────────────────────────────────────────────────────
   tourEvent('Lexus Eastbourne Open', 'Eastbourne', 'Great Britain', 2026, 25, '2026-06-22', null, 'ATP 250', 'Grass', false, '741', false),
-  tourEvent('Mallorca Championships presented by Ecotrans Group', 'Mallorca', 'Spain', 2026, 25, '2026-06-21', null, 'ATP 250', 'Grass', false, '8994', false),
+  // Mallorca starts Sunday Jun 21; store the Monday so the computed week is 25.
+  tourEvent('Mallorca Championships presented by Ecotrans Group', 'Mallorca', 'Spain', 2026, 25, '2026-06-22', null, 'ATP 250', 'Grass', false, '8994', false),
 
   // ─── WEEKS 26–27: Wimbledon (Grand Slam — excluded) ──────────────────────────
 
@@ -391,42 +395,60 @@ export const ALL_EDITIONS: TournamentEdition[] = [
 
   // ─── WEEK 29 (Jul 20) ────────────────────────────────────────────────────────
   tourEvent('Generali Open', 'Kitzbühel', 'Austria', 2026, 29, '2026-07-20', null, 'ATP 250', 'Clay', false, '319', false),
-  tourEvent('Abierto de Tenis Mifel', 'Los Cabos', 'Mexico', 2026, 29, '2026-07-20', null, 'ATP 250', 'Hard', false, '7480', false),
+  // Estoril rejoins the 2026 calendar as an ATP 250 in week 29.
+  tourEvent('Millennium Estoril Open', 'Estoril', 'Portugal', 2026, 29, '2026-07-20', null, 'ATP 250', 'Clay', false, '7290', false),
+  // Los Cabos is week 30 (Jul 27) on the 2026 calendar, alongside Washington.
+  tourEvent('Abierto de Tenis Mifel', 'Los Cabos', 'Mexico', 2026, 30, '2026-07-27', null, 'ATP 250', 'Hard', false, '7480', false),
 
   // ─── WEEK 30 (Jul 27) ────────────────────────────────────────────────────────
   tourEvent('Citi Open', 'Washington', 'United States', 2026, 30, '2026-07-27', null, 'ATP 500', 'Hard', false, '418', true),
 
-  // ─── WEEK 31 (Aug 2) — ATP 1000 ──────────────────────────────────────────────
-  tourEvent('National Bank Open presented by Rogers', 'Montreal', 'Canada', 2026, 31, '2026-08-02', '2026-08-13', 'ATP 1000', 'Hard', false, '421', false),
+  // ─── WEEK 31 (Aug 3) — ATP 1000 ──────────────────────────────────────────────
+  // Montreal starts Sunday Aug 2; store the Monday so the computed week is 31.
+  tourEvent('National Bank Open presented by Rogers', 'Montreal', 'Canada', 2026, 31, '2026-08-03', '2026-08-13', 'ATP 1000', 'Hard', false, '421', false),
 
-  // ─── WEEK 33 (Aug 13) — ATP 1000 ─────────────────────────────────────────────
-  tourEvent('Cincinnati Open', 'Cincinnati', 'United States', 2026, 33, '2026-08-13', '2026-08-23', 'ATP 1000', 'Hard', false, '422', false),
+  // ─── WEEK 32 (Aug 13) — ATP 1000 ─────────────────────────────────────────────
+  tourEvent('Cincinnati Open', 'Cincinnati', 'United States', 2026, 32, '2026-08-13', '2026-08-23', 'ATP 1000', 'Hard', false, '422', false),
 
   // ─── WEEK 34 (Aug 24) ────────────────────────────────────────────────────────
   tourEvent('Winston-Salem Open', 'Winston-Salem', 'United States', 2026, 34, '2026-08-24', null, 'ATP 250', 'Hard', false, '6242', false),
 
   // ─── WEEKS 35–37: US Open (Grand Slam — excluded) ────────────────────────────
 
-  // ─── WEEK 38 (Sep 14) — Asian hard court swing ───────────────────────────────
-  tourEvent('Chengdu Open', 'Chengdu', 'China', 2026, 38, '2026-09-14', null, 'ATP 250', 'Hard', false, '7581', false),
-  tourEvent('Zhuhai Championships', 'Zhuhai', 'China', 2026, 38, '2026-09-14', null, 'ATP 250', 'Hard', false, '9164', false),
+  // ─── WEEK 38 (Sep 21) — Asian hard court swing ───────────────────────────────
+  // Chengdu + Hangzhou (Wed Sep 23 start; Monday Sep 21 anchors the week).
+  // Zhuhai is gone from the 2026 calendar; Hangzhou Open takes the week-38 slot.
+  tourEvent('Chengdu Open', 'Chengdu', 'China', 2026, 38, '2026-09-21', null, 'ATP 250', 'Hard', false, '7581', false),
+  tourEvent('Hangzhou Open', 'Hangzhou', 'China', 2026, 38, '2026-09-21', null, 'ATP 250', 'Hard', false, '4713', false),
 
-  // ─── WEEK 39 (Sep 21) ────────────────────────────────────────────────────────
-  tourEvent('China Open', 'Beijing', 'China', 2026, 39, '2026-09-21', null, 'ATP 500', 'Hard', false, '747', true),
+  // ─── WEEK 39 (Sep 28) ────────────────────────────────────────────────────────
+  // Beijing + Tokyo share week 39 (Wed Sep 30 start; Monday Sep 28 anchors it).
+  tourEvent('China Open', 'Beijing', 'China', 2026, 39, '2026-09-28', null, 'ATP 500', 'Hard', false, '747', true),
+  tourEvent('Rakuten Japan Open', 'Tokyo', 'Japan', 2026, 39, '2026-09-28', null, 'ATP 500', 'Hard', false, '329', true),
 
-  // ─── WEEK 40 (Sep 28) ────────────────────────────────────────────────────────
-  tourEvent('Rakuten Japan Open', 'Tokyo', 'Japan', 2026, 40, '2026-09-28', null, 'ATP 500', 'Hard', false, '329', true),
+  // ─── WEEK 40 (Oct 5) — ATP 1000 ──────────────────────────────────────────────
+  tourEvent('Rolex Shanghai Masters', 'Shanghai', 'China', 2026, 40, '2026-10-07', '2026-10-18', 'ATP 1000', 'Hard', false, '5014', false),
 
-  // ─── WEEK 41 (Oct 7) — ATP 1000 ──────────────────────────────────────────────
-  tourEvent('Rolex Shanghai Masters', 'Shanghai', 'China', 2026, 41, '2026-10-07', '2026-10-18', 'ATP 1000', 'Hard', false, '5014', false),
+  // ─── WEEK 42 (Oct 19) ────────────────────────────────────────────────────────
+  tourEvent('Almaty Open', 'Almaty', 'Kazakhstan', 2026, 42, '2026-10-19', null, 'ATP 250', 'Indoor Hard', true, '9410', false),
+  tourEvent('BNP Paribas Fortis European Open', 'Brussels', 'Belgium', 2026, 42, '2026-10-19', null, 'ATP 250', 'Indoor Hard', true, '7485', false),
+  // Lyon uses PTL code 496 — the same code that Marseille (Open Provence) used
+  // through 2025. The ATP reassigned the license to this new city+venue. Code 496
+  // is in SKIP_MERGE_CODES in dedupe-by-code so the two distinct tournament rows
+  // are never auto-collapsed.
+  tourEvent('Grand Prix Auvergne-Rhône-Alpes', 'Lyon', 'France', 2026, 42, '2026-10-19', null, 'ATP 250', 'Indoor Hard', true, '496', false),
 
   // ─── WEEK 43 (Oct 26) ────────────────────────────────────────────────────────
   tourEvent('Erste Bank Open', 'Vienna', 'Austria', 2026, 43, '2026-10-26', null, 'ATP 500', 'Indoor Hard', true, '337', true),
   tourEvent('Swiss Indoors', 'Basel', 'Switzerland', 2026, 43, '2026-10-26', null, 'ATP 500', 'Indoor Hard', true, '328', true),
-  tourEvent('If Stockholm Open', 'Stockholm', 'Sweden', 2026, 43, '2026-10-26', null, 'ATP 250', 'Indoor Hard', true, '429', false),
 
-  // ─── WEEK 45 (Nov 2) — ATP 1000 ──────────────────────────────────────────────
-  tourEvent('Rolex Paris Masters', 'Paris', 'France', 2026, 45, '2026-11-02', '2026-11-08', 'ATP 1000', 'Indoor Hard', true, '352', false),
+  // ─── WEEK 45 (Nov 9) ─────────────────────────────────────────────────────────
+  // Stockholm moved from October to November for 2026 (Sun Nov 8 start; Monday
+  // Nov 9 anchors the week).
+  tourEvent('If Stockholm Open', 'Stockholm', 'Sweden', 2026, 45, '2026-11-09', null, 'ATP 250', 'Indoor Hard', true, '429', false),
+
+  // ─── WEEK 44 (Nov 2) — ATP 1000 ──────────────────────────────────────────────
+  tourEvent('Rolex Paris Masters', 'Paris', 'France', 2026, 44, '2026-11-02', '2026-11-08', 'ATP 1000', 'Indoor Hard', true, '352', false),
 
   // ─── HISTORICAL EDITIONS (level changes, demotions, promotions) ───────────
   // Add entries here for prior-year editions missing from the main 2026 list.

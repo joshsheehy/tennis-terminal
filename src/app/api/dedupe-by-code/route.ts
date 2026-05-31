@@ -7,6 +7,11 @@ export const dynamic = 'force-dynamic';
 
 const CANONICAL_SLUGS = new Set(ALL_EDITIONS.map((e) => e.tournament.slug));
 
+// Codes that were intentionally reassigned to a new city/tournament and must
+// NOT be collapsed by dedupe-by-code even though multiple slugs share the code.
+// 496: Open Provence Marseille (2024-2025) → Grand Prix Auvergne-Rhône-Alpes Lyon (2026+)
+const SKIP_MERGE_CODES = new Set(['496']);
+
 // Merges tournament rows that share the same ProTennisLive code. The bug:
 // the challenger importer was generating slugs like "burnie-ch-burnie-ch"
 // while the canonical/imported "burnie-burnie" or "burnie" represents the
@@ -122,6 +127,7 @@ async function findGroups(): Promise<CodeGroup[]> {
   const groups: CodeGroup[] = [];
   const seenPair = new Set<string>();
   for (const [code, tournaments] of byCode) {
+    if (SKIP_MERGE_CODES.has(code)) continue;
     if (tournaments.length < 2) continue;
     // Dedupe tournaments within the bucket (same row added twice for two editions).
     const unique = Array.from(new Map(tournaments.map((t) => [t.id, t])).values());
