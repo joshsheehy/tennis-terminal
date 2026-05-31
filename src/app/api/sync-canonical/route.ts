@@ -84,12 +84,39 @@ export async function GET() {
     )
   );
 
+  // Mark any 2026 editions NOT in tournament-data.ts as 'not_held' so stale
+  // rows from earlier imports (JeffSackmann, ATP schedule scrape, etc.) stop
+  // appearing on the schedule with wrong weeks / levels. Rows with cuts
+  // attached are left alone so user-imported PDF data is never hidden.
+  const canonicalSlugs2026 = ALL_EDITIONS
+    .filter((item) => item.edition.year === 2026)
+    .map((item) => item.tournament.slug);
+
+  const staleResult = await pool.query<{ id: string; slug: string; level: string; week: number | null }>(
+    `update tournament_editions te
+     set status = 'not_held',
+         updated_at = now()
+     from tournaments t
+     where te.tournament_id = t.id
+       and te.year = 2026
+       and te.status = 'held'
+       and not (t.slug = any($1::text[]))
+       and not exists (
+         select 1 from cutoff_snapshots cs
+         where cs.tournament_edition_id = te.id
+       )
+     returning te.id, t.slug, te.level, te.week`,
+    [canonicalSlugs2026]
+  );
+
   return NextResponse.json({
     ok: failed.length === 0,
     syncedCount: synced.length,
     failedCount: failed.length,
     weeksRecomputedFor2024: weekFixResults[0].rowCount ?? 0,
     weeksRecomputedFor2025: weekFixResults[1].rowCount ?? 0,
+    staleHiddenCount: staleResult.rowCount ?? 0,
+    staleHidden: staleResult.rows,
     failed,
   });
 }
