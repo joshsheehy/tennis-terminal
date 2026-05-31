@@ -528,6 +528,26 @@ export const ALL_EDITIONS: TournamentEdition[] = [
     },
   },
 
+  // BNP Paribas Fortis European Open Brussels 2025 — same venue/code as 2026 (code 7485).
+  // PDFs don't carry a "LAST DIRECT ACCEPTANCE" line; cuts set manually via set-cut.
+  {
+    tournament: { slug: makeSlug('BNP Paribas Fortis European Open', 'Brussels'), name: 'BNP Paribas Fortis European Open', city: 'Brussels', country: 'Belgium' },
+    edition: {
+      year: 2025,
+      week: 42,
+      start_date: '2025-10-20',
+      end_date: '2025-10-26',
+      level: 'ATP 250',
+      surface: 'Indoor Hard',
+      indoor: true,
+      source: 'atp_tour_pdf' as const,
+      source_url: 'https://www.protennislive.com/posting/2025/7485/',
+      status: 'held' as const,
+      protennislive_code: '7485',
+      has_doubles_qualifying: false,
+    },
+  },
+
   // İstanbul (İstinye) 2024 and 2025 — same venue/code as the 2026 entry (code 7083).
   {
     tournament: { slug: makeSlug('İstanbul (İstinye)', 'İstanbul'), name: 'İstanbul (İstinye)', city: 'İstanbul', country: 'Turkey' },
