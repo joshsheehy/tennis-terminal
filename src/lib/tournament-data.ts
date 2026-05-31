@@ -431,7 +431,17 @@ export const ALL_EDITIONS: TournamentEdition[] = [
 
   // ─── WEEK 42 (Oct 19) ────────────────────────────────────────────────────────
   tourEvent('Almaty Open', 'Almaty', 'Kazakhstan', 2026, 42, '2026-10-19', null, 'ATP 250', 'Indoor Hard', true, '9410', false),
-  tourEvent('BNP Paribas Fortis European Open', 'Brussels', 'Belgium', 2026, 42, '2026-10-19', null, 'ATP 250', 'Indoor Hard', true, '7485', false),
+  // European Open moved from Antwerp to Brussels; keep the canonical slug so
+  // historical editions stay on the same tournament page URL.
+  {
+    tournament: { slug: 'european-open-antwerp', name: 'BNP Paribas Fortis European Open', city: 'Brussels', country: 'Belgium' },
+    edition: {
+      year: 2026, week: 42, start_date: '2026-10-19', end_date: null,
+      level: 'ATP 250', surface: 'Indoor Hard', indoor: true,
+      source: 'atp_tour_pdf' as const, source_url: ATP_TOUR_CALENDAR_URL,
+      status: 'held' as const, protennislive_code: '7485', has_doubles_qualifying: false,
+    },
+  },
   // Lyon uses PTL code 496 — the same code that Marseille (Open Provence) used
   // through 2025. The ATP reassigned the license to this new city+venue. Code 496
   // is in SKIP_MERGE_CODES in dedupe-by-code so the two distinct tournament rows
@@ -528,10 +538,11 @@ export const ALL_EDITIONS: TournamentEdition[] = [
     },
   },
 
-  // BNP Paribas Fortis European Open Brussels 2025 — same venue/code as 2026 (code 7485).
-  // PDFs don't carry a "LAST DIRECT ACCEPTANCE" line; cuts set manually via set-cut.
+  // BNP Paribas Fortis European Open Brussels 2025 — same tournament as european-open-antwerp;
+  // the venue moved from Antwerp (2022–) to Brussels (2023–). PDFs don't carry a
+  // LAST DIRECT ACCEPTANCE line; cuts are set manually via set-cut.
   {
-    tournament: { slug: makeSlug('BNP Paribas Fortis European Open', 'Brussels'), name: 'BNP Paribas Fortis European Open', city: 'Brussels', country: 'Belgium' },
+    tournament: { slug: 'european-open-antwerp', name: 'BNP Paribas Fortis European Open', city: 'Brussels', country: 'Belgium' },
     edition: {
       year: 2025,
       week: 42,
