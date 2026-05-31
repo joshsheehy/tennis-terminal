@@ -18,9 +18,14 @@ function displayName(name: string): string {
 
 function formatDate(dateString: string | null) {
   if (!dateString) return 'NA';
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
-    new Date(dateString),
-  );
+  // Format in UTC so a stored '2026-01-05' always renders as "Jan 5" regardless
+  // of the viewer's local timezone — otherwise negative-offset zones (US/Americas)
+  // shift it back to Jan 4.
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(dateString));
 }
 
 function getDateValue(dateString: string | null) {

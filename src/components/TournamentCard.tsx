@@ -6,6 +6,7 @@ function formatDate(dateString: string | null) {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'UTC',
   }).format(new Date(dateString));
 }
 
