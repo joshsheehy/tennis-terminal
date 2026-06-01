@@ -430,7 +430,15 @@ export async function GET(request: NextRequest) {
 
   const officialPdfSources = buildOfficialPdfSources(requestedYear, atpOnly, dbFallbackCodes);
   const allTargets = buildPdfImportTargets(officialPdfSources);
-  const pdfImportTargets = allTargets.slice(offset, offset + limit);
+  // Optional &slug=foo narrows the import to a single tournament — useful when
+  // you need to re-parse one event's cuts (e.g. a row that shows obviously
+  // wrong values from an older parser version) without churning through every
+  // other tournament's PDFs.
+  const slugFilter = request.nextUrl.searchParams.get('slug');
+  const filteredTargets = slugFilter
+    ? allTargets.filter((t) => t.slug === slugFilter)
+    : allTargets;
+  const pdfImportTargets = filteredTargets.slice(offset, offset + limit);
 
   const archiveFirst = requestedYear < new Date().getFullYear();
 

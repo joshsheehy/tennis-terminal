@@ -17,44 +17,55 @@ export const dynamic = 'force-dynamic';
 //      now runs as a Challenger only. Mark the stale ATP row not_held.
 //      Cuts stay on the row (just hidden from the schedule).
 //
-//   3. Zhuhai Championships: gone from 2026 (Hangzhou took its slot). Same
-//      treatment as Cordoba.
+//   3. Zhuhai Championships: gone from 2026 (Hangzhou took its slot). Per
+//      Wikipedia, the Zhuhai Championships was *replaced* by the Hangzhou
+//      Open starting with the 2024 season — i.e. Zhuhai never ran in 2024
+//      or 2025 either. Hide any held Zhuhai row in 2024/2025/2026. Cuts
+//      attached to those rows stay in the DB just hidden.
 //
 // Dry-run by default; pass ?apply=true to write.
 
 const CANONICAL_ESTORIL_SLUG = 'millennium-estoril-open-estoril';
+const ZHUHAI_YEARS_TO_HIDE = [2024, 2025, 2026];
 
 type StaleRow = {
   editionId: string;
   slug: string;
   name: string;
+  year: number;
   level: string;
   week: number | null;
   cutsCount: number;
 };
 
-async function findStaleRows(predicate: string, params: unknown[]): Promise<StaleRow[]> {
+async function findStaleRows(
+  predicate: string,
+  params: unknown[],
+  years: number[] = [2026]
+): Promise<StaleRow[]> {
   const res = await pool.query<{
     edition_id: string;
     slug: string;
     name: string;
+    year: number;
     level: string;
     week: number | null;
     cuts_count: string;
   }>(
-    `select te.id as edition_id, t.slug, t.name, te.level, te.week,
+    `select te.id as edition_id, t.slug, t.name, te.year, te.level, te.week,
             (select count(*) from cutoff_snapshots cs where cs.tournament_edition_id = te.id) as cuts_count
      from tournament_editions te
      join tournaments t on t.id = te.tournament_id
-     where te.year = 2026
+     where te.year = any($${params.length + 1}::int[])
        and te.status = 'held'
        and ${predicate}`,
-    params
+    [...params, years]
   );
   return res.rows.map((r) => ({
     editionId: r.edition_id,
     slug: r.slug,
     name: r.name,
+    year: r.year,
     level: r.level,
     week: r.week,
     cutsCount: Number(r.cuts_count),
@@ -84,7 +95,8 @@ export async function GET(request: NextRequest) {
 
   const staleZhuhai = await findStaleRows(
     `t.name ilike '%zhuhai%' or t.slug ilike '%zhuhai%'`,
-    []
+    [],
+    ZHUHAI_YEARS_TO_HIDE
   );
 
   if (!apply) {
