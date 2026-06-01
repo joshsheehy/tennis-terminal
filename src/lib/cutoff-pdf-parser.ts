@@ -246,7 +246,14 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
   const inline = parseInlineLastDirectAcceptance(lines[index]);
   if (inline) return inline;
 
-  for (let offset = 1; offset <= 12; offset += 1) {
+  // Real LDA values land within the first few rows after the label — either on
+  // the very next line, or after a single blank/punctuation row. Scanning 12
+  // rows ahead lets the parser pick up unrelated text like seed brackets or
+  // draw-position numbers when the label exists but its value is blank, which
+  // is the bug behind the spurious single-digit cuts on Tokyo 2024 and Paris
+  // 2025. Tight window (4) keeps the legitimate cases working while killing
+  // the long-range false positives.
+  for (let offset = 1; offset <= 4; offset += 1) {
     const line = lines[index + offset];
     if (!line) continue;
     if (isFooterHeading(line)) continue;

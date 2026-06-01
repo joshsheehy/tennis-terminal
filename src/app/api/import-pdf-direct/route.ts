@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff, fetchOfficialPdfDebug } from '@/lib/cutoff-pdf-parser';
+import { ANOMALY_TAG, checkRankAnomaly } from '@/lib/cutoff-anomaly';
+import { ALL_EDITIONS } from '@/lib/tournament-data';
+
+function getLevelForSlug(slug: string): string | null {
+  let bestLevel: string | null = null;
+  let bestYear = -Infinity;
+  for (const entry of ALL_EDITIONS) {
+    if (entry.tournament.slug !== slug) continue;
+    if (entry.edition.year > bestYear) {
+      bestYear = entry.edition.year;
+      bestLevel = entry.edition.level;
+    }
+  }
+  return bestLevel;
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -160,6 +175,24 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Sanity-check the parsed LDA rank against the tournament's level. A blank
+  // LDA footer can leave the parser latching onto a nearby seed bracket or
+  // draw-position number — Tokyo 2024 / Paris 2025 both produced single-digit
+  // cuts this way. When the value is below the structural minimum for the
+  // event, drop it (treat as if no rank was parsed) and tag source_notes so
+  // the rejection is visible in the response and the DB.
+  const level = getLevelForSlug(slug);
+  const anomaly = checkRankAnomaly(
+    parsed.last_direct_acceptance_rank,
+    level,
+    event as 'singles' | 'doubles',
+    draw as 'main' | 'qualifying'
+  );
+  if (anomaly) {
+    parsed.last_direct_acceptance_rank = null;
+    parsed.last_direct_acceptance_name = null;
+  }
+
   const hasRank =
     parsed.last_direct_acceptance_rank !== null ||
     parsed.challenger_doubles_advanced_cut_rank !== null ||
@@ -215,7 +248,7 @@ export async function GET(request: NextRequest) {
       parsed.last_direct_acceptance_name,
       parsed.challenger_doubles_advanced_cut_rank,
       parsed.challenger_doubles_onsite_cut_rank,
-      `Official PDF (direct import): ${url}. Raw: ${parsed.raw_last_direct_acceptance ?? 'not found'}.`,
+      `Official PDF (direct import): ${url}. Raw: ${parsed.raw_last_direct_acceptance ?? 'not found'}.${anomaly ? ` ${ANOMALY_TAG}: ${anomaly.reason}` : ''}`,
       parsed.alternate_entries_count,
       parsed.lucky_loser_count,
     ]
@@ -235,8 +268,11 @@ export async function GET(request: NextRequest) {
     hasRank,
     wrote,
     preservedExisting,
+    anomalyRejected: anomaly,
     note: preservedExisting
       ? 'Parse found no cut data; existing snapshot left untouched (not overwritten).'
+      : anomaly
+      ? `Anomalous cut rejected (${anomaly.rejectedRank} < ${anomaly.minimumExpected}). Use /api/set-cut to set the real value manually.`
       : undefined,
     last_direct_acceptance_rank: parsed.last_direct_acceptance_rank,
     last_direct_acceptance_name: parsed.last_direct_acceptance_name,

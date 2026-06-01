@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { ANOMALY_TAG, checkRankAnomaly } from '@/lib/cutoff-anomaly';
+
+function getLevelForSlug(slug: string): string | null {
+  let bestLevel: string | null = null;
+  let bestYear = -Infinity;
+  for (const entry of ALL_EDITIONS) {
+    if (entry.tournament.slug !== slug) continue;
+    if (entry.edition.year > bestYear) {
+      bestYear = entry.edition.year;
+      bestLevel = entry.edition.level;
+    }
+  }
+  return bestLevel;
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -307,7 +321,8 @@ async function upsertCutoffSnapshot(
   target: PdfImportTarget,
   editionId: string,
   parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>>,
-  importedPdfUrl: string
+  importedPdfUrl: string,
+  anomalyReason: string | null = null
 ) {
   await pool.query(
     `
@@ -373,7 +388,7 @@ async function upsertCutoffSnapshot(
       parsed.last_direct_acceptance_name,
       parsed.challenger_doubles_advanced_cut_rank,
       parsed.challenger_doubles_onsite_cut_rank,
-      `Official PDF: ${importedPdfUrl}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}. Historical edition row may be generated from current calendar metadata when no exact historical calendar row exists yet.`,
+      `Official PDF: ${importedPdfUrl}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}. Historical edition row may be generated from current calendar metadata when no exact historical calendar row exists yet.${anomalyReason ? ` ${ANOMALY_TAG}: ${anomalyReason}` : ''}`,
       parsed.alternate_entries_count,
       parsed.lucky_loser_count,
     ]
@@ -493,7 +508,22 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      await upsertCutoffSnapshot(target, editionId, parsed, importedPdfUrl);
+      // Reject impossibly-low parses before they overwrite anything. Tokyo
+      // 2024 / Paris 2025 had blank LDA footers that the parser was filling
+      // with seed-number digits — those now get blocked here.
+      const level = getLevelForSlug(target.slug);
+      const anomaly = checkRankAnomaly(
+        parsed.last_direct_acceptance_rank,
+        level,
+        target.event_type,
+        target.draw_type
+      );
+      if (anomaly) {
+        parsed.last_direct_acceptance_rank = null;
+        parsed.last_direct_acceptance_name = null;
+      }
+
+      await upsertCutoffSnapshot(target, editionId, parsed, importedPdfUrl, anomaly?.reason ?? null);
 
       const importedItem = {
         slug: target.slug,
