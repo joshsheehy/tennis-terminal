@@ -431,10 +431,11 @@ export const ALL_EDITIONS: TournamentEdition[] = [
 
   // ─── WEEK 42 (Oct 19) ────────────────────────────────────────────────────────
   tourEvent('Almaty Open', 'Almaty', 'Kazakhstan', 2026, 42, '2026-10-19', null, 'ATP 250', 'Indoor Hard', true, '9410', false),
-  // European Open moved from Antwerp to Brussels; keep the canonical slug so
-  // historical editions stay on the same tournament page URL.
+  // European Open moved from Antwerp to Brussels for 2025+. Slug reflects the
+  // current host city so the tournament URL doesn't read "antwerp" on a page
+  // that's been in Brussels for two seasons.
   {
-    tournament: { slug: 'european-open-antwerp', name: 'BNP Paribas Fortis European Open', city: 'Brussels', country: 'Belgium' },
+    tournament: { slug: 'european-open-brussels', name: 'BNP Paribas Fortis European Open', city: 'Brussels', country: 'Belgium' },
     edition: {
       year: 2026, week: 42, start_date: '2026-10-19', end_date: null,
       level: 'ATP 250', surface: 'Indoor Hard', indoor: true,
@@ -538,11 +539,12 @@ export const ALL_EDITIONS: TournamentEdition[] = [
     },
   },
 
-  // BNP Paribas Fortis European Open Brussels 2025 — same tournament as european-open-antwerp;
-  // the venue moved from Antwerp (2022–) to Brussels (2023–). PDFs don't carry a
-  // LAST DIRECT ACCEPTANCE line; cuts are set manually via set-cut.
+  // BNP Paribas Fortis European Open Brussels 2025 — same tournament as the
+  // european-open-brussels entry above; the venue moved from Antwerp (2022–)
+  // to Brussels (2023–). PDFs don't carry a LAST DIRECT ACCEPTANCE line; cuts
+  // are set manually via set-cut.
   {
-    tournament: { slug: 'european-open-antwerp', name: 'BNP Paribas Fortis European Open', city: 'Brussels', country: 'Belgium' },
+    tournament: { slug: 'european-open-brussels', name: 'BNP Paribas Fortis European Open', city: 'Brussels', country: 'Belgium' },
     edition: {
       year: 2025,
       week: 42,
