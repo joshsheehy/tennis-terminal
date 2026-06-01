@@ -3,6 +3,37 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTournamentDetailRowsBySlug } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
+import { ALL_EDITIONS } from '@/lib/tournament-data';
+
+// Look up the most recent protennislive_code we know for a slug, so the
+// CutoffTable can render a "PDF source" link even when no cuts snapshot
+// exists yet (or the PDF doesn't carry a LAST DIRECT ACCEPTANCE line).
+function getProtennislivCodeForSlug(slug: string): string | null {
+  let bestCode: string | null = null;
+  let bestYear = -Infinity;
+  for (const entry of ALL_EDITIONS) {
+    if (entry.tournament.slug !== slug) continue;
+    if (!entry.edition.protennislive_code) continue;
+    if (entry.edition.year > bestYear) {
+      bestYear = entry.edition.year;
+      bestCode = entry.edition.protennislive_code;
+    }
+  }
+  return bestCode;
+}
+
+function fallbackPdfUrl(
+  code: string,
+  year: number,
+  event: 'singles' | 'doubles',
+  draw: 'main' | 'qualifying'
+): string {
+  const base = `https://www.protennislive.com/posting/${year}/${code}`;
+  if (event === 'singles' && draw === 'main') return `${base}/mds.pdf`;
+  if (event === 'singles' && draw === 'qualifying') return `${base}/qs.pdf`;
+  if (event === 'doubles' && draw === 'main') return `${base}/mdd.pdf`;
+  return `${base}/qdd.pdf`;
+}
 
 function formatDate(dateString: string | null) {
   if (!dateString) return 'NA';
@@ -110,7 +141,18 @@ function drawLabel(draw: DrawKey): string {
   }
 }
 
-function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: string }) {
+function CutoffTable({
+  cutoffs,
+  level,
+  slug,
+  year,
+}: {
+  cutoffs: CutoffSnapshot[];
+  level: string;
+  slug: string;
+  year: number;
+}) {
+  const ptlCode = getProtennislivCodeForSlug(slug);
   if (isInvitationOnlyLevel(level)) {
     return (
       <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
@@ -135,7 +177,15 @@ function CutoffTable({ cutoffs, level }: { cutoffs: CutoffSnapshot[]; level: str
         const [eventType, drawType] = draw.split('_') as ['singles' | 'doubles', 'main' | 'qualifying'];
         const cutoff = findCutoff(cutoffs, eventType, drawType);
         const tombstoned = cutoff ? isTombstone(cutoff) : false;
-        const href = cutoff ? sourceHref(cutoff) : null;
+        // Prefer the URL embedded in source_notes by the importer / set-cut.
+        // If the row was never created (cuts not yet imported, no PDF found)
+        // or its source_notes lacks a URL, fall back to the canonical
+        // ProTennisLive draw-sheet URL derived from the tournament's
+        // protennislive_code — viewers can still open the official draw even
+        // when we don't have a cut number yet.
+        const snapshotHref = cutoff ? sourceHref(cutoff) : null;
+        const href = snapshotHref
+          ?? (ptlCode && !tombstoned ? fallbackPdfUrl(ptlCode, year, eventType, drawType) : null);
         const hasRank =
           cutoff !== null &&
           (cutoff.last_direct_acceptance_rank !== null ||
@@ -283,7 +333,12 @@ export default async function TournamentDetailPage({
                   Tournament has not started yet.
                 </div>
               ) : (
-                <CutoffTable cutoffs={row.cutoffs} level={row.edition.level} />
+                <CutoffTable
+                  cutoffs={row.cutoffs}
+                  level={row.edition.level}
+                  slug={row.edition.slug}
+                  year={row.edition.year}
+                />
               )}
             </div>
           </div>
