@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { ALL_EDITIONS } from '@/lib/tournament-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,35 @@ function parseCuts(raw: string): { cuts: ParsedCut[]; error: string | null } {
     cuts.push({ event_type: event, draw_type: draw, rank });
   }
   return { cuts, error: null };
+}
+
+// Build the canonical ProTennisLive draw-sheet URL for a given (slug, year,
+// event, draw). Used so manual cuts still carry a "PDF source" link on the
+// tournament page — the page's sourceHref() regex extracts the first
+// https://...pdf it finds inside source_notes.
+function getPtlCodeForSlug(slug: string): string | null {
+  let bestCode: string | null = null;
+  let bestYear = -Infinity;
+  for (const entry of ALL_EDITIONS) {
+    if (entry.tournament.slug !== slug) continue;
+    if (!entry.edition.protennislive_code) continue;
+    if (entry.edition.year > bestYear) {
+      bestYear = entry.edition.year;
+      bestCode = entry.edition.protennislive_code;
+    }
+  }
+  return bestCode;
+}
+
+function ptlPdfUrlFor(code: string, year: number, event: 'singles' | 'doubles', draw: 'main' | 'qualifying'): string {
+  const base = `https://www.protennislive.com/posting/${year}/${code}`;
+  // The most common PTL filename convention. Some tournaments use variants
+  // (md/ms/ad/dd) but mds/qs/mdd/qdd cover the overwhelming majority — that's
+  // enough for "PDF source" to land the viewer on the right draw sheet.
+  if (event === 'singles' && draw === 'main') return `${base}/mds.pdf`;
+  if (event === 'singles' && draw === 'qualifying') return `${base}/qs.pdf`;
+  if (event === 'doubles' && draw === 'main') return `${base}/mdd.pdf`;
+  return `${base}/qdd.pdf`;
 }
 
 export async function GET(request: NextRequest) {
@@ -108,7 +138,14 @@ export async function GET(request: NextRequest) {
     );
 
     const existed = before.rows.length > 0;
-    const sourceNotes = notes || `Manual cut set via set-cut: ${cut.event_type} ${cut.draw_type} = ${cut.rank}.`;
+    const ptlCode = getPtlCodeForSlug(slug);
+    const pdfUrl = ptlCode ? ptlPdfUrlFor(ptlCode, year, cut.event_type, cut.draw_type) : null;
+    const baseNotes = notes || `Manual cut set via set-cut: ${cut.event_type} ${cut.draw_type} = ${cut.rank}.`;
+    // Append the draw-sheet URL so the tournament page's "PDF source" link
+    // keeps working after a manual override (sourceHref greps source_notes
+    // for an https://...pdf URL). If we couldn't resolve a PTL code from
+    // tournament-data.ts, source_notes is just baseNotes — no link rendered.
+    const sourceNotes = pdfUrl ? `${baseNotes} | Draw sheet: ${pdfUrl}` : baseNotes;
 
     if (apply) {
       if (existed) {
