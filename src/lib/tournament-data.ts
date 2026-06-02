@@ -539,6 +539,29 @@ export const ALL_EDITIONS: TournamentEdition[] = [
     },
   },
 
+  // Dallas Open was an ATP 250 in 2022/2023/2024 (32-player Indoor Hard, replacing
+  // the New York Open) and was promoted to ATP 500 starting in 2025. The 2026 entry
+  // above stores ATP 500; this historical row carries the correct 2024 level so the
+  // tournament page doesn't backfill 2024 with the new ATP 500 metadata. Same PTL
+  // code (424) across all years.
+  {
+    tournament: { slug: makeSlug('Dallas Open', 'Dallas'), name: 'Dallas Open', city: 'Dallas', country: 'United States' },
+    edition: {
+      year: 2024,
+      week: 6,
+      start_date: '2024-02-05',
+      end_date: '2024-02-11',
+      level: 'ATP 250',
+      surface: 'Indoor Hard',
+      indoor: true,
+      source: 'atp_tour_pdf',
+      source_url: 'https://www.protennislive.com/posting/2024/424/',
+      status: 'held',
+      protennislive_code: '424',
+      has_doubles_qualifying: false,
+    },
+  },
+
   // BNP Paribas Fortis European Open Brussels 2025 — same tournament as the
   // european-open-brussels entry above; the venue moved from Antwerp (2022–)
   // to Brussels (2023–). PDFs don't carry a LAST DIRECT ACCEPTANCE line; cuts
