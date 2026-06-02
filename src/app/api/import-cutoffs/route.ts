@@ -368,14 +368,42 @@ async function upsertCutoffSnapshot(
     )
     on conflict (tournament_edition_id, event_type, draw_type)
     do update set
-      source_type = excluded.source_type,
-      last_direct_acceptance_rank = excluded.last_direct_acceptance_rank,
-      last_direct_acceptance_player_name = excluded.last_direct_acceptance_player_name,
-      challenger_doubles_advanced_cut_rank = excluded.challenger_doubles_advanced_cut_rank,
-      challenger_doubles_onsite_cut_rank = excluded.challenger_doubles_onsite_cut_rank,
+      -- When the fresh parse has no rank (blank LDA footer) or the rank was
+      -- rejected as anomalous, preserve the existing cut + source_notes
+      -- (likely a manual /api/set-cut value) and only refresh ALT/LL +
+      -- parser metadata. Otherwise do the full destructive upsert.
+      source_type = case when excluded.last_direct_acceptance_rank is null
+                         and excluded.challenger_doubles_advanced_cut_rank is null
+                         and excluded.challenger_doubles_onsite_cut_rank is null
+                         then cutoff_snapshots.source_type
+                         else excluded.source_type end,
+      last_direct_acceptance_rank = case when excluded.last_direct_acceptance_rank is null
+                         and excluded.challenger_doubles_advanced_cut_rank is null
+                         and excluded.challenger_doubles_onsite_cut_rank is null
+                         then cutoff_snapshots.last_direct_acceptance_rank
+                         else excluded.last_direct_acceptance_rank end,
+      last_direct_acceptance_player_name = case when excluded.last_direct_acceptance_rank is null
+                         and excluded.challenger_doubles_advanced_cut_rank is null
+                         and excluded.challenger_doubles_onsite_cut_rank is null
+                         then cutoff_snapshots.last_direct_acceptance_player_name
+                         else excluded.last_direct_acceptance_player_name end,
+      challenger_doubles_advanced_cut_rank = case when excluded.last_direct_acceptance_rank is null
+                         and excluded.challenger_doubles_advanced_cut_rank is null
+                         and excluded.challenger_doubles_onsite_cut_rank is null
+                         then cutoff_snapshots.challenger_doubles_advanced_cut_rank
+                         else excluded.challenger_doubles_advanced_cut_rank end,
+      challenger_doubles_onsite_cut_rank = case when excluded.last_direct_acceptance_rank is null
+                         and excluded.challenger_doubles_advanced_cut_rank is null
+                         and excluded.challenger_doubles_onsite_cut_rank is null
+                         then cutoff_snapshots.challenger_doubles_onsite_cut_rank
+                         else excluded.challenger_doubles_onsite_cut_rank end,
+      source_notes = case when excluded.last_direct_acceptance_rank is null
+                         and excluded.challenger_doubles_advanced_cut_rank is null
+                         and excluded.challenger_doubles_onsite_cut_rank is null
+                         then cutoff_snapshots.source_notes
+                         else excluded.source_notes end,
       parsed_at = excluded.parsed_at,
       parser_version = excluded.parser_version,
-      source_notes = excluded.source_notes,
       alternate_entries_count = excluded.alternate_entries_count,
       lucky_loser_count = excluded.lucky_loser_count,
       updated_at = now()
@@ -480,16 +508,25 @@ export async function GET(request: NextRequest) {
       for (const pdfUrl of target.pdf_url_candidates) {
         try {
           const attempt = await fetchAndParseOfficialPdfCutoff(pdfUrl, archiveFirst);
-          // Skip results-sheet PDFs served at entry-list URLs that parse
-          // successfully but contain no rank data.
           const hasRank =
             attempt.last_direct_acceptance_rank !== null ||
             attempt.challenger_doubles_advanced_cut_rank !== null ||
             attempt.challenger_doubles_onsite_cut_rank !== null;
-          if (!hasRank) continue;
+          const hasAltLl =
+            attempt.alternate_entries_count > 0 || attempt.lucky_loser_count > 0;
+          // A PDF with no rank AND no alternates section is almost certainly
+          // the wrong file (results sheet served at an entry-list URL, blank
+          // template, etc.) — keep trying. Otherwise we accept the parse:
+          //   - rank present → standard upsert downstream
+          //   - rank absent but alternates parsed → refresh ALT/LL while the
+          //     existing manual cut stays preserved by the conditional
+          //     conflict clause
+          if (!hasRank && !hasAltLl) continue;
           parsed = attempt;
           importedPdfUrl = pdfUrl;
-          break;
+          if (hasRank) break;
+          // No rank but ALT/LL data — keep trying URLs in case a later
+          // candidate actually has the LDA footer too.
         } catch {
           // try next candidate URL
         }

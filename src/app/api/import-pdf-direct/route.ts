@@ -206,11 +206,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // When the parse found no cut data (flaky fetch, wrong/blank PDF served at a
-  // historical path, etc.) we must NOT clobber a previously-good row. Overwriting
-  // a real cut with nulls is never desirable — a re-import should only ever refine
-  // data. So a no-rank parse uses ON CONFLICT DO NOTHING (preserve existing); a
-  // successful parse uses the full destructive upsert.
+  // Conflict policy on re-import:
+  //   - Valid parsed rank → full destructive upsert (overwrites prior cut +
+  //     source_notes + ALT/LL with the fresh parse).
+  //   - No rank / anomaly rejected → preserve the existing cut and source_notes
+  //     (so a manual /api/set-cut value isn't clobbered), but STILL refresh the
+  //     ALT/LL counts and parser metadata. Alternates and lucky losers live in
+  //     a separate part of the PDF from the LDA box, so a blank-LDA footer
+  //     doesn't invalidate them — re-imports should always pick them up.
   const conflictClause = hasRank
     ? `do update set
          source_type = excluded.source_type,
@@ -224,7 +227,12 @@ export async function GET(request: NextRequest) {
          alternate_entries_count = excluded.alternate_entries_count,
          lucky_loser_count = excluded.lucky_loser_count,
          updated_at = now()`
-    : `do nothing`;
+    : `do update set
+         parsed_at = excluded.parsed_at,
+         parser_version = excluded.parser_version,
+         alternate_entries_count = excluded.alternate_entries_count,
+         lucky_loser_count = excluded.lucky_loser_count,
+         updated_at = now()`;
 
   const writeResult = await pool.query(
     `insert into cutoff_snapshots (
