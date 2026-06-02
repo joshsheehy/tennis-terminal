@@ -87,7 +87,13 @@ export async function GET(request: NextRequest) {
   const { cuts, error } = parseCuts(cutsRaw);
   if (error) return NextResponse.json({ ok: false, error }, { status: 400 });
 
-  const editionResult = await pool.query<{ id: string; name: string; city: string }>(
+  // Look up the existing (slug, year) edition. If none exists yet — common
+  // for historical years where we only have the canonical 2026 entry in
+  // tournament-data.ts — clone the most recent edition for the same slug
+  // as a template. Same pattern import-pdf-direct uses. ALT/LL counts on
+  // the new row start at 0 (manual cut, no PDF parsed). Year-shifting the
+  // start_date keeps the schedule grouping/week math correct.
+  let editionResult = await pool.query<{ id: string; name: string; city: string }>(
     `select te.id, t.name, t.city
      from tournament_editions te
      join tournaments t on t.id = te.tournament_id
@@ -95,6 +101,67 @@ export async function GET(request: NextRequest) {
      limit 1`,
     [slug, year]
   );
+
+  let createdFromTemplate = false;
+  if (!editionResult.rows[0]) {
+    const template = await pool.query<{
+      tournament_id: string;
+      name: string;
+      city: string;
+      week: number | null;
+      start_date: string | Date | null;
+      end_date: string | Date | null;
+      level: string;
+      surface: string;
+      indoor: boolean | null;
+      source: string;
+      source_url: string | null;
+    }>(
+      `select te.tournament_id, t.name, t.city, te.week,
+              te.start_date, te.end_date,
+              te.level, te.surface, te.indoor, te.source, te.source_url
+       from tournament_editions te
+       join tournaments t on t.id = te.tournament_id
+       where t.slug = $1 and te.status = 'held'
+       order by te.year desc
+       limit 1`,
+      [slug]
+    );
+    const tmpl = template.rows[0];
+    if (tmpl) {
+      const shiftDate = (raw: string | Date | null): string | null => {
+        if (!raw) return null;
+        const iso = raw instanceof Date
+          ? `${raw.getUTCFullYear()}-${String(raw.getUTCMonth() + 1).padStart(2, '0')}-${String(raw.getUTCDate()).padStart(2, '0')}`
+          : String(raw);
+        const parts = iso.split('-').map(Number);
+        if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+        const [, month, day] = parts;
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      };
+      const created = await pool.query<{ id: string }>(
+        `insert into tournament_editions (
+           tournament_id, year, week, start_date, end_date,
+           level, surface, indoor, source, source_url, status, updated_at
+         ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'held', now())
+         on conflict (tournament_id, year) do update set updated_at = now()
+         returning id`,
+        [
+          tmpl.tournament_id, year, tmpl.week,
+          shiftDate(tmpl.start_date), shiftDate(tmpl.end_date),
+          tmpl.level, tmpl.surface, tmpl.indoor, tmpl.source, tmpl.source_url,
+        ]
+      );
+      const newId = created.rows[0]?.id;
+      if (newId) {
+        editionResult = {
+          ...editionResult,
+          rows: [{ id: newId, name: tmpl.name, city: tmpl.city }],
+        };
+        createdFromTemplate = true;
+      }
+    }
+  }
 
   if (!editionResult.rows[0]) {
     // Help the operator find the right slug: surface same-year editions that
@@ -113,7 +180,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: `No ${year} edition found for slug "${slug}".`,
+        error: `No ${year} edition found for slug "${slug}" and no template available to create one from.`,
         didYouMean: suggestions.rows,
       },
       { status: 404 }
@@ -190,6 +257,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     apply,
+    createdHistoricalEdition: createdFromTemplate,
     slug,
     year,
     tournament: editionResult.rows[0].name,
