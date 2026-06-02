@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { DISCONTINUED_TOURNAMENTS } from '@/lib/discontinued-tournaments';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -109,6 +110,39 @@ export async function GET() {
     [canonicalSlugs2026]
   );
 
+  // Enforce the discontinued-tournaments registry on every sync. Any held
+  // edition matching a pattern in a year > finalYear (e.g. Zhuhai 2024+)
+  // gets marked not_held — applies to every year, not just 2026, so future
+  // years stay clean automatically. Rows with cuts attached are NOT skipped
+  // here: a discontinued tournament can't have legitimate new cuts, so any
+  // cuts on a stale row are themselves orphaned.
+  const discontinuedResults: Array<{
+    pattern: string;
+    finalYear: number;
+    hiddenCount: number;
+    hiddenRows: Array<{ slug: string; year: number; level: string }>;
+  }> = [];
+  for (const rule of DISCONTINUED_TOURNAMENTS) {
+    const result = await pool.query<{ slug: string; year: number; level: string }>(
+      `update tournament_editions te
+       set status = 'not_held',
+           updated_at = now()
+       from tournaments t
+       where te.tournament_id = t.id
+         and te.status = 'held'
+         and te.year > $1
+         and (t.slug ilike $2 or t.name ilike $2)
+       returning t.slug, te.year, te.level`,
+      [rule.finalYear, `%${rule.pattern}%`]
+    );
+    discontinuedResults.push({
+      pattern: rule.pattern,
+      finalYear: rule.finalYear,
+      hiddenCount: result.rowCount ?? 0,
+      hiddenRows: result.rows,
+    });
+  }
+
   return NextResponse.json({
     ok: failed.length === 0,
     syncedCount: synced.length,
@@ -117,6 +151,7 @@ export async function GET() {
     weeksRecomputedFor2025: weekFixResults[1].rowCount ?? 0,
     staleHiddenCount: staleResult.rowCount ?? 0,
     staleHidden: staleResult.rows,
+    discontinuedSweeps: discontinuedResults,
     failed,
   });
 }
