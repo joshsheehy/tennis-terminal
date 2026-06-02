@@ -3,8 +3,19 @@ import './globals.css';
 import ThemeToggle from '@/components/ThemeToggle';
 
 export const metadata: Metadata = {
-  title: 'Tennis Terminal',
+  title: 'Tennis Cuts',
   description: 'Tournament schedule and entry intel for pro tennis players.',
+  openGraph: {
+    title: 'Tennis Cuts',
+    siteName: 'Tennis Cuts',
+    description: 'Tournament schedule and entry intel for pro tennis players.',
+    url: 'https://tenniscuts.com',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Tennis Cuts',
+    description: 'Tournament schedule and entry intel for pro tennis players.',
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
