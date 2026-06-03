@@ -312,7 +312,10 @@ export const ALL_EDITIONS: TournamentEdition[] = [
 
   // ─── WEEK 25 (Jun 22) ────────────────────────────────────────────────────────
   challengerEvent('Târgu Mureș', 'Târgu Mureș', 'Romania', 2026, 25, '2026-06-22', null, 'Challenger 75', 'Clay', false, '3021', false),
-  challengerEvent('Durham, NC', 'Durham', 'United States', 2026, 25, '2026-06-22', null, 'Challenger 50', 'Hard', false, null, false),
+  // Durham, NC dropped from the 2026 Challenger calendar (event cancelled).
+  // Removed from canonical; sync-canonical's stale-row sweep marks the prior
+  // 2026 Durham row not_held on the next sync so it disappears from the
+  // schedule. Re-add here if it returns in 2027+.
   challengerEvent('Piracicaba', 'Piracicaba', 'Brazil', 2026, 25, '2026-06-22', null, 'Challenger 50', 'Clay', false, '2835', false),
 
   // ─── WEEK 26 (Jun 29) ────────────────────────────────────────────────────────
