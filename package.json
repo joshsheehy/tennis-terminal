@@ -15,7 +15,7 @@
     "import:cutoffs": "tsx src/scripts/run-cutoff-import.ts"
   },
   "dependencies": {
-    "next": "15.3.8",
+    "next": "^15.5.19",
     "pdf-parse": "^1.1.1",
     "pg": "^8.12.0",
     "react": "^19.0.0",
@@ -30,12 +30,18 @@
     "@types/pg": "^8.11.10",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^6.0.2",
     "eslint": "^9.17.0",
-    "eslint-config-next": "15.3.8",
+    "eslint-config-next": "^15.5.19",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4.1.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.9"
+    "vitest": "^4.1.8"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.10"
+    }
   }
 }
