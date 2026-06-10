@@ -30,6 +30,25 @@ npm run dev
 - App + Postgres on Railway. Set `DATABASE_URL` and `APP_URL` (your Railway URL) as GitHub Actions secrets so the sync workflows can call back into the deployed API.
 - Run the SQL in `sql/schema.sql` once on the database.
 
+### API authentication
+
+Every `/api/*` route except `/api/status` requires an admin secret (they can
+all read or mutate the production database). Setup:
+
+1. Generate a long random value (e.g. `openssl rand -hex 32`).
+2. Set it as the `ADMIN_SECRET` environment variable on Railway.
+3. Set the same value as the `ADMIN_SECRET` GitHub Actions secret so the sync
+   workflows keep working.
+
+Authenticate calls any of three ways:
+
+- `X-Admin-Secret: <secret>` header (used by the workflows)
+- `Authorization: Bearer <secret>` header (for cron schedulers)
+- `?key=<secret>` query parameter (for manual calls from a browser)
+
+Until `ADMIN_SECRET` (or legacy `CRON_SECRET`) is set in production, admin
+routes return 503 — the API fails closed. Local `next dev` skips the check.
+
 ## Sync workflows
 
 - `data-sync.yml` – daily 08:15 UTC. Pulls calendars, dedupes, refills cuts.

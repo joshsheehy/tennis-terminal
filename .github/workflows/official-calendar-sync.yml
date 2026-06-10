@@ -14,11 +14,17 @@ jobs:
       - name: Import official ATP calendar updates
         env:
           APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
         run: |
           set -euo pipefail
 
           if [ -z "${APP_URL:-}" ]; then
             echo "Missing APP_URL repository secret. Set it to the production Railway URL, for example https://tennis-terminal-production.up.railway.app"
+            exit 1
+          fi
+
+          if [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "Missing ADMIN_SECRET repository secret. Set it to the same value as the ADMIN_SECRET environment variable on Railway."
             exit 1
           fi
 
@@ -45,6 +51,7 @@ jobs:
                       headers={
                           'Accept': 'application/json',
                           'User-Agent': 'TennisTerminalOfficialCalendarSync/1.0',
+                          'X-Admin-Secret': os.environ['ADMIN_SECRET'],
                       },
                   )
                   try:

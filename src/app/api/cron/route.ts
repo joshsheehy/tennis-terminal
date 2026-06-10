@@ -4,9 +4,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 async function fetchJson(url: string) {
+  // Forward the admin secret: the called routes sit behind the auth middleware.
+  const secret = process.env.ADMIN_SECRET ?? process.env.CRON_SECRET ?? '';
   const response = await fetch(url, {
     method: 'GET',
-    headers: { accept: 'application/json', 'user-agent': 'TennisTerminalCron/1.0' },
+    headers: {
+      accept: 'application/json',
+      'user-agent': 'TennisTerminalCron/1.0',
+      'x-admin-secret': secret,
+    },
     cache: 'no-store',
   });
   const text = await response.text();
@@ -15,15 +21,8 @@ async function fetchJson(url: string) {
   return { ok: response.ok, status: response.status, json };
 }
 
+// Caller authentication happens in src/middleware.ts like every other admin route.
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = request.headers.get('authorization');
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-    }
-  }
-
   const baseUrl = request.nextUrl.origin;
   const year = new Date().getFullYear();
 
