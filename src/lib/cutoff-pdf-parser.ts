@@ -447,9 +447,10 @@ async function fetchPdfBufferWithFallback(pdfUrl: string, archiveFirst: boolean)
 }
 
 function getPdfParse(): PdfParseFunction {
-  // pdf-parse has no bundled TypeScript types in this project.
-  // Using require here avoids adding another dependency just for this parser.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // Deliberate lazy require: importing pdf-parse at module top level triggers
+  // its debug-mode self-test under bundlers (module.parent is unset), which
+  // crashes with ENOENT on its test fixture.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require('pdf-parse') as PdfParseFunction;
 }
 

@@ -62,15 +62,6 @@ function normalize(value: string) {
     .trim();
 }
 
-function getAliases(value: string) {
-  const normalized = normalize(value);
-  const aliases = new Set<string>([normalized]);
-  normalized.split(' ').forEach((token) => {
-    if (token.length >= 4) aliases.add(token);
-  });
-  return Array.from(aliases);
-}
-
 const GENERIC_ALIAS_TOKENS = new Set([
   'challenger',
   'open',
@@ -228,7 +219,8 @@ async function fetchPdfText(url: string) {
 
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // Deliberate lazy require: top-level pdf-parse imports crash under bundlers.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pdfParse = require('pdf-parse') as PdfParseFunction;
     const parsed = await pdfParse(buffer);
 

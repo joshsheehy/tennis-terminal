@@ -184,7 +184,8 @@ function rebuildLinesFromPositionedItems(items: PositionedText[]) {
 async function extractPdfParseLines(buffer: Buffer): Promise<string[]> {
   // This works for normal text PDFs. It returns zero lines for some ATP calendar
   // PDFs, so the endpoint falls back to Reader below.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // Deliberate lazy require: top-level pdf-parse imports crash under bundlers.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const pdfParse = require('pdf-parse') as (
     b: Buffer,
     options?: { pagerender?: (pageData: PdfPageLike) => Promise<string> }
