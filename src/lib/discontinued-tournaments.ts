@@ -4,9 +4,8 @@
 // JeffSackmann backfill that carried the slug forward into post-discontinuation
 // years.
 //
-// Add new rows here when a tournament drops off the calendar. The sweep is
-// run by sync-canonical and exposed standalone via
-// /api/cleanup-2026-stale-atp, so any year > finalYear gets marked
+// Add new rows here when a tournament drops off the calendar. The sweep runs
+// inside /api/sync-canonical, so any year > finalYear gets marked
 // status='not_held' on the next sync — cuts attached to those rows stay in
 // the DB but the rows disappear from the schedule.
 //
