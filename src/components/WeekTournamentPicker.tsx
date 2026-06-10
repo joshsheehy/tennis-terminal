@@ -346,6 +346,22 @@ export default function WeekTournamentPicker({
     applyFilter(inputRef.current?.value ?? '');
   }, [applyFilter]);
 
+  // Open every currently-visible week. If everything visible is already open,
+  // collapse them all instead — same button toggles direction so it doesn't
+  // crowd the filter row with two pills. "Visible" means not hidden by an
+  // active chip filter; filtered-out weeks keep whatever open state they had.
+  const [allExpanded, setAllExpanded] = useState(false);
+  const handleExpandToggle = useCallback(() => {
+    vibrate();
+    const allDetails = weekRef.current?.querySelectorAll<HTMLDetailsElement>('details[data-week-key]');
+    if (!allDetails || allDetails.length === 0) return;
+    const visible = Array.from(allDetails).filter((d) => d.style.display !== 'none');
+    if (visible.length === 0) return;
+    const anyClosed = visible.some((d) => !d.open);
+    for (const d of visible) d.open = anyClosed;
+    setAllExpanded(anyClosed);
+  }, []);
+
   const chipStyle = (active: boolean): React.CSSProperties => ({
     padding: '6px 14px',
     borderRadius: 20,
@@ -411,8 +427,8 @@ export default function WeekTournamentPicker({
         </button>
       </div>
 
-      {/* Filter chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {/* Filter chips + expand-all pill */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
         {surfaces.map(surface => (
           <button key={surface} onClick={() => toggleSurface(surface)} style={chipStyle(chipSurfaces.has(surface))}>
             {surface}
@@ -423,6 +439,23 @@ export default function WeekTournamentPicker({
             {level}
           </button>
         ))}
+        {/* Spacer pushes the expand toggle to the right on wide screens; on
+            mobile it just wraps onto the next line with the other pills. */}
+        <span style={{ flex: 1, minWidth: 0 }} />
+        <button
+          type="button"
+          onClick={handleExpandToggle}
+          aria-label={allExpanded ? 'Collapse all weeks' : 'Expand all weeks'}
+          style={{
+            ...chipStyle(allExpanded),
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: 11, lineHeight: 1 }}>{allExpanded ? '▲' : '▼'}</span>
+          {allExpanded ? 'Collapse all' : 'Expand all'}
+        </button>
       </div>
 
       {/* Match count */}
