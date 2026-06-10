@@ -350,7 +350,13 @@ export default function WeekTournamentPicker({
   // collapse them all instead — same button toggles direction so it doesn't
   // crowd the filter row with two pills. "Visible" means not hidden by an
   // active chip filter; filtered-out weeks keep whatever open state they had.
+  //
+  // The toggle event on <details> is dispatched asynchronously, so a flag
+  // that flips back synchronously after the loop is racy. A short-lived
+  // timestamp window is reliable: any onToggle that fires while the window
+  // is open is treated as part of the bulk op and skips its side effects.
   const [allExpanded, setAllExpanded] = useState(false);
+  const bulkToggleUntilRef = useRef(0);
   const handleExpandToggle = useCallback(() => {
     vibrate();
     const allDetails = weekRef.current?.querySelectorAll<HTMLDetailsElement>('details[data-week-key]');
@@ -358,6 +364,11 @@ export default function WeekTournamentPicker({
     const visible = Array.from(allDetails).filter((d) => d.style.display !== 'none');
     if (visible.length === 0) return;
     const anyClosed = visible.some((d) => !d.open);
+    // Suppress per-week onToggle side effects for a tick — keeps us under
+    // the browser's history.replaceState rate limit (~100 calls / 10s in
+    // Safari/Chrome, which 40+ weeks × a few clicks blows past, crashing
+    // the page with a SecurityError).
+    bulkToggleUntilRef.current = Date.now() + 1000;
     for (const d of visible) d.open = anyClosed;
     setAllExpanded(anyClosed);
   }, []);
@@ -524,10 +535,19 @@ export default function WeekTournamentPicker({
             data-week-key={group.key}
             onToggle={(e) => {
               if (!e.currentTarget.open) return;
-              sessionStorage.setItem('openWeek', group.key);
-              const params = new URLSearchParams(window.location.search);
-              params.set('week', group.key);
-              history.replaceState(null, '', `?${params.toString()}`);
+              // Skip side effects when a bulk expand/collapse is in flight;
+              // 40+ history.replaceState calls in one tick blow past the
+              // Safari/Chrome rate limit and crash the page.
+              if (Date.now() < bulkToggleUntilRef.current) return;
+              try {
+                sessionStorage.setItem('openWeek', group.key);
+                const params = new URLSearchParams(window.location.search);
+                params.set('week', group.key);
+                history.replaceState(null, '', `?${params.toString()}`);
+              } catch {
+                // Browser threw (rate-limit, storage quota, etc.). Losing
+                // the open-week persistence is fine — never crash the tree.
+              }
             }}
             style={{
               border: '1px solid var(--border)',
