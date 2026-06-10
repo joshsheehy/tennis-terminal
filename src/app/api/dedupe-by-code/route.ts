@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, withTransaction } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 
 export const runtime = 'nodejs';
@@ -151,13 +151,12 @@ async function mergeGroup(group: CodeGroup) {
   let upgradedWinnerMetadata = 0;
 
   for (const ghost of ghosts) {
-    await pool.query('BEGIN');
-    try {
-      const ghostEditions = await pool.query<{ id: string; year: number }>(
+    await withTransaction(async (client) => {
+      const ghostEditions = await client.query<{ id: string; year: number }>(
         'select id, year from tournament_editions where tournament_id = $1',
         [ghost.id]
       );
-      const winnerYears = await pool.query<{ year: number; id: string }>(
+      const winnerYears = await client.query<{ year: number; id: string }>(
         'select id, year from tournament_editions where tournament_id = $1',
         [winner.id]
       );
@@ -169,7 +168,7 @@ async function mergeGroup(group: CodeGroup) {
           // If one duplicate has exact Challenger level metadata and the other
           // has older generic "Challenger" metadata, preserve the exact row's
           // level/date/surface on the surviving edition before deleting it.
-          const metadataResult = await pool.query(
+          const metadataResult = await client.query(
             `update tournament_editions winner
              set
                week = case
@@ -208,7 +207,7 @@ async function mergeGroup(group: CodeGroup) {
 
           // Move cutoff_snapshots; on conflict prefer existing winner row if
           // its rank is filled, else replace with ghost's row.
-          await pool.query(
+          await client.query(
             `insert into cutoff_snapshots (
                tournament_edition_id, event_type, draw_type, source_type,
                last_direct_acceptance_rank, last_direct_acceptance_player_name,
@@ -236,11 +235,11 @@ async function mergeGroup(group: CodeGroup) {
             [ed.id, winnerEditionId]
           );
           mergedSnapshots += 1;
-          await pool.query('delete from cutoff_snapshots where tournament_edition_id = $1', [ed.id]);
-          await pool.query('delete from tournament_editions where id = $1', [ed.id]);
+          await client.query('delete from cutoff_snapshots where tournament_edition_id = $1', [ed.id]);
+          await client.query('delete from tournament_editions where id = $1', [ed.id]);
           deletedGhostEditions += 1;
         } else {
-          await pool.query(
+          await client.query(
             'update tournament_editions set tournament_id = $1, updated_at = now() where id = $2',
             [winner.id, ed.id]
           );
@@ -248,12 +247,8 @@ async function mergeGroup(group: CodeGroup) {
         }
       }
 
-      await pool.query('delete from tournaments where id = $1', [ghost.id]);
-      await pool.query('COMMIT');
-    } catch (err) {
-      await pool.query('ROLLBACK');
-      throw err;
-    }
+      await client.query('delete from tournaments where id = $1', [ghost.id]);
+    });
   }
 
   return { winner: winner.slug, ghosts: ghosts.map((g) => g.slug), movedEditions, mergedSnapshots, deletedGhostEditions, upgradedWinnerMetadata };

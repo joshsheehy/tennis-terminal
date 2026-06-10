@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, withTransaction } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -82,81 +82,78 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  let movedEditions = 0;
-  let mergedConflictYears = 0;
-
   try {
-    await pool.query('BEGIN');
+    const summary = await withTransaction(async (client) => {
+      let movedEditions = 0;
+      let mergedConflictYears = 0;
 
-    const canonicalYears = await pool.query<{ year: number }>(
-      `select year from tournament_editions where tournament_id = $1`,
-      [canonical.id]
-    );
-    const yearSet = new Set(canonicalYears.rows.map((r) => r.year));
+      const canonicalYears = await client.query<{ year: number }>(
+        `select year from tournament_editions where tournament_id = $1`,
+        [canonical.id]
+      );
+      const yearSet = new Set(canonicalYears.rows.map((r) => r.year));
 
-    for (const ed of ghostEditions.rows) {
-      if (yearSet.has(ed.year)) {
-        // Canonical already has this year — merge cutoffs into its edition, then drop the ghost edition.
-        const target = await pool.query<{ id: string }>(
-          `select id from tournament_editions where tournament_id = $1 and year = $2 limit 1`,
-          [canonical.id, ed.year]
-        );
-        const targetId = target.rows[0]?.id;
-        if (!targetId) continue;
+      for (const ed of ghostEditions.rows) {
+        if (yearSet.has(ed.year)) {
+          // Canonical already has this year — merge cutoffs into its edition, then drop the ghost edition.
+          const target = await client.query<{ id: string }>(
+            `select id from tournament_editions where tournament_id = $1 and year = $2 limit 1`,
+            [canonical.id, ed.year]
+          );
+          const targetId = target.rows[0]?.id;
+          if (!targetId) continue;
 
-        await pool.query(
-          `insert into cutoff_snapshots (
-             tournament_edition_id, event_type, draw_type, source_type,
-             last_direct_acceptance_rank, last_direct_acceptance_player_name,
-             last_alternate_rank, last_alternate_player_name,
-             challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
-             challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-             parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
-           )
-           select $2,
-             event_type, draw_type, source_type,
-             last_direct_acceptance_rank, last_direct_acceptance_player_name,
-             last_alternate_rank, last_alternate_player_name,
-             challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
-             challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-             parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, now()
-           from cutoff_snapshots
-           where tournament_edition_id = $1
-           on conflict (tournament_edition_id, event_type, draw_type) do nothing`,
-          [ed.id, targetId]
-        );
-        await pool.query('delete from cutoff_snapshots where tournament_edition_id = $1', [ed.id]);
-        await pool.query('delete from tournament_editions where id = $1', [ed.id]);
-        mergedConflictYears += 1;
-      } else {
-        await pool.query('update tournament_editions set tournament_id = $1, updated_at = now() where id = $2', [
-          canonical.id,
-          ed.id,
-        ]);
-        movedEditions += 1;
+          await client.query(
+            `insert into cutoff_snapshots (
+               tournament_edition_id, event_type, draw_type, source_type,
+               last_direct_acceptance_rank, last_direct_acceptance_player_name,
+               last_alternate_rank, last_alternate_player_name,
+               challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
+               challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
+               parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
+             )
+             select $2,
+               event_type, draw_type, source_type,
+               last_direct_acceptance_rank, last_direct_acceptance_player_name,
+               last_alternate_rank, last_alternate_player_name,
+               challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
+               challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
+               parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, now()
+             from cutoff_snapshots
+             where tournament_edition_id = $1
+             on conflict (tournament_edition_id, event_type, draw_type) do nothing`,
+            [ed.id, targetId]
+          );
+          await client.query('delete from cutoff_snapshots where tournament_edition_id = $1', [ed.id]);
+          await client.query('delete from tournament_editions where id = $1', [ed.id]);
+          mergedConflictYears += 1;
+        } else {
+          await client.query('update tournament_editions set tournament_id = $1, updated_at = now() where id = $2', [
+            canonical.id,
+            ed.id,
+          ]);
+          movedEditions += 1;
+        }
       }
-    }
 
-    const remaining = await pool.query<{ cnt: string }>(
-      'select count(*) as cnt from tournament_editions where tournament_id = $1',
-      [ghost.id]
-    );
-    const ghostDeleted = Number(remaining.rows[0].cnt) === 0;
-    if (ghostDeleted) await pool.query('delete from tournaments where id = $1', [ghost.id]);
+      const remaining = await client.query<{ cnt: string }>(
+        'select count(*) as cnt from tournament_editions where tournament_id = $1',
+        [ghost.id]
+      );
+      const ghostDeleted = Number(remaining.rows[0].cnt) === 0;
+      if (ghostDeleted) await client.query('delete from tournaments where id = $1', [ghost.id]);
 
-    await pool.query('COMMIT');
+      return { movedEditions, mergedConflictYears, ghostDeleted };
+    });
 
     return NextResponse.json({
       ok: true,
       dryRun: false,
       from: ghost.slug,
       to: canonical.slug,
-      movedEditions,
-      mergedConflictYears,
-      ghostDeleted,
+      ...summary,
     });
   } catch (err) {
-    await pool.query('ROLLBACK');
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
       { status: 500 }

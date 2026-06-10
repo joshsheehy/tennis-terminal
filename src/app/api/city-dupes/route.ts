@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, withTransaction } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -102,41 +102,39 @@ export async function GET(request: NextRequest) {
 
     for (const dup of duplicates) {
       try {
-        await pool.query('BEGIN');
+        await withTransaction(async (client) => {
+          await client.query(
+            `insert into cutoff_snapshots (
+               tournament_edition_id, event_type, draw_type, source_type,
+               last_direct_acceptance_rank, last_direct_acceptance_player_name,
+               last_alternate_rank, last_alternate_player_name,
+               challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
+               challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
+               parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
+             )
+             select $2::uuid, event_type, draw_type, source_type,
+               last_direct_acceptance_rank, last_direct_acceptance_player_name,
+               last_alternate_rank, last_alternate_player_name,
+               challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
+               challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
+               parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, now()
+             from cutoff_snapshots
+             where tournament_edition_id = $1::uuid
+             on conflict (tournament_edition_id, event_type, draw_type) do nothing`,
+            [dup.edition_id, primary.edition_id]
+          );
 
-        await pool.query(
-          `insert into cutoff_snapshots (
-             tournament_edition_id, event_type, draw_type, source_type,
-             last_direct_acceptance_rank, last_direct_acceptance_player_name,
-             last_alternate_rank, last_alternate_player_name,
-             challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
-             challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-             parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
-           )
-           select $2::uuid, event_type, draw_type, source_type,
-             last_direct_acceptance_rank, last_direct_acceptance_player_name,
-             last_alternate_rank, last_alternate_player_name,
-             challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
-             challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-             parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, now()
-           from cutoff_snapshots
-           where tournament_edition_id = $1::uuid
-           on conflict (tournament_edition_id, event_type, draw_type) do nothing`,
-          [dup.edition_id, primary.edition_id]
-        );
+          await client.query('delete from cutoff_snapshots where tournament_edition_id = $1::uuid', [dup.edition_id]);
+          await client.query('delete from tournament_editions where id = $1::uuid', [dup.edition_id]);
 
-        await pool.query('delete from cutoff_snapshots where tournament_edition_id = $1::uuid', [dup.edition_id]);
-        await pool.query('delete from tournament_editions where id = $1::uuid', [dup.edition_id]);
-
-        const editionCount = await pool.query<{ cnt: string }>(
-          'select count(*) as cnt from tournament_editions where tournament_id = $1::uuid',
-          [dup.tournament_id]
-        );
-        if (Number(editionCount.rows[0].cnt) === 0) {
-          await pool.query('delete from tournaments where id = $1::uuid', [dup.tournament_id]);
-        }
-
-        await pool.query('COMMIT');
+          const editionCount = await client.query<{ cnt: string }>(
+            'select count(*) as cnt from tournament_editions where tournament_id = $1::uuid',
+            [dup.tournament_id]
+          );
+          if (Number(editionCount.rows[0].cnt) === 0) {
+            await client.query('delete from tournaments where id = $1::uuid', [dup.tournament_id]);
+          }
+        });
         removed.push({
           removedSlug: dup.slug,
           removedName: dup.name,
@@ -146,7 +144,6 @@ export async function GET(request: NextRequest) {
           year: group.year,
         });
       } catch (err) {
-        await pool.query('ROLLBACK');
         errors.push({ slug: dup.slug, error: err instanceof Error ? err.message : String(err) });
       }
     }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, withTransaction } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 
 export const runtime = 'nodejs';
@@ -88,56 +88,56 @@ export async function GET(request: NextRequest) {
 
   for (const { canonical, ghost } of mergePairs) {
     try {
-      await pool.query('BEGIN');
-      const ghostEditions = await pool.query<{ id: string; year: number }>(`select te.id, te.year from tournament_editions te where te.tournament_id = $1`, [ghost.id]);
-      const canonicalYears = await pool.query<{ year: number }>(`select year from tournament_editions where tournament_id = $1`, [canonical.id]);
-      const canonicalYearSet = new Set(canonicalYears.rows.map((r) => r.year));
-      let movedEditions = 0;
-      let skippedConflicts = 0;
+      const summary = await withTransaction(async (client) => {
+        const ghostEditions = await client.query<{ id: string; year: number }>(`select te.id, te.year from tournament_editions te where te.tournament_id = $1`, [ghost.id]);
+        const canonicalYears = await client.query<{ year: number }>(`select year from tournament_editions where tournament_id = $1`, [canonical.id]);
+        const canonicalYearSet = new Set(canonicalYears.rows.map((r) => r.year));
+        let movedEditions = 0;
+        let skippedConflicts = 0;
 
-      for (const ed of ghostEditions.rows) {
-        if (canonicalYearSet.has(ed.year)) {
-          const targetEdition = await pool.query<{ id: string }>('select id from tournament_editions where tournament_id = $1 and year = $2 limit 1', [canonical.id, ed.year]);
-          if (!targetEdition.rows[0]?.id) {
+        for (const ed of ghostEditions.rows) {
+          if (canonicalYearSet.has(ed.year)) {
+            const targetEdition = await client.query<{ id: string }>('select id from tournament_editions where tournament_id = $1 and year = $2 limit 1', [canonical.id, ed.year]);
+            if (!targetEdition.rows[0]?.id) {
+              skippedConflicts++;
+              continue;
+            }
+            await client.query(
+              `insert into cutoff_snapshots (
+                 tournament_edition_id, event_type, draw_type, source_type,
+                 last_direct_acceptance_rank, last_direct_acceptance_player_name,
+                 last_alternate_rank, last_alternate_player_name,
+                 challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
+                 challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
+                 parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
+               )
+               select $2,
+                 event_type, draw_type, source_type,
+                 last_direct_acceptance_rank, last_direct_acceptance_player_name,
+                 last_alternate_rank, last_alternate_player_name,
+                 challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
+                 challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
+                 parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, now()
+               from cutoff_snapshots
+               where tournament_edition_id = $1
+               on conflict (tournament_edition_id, event_type, draw_type) do nothing`,
+              [ed.id, targetEdition.rows[0].id]
+            );
+            await client.query('delete from cutoff_snapshots where tournament_edition_id = $1', [ed.id]);
+            await client.query('delete from tournament_editions where id = $1', [ed.id]);
             skippedConflicts++;
-            continue;
+          } else {
+            await client.query('update tournament_editions set tournament_id = $1, updated_at = now() where id = $2', [canonical.id, ed.id]);
+            movedEditions++;
           }
-          await pool.query(
-            `insert into cutoff_snapshots (
-               tournament_edition_id, event_type, draw_type, source_type,
-               last_direct_acceptance_rank, last_direct_acceptance_player_name,
-               last_alternate_rank, last_alternate_player_name,
-               challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
-               challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-               parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
-             )
-             select $2,
-               event_type, draw_type, source_type,
-               last_direct_acceptance_rank, last_direct_acceptance_player_name,
-               last_alternate_rank, last_alternate_player_name,
-               challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
-               challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-               parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, now()
-             from cutoff_snapshots
-             where tournament_edition_id = $1
-             on conflict (tournament_edition_id, event_type, draw_type) do nothing`,
-            [ed.id, targetEdition.rows[0].id]
-          );
-          await pool.query('delete from cutoff_snapshots where tournament_edition_id = $1', [ed.id]);
-          await pool.query('delete from tournament_editions where id = $1', [ed.id]);
-          skippedConflicts++;
-        } else {
-          await pool.query('update tournament_editions set tournament_id = $1, updated_at = now() where id = $2', [canonical.id, ed.id]);
-          movedEditions++;
         }
-      }
 
-      const remaining = await pool.query<{ cnt: string }>('select count(*) as cnt from tournament_editions where tournament_id = $1', [ghost.id]);
-      if (Number(remaining.rows[0].cnt) === 0) await pool.query('delete from tournaments where id = $1', [ghost.id]);
-      await pool.query('COMMIT');
-      merged.push({ canonical: canonical.slug, ghost: ghost.slug, movedEditions, skippedConflicts });
+        const remaining = await client.query<{ cnt: string }>('select count(*) as cnt from tournament_editions where tournament_id = $1', [ghost.id]);
+        if (Number(remaining.rows[0].cnt) === 0) await client.query('delete from tournaments where id = $1', [ghost.id]);
+        return { movedEditions, skippedConflicts };
+      });
+      merged.push({ canonical: canonical.slug, ghost: ghost.slug, ...summary });
     } catch (err) {
-      await pool.query('ROLLBACK');
       errors.push({ canonical: canonical.slug, ghost: ghost.slug, error: err instanceof Error ? err.message : String(err) });
     }
   }

@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { CutoffSnapshot, ScheduleRow } from './types';
 import { getAtpWeekForSeason } from './atp-week';
 
@@ -18,6 +18,31 @@ export const pool =
 
 if (process.env.NODE_ENV !== 'production') {
   globalForDb.pool = pool;
+}
+
+// Run `fn` inside a real BEGIN/COMMIT on a single checked-out client.
+// Never use pool.query('BEGIN') for this: each pool.query() call can run on
+// a different pooled connection, so the BEGIN, the statements, and the
+// COMMIT are not guaranteed to share a transaction at all.
+export async function withTransaction<T>(
+  fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Connection-level failure; release() below discards the client.
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export type TournamentDetailRow = {

@@ -159,14 +159,14 @@ async function tryImportCut(
            last_alternate_rank, last_alternate_player_name,
            challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
            challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-           parsed_at, parser_version, source_notes, alternate_entries_count, updated_at
+           parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
          ) values (
            $1, $2, $3, 'official_pdf',
            $4, $5,
            null, null,
            $6, null, $7, null,
            now(), 'official-pdf-bottom-left-v4',
-           $8, $9, now()
+           $8, $9, $10, now()
          )
          on conflict (tournament_edition_id, event_type, draw_type) do update set
            last_direct_acceptance_rank = excluded.last_direct_acceptance_rank,
@@ -176,6 +176,7 @@ async function tryImportCut(
            parsed_at = excluded.parsed_at,
            source_notes = excluded.source_notes,
            alternate_entries_count = excluded.alternate_entries_count,
+           lucky_loser_count = excluded.lucky_loser_count,
            updated_at = now()`,
         [
           editionId, eventType, drawType,
@@ -185,6 +186,7 @@ async function tryImportCut(
           parsed.challenger_doubles_onsite_cut_rank,
           `Official PDF: ${base}/${pdf}`,
           parsed.alternate_entries_count,
+          parsed.lucky_loser_count,
         ]
       );
       return { ok: true, rank: parsed.last_direct_acceptance_rank };
