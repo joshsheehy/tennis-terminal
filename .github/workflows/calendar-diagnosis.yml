@@ -98,6 +98,8 @@ jobs:
         if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
         run: |
           for i in $(seq 1 14); do
+            health=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$APP_URL/api/status" || echo down)
+            echo "preflight /api/status: $health"
             out=$(curl -sS --max-time 300 "$APP_URL/api/sync-official-calendar?year=$YEAR" \
               -H "X-Admin-Secret: $ADMIN_SECRET" -H "Accept: application/json" || true)
             printf '%s' "$out" | head -c 1200; echo
