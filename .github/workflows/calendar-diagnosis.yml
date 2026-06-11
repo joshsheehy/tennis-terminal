@@ -73,7 +73,9 @@ jobs:
             group by te.status;"
 
       - name: Download official challenger PDF, replay parser, audit vs production
-        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify
+        # Single download/parse per run: later steps reuse the emitted rows
+        # (repeat PDF probing from one runner IP gets throttled by atptour).
+        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify --emit-rows /tmp/official-rows.json
 
       - name: Restore week 9 and verify the fixed sweep keeps it visible
         run: |
@@ -94,12 +96,10 @@ jobs:
           curl -sS --max-time 120 "$APP_URL/api/restore-historical-status" -H "X-Admin-Secret: $ADMIN_SECRET" | head -c 500
           exit 1
 
-      - name: Parse official PDF on this runner and POST rows to production
+      - name: POST parsed rows to production
         if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
         run: |
-          node scripts/diagnose-calendar-pdf.mjs "$YEAR" --emit-rows /tmp/official-rows.json > /tmp/parse-log.txt 2>&1 || { cat /tmp/parse-log.txt; exit 1; }
-          tail -5 /tmp/parse-log.txt
-          test -s /tmp/official-rows.json || { echo "no rows emitted"; exit 1; }
+          test -s /tmp/official-rows.json || { echo "no rows were emitted by the parse step"; exit 1; }
           python3 - <<'PY'
           import json, os, time, urllib.request
 
@@ -156,4 +156,4 @@ jobs:
 
       - name: Final audit of season vs official PDF
         if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
-        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify | sed -n '/OFFICIAL.*vs PRODUCTION/,$p'
+        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify-from /tmp/official-rows.json

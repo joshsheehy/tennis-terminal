@@ -12,6 +12,8 @@ const year = Number(process.argv[2] ?? new Date().getFullYear());
 const verifyAgainstDb = process.argv.includes('--verify');
 const emitRowsIdx = process.argv.indexOf('--emit-rows');
 const emitRowsPath = emitRowsIdx !== -1 ? process.argv[emitRowsIdx + 1] : null;
+const verifyFromIdx = process.argv.indexOf('--verify-from');
+const verifyFromPath = verifyFromIdx !== -1 ? process.argv[verifyFromIdx + 1] : null;
 
 const BROWSER_HEADERS = {
   'User-Agent':
@@ -396,6 +398,28 @@ function printWeek8To10Window(lines) {
   if (startIdx === -1) return;
   const stop = endIdx > startIdx ? Math.min(endIdx + 1, startIdx + 100) : Math.min(startIdx + 40, lines.length);
   for (let i = Math.max(0, startIdx - 2); i < stop; i++) console.log(`[${i}] ${lines[i]}`);
+}
+
+// --verify-from <file>: re-audit production against rows already parsed by an
+// earlier step in the same workflow run — avoids re-downloading the PDF
+// (repeat probing of atptour.com from one runner IP gets throttled).
+if (verifyFromPath) {
+  const fs = await import('node:fs');
+  const payload = JSON.parse(fs.readFileSync(verifyFromPath, 'utf8'));
+  if (payload.year !== year) {
+    console.log(`emitted rows are for ${payload.year}, requested ${year}`);
+    process.exit(1);
+  }
+  const rows = payload.rows.map((r) => ({
+    week: r.week,
+    startDate: r.startDate,
+    name: r.name,
+    level: `Challenger ${r.level}`,
+    notes: '',
+  }));
+  console.log(`verifying ${rows.length} previously parsed rows from ${payload.sourcePdfUrl}`);
+  await verifyAgainstProduction(rows);
+  process.exit(0);
 }
 
 const urls = await discoverPdfUrls();
