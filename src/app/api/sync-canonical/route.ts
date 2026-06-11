@@ -109,6 +109,8 @@ export async function GET() {
          select 1 from cutoff_snapshots cs
          where cs.tournament_edition_id = te.id
        )
+       -- Official-calendar rows are authoritative even before cuts arrive.
+       and te.source <> 'atp_official_calendar_pdf'
      returning te.id, t.slug, te.level, te.week`,
     [canonicalSlugs2026]
   );

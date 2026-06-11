@@ -137,6 +137,10 @@ export async function GET() {
           select 1 from cutoff_snapshots cs
           where cs.tournament_edition_id = te.id
         )
+        -- Rows imported from the official ATP calendar PDF are authoritative
+        -- even before any cut PDF is found (e.g. Fujairah 1 2026): cancelled
+        -- events are already skipped at parse time, so never hide these.
+        and te.source <> 'atp_official_calendar_pdf'
       returning t.slug, te.year, te.status
       `,
       [year, slugsForYear]

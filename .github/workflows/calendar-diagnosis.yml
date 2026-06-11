@@ -94,35 +94,52 @@ jobs:
           curl -sS --max-time 120 "$APP_URL/api/restore-historical-status" -H "X-Admin-Secret: $ADMIN_SECRET" | head -c 500
           exit 1
 
-      - name: Re-run official calendar sync on production (waits for pdfjs deploy)
+      - name: Parse official PDF on this runner and POST rows to production
         if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
         run: |
-          for i in $(seq 1 14); do
-            health=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$APP_URL/api/status" || echo down)
-            echo "preflight /api/status: $health"
-            out=$(curl -sS --max-time 300 "$APP_URL/api/sync-official-calendar?year=$YEAR" \
-              -H "X-Admin-Secret: $ADMIN_SECRET" -H "Accept: application/json" || true)
-            printf '%s' "$out" | head -c 1200; echo
-            ok=$(printf '%s' "$out" | python3 -c "
-          import json,sys
-          try:
-            d=json.load(sys.stdin)
-            srcs=[p.get('extractionSource') for p in d.get('pdfResults',[])]
-            print('yes' if 'pdfjs' in srcs and d.get('upsertedCount',0) > 0 else 'no')
-          except Exception:
-            print('no')" || echo no)
-            if [ "$ok" = "yes" ]; then
-              echo "OFFICIAL SYNC SUCCEEDED VIA PDFJS"
-              echo "--- post-sync week 9 state ---"
-              curl -sS --max-time 30 "$APP_URL/api/debug-week?year=$YEAR&from=$YEAR-03-02&to=$YEAR-03-08" \
-                -H "X-Admin-Secret: $ADMIN_SECRET" | python3 -m json.tool
-              exit 0
-            fi
-            echo "attempt $i: pdfjs extraction not live yet (deploy in progress?)"
-            sleep 30
-          done
-          echo "official sync never reported pdfjs extraction with upserts"
-          exit 1
+          node scripts/diagnose-calendar-pdf.mjs "$YEAR" --emit-rows /tmp/official-rows.json > /tmp/parse-log.txt 2>&1 || { cat /tmp/parse-log.txt; exit 1; }
+          tail -5 /tmp/parse-log.txt
+          test -s /tmp/official-rows.json || { echo "no rows emitted"; exit 1; }
+          python3 - <<'PY'
+          import json, os, time, urllib.request
+
+          base = os.environ['APP_URL'].strip().rstrip('/')
+          secret = os.environ['ADMIN_SECRET']
+          payload = json.load(open('/tmp/official-rows.json'))
+          rows = payload['rows']
+          print(f"parsed {len(rows)} official rows for {payload['year']} from {payload['sourcePdfUrl']}")
+
+          total_upserted = 0
+          for start in range(0, len(rows), 100):
+              chunk = {'year': payload['year'], 'sourcePdfUrl': payload['sourcePdfUrl'], 'rows': rows[start:start+100]}
+              body = json.dumps(chunk).encode()
+              for attempt in range(1, 6):
+                  req = urllib.request.Request(
+                      f'{base}/api/import-official-rows?apply=true',
+                      data=body, method='POST',
+                      headers={'Content-Type': 'application/json', 'X-Admin-Secret': secret, 'Accept': 'application/json'},
+                  )
+                  try:
+                      with urllib.request.urlopen(req, timeout=180) as res:
+                          out = json.loads(res.read())
+                          print(f"chunk {start}-{start+len(chunk['rows'])}: ok={out['ok']} upserted={out['upsertedCount']} failed={out['failedCount']} invalid={out['invalidCount']}")
+                          if not out['ok']:
+                              print(json.dumps({'failed': out['failed'], 'invalid': out['invalid']}, indent=1))
+                              raise SystemExit(1)
+                          total_upserted += out['upsertedCount']
+                          break
+                  except SystemExit:
+                      raise
+                  except Exception as exc:
+                      print(f'chunk {start} attempt {attempt} failed: {exc}')
+                      if attempt == 5:
+                          raise SystemExit(1)
+                      time.sleep(20 * attempt)
+
+          print(f'TOTAL UPSERTED: {total_upserted}')
+          if total_upserted == 0:
+              raise SystemExit(1)
+          PY
 
       - name: Consolidate duplicates and restore statuses after sync
         if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}

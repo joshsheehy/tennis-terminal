@@ -10,6 +10,8 @@ const require = createRequire(import.meta.url);
 
 const year = Number(process.argv[2] ?? new Date().getFullYear());
 const verifyAgainstDb = process.argv.includes('--verify');
+const emitRowsIdx = process.argv.indexOf('--emit-rows');
+const emitRowsPath = emitRowsIdx !== -1 ? process.argv[emitRowsIdx + 1] : null;
 
 const BROWSER_HEADERS = {
   'User-Agent':
@@ -220,13 +222,20 @@ function parseRows(lines) {
     }
     if (currentWeek === null || !currentStartDate) continue;
     if (sectionYear !== year) continue;
+    const notes = (match[7] ?? '').trim();
+    if (/cancelled|postponed/i.test(notes)) {
+      transitions.push(`SKIPPED (cancelled/postponed): ${match[3].trim()}`);
+      continue;
+    }
     rows.push({
       week: currentWeek,
       startDate: currentStartDate,
       name: match[3].trim().replace(/[•†‡*]+/g, '').trim(),
       country: match[4].toUpperCase(),
       level: `Challenger ${match[5]}`,
-      notes: (match[7] ?? '').trim(),
+      levelNumber: match[5],
+      surfaceCode: match[6],
+      notes,
     });
   }
   return { rows, nearMisses, transitions };
@@ -417,6 +426,22 @@ for (const url of urls) {
     console.log(`extracted ${lines.length} lines via ${source}`);
     printWeek8To10Window(lines);
     const rows = analyze(lines);
+    if (emitRowsPath && rows.length > 0) {
+      const payload = {
+        year,
+        sourcePdfUrl: url,
+        rows: rows.map((r) => ({
+          week: r.week,
+          startDate: r.startDate,
+          name: r.name,
+          countryCode: r.country,
+          level: r.levelNumber,
+          surfaceCode: r.surfaceCode,
+        })),
+      };
+      (await import('node:fs')).writeFileSync(emitRowsPath, JSON.stringify(payload));
+      console.log(`emitted ${payload.rows.length} rows to ${emitRowsPath}`);
+    }
     if (verifyAgainstDb) await verifyAgainstProduction(rows);
   } catch (err) {
     console.log(`ERROR: ${err.message}`);

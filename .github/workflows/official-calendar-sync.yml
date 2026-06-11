@@ -77,7 +77,9 @@ jobs:
 
           # Official atptour.com calendar PDF import. This is first so new
           # Challenger announcements are added before any fallback import runs.
-          request_json(f'/api/sync-official-calendar?year={current_year}')
+          # Tolerant: server-side PDF fetch/parse has proven flaky on Railway;
+          # the calendar-diagnosis workflow covers the runner-parsed path.
+          request_json(f'/api/sync-official-calendar?year={current_year}', required=False)
 
           # Fill cuts if official PDFs are already posted. This is bounded and idempotent.
           for attempt in range(20):
