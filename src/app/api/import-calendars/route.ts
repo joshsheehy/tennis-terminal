@@ -127,6 +127,16 @@ export async function GET() {
         -- ITF rows come from itftennis.com, not the canonical ATP catalogue;
         -- this sweep must never hide them.
         and te.level not ilike 'ITF%'
+        -- Rows with imported cuts are real tournaments even when they are not
+        -- in the canonical catalogue (e.g. challengers merged under a
+        -- JeffSackmann slug). Hiding them blanked week 9's challengers:
+        -- restore-historical-status only un-hid them at the END of the daily
+        -- sync, so any mid-sync failure left them invisible. Mirrors the same
+        -- exemption sync-canonical already has.
+        and not exists (
+          select 1 from cutoff_snapshots cs
+          where cs.tournament_edition_id = te.id
+        )
       returning t.slug, te.year, te.status
       `,
       [year, slugsForYear]

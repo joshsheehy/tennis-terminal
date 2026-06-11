@@ -96,6 +96,34 @@ function rebuildLinesFromPositionedItems(items) {
   return lines;
 }
 
+// Candidate replacement extractor: modern pdf.js instead of the ancient copy
+// bundled inside pdf-parse (which extracts 0 lines from current ATP PDFs).
+async function extractLinesPdfjs(buffer) {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    isEvalSupported: false,
+    disableFontFace: true,
+    useSystemFonts: true,
+  }).promise;
+  const lines = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const viewport = page.getViewport({ scale: 1 });
+    const content = await page.getTextContent();
+    const items = content.items
+      .map((item) => {
+        const str = typeof item.str === 'string' ? item.str.trim() : '';
+        if (!str || !Array.isArray(item.transform) || item.transform.length < 6) return null;
+        return { str, x: Number(item.transform[4] ?? 0), y: Number(item.transform[5] ?? 0), pageWidth: viewport.width };
+      })
+      .filter(Boolean);
+    lines.push(...rebuildLinesFromPositionedItems(items));
+  }
+  await doc.destroy();
+  return Array.from(new Set(lines.map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean)));
+}
+
 async function extractLines(buffer) {
   const pdfParse = require('pdf-parse');
   const parsed = await pdfParse(buffer, {
@@ -224,10 +252,17 @@ for (const url of urls) {
     if (!res.ok) { console.log(`download failed: ${res.status}`); continue; }
     const buffer = Buffer.from(await res.arrayBuffer());
     console.log(`downloaded ${buffer.length} bytes`);
-    let lines = await extractLines(buffer);
-    let source = 'pdf-parse';
+    let lines = await extractLinesPdfjs(buffer).catch((err) => {
+      console.log(`pdfjs extraction failed: ${err.message}`);
+      return [];
+    });
+    let source = 'pdfjs-dist';
     if (lines.length === 0) {
-      console.log('pdf-parse extracted 0 lines -> falling back to r.jina.ai reader (same as production)');
+      lines = await extractLines(buffer);
+      source = 'pdf-parse';
+    }
+    if (lines.length === 0) {
+      console.log('pdfjs + pdf-parse extracted 0 lines -> falling back to r.jina.ai reader');
       lines = await fetchReaderLines(url);
       source = 'jina-reader';
     }

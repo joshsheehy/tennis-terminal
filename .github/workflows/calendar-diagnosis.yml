@@ -75,6 +75,25 @@ jobs:
       - name: Download official challenger PDF and replay parser
         run: node scripts/diagnose-calendar-pdf.mjs "$YEAR"
 
+      - name: Restore week 9 and verify the fixed sweep keeps it visible
+        run: |
+          for i in $(seq 1 12); do
+            curl -sS --max-time 120 "$APP_URL/api/restore-historical-status" -H "X-Admin-Secret: $ADMIN_SECRET" > /dev/null || true
+            curl -sS --max-time 180 "$APP_URL/api/import-calendars" -H "X-Admin-Secret: $ADMIN_SECRET" > /dev/null || true
+            body=$(curl -sS --max-time 30 "$APP_URL/api/debug-week?year=$YEAR&from=$YEAR-03-02&to=$YEAR-03-08" -H "X-Admin-Secret: $ADMIN_SECRET" || true)
+            hidden=$(printf '%s' "$body" | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for e in d['editions'] if e['status'] != 'held'))" 2>/dev/null || echo 99)
+            echo "attempt $i: hidden editions in week 9 window: $hidden"
+            if [ "$hidden" = "0" ]; then
+              printf '%s' "$body" | python3 -m json.tool
+              echo "WEEK 9 RESTORED AND SWEEP-PROOF (import-calendars no longer hides it)"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "week 9 still has hidden rows; leaving a final restore so the site stays correct"
+          curl -sS --max-time 120 "$APP_URL/api/restore-historical-status" -H "X-Admin-Secret: $ADMIN_SECRET" | head -c 500
+          exit 1
+
       - name: Re-run official calendar sync on production
         if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
         run: |
