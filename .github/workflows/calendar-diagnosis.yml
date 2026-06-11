@@ -11,13 +11,21 @@ on:
         description: Re-run /api/sync-official-calendar against production after analysis
         type: boolean
         default: false
+  # The session's GitHub token cannot dispatch workflows, so pushes touching
+  # these paths also trigger a run. Committing a .diag/run-sync file enables
+  # the production sync step for push-triggered runs.
+  push:
+    paths:
+      - '.github/workflows/calendar-diagnosis.yml'
+      - 'scripts/diagnose-calendar-pdf.mjs'
+      - '.diag/**'
 
 jobs:
   diagnose:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      YEAR: ${{ inputs.year }}
+      YEAR: ${{ inputs.year || '2026' }}
       APP_URL: ${{ secrets.APP_URL }}
       ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -54,7 +62,7 @@ jobs:
         run: node scripts/diagnose-calendar-pdf.mjs "$YEAR"
 
       - name: Re-run official calendar sync on production
-        if: ${{ inputs.run_sync }}
+        if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
         run: |
           curl -sS --max-time 300 "$APP_URL/api/sync-official-calendar?year=$YEAR" \
             -H "X-Admin-Secret: $ADMIN_SECRET" -H "Accept: application/json" | head -c 6000
