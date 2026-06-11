@@ -37,7 +37,21 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: Production DB state around week 9 (Feb 16 - Mar 15)
+      - name: Production DB state via API (waits for Railway deploy)
+        run: |
+          for i in $(seq 1 16); do
+            body=$(curl -sS --max-time 30 "$APP_URL/api/debug-week?year=$YEAR&from=$YEAR-02-16&to=$YEAR-03-15" \
+              -H "X-Admin-Secret: $ADMIN_SECRET" -H "Accept: application/json" || true)
+            if printf '%s' "$body" | head -c 200 | grep -q '"ok":true'; then
+              printf '%s' "$body" | python3 -m json.tool
+              exit 0
+            fi
+            echo "attempt $i: debug-week not ready (deploy in progress?): $(printf '%s' "$body" | head -c 120)"
+            sleep 30
+          done
+          echo "debug-week endpoint never became available; continuing anyway"
+
+      - name: Production DB state via psql (only if DATABASE_URL secret exists)
         run: |
           if [ -z "${DATABASE_URL:-}" ]; then
             echo "DATABASE_URL secret not set; skipping direct DB inspection."

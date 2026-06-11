@@ -168,6 +168,51 @@ function analyze(lines) {
   }
 }
 
+// Mirrors normalizeReaderTextToLines in the route: production falls back to
+// the r.jina.ai reader whenever pdf-parse extracts zero lines (which is the
+// case for these ATP calendar PDFs), so the reader path is what actually runs.
+function normalizeReaderTextToLines(text) {
+  return Array.from(
+    new Set(
+      text
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .flatMap((rawLine) => {
+          const line = rawLine
+            .replace(/^Title:\s*/i, '')
+            .replace(/^URL Source:\s*/i, '')
+            .replace(/^Markdown Content:\s*/i, '')
+            .replace(/^#+\s*/, '')
+            .replace(/^[-*]\s*/, '')
+            .replace(/\|/g, ' | ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          return line ? [line] : [];
+        })
+        .filter(Boolean)
+    )
+  );
+}
+
+async function fetchReaderLines(pdfUrl) {
+  const res = await fetch(`https://r.jina.ai/${pdfUrl}`, {
+    headers: { Accept: 'text/plain, text/markdown, */*', 'User-Agent': 'TennisTerminalCalendarSync/1.0' },
+  });
+  if (!res.ok) throw new Error(`Reader returned ${res.status}`);
+  return normalizeReaderTextToLines(await res.text());
+}
+
+function printWeek8To10Window(lines) {
+  // Dump the raw region between the week-8 date token (23-Feb) and the
+  // week-10 token (9-Mar) so the week-9 layout is visible verbatim.
+  const startIdx = lines.findIndex((l) => /\b23[-\s]Feb\b/i.test(l));
+  const endIdx = lines.findIndex((l) => /\b9[-\s]Mar\b/i.test(l));
+  console.log(`\n--- RAW WINDOW between "23-Feb" (idx ${startIdx}) and "9-Mar" (idx ${endIdx}) ---`);
+  if (startIdx === -1) return;
+  const stop = endIdx > startIdx ? Math.min(endIdx + 1, startIdx + 100) : Math.min(startIdx + 40, lines.length);
+  for (let i = Math.max(0, startIdx - 2); i < stop; i++) console.log(`[${i}] ${lines[i]}`);
+}
+
 const urls = await discoverPdfUrls();
 console.log(`Discovered ${urls.length} calendar PDF URL(s):`);
 urls.forEach((u) => console.log(`  ${u}`));
@@ -179,8 +224,15 @@ for (const url of urls) {
     if (!res.ok) { console.log(`download failed: ${res.status}`); continue; }
     const buffer = Buffer.from(await res.arrayBuffer());
     console.log(`downloaded ${buffer.length} bytes`);
-    const lines = await extractLines(buffer);
-    console.log(`extracted ${lines.length} lines`);
+    let lines = await extractLines(buffer);
+    let source = 'pdf-parse';
+    if (lines.length === 0) {
+      console.log('pdf-parse extracted 0 lines -> falling back to r.jina.ai reader (same as production)');
+      lines = await fetchReaderLines(url);
+      source = 'jina-reader';
+    }
+    console.log(`extracted ${lines.length} lines via ${source}`);
+    printWeek8To10Window(lines);
     analyze(lines);
   } catch (err) {
     console.log(`ERROR: ${err.message}`);
