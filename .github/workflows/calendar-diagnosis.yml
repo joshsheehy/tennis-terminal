@@ -1,0 +1,71 @@
+name: Calendar diagnosis (week 9)
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: Season year to analyze
+        default: '2026'
+        required: true
+      run_sync:
+        description: Re-run /api/sync-official-calendar against production after analysis
+        type: boolean
+        default: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      YEAR: ${{ inputs.year }}
+      APP_URL: ${{ secrets.APP_URL }}
+      ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Production DB state around week 9 (Feb 16 - Mar 15)
+        run: |
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "DATABASE_URL secret not set; skipping direct DB inspection."
+            exit 0
+          fi
+          psql "$DATABASE_URL" -P pager=off -c "
+            select te.week, te.start_date, te.status, te.level, t.slug, t.name, te.source,
+                   (select count(*) from cutoff_snapshots cs where cs.tournament_edition_id = te.id) as cuts
+            from tournament_editions te
+            join tournaments t on t.id = te.tournament_id
+            where te.year = ${YEAR}
+              and te.start_date between '${YEAR}-02-16' and '${YEAR}-03-15'
+            order by te.start_date, te.status, t.name;"
+          psql "$DATABASE_URL" -P pager=off -c "
+            select te.status, count(*)
+            from tournament_editions te
+            where te.year = ${YEAR}
+              and te.start_date between '${YEAR}-03-02' and '${YEAR}-03-08'
+            group by te.status;"
+
+      - name: Download official challenger PDF and replay parser
+        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR"
+
+      - name: Re-run official calendar sync on production
+        if: ${{ inputs.run_sync }}
+        run: |
+          curl -sS --max-time 300 "$APP_URL/api/sync-official-calendar?year=$YEAR" \
+            -H "X-Admin-Secret: $ADMIN_SECRET" -H "Accept: application/json" | head -c 6000
+          echo
+          if [ -n "${DATABASE_URL:-}" ]; then
+            echo "--- post-sync week 9 state ---"
+            psql "$DATABASE_URL" -P pager=off -c "
+              select te.week, te.start_date, te.status, te.level, t.slug
+              from tournament_editions te
+              join tournaments t on t.id = te.tournament_id
+              where te.year = ${YEAR}
+                and te.start_date between '${YEAR}-03-02' and '${YEAR}-03-08'
+              order by te.start_date, t.name;"
+          fi
