@@ -94,19 +94,30 @@ jobs:
           curl -sS --max-time 120 "$APP_URL/api/restore-historical-status" -H "X-Admin-Secret: $ADMIN_SECRET" | head -c 500
           exit 1
 
-      - name: Re-run official calendar sync on production
+      - name: Re-run official calendar sync on production (waits for pdfjs deploy)
         if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
         run: |
-          curl -sS --max-time 300 "$APP_URL/api/sync-official-calendar?year=$YEAR" \
-            -H "X-Admin-Secret: $ADMIN_SECRET" -H "Accept: application/json" | head -c 6000
-          echo
-          if [ -n "${DATABASE_URL:-}" ]; then
-            echo "--- post-sync week 9 state ---"
-            psql "$DATABASE_URL" -P pager=off -c "
-              select te.week, te.start_date, te.status, te.level, t.slug
-              from tournament_editions te
-              join tournaments t on t.id = te.tournament_id
-              where te.year = ${YEAR}
-                and te.start_date between '${YEAR}-03-02' and '${YEAR}-03-08'
-              order by te.start_date, t.name;"
-          fi
+          for i in $(seq 1 14); do
+            out=$(curl -sS --max-time 300 "$APP_URL/api/sync-official-calendar?year=$YEAR" \
+              -H "X-Admin-Secret: $ADMIN_SECRET" -H "Accept: application/json" || true)
+            printf '%s' "$out" | head -c 1200; echo
+            ok=$(printf '%s' "$out" | python3 -c "
+          import json,sys
+          try:
+            d=json.load(sys.stdin)
+            srcs=[p.get('extractionSource') for p in d.get('pdfResults',[])]
+            print('yes' if 'pdfjs' in srcs and d.get('upsertedCount',0) > 0 else 'no')
+          except Exception:
+            print('no')" || echo no)
+            if [ "$ok" = "yes" ]; then
+              echo "OFFICIAL SYNC SUCCEEDED VIA PDFJS"
+              echo "--- post-sync week 9 state ---"
+              curl -sS --max-time 30 "$APP_URL/api/debug-week?year=$YEAR&from=$YEAR-03-02&to=$YEAR-03-08" \
+                -H "X-Admin-Secret: $ADMIN_SECRET" | python3 -m json.tool
+              exit 0
+            fi
+            echo "attempt $i: pdfjs extraction not live yet (deploy in progress?)"
+            sleep 30
+          done
+          echo "official sync never reported pdfjs extraction with upserts"
+          exit 1

@@ -181,6 +181,59 @@ function rebuildLinesFromPositionedItems(items: PositionedText[]) {
   return lines;
 }
 
+// Primary extractor: modern pdf.js. pdf-parse v1 bundles a ~2017 pdf.js that
+// extracts zero text items from current ATP calendar PDFs, and the r.jina.ai
+// fallback started returning boilerplate-only output — leaving this import a
+// silent no-op. Validated against the live 2026-27 challenger calendar PDF in
+// CI (scripts/diagnose-calendar-pdf.mjs) before being wired in here.
+async function extractPdfjsLines(buffer: Buffer): Promise<string[]> {
+  const pdfjsModule: unknown = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdfjs = pdfjsModule as {
+    getDocument: (opts: {
+      data: Uint8Array;
+      isEvalSupported?: boolean;
+      disableFontFace?: boolean;
+      useSystemFonts?: boolean;
+    }) => {
+      promise: Promise<{
+        numPages: number;
+        getPage: (n: number) => Promise<{
+          getViewport: (o: { scale: number }) => { width: number };
+          getTextContent: () => Promise<{ items: Array<{ str?: string; transform?: number[] }> }>;
+        }>;
+        destroy: () => Promise<void>;
+      }>;
+    };
+  };
+
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    isEvalSupported: false,
+    disableFontFace: true,
+    useSystemFonts: true,
+  }).promise;
+
+  const lines: string[] = [];
+  try {
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const viewport = page.getViewport({ scale: 1 });
+      const content = await page.getTextContent();
+      const items: PositionedText[] = content.items
+        .map((item) => {
+          const str = typeof item.str === 'string' ? item.str.trim() : '';
+          if (!str || !Array.isArray(item.transform) || item.transform.length < 6) return null;
+          return { str, x: Number(item.transform[4] ?? 0), y: Number(item.transform[5] ?? 0), pageWidth: viewport.width };
+        })
+        .filter((item): item is PositionedText => item !== null);
+      lines.push(...rebuildLinesFromPositionedItems(items));
+    }
+  } finally {
+    await doc.destroy().catch(() => undefined);
+  }
+  return Array.from(new Set(lines.map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean)));
+}
+
 async function extractPdfParseLines(buffer: Buffer): Promise<string[]> {
   // This works for normal text PDFs. It returns zero lines for some ATP calendar
   // PDFs, so the endpoint falls back to Reader below.
@@ -454,8 +507,12 @@ export async function GET(request: NextRequest) {
   for (const pdfUrl of discovered.urls) {
     try {
       const buffer = await fetchPdfBuffer(pdfUrl);
-      let lines = await extractPdfParseLines(buffer);
-      let extractionSource = 'pdf-parse';
+      let lines = await extractPdfjsLines(buffer).catch(() => [] as string[]);
+      let extractionSource = 'pdfjs';
+      if (lines.length === 0) {
+        lines = await extractPdfParseLines(buffer);
+        extractionSource = 'pdf-parse';
+      }
       if (lines.length === 0) {
         lines = await fetchReaderLinesForPdf(pdfUrl);
         extractionSource = 'jina-reader';
