@@ -55,7 +55,7 @@ export type TournamentDetailRow = {
 const STRICT_TOURNAMENT_KEY_SQL = (column: string) => `
   regexp_replace(
     regexp_replace(
-      translate(lower(${column}), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+      translate(lower(${column}), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae'),
       '\\s+ch(\\s+\\d+)?$', ''
     ),
     '[^a-z0-9]+', '', 'g'
@@ -165,7 +165,7 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
             regexp_replace(
               regexp_replace(
                 regexp_replace(
-                  translate(lower(t.name), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+                  translate(lower(regexp_replace(t.name, '\\s*\\([^)]*\\)', '', 'g')), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae'),
                   '\\s+ch(\\s+\\d+)?$', ''
                 ),
                 '\\s+\\d+$', ''

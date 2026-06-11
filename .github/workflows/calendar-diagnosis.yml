@@ -144,8 +144,24 @@ jobs:
       - name: Consolidate duplicates and restore statuses after sync
         if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
         run: |
+          # The duplicate merge groups by SQL deployed on Railway — wait until
+          # production serves this commit before merging.
+          for i in $(seq 1 20); do
+            rev=$(curl -sS --max-time 20 "$APP_URL/api/debug-week?year=2026&from=2026-01-01&to=2026-01-02" \
+              -H "X-Admin-Secret: $ADMIN_SECRET" | python3 -c "import json,sys; print(json.load(sys.stdin).get('rev'))" 2>/dev/null || echo unknown)
+            echo "deployed rev: $rev (want $GITHUB_SHA)"
+            [ "$rev" = "$GITHUB_SHA" ] && break
+            if [ "$rev" = "None" ] || [ "$rev" = "null" ]; then
+              echo "RAILWAY_GIT_COMMIT_SHA not exposed; falling back to a fixed wait"
+              sleep 240
+              break
+            fi
+            sleep 20
+          done
+          # cleanup-duplicates intentionally has NO year filter: accent/paren
+          # ghosts exist across 2024-2026.
           for path in \
-            "/api/cleanup-duplicates?year=$YEAR&dryRun=false" \
+            "/api/cleanup-duplicates?dryRun=false" \
             "/api/dedupe-by-code?apply=true" \
             "/api/merge-official-challenger-levels?apply=true" \
             "/api/restore-historical-status"; do

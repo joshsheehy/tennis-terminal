@@ -104,6 +104,56 @@ describe('WeekTournamentPicker pill filtering', () => {
     expect(weekCountText(container, '9')).toBe('3 tournaments');
   });
 
+  it('hides ITF rows by default and reveals them only via the ITF pill', () => {
+    const withItf = [
+      ...tournaments,
+      row({ slug: 'itf-m15-monastir-2026-01-12', name: 'M15 Monastir', week: 3, start_date: '2026-01-12', end_date: '2026-01-18', level: 'ITF M15', surface: 'Hard' }),
+      row({ slug: 'itf-m25-canberra-2026-01-12', name: 'M25 Canberra', week: 3, start_date: '2026-01-12', end_date: '2026-01-18', level: 'ITF M25', surface: 'Hard' }),
+    ];
+    const { container } = render(<WeekTournamentPicker tournaments={withItf} />);
+
+    // Default view: ITF rows hidden, week count excludes them.
+    const itfRows = weekRows(container).filter(r => r.getAttribute('data-level-cat') === 'ITF');
+    expect(itfRows.length).toBe(2);
+    expect(itfRows.every(r => !isVisible(r))).toBe(true);
+    expect(weekCountText(container, '3')).toBe('2 tournaments'); // Cordoba + Canberra only
+
+    // ITF pill on → only ITF rows show.
+    fireEvent.click(screen.getByRole('button', { name: 'ITF' }));
+    const visible = visibleWeekRows(container);
+    expect(visible.length).toBe(2);
+    expect(visible.every(r => r.getAttribute('data-level-cat') === 'ITF')).toBe(true);
+    expect(weekCountText(container, '3')).toBe('2 tournaments');
+
+    // ITF + Challenger → both categories.
+    fireEvent.click(screen.getByRole('button', { name: 'Challenger' }));
+    const cats = new Set(visibleWeekRows(container).map(r => r.getAttribute('data-level-cat')));
+    expect(cats).toEqual(new Set(['ITF', 'Challenger']));
+
+    // Pills off again → back to the ITF-hidden baseline.
+    fireEvent.click(screen.getByRole('button', { name: 'ITF' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Challenger' }));
+    expect(weekRows(container).filter(r => r.getAttribute('data-level-cat') === 'ITF').every(r => !isVisible(r))).toBe(true);
+    expect(weekCountText(container, '3')).toBe('2 tournaments');
+  });
+
+  it('keeps ITF out of text search results unless the ITF pill is on', () => {
+    const withItf = [
+      ...tournaments,
+      row({ slug: 'itf-m15-monastir-2026-01-12', name: 'M15 Monastir', week: 3, start_date: '2026-01-12', end_date: '2026-01-18', level: 'ITF M15', surface: 'Hard' }),
+    ];
+    const { container } = render(<WeekTournamentPicker tournaments={withItf} />);
+    const input = screen.getByRole('textbox', { name: 'Search tournaments' });
+
+    fireEvent.input(input, { target: { value: 'monastir' } });
+    const flatItf = container.querySelector<HTMLElement>('[data-search*="monastir"]')!;
+    expect(isVisible(flatItf)).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'ITF' }));
+    fireEvent.input(input, { target: { value: 'monastir' } });
+    expect(isVisible(flatItf)).toBe(true);
+  });
+
   it('does not auto-expand weeks when filtering', () => {
     const { container } = render(<WeekTournamentPicker tournaments={tournaments} />);
     const openBefore = Array.from(

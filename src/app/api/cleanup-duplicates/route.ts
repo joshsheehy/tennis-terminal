@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       regexp_replace(
         regexp_replace(
           regexp_replace(
-            translate(lower(t.name), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+            translate(lower(regexp_replace(t.name, '\\s*\\([^)]*\\)', '', 'g')), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae'),
             '\\s+ch(\\s+\\d+)?$', ''
           ),
           '\\s+\\d+$', ''
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       regexp_replace(
         regexp_replace(
           regexp_replace(
-            translate(lower(t.name), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+            translate(lower(regexp_replace(t.name, '\\s*\\([^)]*\\)', '', 'g')), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae'),
             '\\s+ch(\\s+\\d+)?$', ''
           ),
           '\\s+\\d+$', ''
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       regexp_replace(
         regexp_replace(
           regexp_replace(
-            translate(lower(t.name), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+            translate(lower(regexp_replace(t.name, '\\s*\\([^)]*\\)', '', 'g')), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae'),
             '\\s+ch(\\s+\\d+)?$', ''
           ),
           '\\s+\\d+$', ''

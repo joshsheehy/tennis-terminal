@@ -243,25 +243,47 @@ export default function WeekTournamentPicker({
     weekGroupsMutated.current = false;
   }, []);
 
+  // Week-grouped row filtering. Runs even with no chips active because ITF
+  // rows are hidden by default — the ITF World Tennis Tour only appears while
+  // the ITF pill is selected, so ~1000 events/season don't swamp the schedule.
+  const filterWeekGroups = useCallback((surfaces: Set<string>, levels: Set<string>) => {
+    const root = weekRef.current;
+    if (!root) return;
+    weekGroupsMutated.current = true;
+    const itfVisible = levels.has('ITF');
+
+    let total = 0;
+    root.querySelectorAll<HTMLDetailsElement>('details[data-week-key]').forEach(d => {
+      let c = 0;
+      d.querySelectorAll<HTMLElement>('[data-week-row]').forEach(row => {
+        const cat = row.getAttribute('data-level-cat') ?? '';
+        const surfaceMatch = surfaces.size === 0 || surfaces.has(row.getAttribute('data-surface') ?? '');
+        const levelMatch   = levels.size === 0 || levels.has(cat);
+        const itfGate      = cat !== 'ITF' || itfVisible;
+        const matches = surfaceMatch && levelMatch && itfGate;
+        row.style.display = matches ? '' : 'none';
+        if (matches) c++;
+      });
+      const countEl = d.querySelector<HTMLElement>('[data-week-count]');
+      if (countEl) countEl.textContent = `${c} ${c === 1 ? 'tournament' : 'tournaments'}`;
+      d.style.display = c > 0 ? '' : 'none';
+      total += c;
+    });
+
+    show(noMatchRef.current, total === 0);
+    if (noMatchRef.current && total === 0) {
+      noMatchRef.current.textContent = `No tournaments match your filters for ${year}.`;
+    }
+  }, [year]);
+
   const applyFilter = useCallback((rawValue: string) => {
     const query = rawValue.trim();
     const needle = normalizeForSearch(query);
     const surfaces = activeSurfacesRef.current;
     const levels   = activeLevelsRef.current;
-    const hasChips = surfaces.size > 0 || levels.size > 0;
-
-    // Nothing active → default week-grouped view.
-    if (!needle && !hasChips) {
-      restoreWeekGroups();
-      show(weekRef.current, true);
-      show(resultsRef.current, false);
-      show(noMatchRef.current, false);
-      show(countRef.current, false);
-      show(clearRef.current, false);
-      return;
-    }
 
     // Search text active → flat results list (chips, if any, also narrow it).
+    // ITF rows stay behind their pill even in search results.
     if (needle) {
       restoreWeekGroups();
       show(clearRef.current, true);
@@ -269,10 +291,12 @@ export default function WeekTournamentPicker({
 
       let count = 0;
       resultsRef.current?.querySelectorAll<HTMLElement>('[data-search]').forEach(el => {
+        const cat = el.getAttribute('data-level-cat') ?? '';
         const searchMatch  = (el.getAttribute('data-search') ?? '').includes(needle);
         const surfaceMatch = surfaces.size === 0 || surfaces.has(el.getAttribute('data-surface') ?? '');
-        const levelMatch   = levels.size === 0 || levels.has(el.getAttribute('data-level-cat') ?? '');
-        const matches = searchMatch && surfaceMatch && levelMatch;
+        const levelMatch   = levels.size === 0 || levels.has(cat);
+        const itfGate      = cat !== 'ITF' || levels.has('ITF');
+        const matches = searchMatch && surfaceMatch && levelMatch && itfGate;
         el.style.display = matches ? '' : 'none';
         if (matches) count++;
       });
@@ -289,42 +313,21 @@ export default function WeekTournamentPicker({
       return;
     }
 
-    // Chips only → keep the week-grouped dropdown view, filtering rows within it.
+    // No search → week-grouped view, filtered by whatever chips are active
+    // (with no chips this still hides ITF rows and fixes the week counts).
     show(resultsRef.current, false);
     show(weekRef.current, true);
     show(clearRef.current, false);
     show(countRef.current, false);
-
-    const root = weekRef.current;
-    if (!root) return;
-    weekGroupsMutated.current = true;
-
-    let total = 0;
-    root.querySelectorAll<HTMLDetailsElement>('details[data-week-key]').forEach(d => {
-      let c = 0;
-      d.querySelectorAll<HTMLElement>('[data-week-row]').forEach(row => {
-        const surfaceMatch = surfaces.size === 0 || surfaces.has(row.getAttribute('data-surface') ?? '');
-        const levelMatch   = levels.size === 0 || levels.has(row.getAttribute('data-level-cat') ?? '');
-        const matches = surfaceMatch && levelMatch;
-        row.style.display = matches ? '' : 'none';
-        if (matches) c++;
-      });
-      const countEl = d.querySelector<HTMLElement>('[data-week-count]');
-      if (countEl) countEl.textContent = `${c} ${c === 1 ? 'tournament' : 'tournaments'}`;
-      d.style.display = c > 0 ? '' : 'none';
-      total += c;
-    });
-
-    show(noMatchRef.current, total === 0);
-    if (noMatchRef.current && total === 0) {
-      noMatchRef.current.textContent = `No tournaments match your filters for ${year}.`;
-    }
-  }, [year, restoreWeekGroups]);
+    filterWeekGroups(surfaces, levels);
+  }, [year, restoreWeekGroups, filterWeekGroups]);
 
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
-    if (el.value) applyFilter(el.value);
+    // Always run on mount: the baseline view needs the ITF-hiding pass even
+    // with no search text or chips.
+    applyFilter(el.value);
     const handle = () => applyFilter(el.value);
     el.addEventListener('input', handle);
     return () => el.removeEventListener('input', handle);

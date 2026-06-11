@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const dupeQuery = await pool.query(
     `
     select
-      translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn') as city,
+      translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae') as city,
       date_trunc('week', te.start_date) as cal_week,
       te.year,
       count(*) as cnt,
@@ -51,9 +51,9 @@ export async function GET(request: NextRequest) {
       -- (e.g. M15 Monastir alongside the Monastir Challenger) — never merge.
       and te.level not ilike 'ITF%'
       ${yearFilter}
-    group by translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'), date_trunc('week', te.start_date), te.year
+    group by translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae'), date_trunc('week', te.start_date), te.year
     having count(*) > 1
-    order by te.year, date_trunc('week', te.start_date), translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn')
+    order by te.year, date_trunc('week', te.start_date), translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae')
     `,
     queryParams
   );

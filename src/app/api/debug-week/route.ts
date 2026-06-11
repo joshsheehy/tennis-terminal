@@ -37,6 +37,9 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    // Lets workflows confirm which commit is actually serving before they
+    // run merges that depend on freshly deployed SQL.
+    rev: process.env.RAILWAY_GIT_COMMIT_SHA ?? null,
     year,
     from,
     to,
