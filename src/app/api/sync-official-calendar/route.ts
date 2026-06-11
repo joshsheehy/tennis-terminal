@@ -346,7 +346,11 @@ async function probeUrlExists(url: string, timeoutMs = 8000): Promise<boolean> {
 }
 
 async function discoverLatestChallengerCalendarPdfs(year: number, lookBackDays = 120) {
-  const today = new Date();
+  // For past seasons the newest "as-of" PDF was published near that season's
+  // end, not near today — probe backwards from Dec 31 of the season year.
+  const now = new Date();
+  const seasonEnd = new Date(Date.UTC(year, 11, 31));
+  const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
   const yy2 = String((year + 1) % 100).padStart(2, '0');
   const prefixes = [`${year}-${yy2}-atp-challenger-calendar`, `${year}-atp-challenger-calendar`];
   const discovered: string[] = [];
@@ -394,20 +398,48 @@ function parseOfficialChallengerRows(lines: string[], year: number, sourcePdfUrl
   const skipped: Array<{ name: string; reason: string; line: string }> = [];
   let currentWeek: number | null = null;
   let currentStartDate: string | null = null;
+  // These PDFs cover two seasons (e.g. "2026-27"): a "<year> CALENDAR" header
+  // (and "JAN 2027"-style month headers) marks each section. Rows outside the
+  // requested season are skipped so e.g. importing 2025 from the late-season
+  // 2025-26 PDF doesn't stamp 2026 events with 2025 dates.
+  let sectionYear = year;
 
+  const sectionPattern = /\b(20\d{2})\s+CALENDAR\b/i;
+  const monthHeaderPattern = /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(20\d{2})$/i;
   const rowPattern = /^(?:(\d{1,2})\s+(\d{1,2}[-\s][A-Za-z]{3})\s+)?(.+?)\s+([A-Z]{3})\s+(50|75|100|125|175)\s+(?:(?:USD|EUR|€|\$)\s*)?[0-9][0-9,\.]*\s+((?:IH|CL|H|C|G)\*?)\b(.*)$/i;
 
   for (const rawLine of lines) {
     const line = rawLine.replace(/\s+/g, ' ').trim();
     if (!line) continue;
+
+    const sectionMatch = sectionPattern.exec(line) ?? monthHeaderPattern.exec(line);
+    if (sectionMatch) {
+      const headerYear = Number(sectionMatch[1].length === 4 ? sectionMatch[1] : sectionMatch[2]);
+      if (headerYear >= 2000 && headerYear <= 2100 && headerYear !== sectionYear) {
+        sectionYear = headerYear;
+        // Week/date context never carries across season sections.
+        currentWeek = null;
+        currentStartDate = null;
+      }
+      continue;
+    }
+
     const match = rowPattern.exec(line);
     if (!match) continue;
 
     if (match[1] && match[2]) {
       currentWeek = Number(match[1]);
-      currentStartDate = parseDateToken(match[2], year);
+      // ATP seasons can start in the prior December (e.g. 2025 week 1 begins
+      // Mon 30 Dec 2024): an early-week December token belongs to the year
+      // before the section's season.
+      const token = match[2];
+      const monthAbbr = token.trim().slice(-3).toLowerCase();
+      const dateYear =
+        monthAbbr === 'dec' && currentWeek <= 2 ? sectionYear - 1 : sectionYear;
+      currentStartDate = parseDateToken(token, dateYear);
     }
     if (currentWeek === null || !currentStartDate) continue;
+    if (sectionYear !== year) continue;
 
     const name = cleanName(match[3]);
     const countryCode = match[4].toUpperCase();

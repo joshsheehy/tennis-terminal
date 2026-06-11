@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 const year = Number(process.argv[2] ?? new Date().getFullYear());
+const verifyAgainstDb = process.argv.includes('--verify');
 
 const BROWSER_HEADERS = {
   'User-Agent':
@@ -60,7 +61,10 @@ async function discoverPdfUrls() {
     }
   }
   if (urls.size === 0) {
-    const today = new Date();
+    // Past seasons: the newest "as-of" PDF was published near season end.
+    const now = new Date();
+    const seasonEnd = new Date(Date.UTC(year, 11, 31));
+    const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
     const yy2 = String((year + 1) % 100).padStart(2, '0');
     for (const prefix of [`${year}-${yy2}-atp-challenger-calendar`, `${year}-atp-challenger-calendar`]) {
       for (let back = 0; back <= 120; back += 1) {
@@ -146,25 +150,62 @@ async function extractLines(buffer) {
 const ROW_PATTERN = /^(?:(\d{1,2})\s+(\d{1,2}[-\s][A-Za-z]{3})\s+)?(.+?)\s+([A-Z]{3})\s+(50|75|100|125|175)\s+(?:(?:USD|EUR|€|\$)\s*)?[0-9][0-9,\.]*\s+((?:IH|CL|H|C|G)\*?)\b(.*)$/i;
 const MONTH_ABBR = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
 
-function parseDateToken(token) {
+function parseDateToken(token, dateYear) {
   const m = token.trim().match(/^(\d{1,2})[-\s]([A-Za-z]{3})$/);
   if (!m) return null;
   const month = MONTH_ABBR[m[2].toLowerCase()];
   if (!month) return null;
-  return `${year}-${String(month).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+  return `${dateYear}-${String(month).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
 }
 
-function analyze(lines) {
+// Mirrors src/lib/atp-week.ts.
+function getAtpWeekForSeason(startDate, seasonYear) {
+  const jan1 = new Date(Date.UTC(seasonYear, 0, 1));
+  const isoDow = jan1.getUTCDay() === 0 ? 7 : jan1.getUTCDay();
+  const offsetDays = isoDow <= 3 ? 1 - isoDow : 8 - isoDow;
+  const seasonStart = jan1.getTime() + offsetDays * 86400000;
+  const start = new Date(`${startDate}T00:00:00Z`).getTime();
+  return Math.max(1, Math.floor(Math.floor((start - seasonStart) / 86400000) / 7) + 1);
+}
+
+function normalizeKey(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+}
+
+// Same season-section handling as the route: a "<year> CALENDAR" or
+// "JAN 2027"-style header switches sections; rows outside the requested
+// season are skipped, and early-week December tokens belong to the prior
+// calendar year.
+function parseRows(lines) {
   let currentWeek = null;
   let currentStartDate = null;
-  const byWeek = new Map();
-  const transitions = [];
+  let sectionYear = year;
+  const rows = [];
   const nearMisses = [];
+  const transitions = [];
+  const sectionPattern = /\b(20\d{2})\s+CALENDAR\b/i;
+  const monthHeaderPattern = /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(20\d{2})$/i;
 
   for (const line of lines) {
+    const sectionMatch = sectionPattern.exec(line) ?? monthHeaderPattern.exec(line);
+    if (sectionMatch) {
+      const headerYear = Number(sectionMatch[1].length === 4 ? sectionMatch[1] : sectionMatch[2]);
+      if (headerYear >= 2000 && headerYear <= 2100 && headerYear !== sectionYear) {
+        transitions.push(`SECTION -> ${headerYear} ("${line}")`);
+        sectionYear = headerYear;
+        currentWeek = null;
+        currentStartDate = null;
+      }
+      continue;
+    }
     const match = ROW_PATTERN.exec(line);
     if (!match) {
-      // Candidate line that mentions a Challenger level + country code but fails the regex.
       if (/\b(50|75|100|125|175)\b/.test(line) && /\b[A-Z]{3}\b/.test(line) && !/^week/i.test(line)) {
         nearMisses.push(line);
       }
@@ -172,27 +213,134 @@ function analyze(lines) {
     }
     if (match[1] && match[2]) {
       currentWeek = Number(match[1]);
-      currentStartDate = parseDateToken(match[2]);
-      transitions.push(`week ${match[1]} dateToken="${match[2]}" -> startDate=${currentStartDate}`);
+      const monthAbbr = match[2].trim().slice(-3).toLowerCase();
+      const dateYear = monthAbbr === 'dec' && currentWeek <= 2 ? sectionYear - 1 : sectionYear;
+      currentStartDate = parseDateToken(match[2], dateYear);
+      transitions.push(`week ${currentWeek} (${sectionYear}) dateToken="${match[2]}" -> ${currentStartDate}`);
     }
     if (currentWeek === null || !currentStartDate) continue;
-    const key = `${currentWeek} (${currentStartDate})`;
-    if (!byWeek.has(key)) byWeek.set(key, []);
-    byWeek.get(key).push(`${match[3].trim()} [${match[4].toUpperCase()} ${match[5]}]`);
+    if (sectionYear !== year) continue;
+    rows.push({
+      week: currentWeek,
+      startDate: currentStartDate,
+      name: match[3].trim().replace(/[•†‡*]+/g, '').trim(),
+      country: match[4].toUpperCase(),
+      level: `Challenger ${match[5]}`,
+      notes: (match[7] ?? '').trim(),
+    });
   }
+  return { rows, nearMisses, transitions };
+}
 
-  console.log('\n--- WEEK TRANSITIONS SEEN BY PARSER ---');
+function analyze(lines) {
+  const { rows, nearMisses, transitions } = parseRows(lines);
+
+  console.log('\n--- WEEK/SECTION TRANSITIONS SEEN BY PARSER ---');
   for (const t of transitions) console.log(t);
 
-  console.log('\n--- ACCEPTED ROWS PER WEEK ---');
-  for (const [week, rows] of byWeek) console.log(`week ${week}: ${rows.length} rows :: ${rows.join(' | ')}`);
+  const byWeek = new Map();
+  for (const r of rows) {
+    const key = `${r.week} (${r.startDate})`;
+    if (!byWeek.has(key)) byWeek.set(key, []);
+    byWeek.get(key).push(`${r.name} [${r.country} ${r.level.replace('Challenger ', '')}]`);
+  }
+  console.log(`\n--- ACCEPTED ${year} ROWS PER WEEK: ${rows.length} total ---`);
+  for (const [week, names] of byWeek) console.log(`week ${week}: ${names.length} rows :: ${names.join(' | ')}`);
 
   console.log(`\n--- NEAR-MISS LINES (level+country present, regex failed): ${nearMisses.length} ---`);
   for (const l of nearMisses.slice(0, 60)) console.log(`NEARMISS: ${l}`);
 
-  console.log('\n--- RAW LINES CONTAINING Feb/Mar DATE TOKENS ---');
-  for (const l of lines) {
-    if (/\b\d{1,2}[-\s](feb|mar)\b/i.test(l)) console.log(`RAW: ${l}`);
+  return rows;
+}
+
+// Compare official PDF rows against production DB editions for the season.
+async function verifyAgainstProduction(pdfRows) {
+  const appUrl = (process.env.APP_URL ?? '').trim().replace(/\/$/, '');
+  const secret = process.env.ADMIN_SECRET ?? '';
+  if (!appUrl || !secret) {
+    console.log('\n--- DB VERIFY SKIPPED (APP_URL / ADMIN_SECRET not set) ---');
+    return;
+  }
+  const res = await fetch(
+    `${appUrl}/api/debug-week?year=${year}&from=${year - 1}-12-20&to=${year}-12-31`,
+    { headers: { 'X-Admin-Secret': secret, Accept: 'application/json' } }
+  );
+  if (!res.ok) {
+    console.log(`\n--- DB VERIFY FAILED: debug-week returned ${res.status} ---`);
+    return;
+  }
+  const db = await res.json();
+  const editions = (db.editions ?? []).filter((e) => e.status === 'held');
+
+  // Index DB editions by normalized name and city.
+  const byKey = new Map();
+  const add = (key, e) => {
+    if (!key) return;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(e);
+  };
+  for (const e of editions) {
+    add(normalizeKey(e.name), e);
+    add(normalizeKey((e.name ?? '').replace(/,\s*[A-Z]{2}$/, '')), e);
+  }
+
+  const missing = [];
+  const wrongDate = [];
+  const wrongLevel = [];
+  const matchedIds = new Set();
+
+  for (const row of pdfRows) {
+    const keys = [
+      normalizeKey(row.name),
+      normalizeKey(row.name.replace(/,\s*[A-Z]{2}$/, '')),
+      normalizeKey(row.name.replace(/\s*\([^)]*\)/g, '')),
+    ];
+    let candidates = [];
+    for (const k of keys) {
+      if (byKey.has(k)) { candidates = byKey.get(k); break; }
+    }
+    if (candidates.length === 0) {
+      missing.push(`${row.name} [${row.level}] week ${row.week} (${row.startDate})${row.notes ? ` notes: ${row.notes}` : ''}`);
+      continue;
+    }
+    // Prefer a same-date candidate, else closest by date.
+    const match =
+      candidates.find((e) => e.start_date === row.startDate) ??
+      candidates
+        .slice()
+        .sort((a, b) =>
+          Math.abs(new Date(a.start_date) - new Date(row.startDate)) -
+          Math.abs(new Date(b.start_date) - new Date(row.startDate))
+        )[0];
+    matchedIds.add(`${match.slug}|${match.start_date}`);
+    if (match.start_date !== row.startDate) {
+      wrongDate.push(
+        `${row.name}: official ${row.startDate} (week ${getAtpWeekForSeason(row.startDate, year)}) vs DB ${match.start_date} (week ${match.week}) [slug ${match.slug}]`
+      );
+    }
+    if (match.level !== row.level) {
+      wrongLevel.push(`${row.name}: official ${row.level} vs DB ${match.level} [slug ${match.slug}]`);
+    }
+  }
+
+  const challengerExtras = editions.filter(
+    (e) => /challenger/i.test(e.level ?? '') && !matchedIds.has(`${e.slug}|${e.start_date}`)
+  );
+
+  console.log(`\n=== OFFICIAL ${year} CALENDAR vs PRODUCTION DB ===`);
+  console.log(`official challenger rows: ${pdfRows.length} | held DB editions in season: ${editions.length}`);
+  console.log(`\nMISSING from DB entirely: ${missing.length}`);
+  missing.slice(0, 60).forEach((l) => console.log(`  MISSING: ${l}`));
+  console.log(`\nWRONG DATE/WEEK: ${wrongDate.length}`);
+  wrongDate.slice(0, 60).forEach((l) => console.log(`  DATE: ${l}`));
+  console.log(`\nWRONG LEVEL: ${wrongLevel.length}`);
+  wrongLevel.slice(0, 60).forEach((l) => console.log(`  LEVEL: ${l}`));
+  console.log(`\nDB challenger editions NOT in official PDF (extra/ghost): ${challengerExtras.length}`);
+  challengerExtras.slice(0, 40).forEach((e) =>
+    console.log(`  EXTRA: ${e.name} [${e.level}] ${e.start_date} week ${e.week} slug ${e.slug} cuts ${e.cuts}`)
+  );
+  if (missing.length === 0 && wrongDate.length === 0 && wrongLevel.length === 0) {
+    console.log(`\nALL ${year} OFFICIAL CHALLENGER ROWS MATCH PRODUCTION (dates, weeks, levels).`);
   }
 }
 
@@ -268,7 +416,8 @@ for (const url of urls) {
     }
     console.log(`extracted ${lines.length} lines via ${source}`);
     printWeek8To10Window(lines);
-    analyze(lines);
+    const rows = analyze(lines);
+    if (verifyAgainstDb) await verifyAgainstProduction(rows);
   } catch (err) {
     console.log(`ERROR: ${err.message}`);
   }

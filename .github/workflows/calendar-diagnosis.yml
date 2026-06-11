@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      YEAR: ${{ inputs.year || '2026' }}
+      YEAR: ${{ inputs.year || '2025' }}
       APP_URL: ${{ secrets.APP_URL }}
       ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -72,8 +72,8 @@ jobs:
               and te.start_date between '${YEAR}-03-02' and '${YEAR}-03-08'
             group by te.status;"
 
-      - name: Download official challenger PDF and replay parser
-        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR"
+      - name: Download official challenger PDF, replay parser, audit vs production
+        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify
 
       - name: Restore week 9 and verify the fixed sweep keeps it visible
         run: |
@@ -81,8 +81,8 @@ jobs:
             curl -sS --max-time 120 "$APP_URL/api/restore-historical-status" -H "X-Admin-Secret: $ADMIN_SECRET" > /dev/null || true
             curl -sS --max-time 180 "$APP_URL/api/import-calendars" -H "X-Admin-Secret: $ADMIN_SECRET" > /dev/null || true
             body=$(curl -sS --max-time 30 "$APP_URL/api/debug-week?year=$YEAR&from=$YEAR-03-02&to=$YEAR-03-08" -H "X-Admin-Secret: $ADMIN_SECRET" || true)
-            hidden=$(printf '%s' "$body" | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for e in d['editions'] if e['status'] != 'held'))" 2>/dev/null || echo 99)
-            echo "attempt $i: hidden editions in week 9 window: $hidden"
+            hidden=$(printf '%s' "$body" | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for e in d['editions'] if e['status'] != 'held' and e['cuts'] > 0))" 2>/dev/null || echo 99)
+            echo "attempt $i: hidden cut-bearing editions in early-March window: $hidden"
             if [ "$hidden" = "0" ]; then
               printf '%s' "$body" | python3 -m json.tool
               echo "WEEK 9 RESTORED AND SWEEP-PROOF (import-calendars no longer hides it)"
@@ -123,3 +123,20 @@ jobs:
           done
           echo "official sync never reported pdfjs extraction with upserts"
           exit 1
+
+      - name: Consolidate duplicates and restore statuses after sync
+        if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
+        run: |
+          for path in \
+            "/api/cleanup-duplicates?year=$YEAR&dryRun=false" \
+            "/api/dedupe-by-code?apply=true" \
+            "/api/merge-official-challenger-levels?apply=true" \
+            "/api/restore-historical-status"; do
+            echo "=== GET $path"
+            curl -sS --max-time 280 "$APP_URL$path" -H "X-Admin-Secret: $ADMIN_SECRET" | head -c 1500
+            echo
+          done
+
+      - name: Final audit of season vs official PDF
+        if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
+        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify | sed -n '/OFFICIAL.*vs PRODUCTION/,$p'
