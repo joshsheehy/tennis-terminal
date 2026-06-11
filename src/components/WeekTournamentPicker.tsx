@@ -37,6 +37,12 @@ function getDateValue(dateString: string | null) {
 
 function getLevelSortValue(level: string) {
   const n = level.toLowerCase();
+  if (n.includes('itf')) {
+    // ITF M25 / ITF M15 sort below every Challenger tier but above unknowns.
+    if (n.includes('m25')) return 0.25;
+    if (n.includes('m15')) return 0.15;
+    return 0.1;
+  }
   if (n.includes('1000')) return 1000;
   if (n.includes('500')) return 500;
   if (n.includes('250')) return 250;
@@ -51,6 +57,7 @@ function getLevelSortValue(level: string) {
 
 function getLevelCategory(level: string): string {
   const n = level.toLowerCase();
+  if (n.includes('itf')) return 'ITF';
   if (n.includes('1000') || n.includes('500') || n.includes('250')) return 'ATP';
   if (n.includes('challenger')) return 'Challenger';
   return 'Other';
@@ -173,7 +180,7 @@ export default function WeekTournamentPicker({
   const levelCategories = useMemo(() => {
     const cats = new Set<string>();
     for (const t of tournaments) cats.add(getLevelCategory(t.level));
-    return ['ATP', 'Challenger', 'Other'].filter(c => cats.has(c));
+    return ['ATP', 'Challenger', 'ITF', 'Other'].filter(c => cats.has(c));
   }, [tournaments]);
 
   // Key of the week group that contains today — used to auto-open it on mount

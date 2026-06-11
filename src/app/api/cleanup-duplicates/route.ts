@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
     join tournaments t on t.id = te.tournament_id
     where te.status = 'held'
       and te.start_date is not null
+      -- ITF rows are single-source and may share a normalized name within a
+      -- week (numbered parallel events) — exclude them from merging.
+      and te.level not ilike 'ITF%'
       ${yearFilter}
     group by
       regexp_replace(

@@ -124,6 +124,9 @@ export async function GET() {
         and te.year = $1
         and te.status <> 'not_held'
         and not (t.slug = any($2::text[]))
+        -- ITF rows come from itftennis.com, not the canonical ATP catalogue;
+        -- this sweep must never hide them.
+        and te.level not ilike 'ITF%'
       returning t.slug, te.year, te.status
       `,
       [year, slugsForYear]

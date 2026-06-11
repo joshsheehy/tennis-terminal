@@ -243,6 +243,8 @@ export async function GET(request: NextRequest) {
      where te.status = 'held'
        and te.start_date is not null
        and te.year >= 2024
+       -- ITF events have no cut PDFs (IPIN sign-in entries) — never sweep them.
+       and te.level not ilike 'ITF%'
      group by te.id, t.slug, t.name, te.year, te.start_date, te.level, te.source_url
      order by te.year, te.start_date, t.name`
   );

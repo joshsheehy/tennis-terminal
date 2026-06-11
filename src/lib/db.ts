@@ -158,6 +158,9 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
         row_number() over (
           -- Deduplicate by calendar week so JeffSackmann imports (stored week may differ)
           -- collapse with canonical entries. Strip " ch N" and trailing " N" from names.
+          -- ITF rows come from a single source and may legitimately share a
+          -- name within a week (numbered parallel events), so each ITF slug
+          -- is its own partition and never collapses.
           partition by
             regexp_replace(
               regexp_replace(
@@ -169,7 +172,8 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
               ),
               ',\\s*[a-z]{2}$', ''
             ),
-            date_trunc('week', te.start_date)
+            date_trunc('week', te.start_date),
+            case when te.level ilike 'ITF%' then t.slug else '' end
           order by te.updated_at desc nulls last
         ) as rn
       from tournament_editions te
@@ -182,6 +186,8 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
         -- normal rows start in the same calendar year, while Week 1 carryover
         -- rows may start in December of the previous calendar year.
         -- This blocks stale rows such as year=2026 with start_date='2025-03-17'.
+        -- ITF has no week-1 carryover: its December events belong to the same
+        -- calendar year's season (weeks 49-52), so same-year December is valid.
         and (
           (
             extract(year from te.start_date) = te.year
@@ -190,6 +196,10 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
           or (
             extract(year from te.start_date) = te.year - 1
             and extract(month from te.start_date) = 12
+          )
+          or (
+            te.level ilike 'ITF%'
+            and extract(year from te.start_date) = te.year
           )
         )
     )
@@ -319,6 +329,10 @@ export async function getTournamentDetailRowsBySlug(
         or (
           extract(year from te.start_date) = te.year - 1
           and extract(month from te.start_date) = 12
+        )
+        or (
+          te.level ilike 'ITF%'
+          and extract(year from te.start_date) = te.year
         )
       )
     order by te.year desc

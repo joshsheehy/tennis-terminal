@@ -55,6 +55,10 @@ function isChallengerLevel(level: string) {
   return level.toLowerCase().includes('challenger');
 }
 
+function isItfLevel(level: string) {
+  return level.toLowerCase().startsWith('itf');
+}
+
 function fallback(value: string | number | null | undefined, placeholder = 'N/A') {
   if (value === null || value === undefined) return placeholder;
   const text = String(value).trim();
@@ -158,6 +162,15 @@ function CutoffTable({
     return (
       <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
         Invitation-only / team format — no ranking-based cutoff applies.
+      </div>
+    );
+  }
+
+  if (isItfLevel(level)) {
+    return (
+      <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
+        ITF World Tennis Tour event — cuts are not tracked here. Entries close
+        via IPIN sign-in; acceptance lists are published on itftennis.com.
       </div>
     );
   }

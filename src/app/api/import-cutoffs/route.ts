@@ -59,6 +59,7 @@ async function getEditionSlugsForYear(year: number) {
     join tournaments t on t.id = te.tournament_id
     where te.year = $1
       and te.status = 'held'
+      and te.level not ilike 'ITF%'
       and (te.start_date is null or te.start_date <= current_date)
     `,
     [year]
@@ -81,6 +82,7 @@ async function getCodesFromEditionSourceUrls(year: number): Promise<Map<string, 
     left join cutoff_snapshots cs on cs.tournament_edition_id = te.id
     where te.year = $1
       and te.status = 'held'
+      and te.level not ilike 'ITF%'
       and (te.start_date is null or te.start_date <= current_date)
     `,
     [year]

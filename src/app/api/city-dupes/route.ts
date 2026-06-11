@@ -47,6 +47,9 @@ export async function GET(request: NextRequest) {
     where te.status = 'held'
       and te.start_date is not null
       and t.city is not null
+      -- ITF events legitimately share city+week with ATP/Challenger stops
+      -- (e.g. M15 Monastir alongside the Monastir Challenger) — never merge.
+      and te.level not ilike 'ITF%'
       ${yearFilter}
     group by translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'), date_trunc('week', te.start_date), te.year
     having count(*) > 1

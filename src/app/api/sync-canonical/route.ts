@@ -102,6 +102,9 @@ export async function GET() {
        and te.year = 2026
        and te.status = 'held'
        and not (t.slug = any($1::text[]))
+       -- ITF rows are imported from itftennis.com, never from the canonical
+       -- ATP catalogue, and carry no cuts — exempt them from this sweep.
+       and te.level not ilike 'ITF%'
        and not exists (
          select 1 from cutoff_snapshots cs
          where cs.tournament_edition_id = te.id

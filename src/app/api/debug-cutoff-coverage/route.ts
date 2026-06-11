@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
     where te.status = 'held'
       and te.start_date is not null
       and te.year = $1
+      and te.level not ilike 'ITF%'
     order by te.start_date, t.name
     `,
     [year]

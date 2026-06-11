@@ -31,6 +31,8 @@ export async function GET() {
     join tournament_editions te on te.tournament_id = t.id
     left join cutoff_snapshots cs on cs.tournament_edition_id = te.id
     where te.status = 'held'
+      -- ITF events never have cuts; keep coverage stats meaningful.
+      and te.level not ilike 'ITF%'
     group by t.slug, t.name, te.level, te.year, te.week
     order by te.year desc, te.week asc nulls last, t.name asc
   `);

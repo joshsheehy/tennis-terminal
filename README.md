@@ -5,6 +5,7 @@ Tournament schedule and entry-cutoff data for the men's pro tour, served as a sm
 ## What it does
 
 - Pulls the ATP Tour and Challenger calendars from official sources (atptour.com calendar PDFs, ATP archive pages, ProTennisLive postings, JeffSackmann's GitHub backup).
+- Imports the ITF World Tennis Tour calendar (men's M15/M25) from itftennis.com — schedule-only rows with no cut tracking, one tournament row per event-week (`itf-…-YYYY-MM-DD` slugs).
 - Stores tournaments, editions, and per-draw cutoff snapshots in a three-table schema (`tournaments`, `tournament_editions`, `cutoff_snapshots`).
 - Renders the schedule by week + the per-tournament history of cuts at `/` and `/tournaments/[slug]`.
 - Runs a daily GitHub Actions sync to keep the data fresh, plus a weekly official-calendar refresh.
@@ -61,6 +62,7 @@ routes return 503 — the API fails closed. Local `next dev` skips the check.
 | `/api/sync-official-calendar?year=YYYY` | Import the official ATP Tour calendar PDF for the given season. |
 | `/api/import-calendars` | Refresh the canonical hardcoded calendar. |
 | `/api/import-challenger-season?year=YYYY` | Backfill challenger schedules from JeffSackmann (fallback source). |
+| `/api/import-itf-calendar?year=YYYY&apply=true` | Import the ITF World Tennis Tour calendar (men) from itftennis.com. Dry run without `apply`; `&debug=true` echoes a raw API item. |
 | `/api/import-cutoffs?year=YYYY` | Pull cutoff PDFs from ProTennisLive for known codes. |
 | `/api/run-all?force=true` | Sweep remaining missing cuts within a per-call time budget. |
 | `/api/missing-cuts-report?year=YYYY&compact=true` | Snapshot of what's still missing, with confidence levels. |

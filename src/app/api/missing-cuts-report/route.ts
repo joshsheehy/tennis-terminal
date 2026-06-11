@@ -190,6 +190,7 @@ export async function GET(request: NextRequest) {
     left join cutoff_snapshots cs on cs.tournament_edition_id = te.id
     where te.status = 'held'
       and te.year = $1
+      and te.level not ilike 'ITF%'
       and te.start_date is not null
       and (
         (
