@@ -1,16 +1,15 @@
 import Link from 'next/link';
-
-const AVAILABLE_YEARS = [2026, 2025, 2024];
+import { AVAILABLE_SEASONS, CURRENT_SEASON } from '@/lib/seasons';
 
 export default function YearPicker({ currentYear }: { currentYear: number }) {
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-      {AVAILABLE_YEARS.map((year) => {
+      {AVAILABLE_SEASONS.map((year) => {
         const active = year === currentYear;
         return (
           <Link
             key={year}
-            href={year === 2026 ? '/' : `/?year=${year}`}
+            href={year === CURRENT_SEASON ? '/' : `/?year=${year}`}
             style={{
               padding: '8px 20px',
               borderRadius: 20,

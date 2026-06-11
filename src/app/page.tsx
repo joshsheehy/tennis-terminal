@@ -2,10 +2,9 @@ import { unstable_cache } from 'next/cache';
 import WeekTournamentPicker from '@/components/WeekTournamentPicker';
 import YearPicker from '@/components/YearPicker';
 import { getScheduleForYear } from '@/lib/db';
+import { CURRENT_SEASON, isAvailableSeason } from '@/lib/seasons';
 
 export const dynamic = 'force-dynamic';
-
-const VALID_YEARS = [2024, 2025, 2026];
 
 const getCachedSchedule = unstable_cache(
   async (year: number) => getScheduleForYear(year),
@@ -19,7 +18,7 @@ export default async function HomePage({
   searchParams: Promise<{ year?: string; week?: string }>;
 }) {
   const { year: yearParam, week: weekParam } = await searchParams;
-  const year = yearParam && VALID_YEARS.includes(Number(yearParam)) ? Number(yearParam) : 2026;
+  const year = yearParam && isAvailableSeason(Number(yearParam)) ? Number(yearParam) : CURRENT_SEASON;
 
   const tournaments = await getCachedSchedule(year);
 

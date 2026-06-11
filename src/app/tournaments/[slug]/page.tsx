@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getTournamentDetailRowsBySlug } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { CURRENT_SEASON, EARLIEST_SEASON, isAvailableSeason } from '@/lib/seasons';
 
 // Look up the most recent protennislive_code we know for a slug, so the
 // CutoffTable can render a "PDF source" link even when no cuts snapshot
@@ -242,8 +243,6 @@ function CutoffTable({
   );
 }
 
-const VALID_YEARS = [2024, 2025, 2026];
-
 const getCachedDetail = unstable_cache(
   async (slug: string, limit: number, year: number) =>
     getTournamentDetailRowsBySlug(slug, limit, year),
@@ -260,9 +259,10 @@ export default async function TournamentDetailPage({
 }) {
   const { slug } = await params;
   const { year: yearParam } = await searchParams;
-  const year = yearParam && VALID_YEARS.includes(Number(yearParam)) ? Number(yearParam) : 2026;
+  const year = yearParam && isAvailableSeason(Number(yearParam)) ? Number(yearParam) : CURRENT_SEASON;
 
-  const editionLimit = Math.max(1, year - 2023);
+  // Show the viewed year plus everything back to the earliest imported season.
+  const editionLimit = Math.max(1, year - (EARLIEST_SEASON - 1));
   const rows = await getCachedDetail(slug, editionLimit, year);
 
   if (rows.length === 0) notFound();
@@ -271,7 +271,7 @@ export default async function TournamentDetailPage({
 
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
-      <Link href={year !== 2026 ? `/?year=${year}` : '/'} style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+      <Link href={year !== CURRENT_SEASON ? `/?year=${year}` : '/'} style={{ fontSize: 14, color: 'var(--text-muted)' }}>
         ← Back to {year} schedule
       </Link>
 

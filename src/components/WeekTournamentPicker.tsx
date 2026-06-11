@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScheduleRow } from '@/lib/types';
+import { CURRENT_SEASON } from '@/lib/seasons';
 
 function normalizeForSearch(value: string | null | undefined) {
   if (!value) return '';
@@ -91,7 +92,7 @@ function vibrate() {
 
 export default function WeekTournamentPicker({
   tournaments,
-  year = 2026,
+  year = CURRENT_SEASON,
   defaultWeekKey,
 }: {
   tournaments: ScheduleRow[];
@@ -494,7 +495,7 @@ export default function WeekTournamentPicker({
             data-level-cat={getLevelCategory(t.level)}
           >
             <Link
-              href={`/tournaments/${t.slug}${year !== 2026 ? `?year=${year}` : ''}`}
+              href={`/tournaments/${t.slug}${year !== CURRENT_SEASON ? `?year=${year}` : ''}`}
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -599,7 +600,7 @@ export default function WeekTournamentPicker({
                   data-level-cat={getLevelCategory(tournament.level)}
                 >
                 <Link
-                  href={`/tournaments/${tournament.slug}${year !== 2026 ? `?year=${year}` : ''}`}
+                  href={`/tournaments/${tournament.slug}${year !== CURRENT_SEASON ? `?year=${year}` : ''}`}
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',

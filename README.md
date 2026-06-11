@@ -13,7 +13,7 @@ Tournament schedule and entry-cutoff data for the men's pro tour, served as a sm
 
 - **`src/app`** – Next.js app router pages and API routes.
 - **`src/lib`** – shared helpers (db pool, ATP week math, PDF cutoff parser, canonical tournament catalogue).
-- **`src/components`** – schedule UI (week picker, year picker, tournament card).
+- **`src/components`** – schedule UI (week picker, year picker, theme toggle).
 - **`sql/`** – schema and migration helpers.
 - **`.github/workflows`** – the automated sync jobs.
 

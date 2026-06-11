@@ -47,15 +47,3 @@ export function getAtpEditionYearForStartDate(
   if (!parsed) return requestedYear;
   return parsed.getUTCMonth() === 11 ? parsed.getUTCFullYear() + 1 : requestedYear;
 }
-
-// Internal sanity checks for ATP season week rules.
-void [
-  getAtpWeekForSeason('2024-01-01', 2024) === 1,
-  getAtpWeekForSeason('2024-01-08', 2024) === 2,
-  getAtpWeekForSeason('2024-12-30', 2025) === 1,
-  getAtpWeekForSeason('2025-01-06', 2025) === 2,
-  getAtpWeekForSeason('2025-01-13', 2025) === 3,
-  getAtpWeekForSeason('2025-12-29', 2026) === 1,
-  getAtpWeekForSeason('2026-01-05', 2026) === 1,
-  getAtpWeekForSeason('2026-01-12', 2026) === 2,
-];
