@@ -19,6 +19,13 @@ function isSwingLevel(level: string): boolean {
   return !/^itf/i.test(level.trim());
 }
 
+function isoDate(value: unknown): string {
+  // pg returns date columns as Date objects despite the string type on
+  // ScheduleRow; String(Date) is not ISO, so handle both shapes.
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
 export async function loadSwingEventsForYear(
   pool: Pool,
   year: number
@@ -49,7 +56,7 @@ export async function loadSwingEventsForYear(
     latitude: coords.get(row.tournament_id)?.latitude ?? null,
     longitude: coords.get(row.tournament_id)?.longitude ?? null,
     week: row.week!,
-    startDate: String(row.start_date).slice(0, 10),
+    startDate: isoDate(row.start_date),
     level: row.level,
     surface: row.surface,
     indoor: row.indoor,

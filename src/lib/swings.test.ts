@@ -211,6 +211,15 @@ describe('detectSwings', () => {
     expect(swings[0].label).toBe('US swing');
   });
 
+  it('labels chains of country-less tournaments by city instead of blank', () => {
+    const bengaluru = { country: null, latitude: 12.9768, longitude: 77.5901 };
+    const swings = detectSwings([
+      ev({ ...bengaluru, city: 'Bengaluru 2', week: 19 }),
+      ev({ ...bengaluru, city: 'Bengaluru 3', week: 20 }),
+    ]);
+    expect(swings[0].label).toBe('Bengaluru swing');
+  });
+
   it('disambiguates repeated labels with the start month', () => {
     const mexicoCity = { country: 'Mexico', latitude: 19.4326, longitude: -99.1332 };
     const swings = detectSwings([

@@ -247,12 +247,37 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 function startMonthAbbr(events: SwingEventInput[]): string {
   const earliest = events.reduce((min, e) => (e.startDate < min ? e.startDate : min), events[0].startDate);
-  const month = Number(String(earliest).slice(5, 7));
+  let month = Number(String(earliest).slice(5, 7));
+  if (!Number.isInteger(month) || month < 1) {
+    const parsed = new Date(earliest);
+    if (!Number.isNaN(parsed.getTime())) month = parsed.getUTCMonth() + 1;
+  }
   return MONTHS[month - 1] ?? '';
+}
+
+/** "Tenerife 2" / "Fujairah 1" style city fields name the edition, not the place. */
+function cityLabelName(city: string): string {
+  return city
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s+\d+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function baseLabel(swing: { countries: string[]; weeks: SwingWeek[] }): string {
   const allEvents = swing.weeks.flatMap((w) => w.events);
+
+  // Some imported tournaments have no country; fall back to city names so
+  // the label is never blank ("Bengaluru swing", "Porto–Seville swing").
+  if (swing.countries.length === 0) {
+    const cities: string[] = [];
+    for (const event of allEvents) {
+      const name = cityLabelName(event.city);
+      if (name && !cities.includes(name)) cities.push(name);
+    }
+    if (cities.length === 0) return 'Unlabeled swing';
+    return `${cities.slice(0, 3).join('–')} swing`;
+  }
 
   if (swing.countries.length === 1) {
     const country = swing.countries[0];
