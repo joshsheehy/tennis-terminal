@@ -4,9 +4,10 @@
 // DRY-RUN BY DEFAULT: prints what it would write without touching the
 // database. Pass --apply to perform the writes.
 //
-//   npm run geocode:tournaments               # dry run (no writes)
-//   npm run geocode:tournaments -- --apply    # write coordinates
-//   npm run geocode:tournaments -- --limit=50 # bound a run
+//   npm run geocode:tournaments                        # dry run (no writes)
+//   npm run geocode:tournaments -- --apply             # write coordinates
+//   npm run geocode:tournaments -- --apply --year=2026 # one season only
+//   npm run geocode:tournaments -- --limit=50          # bound a run
 //
 // Successful lookups are cached in data/geocode-cache.json so reruns never
 // re-query Nominatim for a known city. Failures are written to
@@ -17,6 +18,7 @@ import path from 'node:path';
 import { pool } from '@/lib/db';
 import { GeocodeResult } from '@/lib/geocode';
 import { runGeocodeBackfill } from '@/lib/geocode-backfill';
+import { AVAILABLE_SEASONS, isAvailableSeason } from '@/lib/seasons';
 
 const CACHE_FILE = path.join(process.cwd(), 'data', 'geocode-cache.json');
 const FAILURE_REPORT_FILE = path.join(process.cwd(), 'reports', 'geocode-failures.json');
@@ -29,7 +31,12 @@ function parseArgs(argv: string[]) {
   if (limitArg && (!Number.isInteger(limit) || limit! <= 0)) {
     throw new Error(`Invalid --limit value: ${limitArg}`);
   }
-  return { apply, limit };
+  const yearArg = argv.find((arg) => arg.startsWith('--year='));
+  const year = yearArg ? Number(yearArg.split('=')[1]) : undefined;
+  if (yearArg && !isAvailableSeason(year!)) {
+    throw new Error(`Unknown season in ${yearArg}; use one of ${AVAILABLE_SEASONS.join(', ')}`);
+  }
+  return { apply, limit, year };
 }
 
 function loadCache(): Map<string, GeocodeResult> {
@@ -45,7 +52,7 @@ function saveCache(cache: Map<string, GeocodeResult>) {
 }
 
 async function main() {
-  const { apply, limit } = parseArgs(process.argv.slice(2));
+  const { apply, limit, year } = parseArgs(process.argv.slice(2));
   const cache = loadCache();
 
   console.log(
@@ -54,7 +61,12 @@ async function main() {
       : 'Geocoding tournaments (dry run: no database writes; pass --apply to write)...'
   );
 
-  const result = await runGeocodeBackfill(pool, { dryRun: !apply, limit, cache });
+  const result = await runGeocodeBackfill(pool, {
+    dryRun: !apply,
+    limit,
+    cache,
+    years: year ? [year] : undefined,
+  });
 
   saveCache(cache);
 
@@ -87,6 +99,7 @@ async function main() {
 
   console.log('\nSummary:');
   console.log(`  mode:                ${result.dryRun ? 'dry run' : 'apply'}`);
+  console.log(`  seasons:             ${result.years.join(', ')}`);
   console.log(`  missing before run:  ${result.totalMissing}`);
   console.log(`  processed this run:  ${result.processed}`);
   console.log(`  resolved:            ${result.resolved.length}`);

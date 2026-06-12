@@ -44,6 +44,8 @@ export type GeocodeFailure = {
 
 export type BackfillResult = {
   dryRun: boolean;
+  /** Seasons this run targeted. */
+  years: number[];
   /** Tournaments with 2024-2026 held editions still missing coordinates before this run. */
   totalMissing: number;
   processed: number;
@@ -58,6 +60,8 @@ export type BackfillOptions = {
   dryRun: boolean;
   /** Max tournaments to process this run (keeps admin-route calls bounded). */
   limit?: number;
+  /** Seasons whose tournaments to backfill; defaults to all AVAILABLE_SEASONS. */
+  years?: number[];
   /** Pre-seeded cache keyed by geocodeKey(); new hits are added to it so the
    * CLI can persist it between runs. */
   cache?: Map<string, GeocodeResult>;
@@ -92,7 +96,7 @@ export async function runGeocodeBackfill(
   const { dryRun, limit, cache = new Map<string, GeocodeResult>() } = options;
   const fetchImpl = options.fetchImpl ?? fetch;
   const sleepImpl = options.sleepImpl ?? sleep;
-  const seasons = [...AVAILABLE_SEASONS];
+  const seasons = options.years && options.years.length > 0 ? options.years : [...AVAILABLE_SEASONS];
 
   await ensureCoordinateColumns(pool);
 
@@ -196,6 +200,7 @@ export async function runGeocodeBackfill(
 
   return {
     dryRun,
+    years: seasons,
     totalMissing,
     processed: targetsResult.rows.length,
     resolved,
