@@ -408,7 +408,11 @@ export async function GET(request: NextRequest) {
   const discovered = explicitPdfUrls.length > 0 ? { urls: explicitPdfUrls, pageErrors: [] } : await discoverOfficialPdfUrls(year);
 
   if (discovered.urls.length === 0) {
-    return NextResponse.json({ ok: false, error: 'No official ATP Challenger calendar PDF found.', pageErrors: discovered.pageErrors }, { status: 502 });
+    // 200 on purpose: edge proxies replace 5xx bodies, hiding the reason.
+    return NextResponse.json(
+      { ok: false, error: 'No official ATP Challenger calendar PDF found.', pageErrors: discovered.pageErrors },
+      { status: 200 }
+    );
   }
 
   const pdfResults: Array<{ url: string; extractionSource: string; extractedLines: number; parsedRows: number; skippedRows: number; sampleLines?: string[]; error?: string }> = [];

@@ -76,6 +76,8 @@ export async function GET(request: NextRequest) {
       if (exhausted) break;
     }
   } catch (err) {
+    // Deliberately 200: Railway/Cloudflare replace 5xx bodies with generic
+    // error pages, which hides this diagnostic payload from workflow logs.
     return NextResponse.json(
       {
         ok: false,
@@ -86,8 +88,10 @@ export async function GET(request: NextRequest) {
         year,
         circuit,
         offsetTried: skip,
+        hasMore: false,
+        nextOffset: null,
       },
-      { status: 502 }
+      { status: 200 }
     );
   }
 

@@ -77,6 +77,27 @@ jobs:
         # (repeat PDF probing from one runner IP gets throttled by atptour).
         run: node scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify --emit-rows /tmp/official-rows.json
 
+      - name: Probe ITF calendar API (runner and production route)
+        run: |
+          echo "--- ITF GetCalendar direct from this runner:"
+          curl -sS -o /tmp/itf-direct.json -w "HTTP %{http_code} in %{time_total}s\n" --max-time 30 \
+            "https://www.itftennis.com/tennis/api/TournamentApi/GetCalendar?circuitCode=MT&searchString=&skip=0&take=2&nationCodes=&zoneCodes=&dateFrom=2026-01-01&dateTo=2026-12-31&indoorOutdoor=&categories=&isOrderAscending=true&orderField=startDate&surfaceCodes=" \
+            -H "accept: application/json" \
+            -H "user-agent: Mozilla/5.0 (compatible; TennisTerminal/1.0; +https://tenniscuts.com)" || true
+          head -c 600 /tmp/itf-direct.json 2>/dev/null; echo
+
+          echo "--- via production route (dry run, debug=true); waiting for this commit to deploy:"
+          for i in $(seq 1 20); do
+            rev=$(curl -sS --max-time 20 "$APP_URL/api/debug-week?year=2026&from=2026-01-01&to=2026-01-02" \
+              -H "X-Admin-Secret: $ADMIN_SECRET" | python3 -c "import json,sys; print(json.load(sys.stdin).get('rev'))" 2>/dev/null || echo unknown)
+            [ "$rev" = "$GITHUB_SHA" ] && { echo "deploy live"; break; }
+            if [ "$rev" = "None" ]; then echo "rev not exposed; fixed wait"; sleep 240; break; fi
+            echo "waiting for deploy (serving $rev)"; sleep 20
+          done
+          curl -sS --max-time 120 "$APP_URL/api/import-itf-calendar?year=2026&debug=true" \
+            -H "X-Admin-Secret: $ADMIN_SECRET" -H "Accept: application/json" | head -c 3000
+          echo
+
       - name: Restore week 9 and verify the fixed sweep keeps it visible
         run: |
           for i in $(seq 1 12); do
