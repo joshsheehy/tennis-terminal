@@ -38,58 +38,75 @@ jobs:
 
       - name: Fetch and parse ITF calendar on this runner
         run: |
-          YEAR="${YEAR:-$(date -u +%Y)}"
-          echo "YEAR=$YEAR" >> "$GITHUB_ENV"
-          npx tsx scripts/itf-runner-fetch.mts "$YEAR" "$CIRCUIT" /tmp/itf-rows.json
+          # A year input limits the run; default covers every season the site
+          # serves so the ITF pill exists on all year tabs.
+          YEARS="${YEAR:-2024 2025 2026}"
+          ok=0
+          for Y in $YEARS; do
+            if npx tsx scripts/itf-runner-fetch.mts "$Y" "$CIRCUIT" "/tmp/itf-rows-$Y.json"; then
+              ok=$((ok+1))
+            else
+              echo "WARNING: ITF fetch/parse failed for $Y"
+            fi
+          done
+          [ "$ok" -gt 0 ] || { echo "no season produced any events"; exit 1; }
 
       - name: POST parsed ITF events to production
         run: |
           python3 - <<'PY'
-          import json, os, time, urllib.request
+          import glob, json, os, time, urllib.request
 
           base = os.environ['APP_URL'].strip().rstrip('/')
           secret = os.environ['ADMIN_SECRET']
-          payload = json.load(open('/tmp/itf-rows.json'))
-          rows = payload['rows']
-          year = payload['year']
-          print(f"POSTing {len(rows)} ITF events for {year}")
 
-          total = 0
-          for start in range(0, len(rows), 100):
-              chunk = {'year': year, 'rows': rows[start:start+100]}
-              body = json.dumps(chunk).encode()
-              for attempt in range(1, 6):
-                  req = urllib.request.Request(
-                      f'{base}/api/import-itf-rows?apply=true',
-                      data=body, method='POST',
-                      headers={
-                          'Content-Type': 'application/json',
-                          'X-Admin-Secret': secret,
-                          'Accept': 'application/json',
-                          # urllib's default Python UA gets 403'd by the WAF.
-                          'User-Agent': 'TennisTerminalITFSync/1.0 (+https://tenniscuts.com)',
-                      },
-                  )
-                  try:
-                      with urllib.request.urlopen(req, timeout=180) as res:
-                          out = json.loads(res.read())
-                          up = (out.get('upserted') or {})
-                          print(f"chunk {start}: ok={out['ok']} valid={out['validCount']} invalid={out['invalidCount']} upserted={up.get('upsertedEditions')}")
-                          if not out['ok']:
-                              print(json.dumps(out.get('invalid', []), indent=1))
-                              print(json.dumps((up.get('errors') or [])[:5], indent=1))
+          files = sorted(glob.glob('/tmp/itf-rows-*.json'))
+          if not files:
+              raise SystemExit('no parsed row files found')
+
+          grand_total = 0
+          for path in files:
+              payload = json.load(open(path))
+              rows = payload['rows']
+              year = payload['year']
+              print(f"POSTing {len(rows)} ITF events for {year}")
+              total = 0
+              for start in range(0, len(rows), 100):
+                  chunk = {'year': year, 'rows': rows[start:start+100]}
+                  body = json.dumps(chunk).encode()
+                  for attempt in range(1, 6):
+                      req = urllib.request.Request(
+                          f'{base}/api/import-itf-rows?apply=true',
+                          data=body, method='POST',
+                          headers={
+                              'Content-Type': 'application/json',
+                              'X-Admin-Secret': secret,
+                              'Accept': 'application/json',
+                              # urllib's default Python UA gets 403'd by the WAF.
+                              'User-Agent': 'TennisTerminalITFSync/1.0 (+https://tenniscuts.com)',
+                          },
+                      )
+                      try:
+                          with urllib.request.urlopen(req, timeout=180) as res:
+                              out = json.loads(res.read())
+                              up = (out.get('upserted') or {})
+                              print(f"  {year} chunk {start}: ok={out['ok']} valid={out['validCount']} invalid={out['invalidCount']} upserted={up.get('upsertedEditions')}")
+                              if not out['ok']:
+                                  print(json.dumps(out.get('invalid', []), indent=1))
+                                  print(json.dumps((up.get('errors') or [])[:5], indent=1))
+                                  raise SystemExit(1)
+                              total += up.get('upsertedEditions') or 0
+                              break
+                      except SystemExit:
+                          raise
+                      except Exception as exc:
+                          print(f'  {year} chunk {start} attempt {attempt} failed: {exc}')
+                          if attempt == 5:
                               raise SystemExit(1)
-                          total += up.get('upsertedEditions') or 0
-                          break
-                  except SystemExit:
-                      raise
-                  except Exception as exc:
-                      print(f'chunk {start} attempt {attempt} failed: {exc}')
-                      if attempt == 5:
-                          raise SystemExit(1)
-                      time.sleep(20 * attempt)
+                          time.sleep(20 * attempt)
+              print(f'{year}: upserted {total} ITF editions')
+              grand_total += total
 
-          print(f'TOTAL ITF EDITIONS UPSERTED: {total}')
-          if total == 0:
+          print(f'TOTAL ITF EDITIONS UPSERTED: {grand_total}')
+          if grand_total == 0:
               raise SystemExit(1)
           PY
