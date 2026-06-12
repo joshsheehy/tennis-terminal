@@ -55,14 +55,20 @@ jobs:
           print(f"POSTing {len(rows)} ITF events for {year}")
 
           total = 0
-          for start in range(0, len(rows), 250):
-              chunk = {'year': year, 'rows': rows[start:start+250]}
+          for start in range(0, len(rows), 100):
+              chunk = {'year': year, 'rows': rows[start:start+100]}
               body = json.dumps(chunk).encode()
               for attempt in range(1, 6):
                   req = urllib.request.Request(
                       f'{base}/api/import-itf-rows?apply=true',
                       data=body, method='POST',
-                      headers={'Content-Type': 'application/json', 'X-Admin-Secret': secret, 'Accept': 'application/json'},
+                      headers={
+                          'Content-Type': 'application/json',
+                          'X-Admin-Secret': secret,
+                          'Accept': 'application/json',
+                          # urllib's default Python UA gets 403'd by the WAF.
+                          'User-Agent': 'TennisTerminalITFSync/1.0 (+https://tenniscuts.com)',
+                      },
                   )
                   try:
                       with urllib.request.urlopen(req, timeout=180) as res:

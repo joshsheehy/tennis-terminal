@@ -61,5 +61,8 @@ if (events.length === 0) {
   console.error('no events parsed — refusing to emit an empty file');
   process.exit(1);
 }
-writeFileSync(outPath, JSON.stringify({ year, circuit, rows: events }));
-console.log(`wrote ${events.length} events to ${outPath}`);
+// source_url is stripped before POSTing: a body carrying hundreds of
+// itftennis.com URLs trips the WAF in front of the app (403).
+const rows = events.map((e) => ({ ...e, source_url: null }));
+writeFileSync(outPath, JSON.stringify({ year, circuit, rows }));
+console.log(`wrote ${rows.length} events to ${outPath}`);
