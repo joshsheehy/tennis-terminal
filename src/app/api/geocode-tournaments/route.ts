@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
       written: result.written,
       remaining: result.remaining,
       nominatimRequests: result.nominatimRequests,
+      rateLimited: result.rateLimited,
       resolved: result.resolved,
       failures: result.failures,
     });

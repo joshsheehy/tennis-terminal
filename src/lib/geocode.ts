@@ -23,6 +23,36 @@ export type GeocodeResult = {
   displayName: string;
 };
 
+/** Nominatim answered 429 — the caller must back off, not record a miss. */
+export class NominatimRateLimitError extends Error {
+  constructor() {
+    super('Nominatim responded with status 429');
+    this.name = 'NominatimRateLimitError';
+  }
+}
+
+// Tournament data spells some countries in ways Nominatim's country matcher
+// does not recognize. Keys are lowercased; values are what Nominatim expects.
+const COUNTRY_ALIASES: Record<string, string> = {
+  'china, p.r.': 'China',
+  'chinese taipei': 'Taiwan',
+  'hong kong, china': 'Hong Kong',
+  'macau, china': 'Macau',
+  'korea, rep.': 'South Korea',
+  'great britain': 'United Kingdom',
+  usa: 'United States',
+};
+
+// Same idea for individual city spellings that consistently miss.
+const CITY_ALIASES: Record<string, string> = {
+  'sharm elsheikh': 'Sharm El Sheikh',
+};
+
+export function normalizeCountryForGeocoding(country: string | null): string | null {
+  if (!country) return null;
+  return COUNTRY_ALIASES[normalizePlace(country)] ?? country;
+}
+
 /**
  * Cache key for a city + country pair. Many tournaments share a venue city
  * (e.g. Tenerife 1/2, the Monastir blocks), so coordinates are looked up once
@@ -38,11 +68,12 @@ export function geocodeKey(city: string, country: string | null): string {
  * trailing standalone number; real city names do not end in a bare digit.
  */
 export function cleanCityForQuery(city: string): string {
-  return city
+  const cleaned = city
     .replace(/\s*\([^)]*\)/g, '')
     .replace(/\s+\d+$/, '')
     .replace(/\s+/g, ' ')
     .trim();
+  return CITY_ALIASES[normalizePlace(cleaned)] ?? cleaned;
 }
 
 function normalizePlace(value: string): string {
@@ -84,6 +115,7 @@ async function queryNominatim(
     },
   });
 
+  if (response.status === 429) throw new NominatimRateLimitError();
   if (!response.ok) {
     throw new Error(`Nominatim responded with status ${response.status}`);
   }
@@ -96,25 +128,32 @@ async function queryNominatim(
  * precise: the country constrains the match), then falls back to a free-form
  * "city, country" search. Throws on transport/HTTP errors so callers can
  * distinguish "service problem" from "place not found" (null).
+ *
+ * `throttle` is awaited before EVERY HTTP request — including the fallback —
+ * so the caller's 1 req/s pacing holds even when the structured query misses.
  */
 export async function geocodeCityCountry(
   city: string,
   country: string | null,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  throttle?: () => Promise<void>
 ): Promise<GeocodeResult | null> {
   const cleanedCity = cleanCityForQuery(city);
   if (!cleanedCity) return null;
+  const normalizedCountry = normalizeCountryForGeocoding(country);
 
   const structured = new URLSearchParams({ city: cleanedCity });
-  if (country) structured.set('country', country);
+  if (normalizedCountry) structured.set('country', normalizedCountry);
 
+  await throttle?.();
   const structuredResult = await queryNominatim(structured, fetchImpl);
   if (structuredResult) return structuredResult;
 
   const freeForm = new URLSearchParams({
-    q: country ? `${cleanedCity}, ${country}` : cleanedCity,
+    q: normalizedCountry ? `${cleanedCity}, ${normalizedCountry}` : cleanedCity,
   });
 
+  await throttle?.();
   return queryNominatim(freeForm, fetchImpl);
 }
 

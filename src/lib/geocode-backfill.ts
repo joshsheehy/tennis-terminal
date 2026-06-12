@@ -7,6 +7,7 @@ import type { Pool } from 'pg';
 import {
   GEOCODE_MIN_INTERVAL_MS,
   GeocodeResult,
+  NominatimRateLimitError,
   geocodeCityCountry,
   geocodeKey,
   sleep,
@@ -54,6 +55,9 @@ export type BackfillResult = {
   written: number;
   remaining: number;
   nominatimRequests: number;
+  /** True when Nominatim kept answering 429 after backoff: the run stopped
+   * early and unprocessed tournaments were NOT recorded as failures. */
+  rateLimited: boolean;
 };
 
 export type BackfillOptions = {
@@ -140,6 +144,22 @@ export async function runGeocodeBackfill(
   const failures: GeocodeFailure[] = [];
   let written = 0;
   let nominatimRequests = 0;
+  let rateLimited = false;
+
+  // Awaited before every Nominatim HTTP request (the fallback query too),
+  // keeping the whole run at or under 1 request per second.
+  let lastRequestAt = 0;
+  const throttle = async () => {
+    const wait = lastRequestAt + GEOCODE_MIN_INTERVAL_MS - Date.now();
+    if (wait > 0) await sleepImpl(wait);
+    lastRequestAt = Date.now();
+    nominatimRequests += 1;
+  };
+
+  // On 429, retry with growing pauses; if Nominatim is still throttling
+  // after the last attempt, give up on the whole run (rateLimited: true)
+  // instead of burning every remaining tournament into the failure report.
+  const RATE_LIMIT_BACKOFF_MS = [5_000, 15_000, 30_000];
 
   for (const target of targetsResult.rows) {
     const key = geocodeKey(target.city, target.country);
@@ -147,11 +167,21 @@ export async function runGeocodeBackfill(
     let source: ResolvedRow['source'] = 'reused';
 
     if (!coords) {
-      if (nominatimRequests > 0) await sleepImpl(GEOCODE_MIN_INTERVAL_MS);
-      nominatimRequests += 1;
       source = 'nominatim';
       try {
-        coords = await geocodeCityCountry(target.city, target.country, fetchImpl);
+        for (let attempt = 0; ; attempt += 1) {
+          try {
+            coords = await geocodeCityCountry(target.city, target.country, fetchImpl, throttle);
+            break;
+          } catch (err) {
+            if (!(err instanceof NominatimRateLimitError)) throw err;
+            if (attempt >= RATE_LIMIT_BACKOFF_MS.length) {
+              rateLimited = true;
+              break;
+            }
+            await sleepImpl(RATE_LIMIT_BACKOFF_MS[attempt]);
+          }
+        }
       } catch (err) {
         failures.push({
           slug: target.slug,
@@ -162,6 +192,7 @@ export async function runGeocodeBackfill(
         });
         continue;
       }
+      if (rateLimited) break;
     }
 
     if (!coords) {
@@ -208,5 +239,6 @@ export async function runGeocodeBackfill(
     written,
     remaining: totalMissing - written,
     nominatimRequests,
+    rateLimited,
   };
 }

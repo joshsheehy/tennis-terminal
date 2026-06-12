@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  NominatimRateLimitError,
   cleanCityForQuery,
   geocodeCityCountry,
   geocodeKey,
+  normalizeCountryForGeocoding,
   parseNominatimResults,
 } from './geocode';
 
@@ -109,8 +111,50 @@ describe('geocodeCityCountry', () => {
   });
 
   it('throws on HTTP errors so callers can tell outages from misses', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('boom', { status: 500 }));
+
+    await expect(geocodeCityCountry('Marseille', 'France', fetchMock)).rejects.toThrow('500');
+  });
+
+  it('throws the dedicated rate-limit error on 429', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('slow down', { status: 429 }));
 
-    await expect(geocodeCityCountry('Marseille', 'France', fetchMock)).rejects.toThrow('429');
+    await expect(geocodeCityCountry('Marseille', 'France', fetchMock)).rejects.toThrow(
+      NominatimRateLimitError
+    );
+  });
+
+  it('awaits the throttle before every request, including the fallback', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(marseille));
+    const throttle = vi.fn().mockResolvedValue(undefined);
+
+    await geocodeCityCountry('Marseille', 'France', fetchMock, throttle);
+
+    expect(throttle).toHaveBeenCalledTimes(2);
+  });
+
+  it('normalizes country spellings Nominatim does not recognize', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(marseille));
+
+    await geocodeCityCountry('Anning', 'China, P.R.', fetchMock);
+
+    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(url.searchParams.get('country')).toBe('China');
+  });
+});
+
+describe('normalizeCountryForGeocoding', () => {
+  it('maps known aliases case-insensitively', () => {
+    expect(normalizeCountryForGeocoding('China, P.R.')).toBe('China');
+    expect(normalizeCountryForGeocoding('Chinese Taipei')).toBe('Taiwan');
+    expect(normalizeCountryForGeocoding('USA')).toBe('United States');
+  });
+
+  it('passes through ordinary countries and null', () => {
+    expect(normalizeCountryForGeocoding('France')).toBe('France');
+    expect(normalizeCountryForGeocoding(null)).toBeNull();
   });
 });

@@ -107,6 +107,9 @@ async function main() {
   console.log(`  written:             ${result.written}`);
   console.log(`  still missing:       ${result.remaining}`);
   console.log(`  Nominatim requests:  ${result.nominatimRequests}`);
+  if (result.rateLimited) {
+    console.log('  NOTE: Nominatim rate-limited the run; rerun later to finish the rest.');
+  }
 
   await pool.end();
 }
