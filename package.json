@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:setup": "bash scripts/dev-db.sh",
+    "geocode:tournaments": "tsx src/scripts/geocode-tournaments.ts",
     "import:calendars": "tsx src/scripts/import-official-calendars.ts",
     "import:cutoffs": "tsx src/scripts/run-cutoff-import.ts"
   },

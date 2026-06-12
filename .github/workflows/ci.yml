@@ -59,6 +59,7 @@ jobs:
                    sql/002_add_alternate_entries_count.sql \
                    sql/003_allow_not_held_editions.sql \
                    sql/004_add_lucky_loser_count.sql \
+                   sql/006_add_tournament_coordinates.sql \
                    scripts/seed-dev-db.sql; do
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
           done

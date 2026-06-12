@@ -30,3 +30,6 @@ playwright-report/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# geocode failure reports (regenerated each run)
+reports/
