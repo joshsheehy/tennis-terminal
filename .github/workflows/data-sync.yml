@@ -146,15 +146,9 @@ jobs:
           # no mismatches exist, this is a no-op.
           request_json('/api/cleanup-mismatched-cuts?apply=true', required=False)
 
-          # 6b) ITF World Tennis Tour calendar (men's M15/M25) from itftennis.com.
-          # Purely additive schedule rows: ITF events carry no cuts and every
-          # cut sweep/report excludes level ILIKE 'ITF%'.
-          run_paged(
-              f'ITF calendar import {current_year}',
-              lambda offset: f'/api/import-itf-calendar?year={current_year}&apply=true&offset={offset}',
-              required=False,
-              max_pages=30,
-          )
+          # NOTE: the ITF World Tennis Tour calendar is imported by the
+          # dedicated itf-sync.yml workflow. itftennis.com's bot protection
+          # blocks Railway's IPs, so the fetch must happen on a GitHub runner.
 
           # 7) ATP-level cutoff refill for each historical year. Page through so each
           # request is bounded; one giant call would happily blow the 180s timeout.

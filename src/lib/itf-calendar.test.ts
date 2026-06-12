@@ -78,10 +78,23 @@ describe('parseItfCalendarItem', () => {
     expect(result.surface).toBe('Unknown');
   });
 
+  it('accepts late-December season openers as week 1 of the next season', () => {
+    // Real case: "M25 Marrakech, 29 Dec to 04 Jan 2026" in the 2026 calendar.
+    const result = parseItfCalendarItem(
+      { tournamentName: 'M25 Marrakech', startDate: '2025-12-29T00:00:00', location: 'Marrakech', hostNation: 'Morocco', category: 'M25', surfaceDesc: 'Clay' },
+      2026
+    );
+    if (isParseFailure(result)) throw new Error(result.reason);
+    expect(result.year).toBe(2026);
+    expect(result.week).toBe(1);
+    expect(result.start_date).toBe('2025-12-29');
+  });
+
   it('rejects items without a name or with bad/out-of-season dates', () => {
     expect(isParseFailure(parseItfCalendarItem({ startDate: '2026-06-15' }, 2026))).toBe(true);
     expect(isParseFailure(parseItfCalendarItem({ tournamentName: 'M15 X', startDate: 'soon' }, 2026))).toBe(true);
-    expect(isParseFailure(parseItfCalendarItem({ tournamentName: 'M15 X', startDate: '2025-12-29' }, 2026))).toBe(true);
+    expect(isParseFailure(parseItfCalendarItem({ tournamentName: 'M15 X', startDate: '2025-12-20' }, 2026))).toBe(true);
+    expect(isParseFailure(parseItfCalendarItem({ tournamentName: 'M15 X', startDate: '2027-01-04' }, 2026))).toBe(true);
   });
 });
 

@@ -1,5 +1,4 @@
 import slugify from 'slugify';
-import { pool } from './db';
 import { getAtpWeekForSeason } from './atp-week';
 
 // ITF World Tennis Tour calendar import.
@@ -104,8 +103,16 @@ export function parseItfCalendarItem(
   if (!name) return { reason: 'missing tournament name', raw };
   if (!start_date) return { reason: `unparseable start date "${startRaw ?? ''}"`, raw };
   // Trust the requested season window, but guard against the API returning
-  // neighbouring-year rows at the window edges.
-  if (Number(start_date.slice(0, 4)) !== seasonYear) {
+  // neighbouring-year rows at the window edges. ITF's season opener can start
+  // in late December of the prior year (e.g. "M25 Marrakech, 29 Dec to 04 Jan
+  // 2026" → start 2025-12-29 in the 2026 calendar); those count as week 1.
+  const startYear = Number(start_date.slice(0, 4));
+  const inSeason =
+    startYear === seasonYear ||
+    (startYear === seasonYear - 1 &&
+      start_date.slice(5, 7) === '12' &&
+      Number(start_date.slice(8, 10)) >= 26);
+  if (!inSeason) {
     return { reason: `start date ${start_date} outside season ${seasonYear}`, raw };
   }
 
@@ -235,6 +242,10 @@ export type ItfUpsertSummary = {
 // date, each event-week is its own tournament row with exactly one edition
 // per year, and re-imports are idempotent.
 export async function upsertItfEvents(events: ParsedItfEvent[]): Promise<ItfUpsertSummary> {
+  // Lazy import keeps this module loadable without DATABASE_URL, so CI can
+  // use the fetch/parse half on a runner (itftennis.com's Incapsula wall
+  // blocks Railway's datacenter IPs but lets GitHub runners through).
+  const { pool } = await import('./db');
   const summary: ItfUpsertSummary = { upsertedTournaments: 0, upsertedEditions: 0, errors: [] };
 
   for (const ev of events) {
