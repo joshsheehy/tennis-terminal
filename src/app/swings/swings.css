@@ -1,0 +1,258 @@
+@import 'leaflet/dist/leaflet.css';
+
+/* /swings map view — mobile-first (built/verified at 380px), desktop as an
+   enhancement at the bottom. Uses the app's existing CSS theme variables. */
+
+.swings-root {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.swings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.swings-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.swings-title {
+  margin: 2px 0 0;
+  font-size: 18px;
+}
+.swings-filter-btn {
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* Week strip */
+.week-strip {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  scrollbar-width: none;
+}
+.week-strip::-webkit-scrollbar { display: none; }
+.week-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.week-month {
+  font-size: 10px;
+  color: var(--text-muted);
+  height: 12px;
+  white-space: nowrap;
+}
+.week-pill {
+  min-width: 40px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.week-pill--active {
+  background: var(--text-strong);
+  color: var(--bg);
+  border-color: var(--text-strong);
+  font-weight: 600;
+}
+
+/* Map */
+.swings-map-wrap { position: relative; flex: 1 1 auto; min-height: 0; }
+.swings-map { position: absolute; inset: 0; height: 100%; width: 100%; }
+.swings-map--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+/* Numbered swing dots (Leaflet divIcon content) */
+.swing-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--dot, #38bdf8);
+  color: #05223a;
+  font-weight: 700;
+  font-size: 12px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.swing-dot--selected { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.5); }
+
+.swing-popup strong { font-size: 14px; }
+.swing-popup__meta { font-size: 12px; color: #475569; margin-top: 2px; }
+.swing-popup__link { display: inline-block; margin-top: 6px; font-size: 13px; color: #0284c7; }
+
+/* Bottom sheet */
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
+  transition: height 0.22s ease;
+  display: flex;
+  flex-direction: column;
+}
+.sheet--collapsed { height: 84px; }
+.sheet--half { height: 46dvh; }
+.sheet--full { height: 88dvh; }
+.sheet-grip-row { display: flex; justify-content: center; padding: 8px 0 4px; flex: 0 0 auto; }
+.sheet-grip {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  border: none;
+  background: var(--border-tag);
+  cursor: pointer;
+}
+.sheet-body { padding: 4px 16px 20px; overflow-y: auto; }
+.sheet-summary { margin: 6px 0; font-size: 15px; color: var(--text-secondary); }
+.sheet-jump {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-strong);
+  text-decoration: underline;
+  font-size: 15px;
+  cursor: pointer;
+}
+.sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sheet-title { margin: 0; font-size: 17px; }
+.sheet-weeks { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+.sheet-badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.badge {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-tag);
+  border: 1px solid var(--border-tag);
+  color: var(--text-secondary);
+}
+.badge--ok { border-color: #15803d; color: #4ade80; }
+.badge--mixed { border-color: #b45309; color: #fbbf24; }
+
+.swing-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.swing-list-row,
+.itinerary-row {
+  width: 100%;
+  text-align: left;
+}
+.swing-list-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  color: var(--text);
+}
+.swing-list-label { font-size: 15px; font-weight: 600; }
+.swing-list-meta { font-size: 12px; color: var(--text-muted); }
+
+.itinerary { list-style: none; margin: 6px 0 0; padding: 0; }
+.itinerary-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border-inner);
+}
+.itinerary-week { font-size: 12px; color: var(--text-muted); min-width: 34px; }
+.itinerary-link { flex: 1; color: var(--text); text-decoration: none; font-size: 14px; }
+.itinerary-link:hover { text-decoration: underline; }
+.itinerary-meta { font-size: 12px; color: var(--text-muted); }
+
+/* Filter sheet */
+.filter-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+}
+.filter-sheet {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding: 16px 18px 28px;
+  max-height: 80dvh;
+  overflow-y: auto;
+}
+.filter-head { display: flex; align-items: center; justify-content: space-between; }
+.filter-head h2 { margin: 0; font-size: 18px; }
+.filter-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; }
+.filter-group { border: none; padding: 14px 0 0; margin: 0; }
+.filter-group legend {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  padding: 0;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chip {
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+.chip--on {
+  background: var(--text-strong);
+  color: var(--bg);
+  border-color: var(--text-strong);
+  font-weight: 600;
+}
+
+/* Desktop enhancement: two-pane split with a swing rail beside the map. */
+@media (min-width: 900px) {
+  .sheet {
+    left: auto;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 380px;
+    border-radius: 0;
+    border-top: none;
+    border-left: 1px solid var(--border);
+    box-shadow: none;
+    height: auto !important;
+  }
+  .sheet-grip-row { display: none; }
+  .swings-map-wrap { margin-right: 380px; }
+}
