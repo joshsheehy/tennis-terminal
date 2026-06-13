@@ -2,12 +2,21 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SWING_CONFIG,
   SwingEventInput,
+  allLevelScopes,
+  areNeighboringCountries,
   continentForCountry,
   detectSwings,
   eventsConnect,
   formatTierMix,
   haversineKm,
+  levelGroup,
+  parseScopeKey,
+  scopeKey,
+  surfaceFamily,
 } from './swings';
+
+const NO_NEIGHBOR_RULE = { ...DEFAULT_SWING_CONFIG, requireNeighboringCountries: false };
+const NO_SURFACE_SPLIT = { ...DEFAULT_SWING_CONFIG, splitOnSurfaceChange: false };
 
 let counter = 0;
 
@@ -39,6 +48,8 @@ const tangier = { country: 'Morocco', latitude: 35.7806, longitude: -5.8137 };
 const malaga = { country: 'Spain', latitude: 36.7213, longitude: -4.4214 };
 const losAngeles = { country: 'United States', latitude: 34.0549, longitude: -118.2426 };
 const newYork = { country: 'United States', latitude: 40.7128, longitude: -74.006 };
+const munich = { country: 'Germany', latitude: 48.137, longitude: 11.575 };
+const bolzano = { country: 'Italy', latitude: 46.498, longitude: 11.354 };
 
 describe('haversineKm', () => {
   it('computes known distances', () => {
@@ -73,12 +84,24 @@ describe('eventsConnect', () => {
     expect(eventsConnect(a, b)).toBe(true);
   });
 
-  it('connects cross-border pairs within the km threshold', () => {
+  it('connects neighboring cross-border pairs within the km threshold', () => {
+    // Portugal and Spain are neighbors; Lisbon–Vigo is < 600 km.
     expect(eventsConnect(ev({ ...lisbon, week: 1 }), ev({ ...vigo, week: 2 }))).toBe(true);
   });
 
   it('rejects cross-border pairs beyond the km threshold', () => {
     expect(eventsConnect(ev({ ...lisbon, week: 1 }), ev({ ...barcelona, week: 2 }))).toBe(false);
+  });
+
+  it('rejects non-neighboring countries even when within the km threshold', () => {
+    // Munich (DE) and Bolzano (IT) are ~180 km apart, same continent, but
+    // Germany and Italy are not neighbors (Austria/Switzerland sit between).
+    const a = ev({ ...munich, week: 1 });
+    const b = ev({ ...bolzano, week: 2 });
+    expect(haversineKm(a.latitude!, a.longitude!, b.latitude!, b.longitude!)).toBeLessThan(600);
+    expect(eventsConnect(a, b)).toBe(false);
+    // With the neighbor rule disabled, distance alone would connect them.
+    expect(eventsConnect(a, b, NO_NEIGHBOR_RULE)).toBe(true);
   });
 
   it('rejects continent hops even when geographically close', () => {
@@ -88,10 +111,31 @@ describe('eventsConnect', () => {
     expect(eventsConnect(a, b)).toBe(false);
   });
 
+  it('breaks the chain on a surface-family change, even same country', () => {
+    const a = ev({ ...lisbon, week: 1, surface: 'Clay' });
+    const b = ev({ ...lisbon, week: 2, surface: 'Grass' });
+    expect(eventsConnect(a, b)).toBe(false);
+    expect(eventsConnect(a, b, NO_SURFACE_SPLIT)).toBe(true);
+  });
+
+  it('treats Hard and Indoor Hard as the same surface family', () => {
+    expect(surfaceFamily('Hard')).toBe(surfaceFamily('Indoor Hard'));
+    const a = ev({ ...lisbon, week: 1, surface: 'Hard' });
+    const b = ev({ ...lisbon, week: 2, surface: 'Indoor Hard' });
+    expect(eventsConnect(a, b)).toBe(true);
+  });
+
   it('rejects cross-border pairs without coordinates', () => {
     const a = ev({ country: 'Portugal', latitude: null, longitude: null, week: 1 });
     const b = ev({ ...vigo, week: 2 });
     expect(eventsConnect(a, b)).toBe(false);
+  });
+
+  it('falls back to distance when a country is unknown (pre-backfill data)', () => {
+    // Two coordinate-bearing events with no country resolve by distance.
+    const a = ev({ country: null, latitude: 12.97, longitude: 77.59, week: 1 });
+    const b = ev({ country: null, latitude: 12.98, longitude: 77.6, week: 2 });
+    expect(eventsConnect(a, b)).toBe(true);
   });
 
   it('honors a tuned km threshold for cross-border pairs only', () => {
@@ -101,6 +145,45 @@ describe('eventsConnect', () => {
     expect(eventsConnect(ev({ ...lisbon, week: 1 }), ev({ ...vigo, week: 2 }), narrow)).toBe(false);
     // Same-country is untouched by tuning.
     expect(eventsConnect(ev({ ...losAngeles, week: 1 }), ev({ ...newYork, week: 2 }), narrow)).toBe(true);
+  });
+});
+
+describe('areNeighboringCountries', () => {
+  it('recognizes land and curated sea neighbors', () => {
+    expect(areNeighboringCountries('Portugal', 'Spain')).toBe(true);
+    expect(areNeighboringCountries('United States', 'Canada')).toBe(true);
+    expect(areNeighboringCountries('Qatar', 'UAE')).toBe(true);
+    expect(areNeighboringCountries('Italy', 'Croatia')).toBe(true);
+  });
+
+  it('rejects non-neighbors and normalizes name variants', () => {
+    expect(areNeighboringCountries('Germany', 'Italy')).toBe(false);
+    expect(areNeighboringCountries('USA', 'Canada')).toBe(true); // USA == United States
+    expect(areNeighboringCountries('Great Britain', 'Ireland')).toBe(true); // GB == UK
+  });
+});
+
+describe('level groups and scopes', () => {
+  it('classifies levels', () => {
+    expect(levelGroup('ATP 250')).toBe('atp');
+    expect(levelGroup('Grand Slam')).toBe('atp');
+    expect(levelGroup('Challenger 75')).toBe('challenger');
+    expect(levelGroup('ITF M25')).toBe('itf');
+    expect(levelGroup('Exhibition')).toBeNull();
+  });
+
+  it('round-trips canonical scope keys', () => {
+    expect(scopeKey(['challenger', 'atp'])).toBe('atp+challenger');
+    expect(scopeKey(['itf'])).toBe('itf');
+    expect(parseScopeKey('itf+atp')).toEqual(['atp', 'itf']);
+  });
+
+  it('enumerates all seven non-empty scopes', () => {
+    const keys = allLevelScopes().map(scopeKey);
+    expect(keys).toHaveLength(7);
+    expect(keys).toContain('atp+challenger');
+    expect(keys).toContain('atp+challenger+itf');
+    expect(keys).toContain('itf');
   });
 });
 
@@ -175,13 +258,15 @@ describe('detectSwings', () => {
   });
 
   it('tags surface consistency and tier mix', () => {
+    // Hard + Indoor Hard are one family so the chain holds, but the raw
+    // surfaces differ, so the swing is flagged surface-inconsistent.
     const swings = detectSwings([
-      ev({ ...lisbon, week: 1, level: 'Challenger 75', surface: 'Clay' }),
-      ev({ ...oeiras, week: 2, level: 'Challenger 50', surface: 'Clay' }),
+      ev({ ...lisbon, week: 1, level: 'Challenger 75', surface: 'Hard' }),
+      ev({ ...oeiras, week: 2, level: 'Challenger 50', surface: 'Indoor Hard' }),
       ev({ ...lisbon, week: 3, level: 'Challenger 50', surface: 'Hard' }),
     ]);
     expect(swings[0].surfaceConsistent).toBe(false);
-    expect(swings[0].surfaces.sort()).toEqual(['Clay', 'Hard']);
+    expect(swings[0].surfaces.sort()).toEqual(['Hard', 'Indoor Hard']);
     expect(swings[0].tierMix).toBe('CH75 + 2× CH50');
 
     const consistent = detectSwings([
@@ -189,6 +274,19 @@ describe('detectSwings', () => {
       ev({ ...oeiras, week: 2, surface: 'Clay' }),
     ]);
     expect(consistent[0].surfaceConsistent).toBe(true);
+  });
+
+  it('splits a same-country chain at a surface change into separate swings', () => {
+    // Three clay weeks then two grass weeks in one country -> two swings.
+    const swings = detectSwings([
+      ev({ ...lisbon, week: 20, surface: 'Clay' }),
+      ev({ ...oeiras, week: 21, surface: 'Clay' }),
+      ev({ ...lisbon, week: 22, surface: 'Grass' }),
+      ev({ ...oeiras, week: 23, surface: 'Grass' }),
+    ]);
+    expect(swings).toHaveLength(2);
+    expect(swings[0].surfaces).toEqual(['Clay']);
+    expect(swings[1].surfaces).toEqual(['Grass']);
   });
 
   it('labels regional US chains (US Midwest swing)', () => {

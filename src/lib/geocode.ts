@@ -9,6 +9,7 @@
 // goes into the failure report for manual resolution.
 
 export const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
+export const NOMINATIM_REVERSE_ENDPOINT = 'https://nominatim.openstreetmap.org/reverse';
 
 export const GEOCODE_USER_AGENT =
   'tennis-terminal/1.0 (https://tennis-terminal-production.up.railway.app; josh@tenniscuts.com)';
@@ -159,4 +160,38 @@ export async function geocodeCityCountry(
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Resolve coordinates to an English country name (e.g. to backfill
+ * tournaments imported without one). Same rate-limit contract as
+ * geocodeCityCountry: await `throttle` before the request.
+ */
+export async function reverseGeocodeCountry(
+  latitude: number,
+  longitude: number,
+  fetchImpl: typeof fetch = fetch,
+  throttle?: () => Promise<void>
+): Promise<string | null> {
+  const params = new URLSearchParams({
+    lat: String(latitude),
+    lon: String(longitude),
+    format: 'jsonv2',
+    zoom: '3',
+    'accept-language': 'en',
+  });
+
+  await throttle?.();
+  const response = await fetchImpl(`${NOMINATIM_REVERSE_ENDPOINT}?${params.toString()}`, {
+    headers: { accept: 'application/json', 'user-agent': GEOCODE_USER_AGENT },
+  });
+
+  if (response.status === 429) throw new NominatimRateLimitError();
+  if (!response.ok) {
+    throw new Error(`Nominatim reverse responded with status ${response.status}`);
+  }
+
+  const payload = (await response.json()) as { address?: { country?: unknown } };
+  const country = payload?.address?.country;
+  return typeof country === 'string' && country.trim() ? country.trim() : null;
 }

@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { AVAILABLE_SEASONS, isAvailableSeason } from '@/lib/seasons';
+import { allLevelScopes, parseScopeKey, scopeKey } from '@/lib/swings';
 import { describeSwing, recomputeSwingsForYear } from '@/lib/swings-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Swing detection (phase 2): chains of tournaments in consecutive weeks that
-// are close enough to play back-to-back (ATP + Challenger only). Detection is
-// pure computation over tournament_editions + coordinates; persistence only
-// touches the additive swings/swing_events tables.
+// are close enough to play back-to-back. Detection is pure computation over
+// tournament_editions + coordinates; persistence only touches the additive
+// swings/swing_events tables.
 //
-// ?dryRun=false persists (delete + reinsert per year); the default just
-// computes and returns the swing list for review.
+// ?dryRun=false persists (delete + reinsert per year + level scope); the
+// default just computes and returns the swing list for review.
 // ?year=2026 limits to one season (default: all available seasons).
+// ?scope=atp+challenger limits to one level scope (default: all 7 scopes so
+//   ATP/Challenger/ITF filter combinations are all available to the UI).
 // The swings-recompute.yml workflow reruns this nightly after data sync.
 
 export async function GET(request: NextRequest) {
@@ -32,16 +35,33 @@ export async function GET(request: NextRequest) {
     years = [year];
   }
 
+  const scopeParam = request.nextUrl.searchParams.get('scope');
+  let scopes = allLevelScopes();
+  if (scopeParam) {
+    const parsed = parseScopeKey(scopeParam);
+    if (parsed.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: `Unknown scope "${scopeParam}". Use atp, challenger, itf joined by +.` },
+        { status: 400 }
+      );
+    }
+    scopes = [parsed];
+  }
+
   try {
     const results = [];
     for (const year of years) {
-      const summary = await recomputeSwingsForYear(pool, year, { persist: !dryRun });
+      const summary = await recomputeSwingsForYear(pool, year, { persist: !dryRun, scopes });
       results.push({
         year,
-        eventCount: summary.eventCount,
-        swingCount: summary.swings.length,
+        totalEventCount: summary.totalEventCount,
         persisted: summary.persisted,
-        swings: summary.swings.map(describeSwing),
+        scopes: summary.scopes.map((s) => ({
+          scope: scopeKey(s.scope),
+          eventCount: s.eventCount,
+          swingCount: s.swings.length,
+          swings: s.swings.map(describeSwing),
+        })),
       });
     }
 

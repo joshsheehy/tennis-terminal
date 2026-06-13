@@ -11,6 +11,7 @@
 
 import { pool } from '@/lib/db';
 import { AVAILABLE_SEASONS, isAvailableSeason } from '@/lib/seasons';
+import { allLevelScopes, parseScopeKey } from '@/lib/swings';
 import { describeSwing, recomputeSwingsForYear } from '@/lib/swings-data';
 
 function parseArgs(argv: string[]) {
@@ -20,26 +21,33 @@ function parseArgs(argv: string[]) {
   if (yearArg && !isAvailableSeason(year!)) {
     throw new Error(`Unknown season in ${yearArg}; use one of ${AVAILABLE_SEASONS.join(', ')}`);
   }
-  return { apply, year };
+  const scopeArg = argv.find((arg) => arg.startsWith('--scope='));
+  const scope = scopeArg ? parseScopeKey(scopeArg.split('=')[1]) : undefined;
+  if (scopeArg && (!scope || scope.length === 0)) {
+    throw new Error(`Unknown scope in ${scopeArg}; use atp, challenger, itf joined by +`);
+  }
+  return { apply, year, scopes: scope ? [scope] : allLevelScopes() };
 }
 
 async function main() {
-  const { apply, year } = parseArgs(process.argv.slice(2));
+  const { apply, year, scopes } = parseArgs(process.argv.slice(2));
   const years = year ? [year] : [...AVAILABLE_SEASONS].sort();
 
   for (const target of years) {
-    const summary = await recomputeSwingsForYear(pool, target, { persist: apply });
-    console.log(
-      `\n=== ${target}: ${summary.swings.length} swings from ${summary.eventCount} events` +
-        `${apply ? ' (persisted)' : ' (dry run)'} ===`
-    );
-    for (const swing of summary.swings) {
-      const d = describeSwing(swing);
+    const summary = await recomputeSwingsForYear(pool, target, { persist: apply, scopes });
+    for (const scope of summary.scopes) {
       console.log(
-        `\n${d.label} — ${d.weeks} (${d.totalWeeks} wk) · ${d.tierMix} · ` +
-          `${d.surfaceConsistent ? d.surfaces[0] : `mixed: ${d.surfaces.join('/')}`}`
+        `\n=== ${target} [${scope.scopeKey}]: ${scope.swings.length} swings from ` +
+          `${scope.eventCount} events${apply ? ' (persisted)' : ' (dry run)'} ===`
       );
-      for (const line of d.itinerary) console.log(`  ${line}`);
+      for (const swing of scope.swings) {
+        const d = describeSwing(swing);
+        console.log(
+          `\n${d.label} — ${d.weeks} (${d.totalWeeks} wk) · ${d.tierMix} · ` +
+            `${d.surfaceConsistent ? d.surfaces[0] : `mixed: ${d.surfaces.join('/')}`}`
+        );
+        for (const line of d.itinerary) console.log(`  ${line}`);
+      }
     }
   }
 

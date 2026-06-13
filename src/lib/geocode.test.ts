@@ -6,6 +6,7 @@ import {
   geocodeKey,
   normalizeCountryForGeocoding,
   parseNominatimResults,
+  reverseGeocodeCountry,
 } from './geocode';
 
 function jsonResponse(payload: unknown): Response {
@@ -156,5 +157,30 @@ describe('normalizeCountryForGeocoding', () => {
   it('passes through ordinary countries and null', () => {
     expect(normalizeCountryForGeocoding('France')).toBe('France');
     expect(normalizeCountryForGeocoding(null)).toBeNull();
+  });
+});
+
+describe('reverseGeocodeCountry', () => {
+  it('extracts the country from a reverse-geocode response', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ address: { country: 'Spain', city: 'Vigo' } }));
+
+    const country = await reverseGeocodeCountry(42.24, -8.72, fetchMock);
+
+    expect(country).toBe('Spain');
+    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(url.searchParams.get('lat')).toBe('42.24');
+    expect(url.searchParams.get('lon')).toBe('-8.72');
+  });
+
+  it('returns null when no country is present', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ address: {} }));
+    expect(await reverseGeocodeCountry(0, 0, fetchMock)).toBeNull();
+  });
+
+  it('raises the rate-limit error on 429', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('slow', { status: 429 }));
+    await expect(reverseGeocodeCountry(1, 1, fetchMock)).rejects.toThrow(NominatimRateLimitError);
   });
 });
