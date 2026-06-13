@@ -16,7 +16,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  /* Extra right padding clears the global fixed theme toggle (top-right). */
+  padding: 10px 58px 10px 14px;
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
 }
