@@ -33,3 +33,6 @@ yarn-error.log*
 
 # geocode failure reports (regenerated each run)
 reports/
+
+# transient local screenshot/verification scripts
+shot.mjs
