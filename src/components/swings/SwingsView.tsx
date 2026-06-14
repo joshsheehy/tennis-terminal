@@ -20,6 +20,16 @@ const GROUP_LABELS: Record<LevelGroup, string> = { atp: 'ATP', challenger: 'Chal
 
 type SheetState = 'collapsed' | 'half' | 'full';
 
+// "2 swings · 1 series this week" — counts the two kinds separately.
+function thisWeekSummary(items: SwingsPageData['swings']): string {
+  const swings = items.filter((s) => s.kind === 'swing').length;
+  const series = items.filter((s) => s.kind === 'series').length;
+  const parts: string[] = [];
+  if (swings) parts.push(`${swings} swing${swings > 1 ? 's' : ''}`);
+  if (series) parts.push(`${series} series`);
+  return `${parts.join(' · ')} this week`;
+}
+
 // Monday (UTC) of an ATP week, mirroring getAtpSeasonStartDateUtc.
 function weekMonth(year: number, week: number): number {
   const jan1 = new Date(Date.UTC(year, 0, 1));
@@ -284,6 +294,7 @@ function BottomSheet({
             </span>
           </div>
           <div className="sheet-badges">
+            {activeSwing.kind === 'series' && <span className="badge badge--series">Series · same city</span>}
             <span className={`badge ${activeSwing.surfaceConsistent ? 'badge--ok' : 'badge--mixed'}`}>
               {activeSwing.surfaceConsistent ? activeSwing.surfaces[0] : `Mixed: ${activeSwing.surfaces.join('/')}`}
             </span>
@@ -307,14 +318,15 @@ function BottomSheet({
         <div className="sheet-body">
           {swingsThisWeek.length > 0 ? (
             <>
-              <p className="sheet-summary">
-                {swingsThisWeek.length} swing{swingsThisWeek.length > 1 ? 's' : ''} this week
-              </p>
+              <p className="sheet-summary">{thisWeekSummary(swingsThisWeek)}</p>
               <ul className="swing-list">
                 {swingsThisWeek.map((s) => (
                   <li key={s.index}>
                     <button className="swing-list-row" onClick={() => onPickSwing(s.index)}>
-                      <span className="swing-list-label">{s.label}</span>
+                      <span className="swing-list-label">
+                        {s.label}
+                        {s.kind === 'series' && <span className="swing-list-tag">series</span>}
+                      </span>
                       <span className="swing-list-meta">
                         W{s.startWeek}–W{s.endWeek} · {s.tierMix}
                       </span>

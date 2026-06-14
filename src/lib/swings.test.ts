@@ -276,6 +276,43 @@ describe('detectSwings', () => {
     expect(consistent[0].surfaceConsistent).toBe(true);
   });
 
+  it('keeps a short same-city run (<=3 weeks) as a swing', () => {
+    const tenerife = { country: 'Spain', latitude: 28.29, longitude: -16.63 };
+    const swings = detectSwings([
+      ev({ ...tenerife, city: 'Tenerife 1', week: 4 }),
+      ev({ ...tenerife, city: 'Tenerife 2', week: 5 }),
+      ev({ ...tenerife, city: 'Tenerife 3', week: 6 }),
+    ]);
+    expect(swings).toHaveLength(1);
+    expect(swings[0].kind).toBe('swing');
+  });
+
+  it('reclassifies a long single-city run as a series, not a swing', () => {
+    const sharm = { country: 'Egypt', latitude: 27.91, longitude: 34.33, surface: 'Hard' };
+    const swings = detectSwings(
+      [4, 5, 6, 7, 8].map((week) => ev({ ...sharm, city: 'Sharm El Sheikh', week }))
+    );
+    expect(swings).toHaveLength(1);
+    expect(swings[0].kind).toBe('series');
+    expect(swings[0].label).toBe('Sharm El Sheikh series');
+    expect(swings[0].totalWeeks).toBe(5); // not split
+    expect(swings[0].cities).toEqual(['Sharm El Sheikh']);
+  });
+
+  it('caps a long multi-city chain by splitting at the biggest travel jump', () => {
+    const east = { country: 'United States', latitude: 40.7, longitude: -74.0, surface: 'Hard' };
+    const west = { country: 'United States', latitude: 34.05, longitude: -118.24, surface: 'Hard' };
+    const events = [
+      ...[1, 2, 3, 4, 5].map((week) => ev({ ...east, city: `East ${week}`, week })),
+      ...[6, 7, 8, 9].map((week) => ev({ ...west, city: `West ${week}`, week })),
+    ];
+    const swings = detectSwings(events);
+    expect(swings).toHaveLength(2);
+    expect(swings.every((s) => s.totalWeeks <= 8)).toBe(true);
+    expect(swings[0].endWeek).toBe(5); // split at the coast-to-coast jump
+    expect(swings[1].startWeek).toBe(6);
+  });
+
   it('splits a same-country chain at a surface change into separate swings', () => {
     // Three clay weeks then two grass weeks in one country -> two swings.
     const swings = detectSwings([

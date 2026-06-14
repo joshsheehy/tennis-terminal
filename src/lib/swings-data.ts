@@ -93,6 +93,8 @@ export async function ensureSwingTables(pool: Pool): Promise<void> {
   await pool.query(
     `alter table swings add column if not exists level_scope text not null default 'atp+challenger'`
   );
+  // 'swing' (travel chain) vs 'series' (single-city residency).
+  await pool.query(`alter table swings add column if not exists kind text not null default 'swing'`);
   await pool.query(`
     create table if not exists swing_events (
       id uuid primary key default gen_random_uuid(),
@@ -147,13 +149,14 @@ async function persistScope(
     for (const swing of swings) {
       const inserted = await client.query<{ id: string }>(
         `insert into swings
-           (year, level_scope, label, start_week, end_week, total_weeks,
+           (year, level_scope, kind, label, start_week, end_week, total_weeks,
             surface_consistent, surfaces, tier_mix, countries, computed_at, updated_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now())
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now())
          returning id`,
         [
           year,
           key,
+          swing.kind,
           swing.label,
           swing.startWeek,
           swing.endWeek,
@@ -220,6 +223,7 @@ export type PersistedSwing = {
   id: string;
   year: number;
   levelScope: string;
+  kind: string;
   label: string;
   startWeek: number;
   endWeek: number;
@@ -246,7 +250,7 @@ export async function readSwings(
   scope: string = scopeKey(DEFAULT_LEVEL_SCOPE)
 ): Promise<PersistedSwing[]> {
   const swingsResult = await pool.query(
-    `select id, year, level_scope, label, start_week, end_week, total_weeks,
+    `select id, year, level_scope, kind, label, start_week, end_week, total_weeks,
             surface_consistent, surfaces, tier_mix, countries
      from swings
      where year = $1 and level_scope = $2
@@ -278,6 +282,7 @@ export async function readSwings(
     id: row.id,
     year: row.year,
     levelScope: row.level_scope,
+    kind: row.kind,
     label: row.label,
     startWeek: row.start_week,
     endWeek: row.end_week,
@@ -292,6 +297,7 @@ export async function readSwings(
 
 /** Compact, readable description of one swing (sanity output + API). */
 export function describeSwing(swing: DetectedSwing): {
+  kind: string;
   label: string;
   weeks: string;
   totalWeeks: number;
@@ -302,6 +308,7 @@ export function describeSwing(swing: DetectedSwing): {
   itinerary: string[];
 } {
   return {
+    kind: swing.kind,
     label: swing.label,
     weeks: `W${swing.startWeek}–W${swing.endWeek}`,
     totalWeeks: swing.totalWeeks,

@@ -62,6 +62,7 @@ jobs:
                    sql/006_add_tournament_coordinates.sql \
                    sql/007_create_swings.sql \
                    sql/008_add_swing_level_scope.sql \
+                   sql/009_add_swing_kind.sql \
                    scripts/seed-dev-db.sql; do
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
           done

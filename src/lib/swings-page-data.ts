@@ -37,6 +37,7 @@ export type SwingMapEvent = {
 
 export type SwingMapSwing = {
   index: number;
+  kind: 'swing' | 'series';
   label: string;
   startWeek: number;
   endWeek: number;
@@ -119,6 +120,7 @@ export async function getSwingsPageData(
     }
     return {
       index,
+      kind: swing.kind,
       label: swing.label,
       startWeek: swing.startWeek,
       endWeek: swing.endWeek,

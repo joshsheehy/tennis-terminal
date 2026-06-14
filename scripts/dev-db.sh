@@ -45,7 +45,8 @@ for f in \
   "$ROOT/sql/004_add_lucky_loser_count.sql" \
   "$ROOT/sql/006_add_tournament_coordinates.sql" \
   "$ROOT/sql/007_create_swings.sql" \
-  "$ROOT/sql/008_add_swing_level_scope.sql"; do
+  "$ROOT/sql/008_add_swing_level_scope.sql" \
+  "$ROOT/sql/009_add_swing_kind.sql"; do
   [ -f "$f" ] && psql "$CONN" -q -f "$f" >/dev/null
 done
 

@@ -24,6 +24,16 @@ export const CROSS_BORDER_MAX_KM = 600;
 /** Minimum number of consecutive weeks for a chain to count as a swing. */
 export const MIN_SWING_WEEKS = 2;
 
+/** Soft ceiling on a swing's span. Longer chains are split at their biggest
+ * internal travel jump until each piece fits, so seams fall at natural
+ * break points rather than an arbitrary week. */
+export const MAX_SWING_WEEKS = 8;
+
+/** A run that never leaves one city is a "series" (residency), not a swing,
+ * once it exceeds this many weeks. Short same-city pairs (Tenerife 1->2)
+ * stay swings. */
+export const SAME_CITY_MAX_SWING_WEEKS = 3;
+
 // --- Level groups & scopes --------------------------------------------------
 
 export type LevelGroup = 'atp' | 'challenger' | 'itf';
@@ -85,7 +95,11 @@ export type SwingWeek = {
   events: SwingEventInput[];
 };
 
+/** A multi-week travel chain ('swing') or a single-city residency ('series'). */
+export type SwingKind = 'swing' | 'series';
+
 export type DetectedSwing = {
+  kind: SwingKind;
   label: string;
   startWeek: number;
   endWeek: number;
@@ -96,6 +110,8 @@ export type DetectedSwing = {
   tierMix: string;
   /** Display names, ordered by first appearance in the chain. */
   countries: string[];
+  /** Distinct cities (cleaned) touched, ordered by first appearance. */
+  cities: string[];
 };
 
 export type SwingConfig = {
@@ -108,6 +124,10 @@ export type SwingConfig = {
   /** Never chain across a change of surface family (clay/grass/hard).
    * Splits e.g. the European clay season from the grass swing. */
   splitOnSurfaceChange: boolean;
+  /** Soft ceiling on weeks; longer chains split at the biggest travel jump. */
+  maxSwingWeeks: number;
+  /** Single-city runs longer than this become a 'series', not a 'swing'. */
+  sameCityMaxSwingWeeks: number;
 };
 
 export const REQUIRE_NEIGHBORING_COUNTRIES = true;
@@ -118,6 +138,8 @@ export const DEFAULT_SWING_CONFIG: SwingConfig = {
   minSwingWeeks: MIN_SWING_WEEKS,
   requireNeighboringCountries: REQUIRE_NEIGHBORING_COUNTRIES,
   splitOnSurfaceChange: SPLIT_ON_SURFACE_CHANGE,
+  maxSwingWeeks: MAX_SWING_WEEKS,
+  sameCityMaxSwingWeeks: SAME_CITY_MAX_SWING_WEEKS,
 };
 
 /** Hard and Indoor Hard are one planning block; clay and grass are their own. */
@@ -534,9 +556,101 @@ class UnionFind {
   }
 }
 
+/** Cleaned, comparable city name (drops edition suffixes/parentheticals). */
+function cityKey(city: string): string {
+  return cityLabelName(city).toLowerCase();
+}
+
+function distinctCityKeys(events: SwingEventInput[]): Set<string> {
+  return new Set(events.map((e) => cityKey(e.city)).filter(Boolean));
+}
+
+/** A single-city run longer than the same-city cap is a residency, not a swing. */
+function isSeriesGroup(events: SwingEventInput[], config: SwingConfig): boolean {
+  const weeks = new Set(events.map((e) => e.week)).size;
+  return distinctCityKeys(events).size <= 1 && weeks > config.sameCityMaxSwingWeeks;
+}
+
+function weekCentroid(events: SwingEventInput[]): { lat: number; lng: number } | null {
+  const located = events.filter((e) => e.latitude != null && e.longitude != null);
+  if (located.length === 0) return null;
+  return {
+    lat: located.reduce((s, e) => s + e.latitude!, 0) / located.length,
+    lng: located.reduce((s, e) => s + e.longitude!, 0) / located.length,
+  };
+}
+
+/**
+ * Split a chain spanning more than maxSwingWeeks into pieces, cutting at the
+ * week boundary with the largest geographic jump (keeping both sides at least
+ * minSwingWeeks). Recurses until every piece fits. Components have no internal
+ * week gaps, so weeks are contiguous.
+ */
+function splitLongChain(events: SwingEventInput[], config: SwingConfig): SwingEventInput[][] {
+  const weeks = [...new Set(events.map((e) => e.week))].sort((a, b) => a - b);
+  if (weeks.length <= config.maxSwingWeeks) return [events];
+
+  const centroids = weeks.map((w) => weekCentroid(events.filter((e) => e.week === w)));
+
+  let bestPos = -1;
+  let bestGap = -Infinity;
+  for (let p = config.minSwingWeeks - 1; p <= weeks.length - 1 - config.minSwingWeeks; p += 1) {
+    const a = centroids[p];
+    const b = centroids[p + 1];
+    const gap = a && b ? haversineKm(a.lat, a.lng, b.lat, b.lng) : 0;
+    if (gap > bestGap) {
+      bestGap = gap;
+      bestPos = p;
+    }
+  }
+  if (bestPos < 0) return [events]; // too short to split safely
+
+  const leftWeeks = new Set(weeks.slice(0, bestPos + 1));
+  const left = events.filter((e) => leftWeeks.has(e.week));
+  const right = events.filter((e) => !leftWeeks.has(e.week));
+  return [...splitLongChain(left, config), ...splitLongChain(right, config)];
+}
+
+/** Assemble a DetectedSwing from a group of events (label assigned later). */
+function buildSwing(group: SwingEventInput[], kind: SwingKind): DetectedSwing {
+  const weekNumbers = [...new Set(group.map((e) => e.week))].sort((a, b) => a - b);
+  const swingWeeks: SwingWeek[] = weekNumbers.map((week) => ({
+    week,
+    events: group.filter((e) => e.week === week).sort((a, b) => a.name.localeCompare(b.name)),
+  }));
+  const orderedEvents = swingWeeks.flatMap((w) => w.events);
+  const surfaces = [...new Set(orderedEvents.map((e) => e.surface))];
+
+  const countries: string[] = [];
+  for (const event of orderedEvents) {
+    if (!event.country) continue;
+    const name = countryDisplayName(event.country);
+    if (!countries.includes(name)) countries.push(name);
+  }
+  const cities: string[] = [];
+  for (const event of orderedEvents) {
+    const name = cityLabelName(event.city);
+    if (name && !cities.includes(name)) cities.push(name);
+  }
+
+  return {
+    kind,
+    label: '',
+    startWeek: weekNumbers[0],
+    endWeek: weekNumbers[weekNumbers.length - 1],
+    totalWeeks: weekNumbers.length,
+    weeks: swingWeeks,
+    surfaceConsistent: surfaces.length === 1,
+    surfaces,
+    tierMix: formatTierMix(orderedEvents.map((e) => e.level)),
+    countries,
+    cities,
+  };
+}
+
 /**
  * Detect all swings in a year's events. Input events must already be filtered
- * to the levels that participate (ATP + Challenger, held editions).
+ * to the levels that participate (the chosen level scope, held editions).
  */
 export function detectSwings(
   events: SwingEventInput[],
@@ -573,46 +687,37 @@ export function detectSwings(
     components.set(root, list);
   }
 
+  // Turn each connected component into one or more output groups: long
+  // single-city runs become a 'series'; long multi-city chains are split at
+  // their biggest internal travel jump until each piece fits maxSwingWeeks.
   const swings: DetectedSwing[] = [];
   for (const component of components.values()) {
-    const weekNumbers = [...new Set(component.map((e) => e.week))].sort((a, b) => a - b);
-    if (weekNumbers.length < config.minSwingWeeks) continue;
+    const distinctWeeks = new Set(component.map((e) => e.week)).size;
+    if (distinctWeeks < config.minSwingWeeks) continue;
 
-    const swingWeeks: SwingWeek[] = weekNumbers.map((week) => ({
-      week,
-      events: component
-        .filter((e) => e.week === week)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    }));
-
-    const orderedEvents = swingWeeks.flatMap((w) => w.events);
-    const surfaces = [...new Set(orderedEvents.map((e) => e.surface))];
-    const countries: string[] = [];
-    for (const event of orderedEvents) {
-      if (!event.country) continue;
-      const name = countryDisplayName(event.country);
-      if (!countries.includes(name)) countries.push(name);
+    if (isSeriesGroup(component, config)) {
+      swings.push(buildSwing(component, 'series'));
+      continue;
     }
 
-    swings.push({
-      label: '',
-      startWeek: weekNumbers[0],
-      endWeek: weekNumbers[weekNumbers.length - 1],
-      totalWeeks: weekNumbers.length,
-      weeks: swingWeeks,
-      surfaceConsistent: surfaces.length === 1,
-      surfaces,
-      tierMix: formatTierMix(orderedEvents.map((e) => e.level)),
-      countries,
-    });
+    for (const piece of splitLongChain(component, config)) {
+      const pieceWeeks = new Set(piece.map((e) => e.week)).size;
+      if (pieceWeeks < config.minSwingWeeks) continue;
+      // A split can isolate a same-city sub-run; re-classify each piece.
+      swings.push(buildSwing(piece, isSeriesGroup(piece, config) ? 'series' : 'swing'));
+    }
   }
 
   swings.sort((a, b) => a.startWeek - b.startWeek || a.endWeek - b.endWeek);
 
   // Assign labels, disambiguating repeats ("Mexico swing (Mar)", then weeks).
+  // A series is named for its single city ("Sharm El Sheikh series").
   const labelCounts = new Map<string, number>();
   for (const swing of swings) {
-    swing.label = baseLabel(swing);
+    swing.label =
+      swing.kind === 'series'
+        ? `${swing.cities[0] ?? swing.countries[0] ?? 'Unlabeled'} series`
+        : baseLabel(swing);
     labelCounts.set(swing.label, (labelCounts.get(swing.label) ?? 0) + 1);
   }
   const seen = new Map<string, number>();

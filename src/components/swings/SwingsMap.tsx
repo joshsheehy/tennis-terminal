@@ -6,6 +6,7 @@ import type { SwingMapEvent, SwingMapSwing } from '@/lib/swings-page-data';
 
 const ACCENT = '#38bdf8';
 const ACCENT_DIM = 'rgba(56,189,248,0.5)';
+const SERIES = '#fbbf24';
 const GRAY = '#64748b';
 
 export type MapEvent = SwingMapEvent & { dim: boolean };
@@ -106,10 +107,10 @@ export default function SwingsMap({
     if (!map || !layers) return;
     layers.clearLayers();
 
-    // Chains first so dots sit on top.
+    // Chains first so dots sit on top (series have no polyline).
     for (const index of visibleSwingIndexes) {
       const swing = swings[index];
-      if (!swing || swing.path.length < 2) continue;
+      if (!swing || swing.kind !== 'swing' || swing.path.length < 2) continue;
       const selected = index === selectedSwingIndex;
       L.polyline(
         swing.path.map((p) => [p.lat, p.lng]),
@@ -124,7 +125,27 @@ export default function SwingsMap({
         .addTo(layers);
     }
 
+    // One amber marker per visible series (single city; no travel chain).
+    for (const index of visibleSwingIndexes) {
+      const swing = swings[index];
+      if (!swing || swing.kind !== 'series' || swing.path.length === 0) continue;
+      const selected = index === selectedSwingIndex;
+      const size = selected ? 34 : 28;
+      const icon = L.divIcon({
+        className: 'swing-dot-icon',
+        html: `<div class="series-dot${selected ? ' swing-dot--selected' : ''}" style="--dot:${SERIES};width:${size}px;height:${size}px">${swing.totalWeeks}w</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+      });
+      L.marker([swing.path[0].lat, swing.path[0].lng], { icon, zIndexOffset: selected ? 1000 : 0 })
+        .on('click', () => onSelectRef.current(index))
+        .bindPopup(`<div class="swing-popup"><strong>${swing.label}</strong><div class="swing-popup__meta">W${swing.startWeek}–W${swing.endWeek} · ${swing.totalWeeks} weeks · same city</div></div>`)
+        .addTo(layers);
+    }
+
     for (const event of events) {
+      // Series members are represented by the single series marker above.
+      if (event.swingIndex != null && swings[event.swingIndex]?.kind === 'series') continue;
       const inSwing = event.swingIndex != null;
       const selected = inSwing && event.swingIndex === selectedSwingIndex;
 
