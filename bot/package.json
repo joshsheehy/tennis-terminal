@@ -1,0 +1,21 @@
+{
+  "name": "macro-tracker-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Single-user calorie/macro tracking Telegram bot (webhook mode, SQLite, claude-haiku-4-5 + Nutritionix)",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "better-sqlite3": "^11.8.1",
+    "grammy": "^1.30.0",
+    "node-cron": "^3.0.3",
+    "sharp": "^0.33.5"
+  }
+}
