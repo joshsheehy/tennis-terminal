@@ -3,13 +3,29 @@
 import { useEffect, useRef } from 'react';
 import type { Map as LeafletMap, LayerGroup } from 'leaflet';
 import type { SwingMapEvent, SwingMapSwing } from '@/lib/swings-page-data';
+import type { CandidateTier } from '@/lib/swing-builder';
 
 const ACCENT = '#38bdf8';
 const ACCENT_DIM = 'rgba(56,189,248,0.5)';
 const SERIES = '#fbbf24';
 const GRAY = '#64748b';
 
-export type MapEvent = SwingMapEvent & { dim: boolean };
+// Candidate colors in build mode, by relationship tier.
+const TIER_COLOR: Record<CandidateTier, string> = {
+  'same-city': '#22c55e',
+  'same-country': '#22c55e',
+  neighbor: '#fbbf24',
+  'same-region': '#38bdf8',
+  far: '#94a3b8',
+};
+
+export type MapEvent = SwingMapEvent & {
+  dim: boolean;
+  /** Builder annotations (only set in build mode). */
+  builderRole?: 'chain' | 'candidate';
+  chainPos?: number;
+  tier?: CandidateTier;
+};
 
 type Props = {
   events: MapEvent[];
@@ -23,6 +39,10 @@ type Props = {
   /** Points to frame; the map re-fits whenever fitNonce changes. */
   fitPoints: [number, number][];
   fitNonce: number;
+  /** Build mode: render only chain + candidates; tapping an event picks it. */
+  builderActive: boolean;
+  builderPath: [number, number][];
+  onPickEvent: (editionId: string) => void;
 };
 
 export default function SwingsMap({
@@ -35,12 +55,17 @@ export default function SwingsMap({
   initialZoom,
   fitPoints,
   fitNonce,
+  builderActive,
+  builderPath,
+  onPickEvent,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layersRef = useRef<LayerGroup | null>(null);
   const onSelectRef = useRef(onSelectSwing);
   onSelectRef.current = onSelectSwing;
+  const onPickRef = useRef(onPickEvent);
+  onPickRef.current = onPickEvent;
 
   // Create the map once.
   useEffect(() => {
@@ -83,7 +108,7 @@ export default function SwingsMap({
       renderLayers(L);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, visibleSwingIndexes, selectedSwingIndex]);
+  }, [events, visibleSwingIndexes, selectedSwingIndex, builderActive, builderPath]);
 
   // Re-frame the map when the focus set changes (e.g. a new week is picked).
   useEffect(() => {
@@ -106,6 +131,11 @@ export default function SwingsMap({
     const layers = layersRef.current;
     if (!map || !layers) return;
     layers.clearLayers();
+
+    if (builderActive) {
+      renderBuilderLayers(L, layers);
+      return;
+    }
 
     // Chains first so dots sit on top (series have no polyline).
     for (const index of visibleSwingIndexes) {
@@ -177,17 +207,55 @@ export default function SwingsMap({
     }
   }
 
+  // Build mode: bright numbered chain + polyline, plus tier-colored, tappable
+  // candidate dots. Nothing else is drawn, which keeps the map uncluttered.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function renderBuilderLayers(L: any, layers: any) {
+    if (builderPath.length >= 2) {
+      L.polyline(builderPath, { color: ACCENT, weight: 5, opacity: 0.95 }).addTo(layers);
+    }
+
+    for (const event of events) {
+      if (event.builderRole === 'chain') {
+        const size = 30;
+        const icon = L.divIcon({
+          className: 'swing-dot-icon',
+          html: `<div class="swing-dot" style="--dot:${ACCENT};width:${size}px;height:${size}px">${event.chainPos}</div>`,
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+        });
+        L.marker([event.latitude, event.longitude], { icon, zIndexOffset: 1000 })
+          .bindPopup(popupHtml(event))
+          .addTo(layers);
+      } else {
+        const color = event.tier ? TIER_COLOR[event.tier] : ACCENT;
+        const icon = L.divIcon({
+          className: 'swing-dot-icon',
+          html: `<div class="cand-dot" style="--dot:${color}">${event.week}</div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        });
+        L.marker([event.latitude, event.longitude], { icon })
+          .on('click', () => onPickRef.current(event.editionId))
+          .bindPopup(popupHtml(event, true))
+          .addTo(layers);
+      }
+    }
+  }
+
   return <div ref={containerRef} className="swings-map" />;
 }
 
-function popupHtml(event: MapEvent): string {
+function popupHtml(event: MapEvent, isCandidate = false): string {
   const esc = (s: string) =>
     s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+  const hint = isCandidate ? '<div class="swing-popup__hint">Tap the dot to add to your swing</div>' : '';
   return `
     <div class="swing-popup">
       <strong>${esc(event.name)}</strong>
       <div class="swing-popup__meta">${esc(event.city)}${event.country ? `, ${esc(event.country)}` : ''}</div>
       <div class="swing-popup__meta">W${event.week} · ${esc(event.level)} · ${esc(event.surface)}</div>
+      ${hint}
       <a class="swing-popup__link" href="/tournaments/${esc(event.slug)}">View tournament →</a>
     </div>`;
 }

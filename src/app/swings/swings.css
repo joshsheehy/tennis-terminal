@@ -32,14 +32,104 @@
   margin: 2px 0 0;
   font-size: 18px;
 }
+.swings-header-actions { display: flex; align-items: center; gap: 8px; }
 .swings-filter-btn {
   background: var(--surface-raised);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-subtle);
+}
+.mode-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 7px 14px;
   font-size: 13px;
   cursor: pointer;
+}
+.mode-btn--on { background: var(--text-strong); color: var(--bg); font-weight: 600; }
+
+/* Build-mode candidate dots */
+.cand-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--dot, #38bdf8);
+  color: #05223a;
+  font-weight: 700;
+  font-size: 10px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.swing-popup__hint { font-size: 12px; color: #0284c7; margin-top: 4px; font-style: italic; }
+
+/* Builder panel */
+.builder-clear {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.builder-subhead {
+  margin: 16px 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.cand-group { margin-bottom: 12px; }
+.cand-group-head {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.cand-tier--same-city, .cand-tier--same-country { color: #4ade80; }
+.cand-tier--neighbor { color: #fbbf24; }
+.cand-tier--same-region { color: #38bdf8; }
+.cand-tier--far { color: var(--text-muted); }
+.cand-list { list-style: none; margin: 0; padding: 0; }
+.cand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 8px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  color: var(--text);
+}
+.cand-week { font-size: 12px; color: var(--text-muted); min-width: 30px; }
+.cand-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.cand-name { font-size: 14px; font-weight: 600; }
+.cand-meta { font-size: 11px; color: var(--text-muted); }
+.cand-add { font-size: 20px; color: var(--text-muted); padding: 0 4px; }
+.chain-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 4px;
 }
 
 /* Week strip */

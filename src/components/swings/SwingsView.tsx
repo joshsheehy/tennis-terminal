@@ -3,8 +3,16 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { SwingsPageData } from '@/lib/swings-page-data';
+import type { SwingsPageData, SwingMapEvent } from '@/lib/swings-page-data';
 import type { LevelGroup } from '@/lib/swings';
+import {
+  CandidateTier,
+  RankedCandidate,
+  TIER_LABELS,
+  TIER_ORDER,
+  buildCandidates,
+  summarizeChain,
+} from '@/lib/swing-builder';
 import type { MapEvent } from './SwingsMap';
 
 const SwingsMap = dynamic(() => import('./SwingsMap'), {
@@ -19,15 +27,15 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const GROUP_LABELS: Record<LevelGroup, string> = { atp: 'ATP', challenger: 'Challenger', itf: 'ITF' };
 
 type SheetState = 'collapsed' | 'half' | 'full';
+type Mode = 'explore' | 'build';
 
-// "2 swings · 1 series this week" — counts the two kinds separately.
 function thisWeekSummary(items: SwingsPageData['swings']): string {
   const swings = items.filter((s) => s.kind === 'swing').length;
   const series = items.filter((s) => s.kind === 'series').length;
   const parts: string[] = [];
   if (swings) parts.push(`${swings} swing${swings > 1 ? 's' : ''}`);
   if (series) parts.push(`${series} series`);
-  return `${parts.join(' · ')} this week`;
+  return parts.length ? `${parts.join(' · ')} this week` : 'Nothing this week';
 }
 
 // Monday (UTC) of an ATP week, mirroring getAtpSeasonStartDateUtc.
@@ -44,6 +52,16 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
   const pathname = usePathname();
   const params = useSearchParams();
 
+  const eventById = useMemo(() => {
+    const m = new Map<string, SwingMapEvent>();
+    for (const e of data.events) m.set(e.editionId, e);
+    return m;
+  }, [data.events]);
+
+  const [mode, setMode] = useState<Mode>(() => (params.get('build') ? 'build' : 'explore'));
+  const [chainIds, setChainIds] = useState<string[]>(() =>
+    (params.get('build')?.split(',') ?? []).filter((id) => id.length > 0)
+  );
   const [selectedWeek, setSelectedWeek] = useState(() =>
     Math.min(MAX_WEEK, Math.max(1, data.currentWeek))
   );
@@ -62,19 +80,81 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
     [surfaces]
   );
 
-  // Reframe map when week or selected swing changes.
-  useEffect(() => setFitNonce((n) => n + 1), [selectedWeek, selectedSwing]);
+  useEffect(() => setFitNonce((n) => n + 1), [selectedWeek, selectedSwing, mode, chainIds.length]);
 
-  // --- derived view data ----------------------------------------------------
+  // --- shared helpers -------------------------------------------------------
+  const pushParams = (mut: (p: URLSearchParams) => void) => {
+    const next = new URLSearchParams(params.toString());
+    mut(next);
+    router.push(`${pathname}?${next.toString()}`);
+  };
+
+  // Keep the ?build= param in sync without a server round-trip.
+  const syncBuildParam = (ids: string[]) => {
+    const next = new URLSearchParams(params.toString());
+    if (ids.length) next.set('build', ids.join(','));
+    else next.delete('build');
+    window.history.replaceState(null, '', `${pathname}?${next.toString()}`);
+  };
+
   const inWindow = (week: number) => week >= selectedWeek && week <= selectedWeek + LOOKAHEAD;
 
-  const visibleEvents: MapEvent[] = useMemo(() => {
+  // ============================ BUILD MODE =================================
+  const chain = useMemo(
+    () => chainIds.map((id) => eventById.get(id)).filter((e): e is SwingMapEvent => !!e),
+    [chainIds, eventById]
+  );
+  const anchor = chain[chain.length - 1] ?? null;
+
+  const candidates: RankedCandidate<SwingMapEvent>[] = useMemo(() => {
+    if (mode !== 'build') return [];
+    if (anchor) {
+      return buildCandidates(data.events, anchor, { excludeEditionIds: chainIds, maxWeekGap: 3 });
+    }
+    // No anchor yet: the selected week's events are the start options.
+    return data.events
+      .filter((e) => e.week === selectedWeek)
+      .map((event) => ({ event, tier: 'same-region' as CandidateTier, distanceKm: null, weekGap: 0, sameSurface: true }));
+  }, [mode, anchor, data.events, chainIds, selectedWeek]);
+
+  const addStop = (editionId: string) => {
+    if (chainIds.includes(editionId)) return;
+    const ev = eventById.get(editionId);
+    if (!ev) return;
+    const next = [...chainIds, editionId];
+    setChainIds(next);
+    setSelectedWeek(Math.min(MAX_WEEK, Math.max(1, ev.week)));
+    syncBuildParam(next);
+  };
+  const removeStop = (index: number) => {
+    const next = chainIds.filter((_, i) => i !== index);
+    setChainIds(next);
+    const last = next.length ? eventById.get(next[next.length - 1]) : null;
+    if (last) setSelectedWeek(Math.min(MAX_WEEK, Math.max(1, last.week)));
+    syncBuildParam(next);
+  };
+  const clearChain = () => {
+    setChainIds([]);
+    syncBuildParam([]);
+  };
+  const enterBuild = () => {
+    setMode('build');
+    setSelectedSwing(null);
+    setSheet('half');
+  };
+  const exitBuild = () => {
+    setMode('explore');
+    setSheet('collapsed');
+  };
+
+  // ============================ EXPLORE MODE ==============================
+  const exploreEvents: MapEvent[] = useMemo(() => {
     const selectedEditionIds =
       selectedSwing != null ? new Set(data.swings[selectedSwing].editionIds) : null;
     return data.events
       .filter((e) => {
         if (!surfaceOk(e.surface)) return false;
-        if (selectedEditionIds?.has(e.editionId)) return true; // whole selected chain
+        if (selectedEditionIds?.has(e.editionId)) return true;
         return inWindow(e.week);
       })
       .map((e) => ({
@@ -85,16 +165,16 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
   }, [data, selectedWeek, selectedSwing, surfaces]);
 
   const visibleSwingIndexes = useMemo(() => {
+    if (mode === 'build') return [];
     const set = new Set<number>();
     for (const s of data.swings) {
       if (!s.surfaces.some(surfaceOk)) continue;
-      const intersects = s.startWeek <= selectedWeek + LOOKAHEAD && s.endWeek >= selectedWeek;
-      if (intersects) set.add(s.index);
+      if (s.startWeek <= selectedWeek + LOOKAHEAD && s.endWeek >= selectedWeek) set.add(s.index);
     }
     if (selectedSwing != null) set.add(selectedSwing);
     return [...set];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, selectedWeek, selectedSwing, surfaces]);
+  }, [data, selectedWeek, selectedSwing, surfaces, mode]);
 
   const swingsThisWeek = useMemo(
     () =>
@@ -111,35 +191,46 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
     return upcoming[0] ?? null;
   }, [data, selectedWeek, surfaceOk]);
 
+  // --- what the map renders -------------------------------------------------
+  const builderMapEvents: MapEvent[] = useMemo(() => {
+    if (mode !== 'build') return [];
+    const chainEvents: MapEvent[] = chain.map((e, i) => ({
+      ...e,
+      dim: false,
+      builderRole: 'chain',
+      chainPos: i + 1,
+    }));
+    const candEvents: MapEvent[] = candidates
+      .filter((c) => c.event.latitude != null && c.event.longitude != null)
+      .map((c) => ({ ...c.event, dim: false, builderRole: 'candidate', tier: c.tier }));
+    return [...chainEvents, ...candEvents];
+  }, [mode, chain, candidates]);
+
   const fitPoints: [number, number][] = useMemo(() => {
+    if (mode === 'build') {
+      const src = chain.length ? chain : candidates.map((c) => c.event);
+      return src.map((e) => [e.latitude!, e.longitude!] as [number, number]).filter((p) => p[0] != null);
+    }
     if (selectedSwing != null) {
       const p = data.swings[selectedSwing].path;
       if (p.length) return p.map((q) => [q.lat, q.lng]);
     }
-    const wk = visibleEvents.filter((e) => e.week === selectedWeek);
-    const pts = (wk.length ? wk : visibleEvents).map((e) => [e.latitude, e.longitude] as [number, number]);
-    return pts;
-  }, [data, selectedSwing, visibleEvents, selectedWeek]);
+    const wk = exploreEvents.filter((e) => e.week === selectedWeek);
+    return (wk.length ? wk : exploreEvents).map((e) => [e.latitude, e.longitude] as [number, number]);
+  }, [mode, chain, candidates, data, selectedSwing, exploreEvents, selectedWeek]);
 
   const initialCenter: [number, number] = fitPoints[0] ?? [25, 5];
-
-  // --- navigation helpers ---------------------------------------------------
-  const pushParams = (mut: (p: URLSearchParams) => void) => {
-    const next = new URLSearchParams(params.toString());
-    mut(next);
-    router.push(`${pathname}?${next.toString()}`);
-  };
 
   const selectSwing = (index: number | null) => {
     setSelectedSwing(index);
     if (index != null) {
       setSheet('half');
-      // jump the week to the swing's start so its chain is in the window
       setSelectedWeek(Math.min(MAX_WEEK, Math.max(1, data.swings[index].startWeek)));
     }
   };
 
   const activeSwing = selectedSwing != null ? data.swings[selectedSwing] : null;
+  const chainSummary = summarizeChain(chain);
 
   return (
     <div className="swings-root">
@@ -148,9 +239,29 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
           <p className="swings-eyebrow">Swings</p>
           <h1 className="swings-title">{data.year} travel chains</h1>
         </div>
-        <button className="swings-filter-btn" onClick={() => setFiltersOpen(true)} aria-label="Filters">
-          ⚙︎ Filters
-        </button>
+        <div className="swings-header-actions">
+          <div className="mode-toggle" role="tablist" aria-label="Mode">
+            <button
+              role="tab"
+              aria-selected={mode === 'explore'}
+              className={`mode-btn${mode === 'explore' ? ' mode-btn--on' : ''}`}
+              onClick={exitBuild}
+            >
+              Explore
+            </button>
+            <button
+              role="tab"
+              aria-selected={mode === 'build'}
+              className={`mode-btn${mode === 'build' ? ' mode-btn--on' : ''}`}
+              onClick={enterBuild}
+            >
+              Build
+            </button>
+          </div>
+          <button className="swings-filter-btn" onClick={() => setFiltersOpen(true)} aria-label="Filters">
+            ⚙︎
+          </button>
+        </div>
       </header>
 
       <WeekStrip
@@ -164,7 +275,7 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
 
       <div className="swings-map-wrap">
         <SwingsMap
-          events={visibleEvents}
+          events={mode === 'build' ? builderMapEvents : exploreEvents}
           swings={data.swings}
           visibleSwingIndexes={visibleSwingIndexes}
           selectedSwingIndex={selectedSwing}
@@ -173,21 +284,38 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
           initialZoom={4}
           fitPoints={fitPoints}
           fitNonce={fitNonce}
+          builderActive={mode === 'build'}
+          builderPath={chain.map((e) => [e.latitude!, e.longitude!] as [number, number])}
+          onPickEvent={addStop}
         />
       </div>
 
-      <BottomSheet
-        state={sheet}
-        setState={setSheet}
-        swingsThisWeek={swingsThisWeek}
-        nearestUpcoming={nearestUpcoming}
-        activeSwing={activeSwing}
-        onPickSwing={(i) => selectSwing(i)}
-        onJumpToWeek={(w) => {
-          setSelectedWeek(w);
-          setSelectedSwing(null);
-        }}
-      />
+      {mode === 'build' ? (
+        <BuilderPanel
+          state={sheet}
+          setState={setSheet}
+          chain={chain}
+          candidates={candidates}
+          summary={chainSummary}
+          selectedWeek={selectedWeek}
+          onAdd={addStop}
+          onRemove={removeStop}
+          onClear={clearChain}
+        />
+      ) : (
+        <BottomSheet
+          state={sheet}
+          setState={setSheet}
+          swingsThisWeek={swingsThisWeek}
+          nearestUpcoming={nearestUpcoming}
+          activeSwing={activeSwing}
+          onPickSwing={selectSwing}
+          onJumpToWeek={(w) => {
+            setSelectedWeek(w);
+            setSelectedSwing(null);
+          }}
+        />
+      )}
 
       {filtersOpen && (
         <FilterSheet
@@ -199,7 +327,7 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
             const next = new Set(data.groups);
             if (next.has(g)) next.delete(g);
             else next.add(g);
-            if (next.size === 0) return; // never empty
+            if (next.size === 0) return;
             pushParams((p) => p.set('scope', [...next].join('+')));
           }}
           onToggleSurface={(s) => {
@@ -227,21 +355,19 @@ function WeekStrip({
   selectedWeek: number;
   onSelect: (week: number) => void;
 }) {
-  const stripRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<HTMLButtonElement>(null);
-
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   }, [selectedWeek]);
 
   const weeks = Array.from({ length: MAX_WEEK }, (_, i) => i + 1);
   return (
-    <div className="week-strip" ref={stripRef} role="tablist" aria-label="Weeks">
+    <div className="week-strip" role="tablist" aria-label="Weeks">
       {weeks.map((w) => {
         const showMonth = w === 1 || weekMonth(year, w) !== weekMonth(year, w - 1);
         return (
           <div className="week-cell" key={w}>
-            <span className="week-month">{showMonth ? MONTHS[weekMonth(year, w)] : ' '}</span>
+            <span className="week-month">{showMonth ? MONTHS[weekMonth(year, w)] : ' '}</span>
             <button
               ref={w === selectedWeek ? selectedRef : undefined}
               role="tab"
@@ -258,7 +384,135 @@ function WeekStrip({
   );
 }
 
-// --- Bottom sheet -----------------------------------------------------------
+// --- Builder panel ----------------------------------------------------------
+function BuilderPanel({
+  state,
+  setState,
+  chain,
+  candidates,
+  summary,
+  selectedWeek,
+  onAdd,
+  onRemove,
+  onClear,
+}: {
+  state: SheetState;
+  setState: (s: SheetState) => void;
+  chain: SwingMapEvent[];
+  candidates: RankedCandidate<SwingMapEvent>[];
+  summary: ReturnType<typeof summarizeChain>;
+  selectedWeek: number;
+  onAdd: (editionId: string) => void;
+  onRemove: (index: number) => void;
+  onClear: () => void;
+}) {
+  const cycleUp = () => setState(state === 'collapsed' ? 'half' : 'full');
+  const cycleDown = () => setState(state === 'full' ? 'half' : 'collapsed');
+
+  const grouped = useMemo(() => {
+    const byTier = new Map<CandidateTier, RankedCandidate<SwingMapEvent>[]>();
+    for (const c of candidates) {
+      const list = byTier.get(c.tier) ?? [];
+      list.push(c);
+      byTier.set(c.tier, list);
+    }
+    return TIER_ORDER.map((tier) => ({ tier, items: byTier.get(tier) ?? [] })).filter(
+      (g) => g.items.length > 0
+    );
+  }, [candidates]);
+
+  return (
+    <section className={`sheet sheet--${state}`} aria-label="Swing builder">
+      <div className="sheet-grip-row">
+        <button className="sheet-grip" onClick={state === 'full' ? cycleDown : cycleUp} aria-label="Toggle" />
+      </div>
+      <div className="sheet-body">
+        {chain.length === 0 ? (
+          <>
+            <h2 className="sheet-title">Build your own swing</h2>
+            <p className="sheet-summary">
+              Tap a tournament to start — showing week {selectedWeek}. Use the week strip to change weeks.
+            </p>
+            <ul className="cand-list">
+              {candidates.map((c) => (
+                <li key={c.event.editionId}>
+                  <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
+                    <span className="cand-week">W{c.event.week}</span>
+                    <span className="cand-main">
+                      <span className="cand-name">{c.event.name}</span>
+                      <span className="cand-meta">{c.event.city} · {c.event.level} · {c.event.surface}</span>
+                    </span>
+                    <span className="cand-add">+</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <>
+            <div className="sheet-head">
+              <h2 className="sheet-title">Your swing</h2>
+              <button className="builder-clear" onClick={onClear}>Clear</button>
+            </div>
+            {summary && (
+              <div className="sheet-badges">
+                <span className="badge">{chain.length} stops</span>
+                <span className="badge">W{summary.startWeek}–W{summary.endWeek}</span>
+                <span className={`badge ${summary.surfaceConsistent ? 'badge--ok' : 'badge--mixed'}`}>
+                  {summary.surfaceConsistent ? summary.surfaces[0] : `Mixed: ${summary.surfaces.join('/')}`}
+                </span>
+                {summary.maxHopKm != null && (
+                  <span className="badge">max hop {Math.round(summary.maxHopKm)} km</span>
+                )}
+              </div>
+            )}
+
+            <ul className="itinerary">
+              {chain.map((e, i) => (
+                <li key={e.editionId} className="itinerary-row">
+                  <span className="itinerary-week">{i + 1}. W{e.week}</span>
+                  <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
+                  <button className="chain-remove" onClick={() => onRemove(i)} aria-label="Remove">✕</button>
+                </li>
+              ))}
+            </ul>
+
+            <h3 className="builder-subhead">Add a next stop</h3>
+            {grouped.length === 0 ? (
+              <p className="sheet-summary">No tournaments in the next 3 weeks. Try a different last stop.</p>
+            ) : (
+              grouped.map((g) => (
+                <div key={g.tier} className="cand-group">
+                  <p className={`cand-group-head cand-tier--${g.tier}`}>{TIER_LABELS[g.tier]}</p>
+                  <ul className="cand-list">
+                    {g.items.map((c) => (
+                      <li key={c.event.editionId}>
+                        <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
+                          <span className="cand-week">W{c.event.week}</span>
+                          <span className="cand-main">
+                            <span className="cand-name">{c.event.name}</span>
+                            <span className="cand-meta">
+                              {c.event.city} · {c.event.level} · {c.event.surface}
+                              {c.distanceKm != null && ` · ${Math.round(c.distanceKm)} km`}
+                              {!c.sameSurface && ' · surface change'}
+                            </span>
+                          </span>
+                          <span className="cand-add">+</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// --- Bottom sheet (explore) -------------------------------------------------
 function BottomSheet({
   state,
   setState,
@@ -305,9 +559,7 @@ function BottomSheet({
               row.events.map((e) => (
                 <li key={e.slug + row.week} className="itinerary-row">
                   <span className="itinerary-week">W{row.week}</span>
-                  <a className="itinerary-link" href={`/tournaments/${e.slug}`}>
-                    {e.name}
-                  </a>
+                  <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
                   <span className="itinerary-meta">{e.surface}</span>
                 </li>
               ))
@@ -374,26 +626,18 @@ function FilterSheet({
       <div className="filter-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="filter-head">
           <h2>Filters</h2>
-          <button className="filter-close" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
+          <button className="filter-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
-
         <fieldset className="filter-group">
           <legend>Year</legend>
           <div className="chip-row">
             {years.map((y) => (
-              <button
-                key={y}
-                className={`chip${data.year === y ? ' chip--on' : ''}`}
-                onClick={() => onYear(y)}
-              >
+              <button key={y} className={`chip${data.year === y ? ' chip--on' : ''}`} onClick={() => onYear(y)}>
                 {y}
               </button>
             ))}
           </div>
         </fieldset>
-
         <fieldset className="filter-group">
           <legend>Levels</legend>
           <div className="chip-row">
@@ -408,16 +652,11 @@ function FilterSheet({
             ))}
           </div>
         </fieldset>
-
         <fieldset className="filter-group">
           <legend>Surface</legend>
           <div className="chip-row">
             {SURFACES.map((s) => (
-              <button
-                key={s}
-                className={`chip${surfaces?.has(s) ? ' chip--on' : ''}`}
-                onClick={() => onToggleSurface(s)}
-              >
+              <button key={s} className={`chip${surfaces?.has(s) ? ' chip--on' : ''}`} onClick={() => onToggleSurface(s)}>
                 {s}
               </button>
             ))}
