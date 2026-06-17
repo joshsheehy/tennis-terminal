@@ -131,6 +131,19 @@
   cursor: pointer;
   padding: 0 4px;
 }
+.builder-skip {
+  display: block;
+  width: 100%;
+  margin: 12px 0 4px;
+  padding: 11px 12px;
+  border: 1px dashed var(--border-tag);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+.builder-skip:hover { color: var(--text-strong); border-color: var(--text-muted); }
 
 /* Week strip */
 .week-strip {

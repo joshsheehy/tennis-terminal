@@ -106,16 +106,21 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
   );
   const anchor = chain[chain.length - 1] ?? null;
 
+  // The builder offers exactly one week at a time — `selectedWeek` is the week
+  // currently being chosen. Candidates are all that week's events (current
+  // filters), ranked relative to the last stop (same country first).
   const candidates: RankedCandidate<SwingMapEvent>[] = useMemo(() => {
     if (mode !== 'build') return [];
     if (anchor) {
-      return buildCandidates(data.events, anchor, { excludeEditionIds: chainIds, maxWeekGap: 3 });
+      return buildCandidates(data.events, anchor, { week: selectedWeek, excludeEditionIds: chainIds })
+        .filter((c) => surfaceOk(c.event.surface));
     }
     // No anchor yet: the selected week's events are the start options.
     return data.events
-      .filter((e) => e.week === selectedWeek)
+      .filter((e) => e.week === selectedWeek && surfaceOk(e.surface))
       .map((event) => ({ event, tier: 'same-region' as CandidateTier, distanceKm: null, weekGap: 0, sameSurface: true }));
-  }, [mode, anchor, data.events, chainIds, selectedWeek]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, anchor, data.events, chainIds, selectedWeek, surfaces]);
 
   const addStop = (editionId: string) => {
     if (chainIds.includes(editionId)) return;
@@ -123,9 +128,12 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
     if (!ev) return;
     const next = [...chainIds, editionId];
     setChainIds(next);
-    setSelectedWeek(Math.min(MAX_WEEK, Math.max(1, ev.week)));
+    // Advance to choosing the following week.
+    setSelectedWeek(Math.min(MAX_WEEK, ev.week + 1));
     syncBuildParam(next);
   };
+
+  const skipWeek = () => setSelectedWeek((w) => Math.min(MAX_WEEK, w + 1));
   const removeStop = (index: number) => {
     const next = chainIds.filter((_, i) => i !== index);
     setChainIds(next);
@@ -301,6 +309,7 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
           onAdd={addStop}
           onRemove={removeStop}
           onClear={clearChain}
+          onSkip={skipWeek}
         />
       ) : (
         <BottomSheet
@@ -395,6 +404,7 @@ function BuilderPanel({
   onAdd,
   onRemove,
   onClear,
+  onSkip,
 }: {
   state: SheetState;
   setState: (s: SheetState) => void;
@@ -405,10 +415,14 @@ function BuilderPanel({
   onAdd: (editionId: string) => void;
   onRemove: (index: number) => void;
   onClear: () => void;
+  onSkip: () => void;
 }) {
   const cycleUp = () => setState(state === 'collapsed' ? 'half' : 'full');
   const cycleDown = () => setState(state === 'full' ? 'half' : 'collapsed');
 
+  // All candidates are for one week; group by relationship tier (same country
+  // first). Before an anchor exists there's no relationship, so show a flat list.
+  const hasAnchor = chain.length > 0;
   const grouped = useMemo(() => {
     const byTier = new Map<CandidateTier, RankedCandidate<SwingMapEvent>[]>();
     for (const c of candidates) {
@@ -421,32 +435,44 @@ function BuilderPanel({
     );
   }, [candidates]);
 
+  const candidateRow = (c: RankedCandidate<SwingMapEvent>) => (
+    <li key={c.event.editionId}>
+      <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
+        <span className="cand-week">W{c.event.week}</span>
+        <span className="cand-main">
+          <span className="cand-name">{c.event.name}</span>
+          <span className="cand-meta">
+            {c.event.city} · {c.event.level} · {c.event.surface}
+            {c.distanceKm != null && ` · ${Math.round(c.distanceKm)} km`}
+            {hasAnchor && !c.sameSurface && ' · surface change'}
+          </span>
+        </span>
+        <span className="cand-add">+</span>
+      </button>
+    </li>
+  );
+
+  const skipButton = (
+    <button className="builder-skip" onClick={onSkip}>
+      Nothing for week {selectedWeek}? Skip to week {Math.min(selectedWeek + 1, MAX_WEEK)} →
+    </button>
+  );
+
   return (
     <section className={`sheet sheet--${state}`} aria-label="Swing builder">
       <div className="sheet-grip-row">
         <button className="sheet-grip" onClick={state === 'full' ? cycleDown : cycleUp} aria-label="Toggle" />
       </div>
       <div className="sheet-body">
-        {chain.length === 0 ? (
+        {!hasAnchor ? (
           <>
             <h2 className="sheet-title">Build your own swing</h2>
-            <p className="sheet-summary">
-              Tap a tournament to start — showing week {selectedWeek}. Use the week strip to change weeks.
-            </p>
-            <ul className="cand-list">
-              {candidates.map((c) => (
-                <li key={c.event.editionId}>
-                  <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
-                    <span className="cand-week">W{c.event.week}</span>
-                    <span className="cand-main">
-                      <span className="cand-name">{c.event.name}</span>
-                      <span className="cand-meta">{c.event.city} · {c.event.level} · {c.event.surface}</span>
-                    </span>
-                    <span className="cand-add">+</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <p className="sheet-summary">Pick a starting tournament in week {selectedWeek}.</p>
+            <ul className="cand-list">{candidates.map(candidateRow)}</ul>
+            {candidates.length === 0 && (
+              <p className="sheet-summary">No tournaments in week {selectedWeek} for this filter.</p>
+            )}
+            {skipButton}
           </>
         ) : (
           <>
@@ -456,7 +482,7 @@ function BuilderPanel({
             </div>
             {summary && (
               <div className="sheet-badges">
-                <span className="badge">{chain.length} stops</span>
+                <span className="badge">{chain.length} stop{chain.length > 1 ? 's' : ''}</span>
                 <span className="badge">W{summary.startWeek}–W{summary.endWeek}</span>
                 <span className={`badge ${summary.surfaceConsistent ? 'badge--ok' : 'badge--mixed'}`}>
                   {summary.surfaceConsistent ? summary.surfaces[0] : `Mixed: ${summary.surfaces.join('/')}`}
@@ -477,34 +503,18 @@ function BuilderPanel({
               ))}
             </ul>
 
-            <h3 className="builder-subhead">Add a next stop</h3>
+            <h3 className="builder-subhead">Week {selectedWeek} — pick your next stop</h3>
             {grouped.length === 0 ? (
-              <p className="sheet-summary">No tournaments in the next 3 weeks. Try a different last stop.</p>
+              <p className="sheet-summary">No tournaments in week {selectedWeek} for this filter.</p>
             ) : (
               grouped.map((g) => (
                 <div key={g.tier} className="cand-group">
                   <p className={`cand-group-head cand-tier--${g.tier}`}>{TIER_LABELS[g.tier]}</p>
-                  <ul className="cand-list">
-                    {g.items.map((c) => (
-                      <li key={c.event.editionId}>
-                        <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
-                          <span className="cand-week">W{c.event.week}</span>
-                          <span className="cand-main">
-                            <span className="cand-name">{c.event.name}</span>
-                            <span className="cand-meta">
-                              {c.event.city} · {c.event.level} · {c.event.surface}
-                              {c.distanceKm != null && ` · ${Math.round(c.distanceKm)} km`}
-                              {!c.sameSurface && ' · surface change'}
-                            </span>
-                          </span>
-                          <span className="cand-add">+</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                  <ul className="cand-list">{g.items.map(candidateRow)}</ul>
                 </div>
               ))
             )}
+            {skipButton}
           </>
         )}
       </div>

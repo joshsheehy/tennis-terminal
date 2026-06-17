@@ -75,6 +75,25 @@ describe('buildCandidates', () => {
     expect(out).toHaveLength(0);
   });
 
+  it('restricts to one exact week when week is given', () => {
+    const anchor = ev({ ...cary, week: 26 });
+    const events = [
+      anchor,
+      ev({ ...lexington, week: 27 }),
+      ev({ ...granby, week: 27 }),
+      ev({ ...winnipeg, week: 28 }), // different week -> excluded
+    ];
+    const out = buildCandidates(events, anchor, { week: 27 });
+    expect(out.every((c) => c.event.week === 27)).toBe(true);
+    expect(out).toHaveLength(2);
+  });
+
+  it('returns nothing for a week at or before the anchor', () => {
+    const anchor = ev({ ...cary, week: 26 });
+    const events = [anchor, ev({ ...lexington, week: 26 })];
+    expect(buildCandidates(events, anchor, { week: 26 })).toHaveLength(0);
+  });
+
   it('flags surface continuity', () => {
     const anchor = ev({ ...cary, week: 30, surface: 'Hard' });
     const clay = ev({ ...lexington, week: 31, surface: 'Clay' });

@@ -101,27 +101,28 @@ export function classifyRelation(
 }
 
 /**
- * Rank the tournaments a player could go to after `anchor`, within the next
- * `maxWeekGap` weeks (default 3). Sorted by relationship tier, then sooner
- * week, then nearer distance.
+ * Rank the tournaments a player could go to after `anchor`. By default this
+ * covers the next `maxWeekGap` weeks; pass `week` to restrict to one exact
+ * week (the builder offers one week at a time). Sorted by relationship tier,
+ * then sooner week, then nearer distance.
  */
 export function buildCandidates<T extends BuildEvent>(
   events: T[],
   anchor: T,
-  options: { maxWeekGap?: number; excludeEditionIds?: Iterable<string> } = {}
+  options: { maxWeekGap?: number; week?: number; excludeEditionIds?: Iterable<string> } = {}
 ): RankedCandidate<T>[] {
   const maxWeekGap = options.maxWeekGap ?? 3;
   const exclude = new Set(options.excludeEditionIds ?? []);
   exclude.add(anchor.editionId);
 
+  const inRange = (week: number) =>
+    options.week != null
+      ? week === options.week && week > anchor.week
+      : week > anchor.week && week <= anchor.week + maxWeekGap;
+
   const anchorFamily = surfaceFamily(anchor.surface);
   const ranked = events
-    .filter(
-      (e) =>
-        !exclude.has(e.editionId) &&
-        e.week > anchor.week &&
-        e.week <= anchor.week + maxWeekGap
-    )
+    .filter((e) => !exclude.has(e.editionId) && inRange(e.week))
     .map((event) => {
       const { tier, distanceKm } = classifyRelation(anchor, event);
       return {
