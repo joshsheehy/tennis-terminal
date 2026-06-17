@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   }
 
   const matchClause = fuzzy
-    ? `(t.slug ilike $1 or t.name ilike $1)`
+    ? `(t.slug ilike $1 or t.name ilike $1 or t.city ilike $1)`
     : `t.slug = $1`;
   const matchValue = fuzzy ? `%${slug}%` : slug;
 
@@ -70,10 +70,35 @@ export async function GET(request: NextRequest) {
   );
 
   if (found.rows.length === 0) {
+    // Surface candidate rows so the operator can see what's actually in the
+    // DB. First: any-year rows matching the (fuzzy) slug — tells us if the
+    // tournament exists at all and which years it has editions for. Second:
+    // any tournament whose slug shares a token with the request — catches
+    // slug-spelling mismatches in the requested year.
+    const tokenPattern = fuzzy ? matchValue : `%${slug.split('-').filter((t) => t.length > 2).join('%')}%`;
+    const candidates = await pool.query<{
+      slug: string;
+      name: string;
+      city: string;
+      year: number;
+      status: string;
+    }>(
+      `select distinct t.slug, t.name, t.city, te.year, te.status
+       from tournament_editions te
+       join tournaments t on t.id = te.tournament_id
+       where t.slug ilike $1 or t.name ilike $1 or t.city ilike $1
+       order by t.slug, te.year`,
+      [tokenPattern]
+    );
+
     return NextResponse.json(
       {
         ok: false,
         error: `No ${year} edition found for slug "${slug}"${fuzzy ? ' (fuzzy)' : ''}.`,
+        searchedYear: year,
+        searchedPattern: matchValue,
+        candidatesAnyYear: candidates.rows,
+        note: 'candidatesAnyYear shows what rows match the slug/name/city pattern across all years. If the tournament exists under a different slug, copy that slug and retry. If the row is missing entirely, the schedule may already be clean — confirm what year you were viewing on the site.',
       },
       { status: 404 }
     );
