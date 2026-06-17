@@ -25,6 +25,8 @@ export type MapEvent = SwingMapEvent & {
   builderRole?: 'chain' | 'candidate';
   chainPos?: number;
   tier?: CandidateTier;
+  /** Entry-status tint for a chain dot once a ranking is entered. */
+  statusColor?: string;
 };
 
 type Props = {
@@ -220,7 +222,7 @@ export default function SwingsMap({
         const size = 30;
         const icon = L.divIcon({
           className: 'swing-dot-icon',
-          html: `<div class="swing-dot" style="--dot:${ACCENT};width:${size}px;height:${size}px">${event.chainPos}</div>`,
+          html: `<div class="swing-dot" style="--dot:${event.statusColor ?? ACCENT};width:${size}px;height:${size}px">${event.chainPos}</div>`,
           iconSize: [size, size],
           iconAnchor: [size / 2, size / 2],
         });

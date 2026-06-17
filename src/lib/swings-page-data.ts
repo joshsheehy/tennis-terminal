@@ -17,6 +17,7 @@ import {
   scopeKey,
 } from './swings';
 import { loadSwingEventsForYear } from './swings-data';
+import type { CutReference } from './swing-rank-check';
 
 export type SwingMapEvent = {
   editionId: string;
@@ -63,6 +64,9 @@ export type SwingsPageData = {
   currentWeek: number;
   events: SwingMapEvent[];
   swings: SwingMapSwing[];
+  /** Most recent historical singles cut per tournament slug, for the rank
+   * check (2026 stops reference the prior year's cut). */
+  cutRefs: Record<string, CutReference>;
 };
 
 const getCachedEvents = unstable_cache(
@@ -71,12 +75,66 @@ const getCachedEvents = unstable_cache(
   { revalidate: 300 }
 );
 
+// Most recent historical singles cut per tournament that holds an edition in
+// `year`. distinct on (slug, draw_type) ordered by year desc -> latest cut.
+async function loadReferenceCutoffs(year: number): Promise<Record<string, CutReference>> {
+  const result = await pool.query<{
+    slug: string;
+    from_year: number;
+    draw_type: 'main' | 'qualifying';
+    direct: number | null;
+    alt: number | null;
+  }>(
+    `
+    with relevant as (
+      select distinct t.id, t.slug
+      from tournaments t
+      join tournament_editions te on te.tournament_id = t.id
+      where te.status = 'held' and te.year = $1
+    )
+    select distinct on (r.slug, cs.draw_type)
+      r.slug,
+      te.year as from_year,
+      cs.draw_type,
+      cs.last_direct_acceptance_rank as direct,
+      cs.last_alternate_rank as alt
+    from relevant r
+    join tournament_editions te on te.tournament_id = r.id
+    join cutoff_snapshots cs on cs.tournament_edition_id = te.id
+    where cs.event_type = 'singles'
+      and cs.last_direct_acceptance_rank is not null
+    order by r.slug, cs.draw_type, te.year desc
+    `,
+    [year]
+  );
+
+  const refs: Record<string, CutReference> = {};
+  for (const row of result.rows) {
+    const ref = refs[row.slug] ?? { mainCut: null, mainAlt: null, qualCut: null, fromYear: null };
+    if (row.draw_type === 'main') {
+      ref.mainCut = row.direct;
+      ref.mainAlt = row.alt;
+    } else {
+      ref.qualCut = row.direct;
+    }
+    ref.fromYear = Math.max(ref.fromYear ?? 0, row.from_year) || row.from_year;
+    refs[row.slug] = ref;
+  }
+  return refs;
+}
+
+const getCachedCutRefs = unstable_cache(
+  async (year: number) => loadReferenceCutoffs(year),
+  ['swings-cutrefs'],
+  { revalidate: 300 }
+);
+
 export async function getSwingsPageData(
   year: number,
   groups: LevelGroup[] = DEFAULT_LEVEL_SCOPE,
   config: SwingConfig = DEFAULT_SWING_CONFIG
 ): Promise<SwingsPageData> {
-  const all = await getCachedEvents(year);
+  const [all, cutRefs] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year)]);
   const groupSet = new Set(groups);
   const scoped = all.filter((e) => {
     const g = levelGroup(e.level);
@@ -147,5 +205,5 @@ export async function getSwingsPageData(
   const currentWeek =
     year === CURRENT_SEASON ? getAtpWeekForSeason(new Date(), year) ?? 1 : 1;
 
-  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings };
+  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs };
 }

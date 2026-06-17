@@ -145,6 +145,43 @@
 }
 .builder-skip:hover { color: var(--text-strong); border-color: var(--text-muted); }
 
+/* Rank check */
+.rank-check {
+  margin: 10px 0 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+}
+.rank-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.rank-input {
+  width: 96px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  text-align: right;
+}
+.rank-summary { margin: 8px 0 0; font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+.entry-pill {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
 /* Week strip */
 .week-strip {
   flex: 0 0 auto;

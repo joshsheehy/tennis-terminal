@@ -13,6 +13,13 @@ import {
   buildCandidates,
   summarizeChain,
 } from '@/lib/swing-builder';
+import {
+  EntryStatus,
+  STATUS_META,
+  describeEntrySummary,
+  entryStatus,
+  summarizeEntries,
+} from '@/lib/swing-rank-check';
 import type { MapEvent } from './SwingsMap';
 
 const SwingsMap = dynamic(() => import('./SwingsMap'), {
@@ -69,6 +76,18 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
   const [sheet, setSheet] = useState<SheetState>('collapsed');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [fitNonce, setFitNonce] = useState(1);
+  const [rank, setRank] = useState<number | null>(null);
+
+  // Remember the player's ranking between visits.
+  useEffect(() => {
+    const saved = Number(localStorage.getItem('swings.rank'));
+    if (Number.isFinite(saved) && saved > 0) setRank(saved);
+  }, []);
+  const updateRank = (value: number | null) => {
+    setRank(value);
+    if (value && value > 0) localStorage.setItem('swings.rank', String(value));
+    else localStorage.removeItem('swings.rank');
+  };
 
   const surfaces = useMemo(() => {
     const raw = params.get('surface');
@@ -200,6 +219,13 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
   }, [data, selectedWeek, surfaceOk]);
 
   // --- what the map renders -------------------------------------------------
+  // Per-stop entry status against each tournament's most recent historical cut.
+  const chainStatuses: EntryStatus[] = useMemo(
+    () => chain.map((e) => entryStatus(rank, data.cutRefs[e.slug])),
+    [chain, rank, data.cutRefs]
+  );
+  const entrySummary = useMemo(() => summarizeEntries(chainStatuses), [chainStatuses]);
+
   const builderMapEvents: MapEvent[] = useMemo(() => {
     if (mode !== 'build') return [];
     const chainEvents: MapEvent[] = chain.map((e, i) => ({
@@ -207,12 +233,14 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
       dim: false,
       builderRole: 'chain',
       chainPos: i + 1,
+      // Tint the chain dot by entry status once a ranking is entered.
+      statusColor: rank != null ? STATUS_META[chainStatuses[i]].color : undefined,
     }));
     const candEvents: MapEvent[] = candidates
       .filter((c) => c.event.latitude != null && c.event.longitude != null)
       .map((c) => ({ ...c.event, dim: false, builderRole: 'candidate', tier: c.tier }));
     return [...chainEvents, ...candEvents];
-  }, [mode, chain, candidates]);
+  }, [mode, chain, candidates, rank, chainStatuses]);
 
   const fitPoints: [number, number][] = useMemo(() => {
     if (mode === 'build') {
@@ -310,6 +338,11 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
           onRemove={removeStop}
           onClear={clearChain}
           onSkip={skipWeek}
+          rank={rank}
+          onRank={updateRank}
+          statuses={chainStatuses}
+          entrySummary={entrySummary}
+          cutRefs={data.cutRefs}
         />
       ) : (
         <BottomSheet
@@ -405,6 +438,11 @@ function BuilderPanel({
   onRemove,
   onClear,
   onSkip,
+  rank,
+  onRank,
+  statuses,
+  entrySummary,
+  cutRefs,
 }: {
   state: SheetState;
   setState: (s: SheetState) => void;
@@ -416,6 +454,11 @@ function BuilderPanel({
   onRemove: (index: number) => void;
   onClear: () => void;
   onSkip: () => void;
+  rank: number | null;
+  onRank: (rank: number | null) => void;
+  statuses: EntryStatus[];
+  entrySummary: ReturnType<typeof summarizeEntries>;
+  cutRefs: SwingsPageData['cutRefs'];
 }) {
   const cycleUp = () => setState(state === 'collapsed' ? 'half' : 'full');
   const cycleDown = () => setState(state === 'full' ? 'half' : 'collapsed');
@@ -493,14 +536,53 @@ function BuilderPanel({
               </div>
             )}
 
+            <div className="rank-check">
+              <label className="rank-label">
+                Your singles ranking
+                <input
+                  className="rank-input"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  placeholder="e.g. 250"
+                  value={rank ?? ''}
+                  onChange={(ev) => {
+                    const v = Number(ev.target.value);
+                    onRank(Number.isFinite(v) && v > 0 ? v : null);
+                  }}
+                />
+              </label>
+              {rank != null && (
+                <p className="rank-summary">{describeEntrySummary(entrySummary)}</p>
+              )}
+            </div>
+
             <ul className="itinerary">
-              {chain.map((e, i) => (
-                <li key={e.editionId} className="itinerary-row">
-                  <span className="itinerary-week">{i + 1}. W{e.week}</span>
-                  <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
-                  <button className="chain-remove" onClick={() => onRemove(i)} aria-label="Remove">✕</button>
-                </li>
-              ))}
+              {chain.map((e, i) => {
+                const status = statuses[i];
+                const ref = cutRefs[e.slug];
+                const meta = STATUS_META[status];
+                return (
+                  <li key={e.editionId} className="itinerary-row">
+                    <span className="itinerary-week">{i + 1}. W{e.week}</span>
+                    <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
+                    {rank != null && (
+                      <span
+                        className="entry-pill"
+                        style={{ color: meta.color, borderColor: meta.color }}
+                        title={
+                          ref?.fromYear
+                            ? `${ref.fromYear} cut — MD ${ref.mainCut ?? '–'}, Q ${ref.qualCut ?? '–'}`
+                            : 'No historical cut on record'
+                        }
+                      >
+                        {meta.short}
+                      </span>
+                    )}
+                    <button className="chain-remove" onClick={() => onRemove(i)} aria-label="Remove">✕</button>
+                  </li>
+                );
+              })}
             </ul>
 
             <h3 className="builder-subhead">Week {selectedWeek} — pick your next stop</h3>
