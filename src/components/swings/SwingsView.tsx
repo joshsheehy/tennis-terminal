@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SwingsPageData, SwingMapEvent } from '@/lib/swings-page-data';
-import type { LevelGroup } from '@/lib/swings';
+import { LevelGroup, levelRank } from '@/lib/swings';
 import {
   CandidateTier,
   RankedCandidate,
@@ -134,9 +134,11 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
       return buildCandidates(data.events, anchor, { week: selectedWeek, excludeEditionIds: chainIds })
         .filter((c) => surfaceOk(c.event.surface));
     }
-    // No anchor yet: the selected week's events are the start options.
+    // No anchor yet: the selected week's events are the start options,
+    // highest level first (then by name) so the biggest events lead.
     return data.events
       .filter((e) => e.week === selectedWeek && surfaceOk(e.surface))
+      .sort((a, b) => levelRank(b.level) - levelRank(a.level) || a.name.localeCompare(b.name))
       .map((event) => ({ event, tier: 'same-region' as CandidateTier, distanceKm: null, weekGap: 0, sameSurface: true }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, anchor, data.events, chainIds, selectedWeek, surfaces]);
