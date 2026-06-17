@@ -12,6 +12,7 @@ function ev(o: Partial<BuildEvent>): BuildEvent {
     longitude: -75,
     week: 30,
     surface: 'Hard',
+    level: 'Challenger 75',
     ...o,
   };
 }
@@ -92,6 +93,16 @@ describe('buildCandidates', () => {
     const anchor = ev({ ...cary, week: 26 });
     const events = [anchor, ev({ ...lexington, week: 26 })];
     expect(buildCandidates(events, anchor, { week: 26 })).toHaveLength(0);
+  });
+
+  it('orders highest level first within a tier (level beats distance)', () => {
+    const anchor = ev({ ...cary, week: 30 });
+    // All same-country (US), week 31, but increasing distance for higher level.
+    const itf15 = ev({ ...lexington, week: 31, level: 'ITF M15', latitude: 38.0, longitude: -84.5 });
+    const itf25 = ev({ city: 'Indianapolis', country: 'United States', latitude: 39.77, longitude: -86.16, week: 31, level: 'ITF M25' });
+    const ch75 = ev({ city: 'Lincoln', country: 'United States', latitude: 40.8, longitude: -96.7, week: 31, level: 'Challenger 75' });
+    const out = buildCandidates([anchor, itf15, itf25, ch75], anchor, { week: 31 });
+    expect(out.map((c) => c.event.level)).toEqual(['Challenger 75', 'ITF M25', 'ITF M15']);
   });
 
   it('flags surface continuity', () => {

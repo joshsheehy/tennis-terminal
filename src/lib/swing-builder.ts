@@ -9,6 +9,7 @@ import {
   continentForCountry,
   countryDisplayName,
   haversineKm,
+  levelRank,
   surfaceFamily,
 } from './swings';
 
@@ -20,6 +21,7 @@ export interface BuildEvent {
   longitude: number | null;
   week: number;
   surface: string;
+  level: string;
 }
 
 export type CandidateTier = 'same-city' | 'same-country' | 'neighbor' | 'same-region' | 'far';
@@ -134,9 +136,13 @@ export function buildCandidates<T extends BuildEvent>(
       };
     });
 
+  // Within a relationship tier, show the highest levels first (a player wants
+  // to see the biggest events in-country at the top), then sooner week, then
+  // nearer distance.
   ranked.sort(
     (a, b) =>
       TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier) ||
+      levelRank(b.event.level) - levelRank(a.event.level) ||
       a.weekGap - b.weekGap ||
       (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER)
   );

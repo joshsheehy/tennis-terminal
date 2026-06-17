@@ -52,6 +52,25 @@ export function levelGroup(level: string): LevelGroup | null {
   return null;
 }
 
+/** Prestige rank of a level (higher = more prestigious), for sorting. */
+export function levelRank(level: string): number {
+  const l = level.trim().toLowerCase();
+  if (l.includes('grand slam')) return 100;
+  if (/atp\s*1000/.test(l)) return 90;
+  if (/atp\s*500/.test(l)) return 80;
+  if (/atp\s*250/.test(l)) return 70;
+  if (/challenger\s*175/.test(l)) return 60;
+  if (/challenger\s*125/.test(l)) return 55;
+  if (/challenger\s*100/.test(l)) return 50;
+  if (/challenger\s*75/.test(l)) return 45;
+  if (/challenger\s*50/.test(l)) return 40;
+  if (l.includes('challenger')) return 35;
+  if (/m25|itf.*25/.test(l)) return 20;
+  if (/m15|itf.*15/.test(l)) return 15;
+  if (l.includes('itf')) return 10;
+  return 0;
+}
+
 /** Canonical, order-stable key for a set of groups, e.g. "atp+challenger". */
 export function scopeKey(groups: readonly LevelGroup[]): string {
   return ALL_LEVEL_GROUPS.filter((g) => groups.includes(g)).join('+');
