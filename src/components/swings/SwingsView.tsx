@@ -583,7 +583,7 @@ function BuilderPanel({
                   />
                 </label>
                 <label className="rank-field">
-                  <span>Doubles rank</span>
+                  <span>Combined doubles rank</span>
                   <input
                     className="rank-input"
                     type="number"
