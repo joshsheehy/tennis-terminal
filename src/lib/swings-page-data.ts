@@ -17,7 +17,7 @@ import {
   scopeKey,
 } from './swings';
 import { loadSwingEventsForYear } from './swings-data';
-import type { CutReference } from './swing-rank-check';
+import type { TournamentCutRefs } from './swing-rank-check';
 
 export type SwingMapEvent = {
   editionId: string;
@@ -64,9 +64,9 @@ export type SwingsPageData = {
   currentWeek: number;
   events: SwingMapEvent[];
   swings: SwingMapSwing[];
-  /** Most recent historical singles cut per tournament slug, for the rank
-   * check (2026 stops reference the prior year's cut). */
-  cutRefs: Record<string, CutReference>;
+  /** Most recent historical singles + doubles cuts per tournament slug, for
+   * the rank check (2026 stops reference the prior year's cut). */
+  cutRefs: Record<string, TournamentCutRefs>;
 };
 
 const getCachedEvents = unstable_cache(
@@ -75,15 +75,20 @@ const getCachedEvents = unstable_cache(
   { revalidate: 300 }
 );
 
-// Most recent historical singles cut per tournament that holds an edition in
-// `year`. distinct on (slug, draw_type) ordered by year desc -> latest cut.
-async function loadReferenceCutoffs(year: number): Promise<Record<string, CutReference>> {
+// Most recent historical singles + doubles cuts per tournament that holds an
+// edition in `year`. distinct on (slug, event_type, draw_type) ordered by year
+// desc -> latest cut per draw. Doubles cuts come from either the ATP-style
+// direct-acceptance rank or the Challenger doubles "advanced entry" team cut.
+async function loadReferenceCutoffs(year: number): Promise<Record<string, TournamentCutRefs>> {
   const result = await pool.query<{
     slug: string;
     from_year: number;
+    event_type: 'singles' | 'doubles';
     draw_type: 'main' | 'qualifying';
     direct: number | null;
     alt: number | null;
+    dbl_adv: number | null;
+    dbl_onsite: number | null;
   }>(
     `
     with relevant as (
@@ -92,33 +97,48 @@ async function loadReferenceCutoffs(year: number): Promise<Record<string, CutRef
       join tournament_editions te on te.tournament_id = t.id
       where te.status = 'held' and te.year = $1
     )
-    select distinct on (r.slug, cs.draw_type)
+    select distinct on (r.slug, cs.event_type, cs.draw_type)
       r.slug,
       te.year as from_year,
+      cs.event_type,
       cs.draw_type,
       cs.last_direct_acceptance_rank as direct,
-      cs.last_alternate_rank as alt
+      cs.last_alternate_rank as alt,
+      cs.challenger_doubles_advanced_cut_rank as dbl_adv,
+      cs.challenger_doubles_onsite_cut_rank as dbl_onsite
     from relevant r
     join tournament_editions te on te.tournament_id = r.id
     join cutoff_snapshots cs on cs.tournament_edition_id = te.id
-    where cs.event_type = 'singles'
-      and cs.last_direct_acceptance_rank is not null
-    order by r.slug, cs.draw_type, te.year desc
+    where cs.last_direct_acceptance_rank is not null
+       or cs.challenger_doubles_advanced_cut_rank is not null
+    order by r.slug, cs.event_type, cs.draw_type, te.year desc
     `,
     [year]
   );
 
-  const refs: Record<string, CutReference> = {};
+  const emptyRefs = (): TournamentCutRefs => ({
+    singles: { mainCut: null, mainAlt: null, qualCut: null, fromYear: null },
+    doubles: { mainCut: null, mainAlt: null, qualCut: null, fromYear: null },
+  });
+
+  const refs: Record<string, TournamentCutRefs> = {};
   for (const row of result.rows) {
-    const ref = refs[row.slug] ?? { mainCut: null, mainAlt: null, qualCut: null, fromYear: null };
+    const entry = refs[row.slug] ?? emptyRefs();
+    const ref = row.event_type === 'doubles' ? entry.doubles : entry.singles;
     if (row.draw_type === 'main') {
-      ref.mainCut = row.direct;
-      ref.mainAlt = row.alt;
+      if (row.event_type === 'doubles') {
+        // ATP doubles use the direct rank; Challenger doubles the advanced cut.
+        ref.mainCut = row.direct ?? row.dbl_adv;
+        ref.mainAlt = row.dbl_onsite ?? row.alt;
+      } else {
+        ref.mainCut = row.direct;
+        ref.mainAlt = row.alt;
+      }
     } else {
       ref.qualCut = row.direct;
     }
     ref.fromYear = Math.max(ref.fromYear ?? 0, row.from_year) || row.from_year;
-    refs[row.slug] = ref;
+    refs[row.slug] = entry;
   }
   return refs;
 }

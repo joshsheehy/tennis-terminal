@@ -4,14 +4,27 @@
 // not predict future acceptance.
 
 export type CutReference = {
-  /** Worst rank that got direct entry to the main draw (singles). */
+  /** Worst rank that got direct entry to the main draw. */
   mainCut: number | null;
   /** Worst rank that got in off the main-draw alternate list. */
   mainAlt: number | null;
-  /** Worst rank that got direct entry to qualifying (singles). */
+  /** Worst rank that got direct entry to qualifying. */
   qualCut: number | null;
   /** Season the reference cut is from (e.g. 2025 for a 2026 stop). */
   fromYear: number | null;
+};
+
+/** Singles and doubles reference cuts for one tournament. */
+export type TournamentCutRefs = {
+  singles: CutReference;
+  doubles: CutReference;
+};
+
+export const EMPTY_CUT_REFERENCE: CutReference = {
+  mainCut: null,
+  mainAlt: null,
+  qualCut: null,
+  fromYear: null,
 };
 
 export type EntryStatus = 'main' | 'alternate' | 'qualifying' | 'out' | 'unknown';

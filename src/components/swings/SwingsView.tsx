@@ -76,18 +76,23 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
   const [sheet, setSheet] = useState<SheetState>('collapsed');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [fitNonce, setFitNonce] = useState(1);
-  const [rank, setRank] = useState<number | null>(null);
+  const [rankSingles, setRankSingles] = useState<number | null>(null);
+  const [rankDoubles, setRankDoubles] = useState<number | null>(null);
 
-  // Remember the player's ranking between visits.
+  // Remember both rankings between visits.
   useEffect(() => {
-    const saved = Number(localStorage.getItem('swings.rank'));
-    if (Number.isFinite(saved) && saved > 0) setRank(saved);
+    const s = Number(localStorage.getItem('swings.rank.singles'));
+    if (Number.isFinite(s) && s > 0) setRankSingles(s);
+    const d = Number(localStorage.getItem('swings.rank.doubles'));
+    if (Number.isFinite(d) && d > 0) setRankDoubles(d);
   }, []);
-  const updateRank = (value: number | null) => {
-    setRank(value);
-    if (value && value > 0) localStorage.setItem('swings.rank', String(value));
-    else localStorage.removeItem('swings.rank');
+  const makeRankUpdater = (key: string, set: (v: number | null) => void) => (value: number | null) => {
+    set(value);
+    if (value && value > 0) localStorage.setItem(key, String(value));
+    else localStorage.removeItem(key);
   };
+  const updateRankSingles = makeRankUpdater('swings.rank.singles', setRankSingles);
+  const updateRankDoubles = makeRankUpdater('swings.rank.doubles', setRankDoubles);
 
   const surfaces = useMemo(() => {
     const raw = params.get('surface');
@@ -222,11 +227,16 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
 
   // --- what the map renders -------------------------------------------------
   // Per-stop entry status against each tournament's most recent historical cut.
-  const chainStatuses: EntryStatus[] = useMemo(
-    () => chain.map((e) => entryStatus(rank, data.cutRefs[e.slug])),
-    [chain, rank, data.cutRefs]
+  const singlesStatuses: EntryStatus[] = useMemo(
+    () => chain.map((e) => entryStatus(rankSingles, data.cutRefs[e.slug]?.singles)),
+    [chain, rankSingles, data.cutRefs]
   );
-  const entrySummary = useMemo(() => summarizeEntries(chainStatuses), [chainStatuses]);
+  const doublesStatuses: EntryStatus[] = useMemo(
+    () => chain.map((e) => entryStatus(rankDoubles, data.cutRefs[e.slug]?.doubles)),
+    [chain, rankDoubles, data.cutRefs]
+  );
+  const singlesSummary = useMemo(() => summarizeEntries(singlesStatuses), [singlesStatuses]);
+  const doublesSummary = useMemo(() => summarizeEntries(doublesStatuses), [doublesStatuses]);
 
   const builderMapEvents: MapEvent[] = useMemo(() => {
     if (mode !== 'build') return [];
@@ -235,14 +245,19 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
       dim: false,
       builderRole: 'chain',
       chainPos: i + 1,
-      // Tint the chain dot by entry status once a ranking is entered.
-      statusColor: rank != null ? STATUS_META[chainStatuses[i]].color : undefined,
+      // Tint the chain dot by entry status — singles if entered, else doubles.
+      statusColor:
+        rankSingles != null
+          ? STATUS_META[singlesStatuses[i]].color
+          : rankDoubles != null
+            ? STATUS_META[doublesStatuses[i]].color
+            : undefined,
     }));
     const candEvents: MapEvent[] = candidates
       .filter((c) => c.event.latitude != null && c.event.longitude != null)
       .map((c) => ({ ...c.event, dim: false, builderRole: 'candidate', tier: c.tier }));
     return [...chainEvents, ...candEvents];
-  }, [mode, chain, candidates, rank, chainStatuses]);
+  }, [mode, chain, candidates, rankSingles, rankDoubles, singlesStatuses, doublesStatuses]);
 
   const fitPoints: [number, number][] = useMemo(() => {
     if (mode === 'build') {
@@ -340,10 +355,14 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
           onRemove={removeStop}
           onClear={clearChain}
           onSkip={skipWeek}
-          rank={rank}
-          onRank={updateRank}
-          statuses={chainStatuses}
-          entrySummary={entrySummary}
+          rankSingles={rankSingles}
+          rankDoubles={rankDoubles}
+          onRankSingles={updateRankSingles}
+          onRankDoubles={updateRankDoubles}
+          singlesStatuses={singlesStatuses}
+          doublesStatuses={doublesStatuses}
+          singlesSummary={singlesSummary}
+          doublesSummary={doublesSummary}
           cutRefs={data.cutRefs}
         />
       ) : (
@@ -440,10 +459,14 @@ function BuilderPanel({
   onRemove,
   onClear,
   onSkip,
-  rank,
-  onRank,
-  statuses,
-  entrySummary,
+  rankSingles,
+  rankDoubles,
+  onRankSingles,
+  onRankDoubles,
+  singlesStatuses,
+  doublesStatuses,
+  singlesSummary,
+  doublesSummary,
   cutRefs,
 }: {
   state: SheetState;
@@ -456,10 +479,14 @@ function BuilderPanel({
   onRemove: (index: number) => void;
   onClear: () => void;
   onSkip: () => void;
-  rank: number | null;
-  onRank: (rank: number | null) => void;
-  statuses: EntryStatus[];
-  entrySummary: ReturnType<typeof summarizeEntries>;
+  rankSingles: number | null;
+  rankDoubles: number | null;
+  onRankSingles: (rank: number | null) => void;
+  onRankDoubles: (rank: number | null) => void;
+  singlesStatuses: EntryStatus[];
+  doublesStatuses: EntryStatus[];
+  singlesSummary: ReturnType<typeof summarizeEntries>;
+  doublesSummary: ReturnType<typeof summarizeEntries>;
   cutRefs: SwingsPageData['cutRefs'];
 }) {
   const cycleUp = () => setState(state === 'collapsed' ? 'half' : 'full');
@@ -539,48 +566,87 @@ function BuilderPanel({
             )}
 
             <div className="rank-check">
-              <label className="rank-label">
-                Your singles ranking
-                <input
-                  className="rank-input"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  placeholder="e.g. 250"
-                  value={rank ?? ''}
-                  onChange={(ev) => {
-                    const v = Number(ev.target.value);
-                    onRank(Number.isFinite(v) && v > 0 ? v : null);
-                  }}
-                />
-              </label>
-              {rank != null && (
-                <p className="rank-summary">{describeEntrySummary(entrySummary)}</p>
+              <div className="rank-inputs">
+                <label className="rank-field">
+                  <span>Singles rank</span>
+                  <input
+                    className="rank-input"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    placeholder="e.g. 250"
+                    value={rankSingles ?? ''}
+                    onChange={(ev) => {
+                      const v = Number(ev.target.value);
+                      onRankSingles(Number.isFinite(v) && v > 0 ? v : null);
+                    }}
+                  />
+                </label>
+                <label className="rank-field">
+                  <span>Doubles rank</span>
+                  <input
+                    className="rank-input"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    placeholder="e.g. 180"
+                    value={rankDoubles ?? ''}
+                    onChange={(ev) => {
+                      const v = Number(ev.target.value);
+                      onRankDoubles(Number.isFinite(v) && v > 0 ? v : null);
+                    }}
+                  />
+                </label>
+              </div>
+              {rankSingles != null && (
+                <p className="rank-summary">
+                  <span className="rank-summary-tag">S</span> {describeEntrySummary(singlesSummary)}
+                </p>
+              )}
+              {rankDoubles != null && (
+                <p className="rank-summary">
+                  <span className="rank-summary-tag">D</span> {describeEntrySummary(doublesSummary)}
+                </p>
               )}
             </div>
 
             <ul className="itinerary">
               {chain.map((e, i) => {
-                const status = statuses[i];
                 const ref = cutRefs[e.slug];
-                const meta = STATUS_META[status];
+                const sMeta = STATUS_META[singlesStatuses[i]];
+                const dMeta = STATUS_META[doublesStatuses[i]];
                 return (
                   <li key={e.editionId} className="itinerary-row">
                     <span className="itinerary-week">{i + 1}. W{e.week}</span>
                     <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
-                    {rank != null && (
-                      <span
-                        className="entry-pill"
-                        style={{ color: meta.color, borderColor: meta.color }}
-                        title={
-                          ref?.fromYear
-                            ? `${ref.fromYear} cut — MD ${ref.mainCut ?? '–'}, Q ${ref.qualCut ?? '–'}`
-                            : 'No historical cut on record'
-                        }
-                      >
-                        {meta.short}
-                      </span>
-                    )}
+                    <span className="entry-pills">
+                      {rankSingles != null && (
+                        <span
+                          className="entry-pill"
+                          style={{ color: sMeta.color, borderColor: sMeta.color }}
+                          title={
+                            ref?.singles.fromYear
+                              ? `Singles ${ref.singles.fromYear} cut — MD ${ref.singles.mainCut ?? '–'}, Q ${ref.singles.qualCut ?? '–'}`
+                              : 'No singles cut on record'
+                          }
+                        >
+                          S·{sMeta.short}
+                        </span>
+                      )}
+                      {rankDoubles != null && (
+                        <span
+                          className="entry-pill"
+                          style={{ color: dMeta.color, borderColor: dMeta.color }}
+                          title={
+                            ref?.doubles.fromYear
+                              ? `Doubles ${ref.doubles.fromYear} cut — MD ${ref.doubles.mainCut ?? '–'}`
+                              : 'No doubles cut on record'
+                          }
+                        >
+                          D·{dMeta.short}
+                        </span>
+                      )}
+                    </span>
                     <button className="chain-remove" onClick={() => onRemove(i)} aria-label="Remove">✕</button>
                   </li>
                 );
