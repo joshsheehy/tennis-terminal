@@ -74,7 +74,9 @@ export default function SwingsView({
     return m;
   }, [data.events]);
 
-  const [mode, setMode] = useState<Mode>(() => (params.get('build') ? 'build' : defaultMode));
+  // Mode is driven by the route (Builder = / , Swings = /swings) via the
+  // global nav; a shared ?build= link also opens in build. No in-page toggle.
+  const mode: Mode = params.get('build') ? 'build' : defaultMode;
   const [chainIds, setChainIds] = useState<string[]>(() =>
     (params.get('build')?.split(',') ?? []).filter((id) => id.length > 0)
   );
@@ -82,7 +84,7 @@ export default function SwingsView({
     Math.min(MAX_WEEK, Math.max(1, data.currentWeek))
   );
   const [selectedSwing, setSelectedSwing] = useState<number | null>(null);
-  const [sheet, setSheet] = useState<SheetState>('collapsed');
+  const [sheet, setSheet] = useState<SheetState>(mode === 'build' ? 'half' : 'collapsed');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [fitNonce, setFitNonce] = useState(1);
   const [rankSingles, setRankSingles] = useState<number | null>(null);
@@ -180,16 +182,6 @@ export default function SwingsView({
     setChainIds([]);
     syncBuildParam([]);
   };
-  const enterBuild = () => {
-    setMode('build');
-    setSelectedSwing(null);
-    setSheet('half');
-  };
-  const exitBuild = () => {
-    setMode('explore');
-    setSheet('collapsed');
-  };
-
   // ============================ EXPLORE MODE ==============================
   const exploreEvents: MapEvent[] = useMemo(() => {
     const selectedEditionIds =
@@ -304,24 +296,6 @@ export default function SwingsView({
           </h1>
         </div>
         <div className="swings-header-actions">
-          <div className="mode-toggle" role="tablist" aria-label="Mode">
-            <button
-              role="tab"
-              aria-selected={mode === 'explore'}
-              className={`mode-btn${mode === 'explore' ? ' mode-btn--on' : ''}`}
-              onClick={exitBuild}
-            >
-              Explore
-            </button>
-            <button
-              role="tab"
-              aria-selected={mode === 'build'}
-              className={`mode-btn${mode === 'build' ? ' mode-btn--on' : ''}`}
-              onClick={enterBuild}
-            >
-              Build
-            </button>
-          </div>
           <button className="swings-filter-btn" onClick={() => setFiltersOpen(true)} aria-label="Filters">
             ⚙︎
           </button>

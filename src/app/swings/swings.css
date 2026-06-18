@@ -44,23 +44,6 @@
   font-size: 14px;
   cursor: pointer;
 }
-.mode-toggle {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--surface-subtle);
-}
-.mode-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  padding: 7px 14px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.mode-btn--on { background: var(--text-strong); color: var(--bg); font-weight: 600; }
-
 /* Build-mode candidate dots */
 .cand-dot {
   display: flex;
