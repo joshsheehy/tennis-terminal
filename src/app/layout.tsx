@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import ThemeToggle from '@/components/ThemeToggle';
 import SiteNav from '@/components/SiteNav';
 
 export const metadata: Metadata = {
@@ -28,7 +27,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         <SiteNav />
-        <ThemeToggle />
         {children}
       </body>
     </html>

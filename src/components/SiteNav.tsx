@@ -2,11 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-// Global top nav across the whole site. Three destinations:
-//   Builder (/)  — the main feature: build your own swing
-//   Swings (/swings) — the inspiration map (Explore mode by default)
-//   Cuts (/cuts) — the original tournament calendar / entry cuts
 const LINKS = [
   { href: '/', label: 'Builder' },
   { href: '/swings', label: 'Swings' },
@@ -15,7 +12,24 @@ const LINKS = [
 
 export default function SiteNav() {
   const pathname = usePathname();
-  // Treat /tournaments/* as part of the Cuts section so a link stays lit.
+  const [isDark, setIsDark] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored === 'dark' || stored === 'light') {
+      setIsDark(stored === 'dark');
+    } else {
+      setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+  }, []);
+
+  function toggleTheme() {
+    const next = !isDark;
+    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+    localStorage.setItem('theme', next ? 'dark' : 'light');
+    setIsDark(next);
+  }
+
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
     if (href === '/cuts') return pathname.startsWith('/cuts') || pathname.startsWith('/tournaments');
@@ -39,6 +53,16 @@ export default function SiteNav() {
           </Link>
         ))}
       </div>
+      {isDark !== null && (
+        <button
+          className="site-nav__theme"
+          onClick={toggleTheme}
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? '☀︎' : '☾︎'}
+        </button>
+      )}
     </nav>
   );
 }

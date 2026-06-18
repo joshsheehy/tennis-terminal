@@ -432,8 +432,13 @@
   font-weight: 600;
 }
 
-/* Desktop enhancement: two-pane split with a swing rail beside the map. */
+/* Desktop: two-pane split. Map + controls on the left; sheet becomes a fixed
+   right sidebar. Header and week strip only span the map area. */
 @media (min-width: 900px) {
+  .swings-header { margin-right: 380px; }
+  .week-strip    { margin-right: 380px; }
+  .swings-map-wrap { margin-right: 380px; }
+
   .sheet {
     left: auto;
     right: 0;
@@ -447,5 +452,5 @@
     height: auto !important;
   }
   .sheet-grip-row { display: none; }
-  .swings-map-wrap { margin-right: 380px; }
+  .sheet-body { padding-top: 16px; }
 }

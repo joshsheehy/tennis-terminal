@@ -458,9 +458,8 @@ td {
   height: var(--nav-h);
   display: flex;
   align-items: center;
-  gap: 16px;
-  /* Right padding clears the fixed theme toggle (top-right). */
-  padding: 0 58px 0 16px;
+  gap: 12px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
@@ -469,12 +468,14 @@ td {
   font-size: 15px;
   color: var(--text-strong);
   white-space: nowrap;
+  margin-right: 4px;
 }
 .site-nav__links {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   overflow-x: auto;
   scrollbar-width: none;
+  flex: 1;
 }
 .site-nav__links::-webkit-scrollbar { display: none; }
 .site-nav__link {
@@ -489,6 +490,28 @@ td {
   background: var(--text-strong);
   color: var(--bg);
   font-weight: 600;
+}
+.site-nav__theme {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 9px;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-muted);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.site-nav__theme:hover { color: var(--text); }
+
+@media (min-width: 640px) {
+  .site-nav {
+    padding: 0 20px;
+    gap: 16px;
+  }
+  .site-nav__brand { font-size: 16px; margin-right: 8px; }
+  .site-nav__link  { font-size: 15px; padding: 7px 14px; }
 }
 
 /* Tournament detail metadata grid — 2 cols on mobile, 4 on wider screens */
