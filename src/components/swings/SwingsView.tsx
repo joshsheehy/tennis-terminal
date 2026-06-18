@@ -21,6 +21,8 @@ import {
   summarizeEntries,
 } from '@/lib/swing-rank-check';
 import type { MapEvent } from './SwingsMap';
+// Owned here so both the Builder (/) and Swings (/swings) routes get the styles.
+import '../../app/swings/swings.css';
 
 const SwingsMap = dynamic(() => import('./SwingsMap'), {
   ssr: false,
@@ -54,7 +56,14 @@ function weekMonth(year: number, week: number): number {
   return monday.getUTCMonth();
 }
 
-export default function SwingsView({ data }: { data: SwingsPageData }) {
+export default function SwingsView({
+  data,
+  defaultMode = 'explore',
+}: {
+  data: SwingsPageData;
+  /** Initial mode when no ?build= param is present. Builder route passes 'build'. */
+  defaultMode?: Mode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -65,7 +74,7 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
     return m;
   }, [data.events]);
 
-  const [mode, setMode] = useState<Mode>(() => (params.get('build') ? 'build' : 'explore'));
+  const [mode, setMode] = useState<Mode>(() => (params.get('build') ? 'build' : defaultMode));
   const [chainIds, setChainIds] = useState<string[]>(() =>
     (params.get('build')?.split(',') ?? []).filter((id) => id.length > 0)
   );
@@ -289,8 +298,10 @@ export default function SwingsView({ data }: { data: SwingsPageData }) {
     <div className="swings-root">
       <header className="swings-header">
         <div>
-          <p className="swings-eyebrow">Swings</p>
-          <h1 className="swings-title">{data.year} travel chains</h1>
+          <p className="swings-eyebrow">{mode === 'build' ? 'Builder' : 'Swings'}</p>
+          <h1 className="swings-title">
+            {mode === 'build' ? 'Build your swing' : `${data.year} travel chains`}
+          </h1>
         </div>
         <div className="swings-header-actions">
           <div className="mode-toggle" role="tablist" aria-label="Mode">

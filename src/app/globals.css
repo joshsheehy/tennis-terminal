@@ -23,6 +23,9 @@
   --border-table:        #e0e0e0;
   --border-table-head:   #d0d0d0;
   --border-tag:          #d1d5db;
+
+  /* Height of the global top nav; pages subtract this from full-viewport. */
+  --nav-h:               50px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -447,6 +450,45 @@ td {
   .md\:items-start {
     align-items: flex-start;
   }
+}
+
+/* ─── Global top nav ────────────────────────────────────────────────────────── */
+
+.site-nav {
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  /* Right padding clears the fixed theme toggle (top-right). */
+  padding: 0 58px 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.site-nav__brand {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.site-nav__links {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.site-nav__links::-webkit-scrollbar { display: none; }
+.site-nav__link {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.site-nav__link:hover { color: var(--text); }
+.site-nav__link--on {
+  background: var(--text-strong);
+  color: var(--bg);
+  font-weight: 600;
 }
 
 /* Tournament detail metadata grid — 2 cols on mobile, 4 on wider screens */

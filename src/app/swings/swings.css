@@ -6,7 +6,10 @@
 .swings-root {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  /* Sits below the global top nav. position:relative so the absolutely
+     positioned bottom sheet anchors here (below the nav), not the viewport. */
+  position: relative;
+  height: calc(100dvh - var(--nav-h));
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
@@ -16,8 +19,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* Extra right padding clears the global fixed theme toggle (top-right). */
-  padding: 10px 58px 10px 14px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
 }

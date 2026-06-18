@@ -283,8 +283,8 @@ export default async function TournamentDetailPage({
   const current = rows[0].edition;
 
   return (
-    <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
-      <Link href={year !== CURRENT_SEASON ? `/?year=${year}` : '/'} style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+    <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: 'var(--bg)', color: 'var(--text)', minHeight: 'calc(100dvh - var(--nav-h))' }}>
+      <Link href={year !== CURRENT_SEASON ? `/cuts?year=${year}` : '/cuts'} style={{ fontSize: 14, color: 'var(--text-muted)' }}>
         ← Back to {year} schedule
       </Link>
 
