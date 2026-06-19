@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SwingsPageData, SwingMapEvent } from '@/lib/swings-page-data';
@@ -54,6 +55,68 @@ function weekMonth(year: number, week: number): number {
   const offset = isoDow <= 3 ? 1 - isoDow : 8 - isoDow;
   const monday = new Date(jan1.getTime() + (offset + (week - 1) * 7) * 86400000);
   return monday.getUTCMonth();
+}
+
+// Drag-to-resize for the mobile bottom sheet. A pointer drag on the grip moves
+// the sheet height live, then snaps to the nearest of collapsed/half/full on
+// release; a tap (no real movement) steps it open one notch. No-ops on desktop,
+// where the sheet is a fixed side rail.
+function useSheetDrag(state: SheetState, setState: (s: SheetState) => void) {
+  const [dragPx, setDragPx] = useState<number | null>(null);
+  const start = useRef<{ y: number; h: number } | null>(null);
+  const moved = useRef(false);
+
+  const toggle = () =>
+    setState(state === 'full' ? 'half' : state === 'collapsed' ? 'half' : 'full');
+
+  const snapTargets = (): Array<[SheetState, number]> => {
+    const vh = window.innerHeight;
+    return [
+      ['collapsed', 84],
+      ['half', vh * 0.46],
+      ['full', vh * 0.88],
+    ];
+  };
+
+  const onPointerDown = (e: ReactPointerEvent) => {
+    if (window.innerWidth >= 900) return; // side rail on desktop
+    const sheet = (e.currentTarget as HTMLElement).closest('.sheet') as HTMLElement | null;
+    start.current = { y: e.clientY, h: sheet ? sheet.getBoundingClientRect().height : 84 };
+    moved.current = false;
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // setPointerCapture can throw if the pointer is already gone; ignore.
+    }
+  };
+
+  const onPointerMove = (e: ReactPointerEvent) => {
+    if (!start.current) return;
+    const dy = start.current.y - e.clientY; // up = positive = taller
+    if (!moved.current && Math.abs(dy) < 5) return; // ignore micro-jitter
+    moved.current = true;
+    const vh = window.innerHeight;
+    setDragPx(Math.max(72, Math.min(vh * 0.92, start.current.h + dy)));
+  };
+
+  const onPointerUp = () => {
+    if (!start.current) return;
+    if (moved.current && dragPx != null) {
+      let best = snapTargets()[0];
+      for (const t of snapTargets()) {
+        if (Math.abs(t[1] - dragPx) < Math.abs(best[1] - dragPx)) best = t;
+      }
+      setState(best[0]);
+    } else {
+      toggle(); // it was a tap, not a drag
+    }
+    start.current = null;
+    setDragPx(null);
+  };
+
+  const gripHandlers = { onPointerDown, onPointerMove, onPointerUp };
+  const sheetStyle: CSSProperties = dragPx != null ? { height: dragPx, transition: 'none' } : {};
+  return { gripHandlers, sheetStyle, toggle };
 }
 
 export default function SwingsView({
@@ -474,8 +537,7 @@ function BuilderPanel({
   doublesSummary: ReturnType<typeof summarizeEntries>;
   cutRefs: SwingsPageData['cutRefs'];
 }) {
-  const cycleUp = () => setState(state === 'collapsed' ? 'half' : 'full');
-  const cycleDown = () => setState(state === 'full' ? 'half' : 'collapsed');
+  const { gripHandlers, sheetStyle, toggle } = useSheetDrag(state, setState);
 
   // All candidates are for one week; group by relationship tier (same country
   // first). Before an anchor exists there's no relationship, so show a flat list.
@@ -492,21 +554,77 @@ function BuilderPanel({
     );
   }, [candidates]);
 
-  const candidateRow = (c: RankedCandidate<SwingMapEvent>) => (
-    <li key={c.event.editionId}>
-      <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
-        <span className="cand-week">W{c.event.week}</span>
-        <span className="cand-main">
-          <span className="cand-name">{c.event.name}</span>
-          <span className="cand-meta">
-            {c.event.city} · {c.event.level} · {c.event.surface}
-            {c.distanceKm != null && ` · ${Math.round(c.distanceKm)} km`}
-            {hasAnchor && !c.sameSurface && ' · surface change'}
+  const candidateRow = (c: RankedCandidate<SwingMapEvent>) => {
+    const ref = cutRefs[c.event.slug];
+    const sMeta = STATUS_META[entryStatus(rankSingles, ref?.singles)];
+    const dMeta = STATUS_META[entryStatus(rankDoubles, ref?.doubles)];
+    return (
+      <li key={c.event.editionId}>
+        <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
+          <span className="cand-week">W{c.event.week}</span>
+          <span className="cand-main">
+            <span className="cand-name">{c.event.name}</span>
+            <span className="cand-meta">
+              {c.event.city} · {c.event.level} · {c.event.surface}
+              {c.distanceKm != null && ` · ${Math.round(c.distanceKm)} km`}
+              {hasAnchor && !c.sameSurface && ' · surface change'}
+            </span>
           </span>
-        </span>
-        <span className="cand-add">+</span>
-      </button>
-    </li>
+          {(rankSingles != null || rankDoubles != null) && (
+            <span className="entry-pills entry-pills--cand">
+              {rankSingles != null && (
+                <span className="entry-pill" style={{ color: sMeta.color, borderColor: sMeta.color }}>
+                  S·{sMeta.short}
+                </span>
+              )}
+              {rankDoubles != null && (
+                <span className="entry-pill" style={{ color: dMeta.color, borderColor: dMeta.color }}>
+                  D·{dMeta.short}
+                </span>
+              )}
+            </span>
+          )}
+          <span className="cand-add">+</span>
+        </button>
+      </li>
+    );
+  };
+
+  // Rank inputs are shared by both the start-list view and the swing view so a
+  // player can enter their ranking up front and immediately see in/out pills.
+  const rankFields = (
+    <div className="rank-inputs">
+      <label className="rank-field">
+        <span>Singles rank</span>
+        <input
+          className="rank-input"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          placeholder="e.g. 250"
+          value={rankSingles ?? ''}
+          onChange={(ev) => {
+            const v = Number(ev.target.value);
+            onRankSingles(Number.isFinite(v) && v > 0 ? v : null);
+          }}
+        />
+      </label>
+      <label className="rank-field">
+        <span>Combined doubles rank</span>
+        <input
+          className="rank-input"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          placeholder="e.g. 180"
+          value={rankDoubles ?? ''}
+          onChange={(ev) => {
+            const v = Number(ev.target.value);
+            onRankDoubles(Number.isFinite(v) && v > 0 ? v : null);
+          }}
+        />
+      </label>
+    </div>
   );
 
   const skipButton = (
@@ -516,15 +634,30 @@ function BuilderPanel({
   );
 
   return (
-    <section className={`sheet sheet--${state}`} aria-label="Swing builder">
-      <div className="sheet-grip-row">
-        <button className="sheet-grip" onClick={state === 'full' ? cycleDown : cycleUp} aria-label="Toggle" />
+    <section className={`sheet sheet--${state}`} style={sheetStyle} aria-label="Swing builder">
+      <div className="sheet-grip-row" {...gripHandlers}>
+        <button
+          className="sheet-grip"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggle();
+            }
+          }}
+          aria-label="Drag to resize panel"
+        />
       </div>
       <div className="sheet-body">
         {!hasAnchor ? (
           <>
             <h2 className="sheet-title">Build your own swing</h2>
             <p className="sheet-summary">Pick a starting tournament in week {selectedWeek}.</p>
+            <div className="rank-check">
+              {rankFields}
+              <p className="rank-hint">
+                Enter your ranking to see entry status (MD / Q / OUT) on each tournament below.
+              </p>
+            </div>
             <ul className="cand-list">{candidates.map(candidateRow)}</ul>
             {candidates.length === 0 && (
               <p className="sheet-summary">No tournaments in week {selectedWeek} for this filter.</p>
@@ -551,38 +684,7 @@ function BuilderPanel({
             )}
 
             <div className="rank-check">
-              <div className="rank-inputs">
-                <label className="rank-field">
-                  <span>Singles rank</span>
-                  <input
-                    className="rank-input"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    placeholder="e.g. 250"
-                    value={rankSingles ?? ''}
-                    onChange={(ev) => {
-                      const v = Number(ev.target.value);
-                      onRankSingles(Number.isFinite(v) && v > 0 ? v : null);
-                    }}
-                  />
-                </label>
-                <label className="rank-field">
-                  <span>Combined doubles rank</span>
-                  <input
-                    className="rank-input"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    placeholder="e.g. 180"
-                    value={rankDoubles ?? ''}
-                    onChange={(ev) => {
-                      const v = Number(ev.target.value);
-                      onRankDoubles(Number.isFinite(v) && v > 0 ? v : null);
-                    }}
-                  />
-                </label>
-              </div>
+              {rankFields}
               {rankSingles != null && (
                 <p className="rank-summary">
                   <span className="rank-summary-tag">S</span> {describeEntrySummary(singlesSummary)}
@@ -675,13 +777,21 @@ function BottomSheet({
   onPickSwing: (index: number) => void;
   onJumpToWeek: (week: number) => void;
 }) {
-  const cycleUp = () => setState(state === 'collapsed' ? 'half' : 'full');
-  const cycleDown = () => setState(state === 'full' ? 'half' : 'collapsed');
+  const { gripHandlers, sheetStyle, toggle } = useSheetDrag(state, setState);
 
   return (
-    <section className={`sheet sheet--${state}`} aria-label="Swing details">
-      <div className="sheet-grip-row">
-        <button className="sheet-grip" onClick={state === 'full' ? cycleDown : cycleUp} aria-label="Toggle details" />
+    <section className={`sheet sheet--${state}`} style={sheetStyle} aria-label="Swing details">
+      <div className="sheet-grip-row" {...gripHandlers}>
+        <button
+          className="sheet-grip"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggle();
+            }
+          }}
+          aria-label="Drag to resize details"
+        />
       </div>
 
       {activeSwing ? (

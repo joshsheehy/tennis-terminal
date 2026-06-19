@@ -177,7 +177,10 @@
   font-size: 11px;
   font-weight: 700;
 }
+.rank-hint { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); }
 .entry-pills { display: inline-flex; gap: 4px; }
+/* Pills on a candidate row sit between the name block and the + affordance. */
+.entry-pills--cand { flex: 0 0 auto; }
 .entry-pill {
   font-size: 10px;
   font-weight: 700;
@@ -301,14 +304,27 @@
 .sheet--collapsed { height: 84px; }
 .sheet--half { height: 46dvh; }
 .sheet--full { height: 88dvh; }
-.sheet-grip-row { display: flex; justify-content: center; padding: 8px 0 4px; flex: 0 0 auto; }
+/* Grip row is the drag handle; touch-action:none lets a touch drag move the
+   sheet instead of scrolling the page. Generous padding = bigger drag target. */
+.sheet-grip-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 0 8px;
+  flex: 0 0 auto;
+  touch-action: none;
+  cursor: grab;
+}
+.sheet-grip-row:active { cursor: grabbing; }
 .sheet-grip {
-  width: 44px;
-  height: 5px;
+  width: 48px;
+  height: 6px;
   border-radius: 999px;
   border: none;
   background: var(--border-tag);
-  cursor: pointer;
+  touch-action: none;
+  cursor: inherit;
+  padding: 0;
 }
 .sheet-body { padding: 4px 16px 20px; overflow-y: auto; }
 .sheet-summary { margin: 6px 0; font-size: 15px; color: var(--text-secondary); }

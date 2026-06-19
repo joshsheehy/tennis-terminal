@@ -84,9 +84,13 @@ export default function SwingsMap({
         worldCopyJump: true,
       });
       L.control.zoom({ position: 'topright' }).addTo(map);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap',
+      // CARTO Voyager: OSM-derived tiles that render place labels in Latin
+      // script (romanized), so the map reads in English worldwide rather than
+      // each country's local language/script.
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 20,
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
       }).addTo(map);
       // Map sits inside a flex pane that sizes after paint; nudge Leaflet.
       setTimeout(() => map.invalidateSize(), 0);
