@@ -654,7 +654,7 @@ function BuilderPanel({
   const rankLegend = showRank ? (
     <div className="rank-legend">
       <ul className="rank-legend-keys">
-        {(['main', 'alternate', 'qualifying', 'out'] as EntryStatus[]).map((s) => (
+        {(['main', 'qualifying', 'out'] as EntryStatus[]).map((s) => (
           <li key={s} className="rank-legend-key">
             <span className="rank-legend-dot" style={{ background: STATUS_META[s].color }} />
             <span className="rank-legend-short" style={{ color: STATUS_META[s].color }}>

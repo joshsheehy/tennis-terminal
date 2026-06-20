@@ -20,11 +20,19 @@ describe('entryStatus', () => {
     expect(entryStatus(230, ref({ mainCut: 230 }))).toBe('main'); // boundary inclusive
   });
 
-  it('falls to alternate, then qualifying, then out', () => {
+  it('folds alternates into the main draw, then qualifying, then out', () => {
+    // Direct cut 200 but alternates pushed the real cut to 240: 220 made it in.
     const r = ref({ mainCut: 200, mainAlt: 240, qualCut: 320 });
-    expect(entryStatus(220, r)).toBe('alternate');
+    expect(entryStatus(220, r)).toBe('main');
+    expect(entryStatus(240, r)).toBe('main'); // boundary inclusive
     expect(entryStatus(300, r)).toBe('qualifying');
     expect(entryStatus(400, r)).toBe('out');
+  });
+
+  it('uses the more generous of direct/alternate as the main-draw cut', () => {
+    // Alternate number present but smaller/absent — still take the larger.
+    expect(entryStatus(230, ref({ mainCut: 240, mainAlt: 200 }))).toBe('main');
+    expect(entryStatus(230, ref({ mainAlt: 240 }))).toBe('main'); // only alt on record
   });
 
   it('is unknown without a rank or without any cut data', () => {

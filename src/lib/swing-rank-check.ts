@@ -4,9 +4,10 @@
 // not predict future acceptance.
 
 export type CutReference = {
-  /** Worst rank that got direct entry to the main draw. */
+  /** Worst rank that got direct entry to the main draw (before alternates). */
   mainCut: number | null;
-  /** Worst rank that got in off the main-draw alternate list. */
+  /** Worst rank that ultimately made the main draw once alternates got in.
+   * Usually a bigger (worse) number than mainCut; not every event has one. */
   mainAlt: number | null;
   /** Worst rank that got direct entry to qualifying. */
   qualCut: number | null;
@@ -27,34 +28,42 @@ export const EMPTY_CUT_REFERENCE: CutReference = {
   fromYear: null,
 };
 
-export type EntryStatus = 'main' | 'alternate' | 'qualifying' | 'out' | 'unknown';
+export type EntryStatus = 'main' | 'qualifying' | 'out' | 'unknown';
 
 export const STATUS_META: Record<EntryStatus, { label: string; short: string; color: string }> = {
   main: { label: 'Main draw', short: 'MD', color: '#22c55e' },
-  alternate: { label: 'Alternate', short: 'ALT', color: '#2dd4bf' },
   qualifying: { label: 'Qualifying', short: 'Q', color: '#fbbf24' },
   out: { label: 'Out', short: 'OUT', color: '#f87171' },
   unknown: { label: 'No cut data', short: '—', color: '#64748b' },
 };
 
 /**
+ * Effective main-draw cut: the most generous (largest/worst) of the direct
+ * acceptance number and the alternate-inclusive number. If a tournament took
+ * alternates last year (direct cut 300, but alternates pushed it to 325), then
+ * a player ranked 320 would have made the main draw — so 325 is the real cut.
+ */
+export function mainDrawCut(ref: CutReference): number | null {
+  const vals = [ref.mainCut, ref.mainAlt].filter((v): v is number => v != null);
+  return vals.length ? Math.max(...vals) : null;
+}
+
+/**
  * Where a player of `rank` would have stood for a stop, given its reference
- * cut. Lower rank number = better. Checks main draw, then main-draw alternate,
- * then qualifying; "out" only when at least one cut number is known.
+ * cut. Lower rank number = better. Alternates are folded into the main draw
+ * (see mainDrawCut); "out" only when at least one cut number is known.
  */
 export function entryStatus(rank: number | null, ref: CutReference | null | undefined): EntryStatus {
   if (rank == null || !Number.isFinite(rank) || !ref) return 'unknown';
-  const known = ref.mainCut != null || ref.mainAlt != null || ref.qualCut != null;
-  if (!known) return 'unknown';
-  if (ref.mainCut != null && rank <= ref.mainCut) return 'main';
-  if (ref.mainAlt != null && rank <= ref.mainAlt) return 'alternate';
+  const mainT = mainDrawCut(ref);
+  if (mainT == null && ref.qualCut == null) return 'unknown';
+  if (mainT != null && rank <= mainT) return 'main';
   if (ref.qualCut != null && rank <= ref.qualCut) return 'qualifying';
   return 'out';
 }
 
 export type EntrySummary = {
   main: number;
-  alternate: number;
   qualifying: number;
   out: number;
   unknown: number;
@@ -62,7 +71,7 @@ export type EntrySummary = {
 };
 
 export function summarizeEntries(statuses: EntryStatus[]): EntrySummary {
-  const s: EntrySummary = { main: 0, alternate: 0, qualifying: 0, out: 0, unknown: 0, total: statuses.length };
+  const s: EntrySummary = { main: 0, qualifying: 0, out: 0, unknown: 0, total: statuses.length };
   for (const st of statuses) s[st] += 1;
   return s;
 }
@@ -71,7 +80,6 @@ export function summarizeEntries(statuses: EntryStatus[]): EntrySummary {
 export function describeEntrySummary(s: EntrySummary): string {
   const parts: string[] = [];
   if (s.main) parts.push(`${s.main} main draw`);
-  if (s.alternate) parts.push(`${s.alternate} alternate`);
   if (s.qualifying) parts.push(`${s.qualifying} qualies`);
   if (s.out) parts.push(`${s.out} out`);
   if (s.unknown) parts.push(`${s.unknown} no data`);
