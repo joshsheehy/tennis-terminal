@@ -32,9 +32,30 @@ const SwingsMap = dynamic(() => import('./SwingsMap'), {
 
 const LOOKAHEAD = 3;
 const MAX_WEEK = 52;
-const SURFACES = ['Hard', 'Clay', 'Grass', 'Indoor Hard'];
+// Selectable surfaces. "Indoor Hard" is folded into "Hard" (see surfaceOk).
+const SURFACES = ['Clay', 'Hard', 'Grass'];
+const SEASONS = [2026, 2025, 2024];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const GROUP_LABELS: Record<LevelGroup, string> = { atp: 'ATP', challenger: 'Challenger', itf: 'ITF' };
+
+// Non-metric regions (US + the two other non-metric countries). Detected from
+// the browser locale so US visitors see miles instead of kilometres.
+function detectImperial(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const langs = navigator.languages?.length ? navigator.languages : [navigator.language];
+  return langs.some((l) => {
+    try {
+      const region = new Intl.Locale(l).maximize().region;
+      return region === 'US' || region === 'LR' || region === 'MM';
+    } catch {
+      return /-(US|LR|MM)\b/i.test(l);
+    }
+  });
+}
+
+function formatDistance(km: number, imperial: boolean): string {
+  return imperial ? `${Math.round(km * 0.621371)} mi` : `${Math.round(km)} km`;
+}
 
 type SheetState = 'collapsed' | 'half' | 'full';
 type Mode = 'explore' | 'build';
@@ -148,10 +169,11 @@ export default function SwingsView({
   );
   const [selectedSwing, setSelectedSwing] = useState<number | null>(null);
   const [sheet, setSheet] = useState<SheetState>(mode === 'build' ? 'half' : 'collapsed');
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [fitNonce, setFitNonce] = useState(1);
   const [rankSingles, setRankSingles] = useState<number | null>(null);
   const [rankDoubles, setRankDoubles] = useState<number | null>(null);
+  const [imperial, setImperial] = useState(false);
+  useEffect(() => setImperial(detectImperial()), []);
 
   // Remember both rankings between visits.
   useEffect(() => {
@@ -174,7 +196,11 @@ export default function SwingsView({
   }, [params]);
 
   const surfaceOk = useCallback(
-    (surface: string) => !surfaces || surfaces.size === 0 || surfaces.has(surface),
+    (surface: string) => {
+      if (!surfaces || surfaces.size === 0) return true;
+      // Indoor Hard is folded into the "Hard" pill.
+      return surfaces.has(surface === 'Indoor Hard' ? 'Hard' : surface);
+    },
     [surfaces]
   );
 
@@ -349,39 +375,57 @@ export default function SwingsView({
   const activeSwing = selectedSwing != null ? data.swings[selectedSwing] : null;
   const chainSummary = summarizeChain(chain);
 
+  // Inline filter controls (replaces the old gear/filter sheet).
+  const setYear = (y: number) => pushParams((p) => p.set('year', String(y)));
+  const toggleGroup = (g: LevelGroup) => {
+    const next = new Set(data.groups);
+    if (next.has(g)) next.delete(g);
+    else next.add(g);
+    if (next.size === 0) return; // keep at least one level on
+    pushParams((p) => p.set('scope', [...next].join('+')));
+  };
+  const toggleSurface = (s: string) => {
+    const next = new Set(surfaces ?? []);
+    if (next.has(s)) next.delete(s);
+    else next.add(s);
+    pushParams((p) => {
+      if (next.size === 0) p.delete('surface');
+      else p.set('surface', [...next].join(','));
+    });
+  };
+
   return (
     <div className="swings-root">
-      <header className="swings-header">
-        <div>
-          <p className="swings-eyebrow">{mode === 'build' ? 'Builder' : 'Swings'}</p>
-          <h1 className="swings-title">
-            {mode === 'build' ? 'Build your swing' : `${data.year} travel chains`}
-          </h1>
-        </div>
-        <div className="swings-header-actions">
-          <button className="swings-filter-btn" onClick={() => setFiltersOpen(true)} aria-label="Filters">
-            ⚙︎
+      <div className="swings-filters" role="group" aria-label="Filters">
+        {SEASONS.map((y) => (
+          <button
+            key={y}
+            className={`filter-chip${data.year === y ? ' filter-chip--on' : ''}`}
+            onClick={() => setYear(y)}
+          >
+            {y}
           </button>
-        </div>
-      </header>
-
-      <div className="swings-filters" role="group" aria-label="Active filters — tap to change">
-        <button className="filter-chip" onClick={() => setFiltersOpen(true)}>{data.year}</button>
-        {data.groups.map((g) => (
-          <button key={g} className="filter-chip" onClick={() => setFiltersOpen(true)}>
+        ))}
+        <span className="filter-sep" aria-hidden="true" />
+        {(['atp', 'challenger', 'itf'] as LevelGroup[]).map((g) => (
+          <button
+            key={g}
+            className={`filter-chip${data.groups.includes(g) ? ' filter-chip--on' : ''}`}
+            onClick={() => toggleGroup(g)}
+          >
             {GROUP_LABELS[g]}
           </button>
         ))}
-        {surfaces &&
-          [...surfaces].map((s) => (
-            <button
-              key={s}
-              className="filter-chip filter-chip--surface"
-              onClick={() => setFiltersOpen(true)}
-            >
-              {s}
-            </button>
-          ))}
+        <span className="filter-sep" aria-hidden="true" />
+        {SURFACES.map((s) => (
+          <button
+            key={s}
+            className={`filter-chip${surfaces?.has(s) ? ' filter-chip--on' : ''}`}
+            onClick={() => toggleSurface(s)}
+          >
+            {s}
+          </button>
+        ))}
       </div>
 
       <WeekStrip
@@ -431,6 +475,7 @@ export default function SwingsView({
           singlesSummary={singlesSummary}
           doublesSummary={doublesSummary}
           cutRefs={data.cutRefs}
+          imperial={imperial}
         />
       ) : (
         <BottomSheet
@@ -443,31 +488,6 @@ export default function SwingsView({
           onJumpToWeek={(w) => {
             setSelectedWeek(w);
             setSelectedSwing(null);
-          }}
-        />
-      )}
-
-      {filtersOpen && (
-        <FilterSheet
-          data={data}
-          surfaces={surfaces}
-          onClose={() => setFiltersOpen(false)}
-          onYear={(y) => pushParams((p) => p.set('year', String(y)))}
-          onToggleGroup={(g) => {
-            const next = new Set(data.groups);
-            if (next.has(g)) next.delete(g);
-            else next.add(g);
-            if (next.size === 0) return;
-            pushParams((p) => p.set('scope', [...next].join('+')));
-          }}
-          onToggleSurface={(s) => {
-            const next = new Set(surfaces ?? []);
-            if (next.has(s)) next.delete(s);
-            else next.add(s);
-            pushParams((p) => {
-              if (next.size === 0) p.delete('surface');
-              else p.set('surface', [...next].join(','));
-            });
           }}
         />
       )}
@@ -535,6 +555,7 @@ function BuilderPanel({
   singlesSummary,
   doublesSummary,
   cutRefs,
+  imperial,
 }: {
   state: SheetState;
   setState: (s: SheetState) => void;
@@ -555,6 +576,7 @@ function BuilderPanel({
   singlesSummary: ReturnType<typeof summarizeEntries>;
   doublesSummary: ReturnType<typeof summarizeEntries>;
   cutRefs: SwingsPageData['cutRefs'];
+  imperial: boolean;
 }) {
   const { gripHandlers, sheetStyle, toggle } = useSheetDrag(state, setState);
   const [editingRank, setEditingRank] = useState(false);
@@ -586,7 +608,7 @@ function BuilderPanel({
             <span className="cand-name">{c.event.name}</span>
             <span className="cand-meta">
               {c.event.city} · {c.event.level} · {c.event.surface}
-              {c.distanceKm != null && ` · ${Math.round(c.distanceKm)} km`}
+              {c.distanceKm != null && ` · ${formatDistance(c.distanceKm, imperial)}`}
               {hasAnchor && !c.sameSurface && ' · surface change'}
             </span>
           </span>
@@ -747,7 +769,7 @@ function BuilderPanel({
                   {summary.surfaceConsistent ? summary.surfaces[0] : `Mixed: ${summary.surfaces.join('/')}`}
                 </span>
                 {summary.maxHopKm != null && (
-                  <span className="badge">max hop {Math.round(summary.maxHopKm)} km</span>
+                  <span className="badge">max hop {formatDistance(summary.maxHopKm, imperial)}</span>
                 )}
               </div>
             )}
@@ -929,66 +951,3 @@ function BottomSheet({
   );
 }
 
-// --- Filter sheet -----------------------------------------------------------
-function FilterSheet({
-  data,
-  surfaces,
-  onClose,
-  onYear,
-  onToggleGroup,
-  onToggleSurface,
-}: {
-  data: SwingsPageData;
-  surfaces: Set<string> | null;
-  onClose: () => void;
-  onYear: (year: number) => void;
-  onToggleGroup: (group: LevelGroup) => void;
-  onToggleSurface: (surface: string) => void;
-}) {
-  const years = [2026, 2025, 2024];
-  const groups: LevelGroup[] = ['atp', 'challenger', 'itf'];
-  return (
-    <div className="filter-overlay" onClick={onClose}>
-      <div className="filter-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="filter-head">
-          <h2>Filters</h2>
-          <button className="filter-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <fieldset className="filter-group">
-          <legend>Year</legend>
-          <div className="chip-row">
-            {years.map((y) => (
-              <button key={y} className={`chip${data.year === y ? ' chip--on' : ''}`} onClick={() => onYear(y)}>
-                {y}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <fieldset className="filter-group">
-          <legend>Levels</legend>
-          <div className="chip-row">
-            {groups.map((g) => (
-              <button
-                key={g}
-                className={`chip${data.groups.includes(g) ? ' chip--on' : ''}`}
-                onClick={() => onToggleGroup(g)}
-              >
-                {GROUP_LABELS[g]}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <fieldset className="filter-group">
-          <legend>Surface</legend>
-          <div className="chip-row">
-            {SURFACES.map((s) => (
-              <button key={s} className={`chip${surfaces?.has(s) ? ' chip--on' : ''}`} onClick={() => onToggleSurface(s)}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      </div>
-    </div>
-  );
-}

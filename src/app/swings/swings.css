@@ -15,62 +15,45 @@
   overflow: hidden;
 }
 
-.swings-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  flex: 0 0 auto;
-}
-.swings-eyebrow {
-  margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.swings-title {
-  margin: 2px 0 0;
-  font-size: 18px;
-}
-.swings-header-actions { display: flex; align-items: center; gap: 8px; }
-
-/* Active-filter chips: shows what the map is currently scoped to (year, levels,
-   surfaces). Tapping any chip opens the filter sheet, so filters aren't hidden
-   behind the gear. Horizontally scrollable so it never wraps. */
+/* Inline filter pills: the only filter UI now (no gear/sheet). Year (single
+   select), levels and surfaces (multi toggle). Horizontally scrollable so the
+   row never wraps. This is the top bar of the map view. */
 .swings-filters {
   flex: 0 0 auto;
   display: flex;
+  align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 10px 14px;
   overflow-x: auto;
   scrollbar-width: none;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 .swings-filters::-webkit-scrollbar { display: none; }
+.filter-sep {
+  flex: 0 0 auto;
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--border);
+}
 .filter-chip {
   flex: 0 0 auto;
-  padding: 4px 11px;
+  padding: 5px 12px;
   border-radius: 999px;
   border: 1px solid var(--border-tag);
   background: var(--surface-subtle);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
 }
 .filter-chip:hover { color: var(--text); }
-.filter-chip--surface { border-color: var(--text-muted); }
-.swings-filter-btn {
-  background: var(--surface-raised);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 14px;
-  cursor: pointer;
+.filter-chip--on {
+  background: var(--text-strong);
+  color: var(--bg);
+  border-color: var(--text-strong);
+  font-weight: 600;
 }
 /* Build-mode candidate dots */
 .cand-dot {
@@ -474,55 +457,10 @@
 .itinerary-link:hover { text-decoration: underline; }
 .itinerary-meta { font-size: 12px; color: var(--text-muted); }
 
-/* Filter sheet */
-.filter-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1400;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-}
-.filter-sheet {
-  width: 100%;
-  background: var(--surface);
-  border-radius: 16px 16px 0 0;
-  padding: 16px 18px 28px;
-  max-height: 80dvh;
-  overflow-y: auto;
-}
-.filter-head { display: flex; align-items: center; justify-content: space-between; }
-.filter-head h2 { margin: 0; font-size: 18px; }
-.filter-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; }
-.filter-group { border: none; padding: 14px 0 0; margin: 0; }
-.filter-group legend {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
-  padding: 0;
-}
-.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.chip {
-  padding: 9px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-subtle);
-  color: var(--text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-}
-.chip--on {
-  background: var(--text-strong);
-  color: var(--bg);
-  border-color: var(--text-strong);
-  font-weight: 600;
-}
-
 /* Desktop: two-pane split. Map + controls on the left; sheet becomes a fixed
    right sidebar. Header and week strip only span the map area. */
 @media (min-width: 900px) {
-  .swings-header { margin-right: 380px; }
+  .swings-filters { margin-right: 380px; }
   .week-strip    { margin-right: 380px; }
   .swings-map-wrap { margin-right: 380px; }
 
