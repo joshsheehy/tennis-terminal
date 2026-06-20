@@ -178,6 +178,22 @@
   font-weight: 700;
 }
 .rank-hint { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); }
+
+/* Compact key for the entry-status pills + historical-cut disclaimer. */
+.rank-legend { margin-top: 8px; }
+.rank-legend-keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.rank-legend-key { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
+.rank-legend-dot { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+.rank-legend-short { font-weight: 700; }
+.rank-legend-label { color: var(--text-muted); }
+.rank-legend-note { margin: 6px 0 0; font-size: 11px; font-style: italic; color: var(--text-muted); }
 .entry-pills { display: inline-flex; gap: 4px; }
 /* Pills on a candidate row sit between the name block and the + affordance. */
 .entry-pills--cand { flex: 0 0 auto; }

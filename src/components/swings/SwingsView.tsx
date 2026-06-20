@@ -627,6 +627,27 @@ function BuilderPanel({
     </div>
   );
 
+  // Compact key for the entry-status pills + a note that cuts are historical.
+  // Only shown once a ranking is entered (i.e. when pills are actually visible),
+  // so it never crowds the empty state.
+  const showRank = rankSingles != null || rankDoubles != null;
+  const rankLegend = showRank ? (
+    <div className="rank-legend">
+      <ul className="rank-legend-keys">
+        {(['main', 'alternate', 'qualifying', 'out'] as EntryStatus[]).map((s) => (
+          <li key={s} className="rank-legend-key">
+            <span className="rank-legend-dot" style={{ background: STATUS_META[s].color }} />
+            <span className="rank-legend-short" style={{ color: STATUS_META[s].color }}>
+              {STATUS_META[s].short}
+            </span>
+            <span className="rank-legend-label">{STATUS_META[s].label}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="rank-legend-note">Based on last year&rsquo;s entry cuts — a guide, not a guarantee.</p>
+    </div>
+  ) : null;
+
   const skipButton = (
     <button className="builder-skip" onClick={onSkip}>
       Nothing for week {selectedWeek}? Skip to week {Math.min(selectedWeek + 1, MAX_WEEK)} →
@@ -654,9 +675,13 @@ function BuilderPanel({
             <p className="sheet-summary">Pick a starting tournament in week {selectedWeek}.</p>
             <div className="rank-check">
               {rankFields}
-              <p className="rank-hint">
-                Enter your ranking to see entry status (MD / Q / OUT) on each tournament below.
-              </p>
+              {showRank ? (
+                rankLegend
+              ) : (
+                <p className="rank-hint">
+                  Enter your ranking to see entry status on each tournament below.
+                </p>
+              )}
             </div>
             <ul className="cand-list">{candidates.map(candidateRow)}</ul>
             {candidates.length === 0 && (
@@ -695,6 +720,7 @@ function BuilderPanel({
                   <span className="rank-summary-tag">D</span> {describeEntrySummary(doublesSummary)}
                 </p>
               )}
+              {rankLegend}
             </div>
 
             <ul className="itinerary">
