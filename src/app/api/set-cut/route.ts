@@ -74,18 +74,30 @@ export async function GET(request: NextRequest) {
   const slug = params.get('slug');
   const year = Number(params.get('year'));
   const cutsRaw = params.get('cuts');
+  const realCutsRaw = params.get('realcuts');
   const notes = params.get('notes') ?? '';
   const apply = params.get('apply') === 'true';
 
-  if (!slug || !Number.isInteger(year) || !cutsRaw) {
+  if (!slug || !Number.isInteger(year) || (!cutsRaw && !realCutsRaw)) {
     return NextResponse.json(
-      { ok: false, error: 'Required: slug, year, cuts=event:draw:rank[,event:draw:rank...]; optional notes, apply=true' },
+      {
+        ok: false,
+        error:
+          'Required: slug, year, and at least one of cuts= or realcuts= (event:draw:rank[,...]); optional notes, apply=true',
+      },
       { status: 400 }
     );
   }
 
-  const { cuts, error } = parseCuts(cutsRaw);
+  // `cuts` sets the direct-acceptance rank; `realcuts` sets last_alternate_rank
+  // — the hand-sourced "real" rank that ultimately made the main draw after
+  // alternates/withdrawals (e.g. Newport: direct 340 but 550 actually got in).
+  const { cuts, error } = cutsRaw ? parseCuts(cutsRaw) : { cuts: [], error: null };
   if (error) return NextResponse.json({ ok: false, error }, { status: 400 });
+  const { cuts: realCuts, error: realError } = realCutsRaw
+    ? parseCuts(realCutsRaw)
+    : { cuts: [], error: null };
+  if (realError) return NextResponse.json({ ok: false, error: realError }, { status: 400 });
 
   // Look up the existing (slug, year) edition. If none exists yet — common
   // for historical years where we only have the canonical 2026 entry in
@@ -254,6 +266,48 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Real (after-alternates) main-draw cuts → last_alternate_rank. Updates the
+  // existing row only; the direct cut should already be on record (set it via
+  // `cuts` in the same call if not). Leaves source_notes / PDF link intact.
+  const realResults: Array<Record<string, unknown>> = [];
+  for (const rc of realCuts) {
+    const before = await pool.query<{
+      last_alternate_rank: number | null;
+      last_direct_acceptance_rank: number | null;
+    }>(
+      `select last_alternate_rank, last_direct_acceptance_rank
+       from cutoff_snapshots
+       where tournament_edition_id = $1 and event_type = $2 and draw_type = $3`,
+      [editionId, rc.event_type, rc.draw_type]
+    );
+    const existed = before.rows.length > 0;
+
+    if (apply && existed) {
+      await pool.query(
+        `update cutoff_snapshots
+         set last_alternate_rank = $4,
+             last_alternate_player_name = null,
+             updated_at = now()
+         where tournament_edition_id = $1 and event_type = $2 and draw_type = $3`,
+        [editionId, rc.event_type, rc.draw_type, rc.rank]
+      );
+    }
+
+    realResults.push({
+      event: rc.event_type,
+      draw: rc.draw_type,
+      realRank: rc.rank,
+      previousRealRank: before.rows[0]?.last_alternate_rank ?? null,
+      directRank: before.rows[0]?.last_direct_acceptance_rank ?? null,
+      rowExisted: existed,
+      action: apply
+        ? existed
+          ? 'updated'
+          : 'skipped — no row yet; set the direct cut first via cuts='
+        : 'preview',
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     apply,
@@ -263,6 +317,9 @@ export async function GET(request: NextRequest) {
     tournament: editionResult.rows[0].name,
     city: editionResult.rows[0].city,
     cuts: results,
-    message: apply ? 'Cut(s) set; ALT/LL preserved.' : 'Dry run. Append &apply=true to write.',
+    realCuts: realResults,
+    message: apply
+      ? 'Cut(s) set; ALT/LL preserved.'
+      : 'Dry run. Append &apply=true to write.',
   });
 }

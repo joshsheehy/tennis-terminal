@@ -203,6 +203,7 @@ function CutoffTable({
         const hasRank =
           cutoff !== null &&
           (cutoff.last_direct_acceptance_rank !== null ||
+            cutoff.last_alternate_rank !== null ||
             cutoff.challenger_doubles_advanced_cut_rank !== null ||
             cutoff.challenger_doubles_onsite_cut_rank !== null);
 
@@ -213,6 +214,18 @@ function CutoffTable({
           cutDisplay = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontSize: 13 }}>Not on record</span>;
         } else if (isChallenger && eventType === 'doubles') {
           cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{challengerDoublesCutText(cutoff)}</span>;
+        } else if (cutoff.last_alternate_rank != null) {
+          // Hand-sourced "real" cut after alternates/withdrawals — show it as the
+          // primary number (matches the swing checker), with the direct cut noted
+          // beneath for transparency.
+          cutDisplay = (
+            <>
+              <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_alternate_rank)}</span>
+              {cutoff.last_direct_acceptance_rank != null && (
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)} direct</div>
+              )}
+            </>
+          );
         } else {
           cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)}</span>;
         }
