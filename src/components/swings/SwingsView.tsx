@@ -365,6 +365,25 @@ export default function SwingsView({
         </div>
       </header>
 
+      <div className="swings-filters" role="group" aria-label="Active filters — tap to change">
+        <button className="filter-chip" onClick={() => setFiltersOpen(true)}>{data.year}</button>
+        {data.groups.map((g) => (
+          <button key={g} className="filter-chip" onClick={() => setFiltersOpen(true)}>
+            {GROUP_LABELS[g]}
+          </button>
+        ))}
+        {surfaces &&
+          [...surfaces].map((s) => (
+            <button
+              key={s}
+              className="filter-chip filter-chip--surface"
+              onClick={() => setFiltersOpen(true)}
+            >
+              {s}
+            </button>
+          ))}
+      </div>
+
       <WeekStrip
         year={data.year}
         selectedWeek={selectedWeek}
@@ -538,6 +557,7 @@ function BuilderPanel({
   cutRefs: SwingsPageData['cutRefs'];
 }) {
   const { gripHandlers, sheetStyle, toggle } = useSheetDrag(state, setState);
+  const [editingRank, setEditingRank] = useState(false);
 
   // All candidates are for one week; group by relationship tier (same country
   // first). Before an anchor exists there's no relationship, so show a flat list.
@@ -648,6 +668,32 @@ function BuilderPanel({
     </div>
   ) : null;
 
+  // Pinned, always-visible rank bar at the top of the sheet. Shows the entered
+  // ranking ("You: #250 singles · #180 doubles") with an edit affordance, and
+  // flips to the compact inputs when editing or before a ranking is set.
+  const rankBar = (
+    <div className="rank-bar">
+      {showRank && !editingRank ? (
+        <button className="rank-bar-display" onClick={() => setEditingRank(true)}>
+          <span className="rank-bar-you">You</span>
+          {rankSingles != null && <span className="rank-bar-val">#{rankSingles} singles</span>}
+          {rankSingles != null && rankDoubles != null && <span className="rank-bar-sep">·</span>}
+          {rankDoubles != null && <span className="rank-bar-val">#{rankDoubles} doubles</span>}
+          <span className="rank-bar-edit" aria-hidden="true">✎</span>
+        </button>
+      ) : (
+        <div className="rank-bar-form">
+          {rankFields}
+          {showRank && (
+            <button className="rank-bar-done" onClick={() => setEditingRank(false)}>
+              Done
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   const skipButton = (
     <button className="builder-skip" onClick={onSkip}>
       Nothing for week {selectedWeek}? Skip to week {Math.min(selectedWeek + 1, MAX_WEEK)} →
@@ -668,21 +714,19 @@ function BuilderPanel({
           aria-label="Drag to resize panel"
         />
       </div>
+      {rankBar}
       <div className="sheet-body">
         {!hasAnchor ? (
           <>
             <h2 className="sheet-title">Build your own swing</h2>
             <p className="sheet-summary">Pick a starting tournament in week {selectedWeek}.</p>
-            <div className="rank-check">
-              {rankFields}
-              {showRank ? (
-                rankLegend
-              ) : (
-                <p className="rank-hint">
-                  Enter your ranking to see entry status on each tournament below.
-                </p>
-              )}
-            </div>
+            {showRank ? (
+              <div className="rank-check">{rankLegend}</div>
+            ) : (
+              <p className="rank-hint">
+                Enter your ranking above to see entry status on each tournament below.
+              </p>
+            )}
             <ul className="cand-list">{candidates.map(candidateRow)}</ul>
             {candidates.length === 0 && (
               <p className="sheet-summary">No tournaments in week {selectedWeek} for this filter.</p>
@@ -708,20 +752,21 @@ function BuilderPanel({
               </div>
             )}
 
-            <div className="rank-check">
-              {rankFields}
-              {rankSingles != null && (
-                <p className="rank-summary">
-                  <span className="rank-summary-tag">S</span> {describeEntrySummary(singlesSummary)}
-                </p>
-              )}
-              {rankDoubles != null && (
-                <p className="rank-summary">
-                  <span className="rank-summary-tag">D</span> {describeEntrySummary(doublesSummary)}
-                </p>
-              )}
-              {rankLegend}
-            </div>
+            {showRank && (
+              <div className="rank-check">
+                {rankSingles != null && (
+                  <p className="rank-summary">
+                    <span className="rank-summary-tag">S</span> {describeEntrySummary(singlesSummary)}
+                  </p>
+                )}
+                {rankDoubles != null && (
+                  <p className="rank-summary">
+                    <span className="rank-summary-tag">D</span> {describeEntrySummary(doublesSummary)}
+                  </p>
+                )}
+                {rankLegend}
+              </div>
+            )}
 
             <ul className="itinerary">
               {chain.map((e, i) => {
