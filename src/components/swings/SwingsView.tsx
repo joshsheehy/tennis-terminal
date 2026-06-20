@@ -644,7 +644,7 @@ function BuilderPanel({
           </li>
         ))}
       </ul>
-      <p className="rank-legend-note">Based on last year&rsquo;s entry cuts — a guide, not a guarantee.</p>
+      <p className="rank-legend-note">Based on last year&rsquo;s entry cuts.</p>
     </div>
   ) : null;
 
