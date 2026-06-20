@@ -1,0 +1,62 @@
+{
+  "bengaluru|india": {
+    "latitude": 12.9767936,
+    "longitude": 77.590082,
+    "displayName": "Bengaluru, Bangalore North, Bengaluru Urban, Karnataka, India"
+  },
+  "brasilia|brazil": {
+    "latitude": -15.7939869,
+    "longitude": -47.8828,
+    "displayName": "Brasília, Plano Piloto, Distrito Federal, Região Centro-Oeste, 70391-900, Brasil"
+  },
+  "buenos aires|argentina": {
+    "latitude": -34.6095579,
+    "longitude": -58.3887904,
+    "displayName": "Buenos Aires, Comuna 1, Ciudad Autónoma de Buenos Aires, Argentina"
+  },
+  "canberra|australia": {
+    "latitude": -35.2975906,
+    "longitude": 149.1012676,
+    "displayName": "Canberra, District of Canberra Central, Australian Capital Territory, 2600, Australia"
+  },
+  "cordoba|argentina": {
+    "latitude": -31.4166867,
+    "longitude": -64.1834193,
+    "displayName": "Córdoba, Municipio de Córdoba, Pedanía Capital, Departamento Capital, Córdoba, X5000, Argentina"
+  },
+  "indian wells|united states": {
+    "latitude": 33.7217965,
+    "longitude": -116.338303,
+    "displayName": "Indian Wells, Riverside County, California, 92210, United States"
+  },
+  "itajai|brazil": {
+    "latitude": -26.9046787,
+    "longitude": -48.6552979,
+    "displayName": "Itajaí, Santa Catarina, Região Sul, Brasil"
+  },
+  "marseille|france": {
+    "latitude": 43.2963986,
+    "longitude": 5.3777888,
+    "displayName": "Marseille, Bouches-du-Rhône, Provence-Alpes-Côte d'Azur, France métropolitaine, France"
+  },
+  "melbourne|australia": {
+    "latitude": -37.8142454,
+    "longitude": 144.9631732,
+    "displayName": "Melbourne, Victoria, Australia"
+  },
+  "miami|united states": {
+    "latitude": 25.7741566,
+    "longitude": -80.1935973,
+    "displayName": "Miami, Miami-Dade County, Florida, United States"
+  },
+  "rotterdam|netherlands": {
+    "latitude": 51.9244424,
+    "longitude": 4.47775,
+    "displayName": "Rotterdam, Zuid-Holland, Nederland"
+  },
+  "thionville|france": {
+    "latitude": 49.3579272,
+    "longitude": 6.1675872,
+    "displayName": "Thionville, Moselle, Grand Est, France métropolitaine, 57100, France"
+  }
+}

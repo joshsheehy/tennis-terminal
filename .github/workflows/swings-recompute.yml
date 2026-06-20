@@ -1,0 +1,42 @@
+name: Swings recompute
+
+# Recomputes swing detection from the latest calendar data. Scheduled after
+# the daily data sync (08:15 UTC) so new editions are picked up the same day.
+# Schedules and the manual Run button only activate once this file is on the
+# default branch; until then, run /api/recompute-swings?dryRun=false manually
+# or use `npm run swings:recompute -- --apply`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: 'Season to recompute (2024, 2025, 2026, or all)'
+        required: false
+        default: 'all'
+  schedule:
+    - cron: '45 9 * * *'
+
+jobs:
+  recompute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Recompute swings
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          YEAR: ${{ inputs.year || 'all' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "Missing APP_URL or ADMIN_SECRET repository secret."
+            exit 1
+          fi
+          BASE="${APP_URL%%/}"
+          case "$BASE" in http://*|https://*) ;; *) BASE="https://$BASE" ;; esac
+          curl -sS -m 600 --fail-with-body \
+            -H "Accept: application/json" \
+            -H "User-Agent: TennisTerminalSwingsRecompute/1.0" \
+            -H "X-Admin-Secret: $ADMIN_SECRET" \
+            "$BASE/api/recompute-swings?year=$YEAR&dryRun=false" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); [print(f"{r[\"year\"]}: {r[\"swingCount\"]} swings from {r[\"eventCount\"]} events") for r in d["results"]]; sys.exit(0 if d.get("ok") else 1)'

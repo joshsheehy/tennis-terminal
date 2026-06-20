@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import ThemeToggle from '@/components/ThemeToggle';
+import SiteNav from '@/components/SiteNav';
 
 export const metadata: Metadata = {
   title: 'Tennis Cuts',
@@ -26,7 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}` }} />
       </head>
       <body>
-        <ThemeToggle />
+        <SiteNav />
         {children}
       </body>
     </html>
