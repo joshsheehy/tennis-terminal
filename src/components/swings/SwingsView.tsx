@@ -397,15 +397,18 @@ export default function SwingsView({
   return (
     <div className="swings-root">
       <div className="swings-filters" role="group" aria-label="Filters">
-        {SEASONS.map((y) => (
-          <button
-            key={y}
-            className={`filter-chip${data.year === y ? ' filter-chip--on' : ''}`}
-            onClick={() => setYear(y)}
-          >
-            {y}
-          </button>
-        ))}
+        <select
+          className="filter-select"
+          aria-label="Season"
+          value={data.year}
+          onChange={(e) => setYear(Number(e.target.value))}
+        >
+          {SEASONS.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
         <span className="filter-sep" aria-hidden="true" />
         {(['atp', 'challenger', 'itf'] as LevelGroup[]).map((g) => (
           <button
