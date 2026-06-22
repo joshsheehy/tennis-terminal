@@ -710,9 +710,20 @@ function BuilderPanel({
         <div className="rank-bar-form">
           {rankFields}
           {showRank && (
-            <button className="rank-bar-done" onClick={() => setEditingRank(false)}>
-              Done
-            </button>
+            <div className="rank-bar-actions">
+              <button
+                className="rank-bar-clear"
+                onClick={() => {
+                  onRankSingles(null);
+                  onRankDoubles(null);
+                }}
+              >
+                Clear
+              </button>
+              <button className="rank-bar-done" onClick={() => setEditingRank(false)}>
+                Done
+              </button>
+            </div>
           )}
         </div>
       )}

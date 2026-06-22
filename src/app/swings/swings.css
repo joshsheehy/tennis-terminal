@@ -189,6 +189,18 @@
 .rank-bar-edit { margin-left: auto; color: var(--text-muted); font-size: 15px; }
 .rank-bar-form { display: flex; align-items: flex-end; gap: 10px; }
 .rank-bar-form .rank-inputs { flex: 1; }
+.rank-bar-actions { flex: 0 0 auto; display: flex; gap: 6px; }
+.rank-bar-clear {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.rank-bar-clear:hover { color: var(--text); border-color: var(--text-muted); }
 .rank-bar-done {
   flex: 0 0 auto;
   padding: 8px 14px;
