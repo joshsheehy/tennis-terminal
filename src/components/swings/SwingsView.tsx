@@ -83,6 +83,11 @@ function weekDateLabel(year: number, week: number): string {
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
+// Date range across weeks, e.g. "Jun 22 – Jun 29" (or a single date if equal).
+function weekRangeLabel(year: number, a: number, b: number): string {
+  return a === b ? weekDateLabel(year, a) : `${weekDateLabel(year, a)} – ${weekDateLabel(year, b)}`;
+}
+
 // Drag-to-resize for the mobile bottom sheet. A pointer drag on the grip moves
 // the sheet height live, then snaps to the nearest of collapsed/half/full on
 // release; a tap (no real movement) steps it open one notch. No-ops on desktop,
@@ -466,6 +471,7 @@ export default function SwingsView({
         <BuilderPanel
           state={sheet}
           setState={setSheet}
+          year={data.year}
           chain={chain}
           candidates={candidates}
           summary={chainSummary}
@@ -489,6 +495,7 @@ export default function SwingsView({
         <BottomSheet
           state={sheet}
           setState={setSheet}
+          year={data.year}
           swingsThisWeek={swingsThisWeek}
           nearestUpcoming={nearestUpcoming}
           activeSwing={activeSwing}
@@ -541,6 +548,7 @@ function WeekStrip({
 function BuilderPanel({
   state,
   setState,
+  year,
   chain,
   candidates,
   summary,
@@ -562,6 +570,7 @@ function BuilderPanel({
 }: {
   state: SheetState;
   setState: (s: SheetState) => void;
+  year: number;
   chain: SwingMapEvent[];
   candidates: RankedCandidate<SwingMapEvent>[];
   summary: ReturnType<typeof summarizeChain>;
@@ -606,7 +615,7 @@ function BuilderPanel({
     return (
       <li key={c.event.editionId}>
         <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
-          <span className="cand-week">W{c.event.week}</span>
+          <span className="cand-week">{weekDateLabel(year, c.event.week)}</span>
           <span className="cand-main">
             <span className="cand-name">{c.event.name}</span>
             <span className="cand-meta">
@@ -732,7 +741,8 @@ function BuilderPanel({
 
   const skipButton = (
     <button className="builder-skip" onClick={onSkip}>
-      Nothing for week {selectedWeek}? Skip to week {Math.min(selectedWeek + 1, MAX_WEEK)} →
+      Nothing the week of {weekDateLabel(year, selectedWeek)}? Skip to{' '}
+      {weekDateLabel(year, Math.min(selectedWeek + 1, MAX_WEEK))} →
     </button>
   );
 
@@ -755,7 +765,7 @@ function BuilderPanel({
         {!hasAnchor ? (
           <>
             <h2 className="sheet-title">Build your own swing</h2>
-            <p className="sheet-summary">Pick a starting tournament in week {selectedWeek}.</p>
+            <p className="sheet-summary">Pick a starting tournament the week of {weekDateLabel(year, selectedWeek)}.</p>
             {showRank ? (
               <div className="rank-check">{rankLegend}</div>
             ) : (
@@ -765,7 +775,7 @@ function BuilderPanel({
             )}
             <ul className="cand-list">{candidates.map(candidateRow)}</ul>
             {candidates.length === 0 && (
-              <p className="sheet-summary">No tournaments in week {selectedWeek} for this filter.</p>
+              <p className="sheet-summary">No tournaments the week of {weekDateLabel(year, selectedWeek)} for this filter.</p>
             )}
             {skipButton}
           </>
@@ -778,7 +788,7 @@ function BuilderPanel({
             {summary && (
               <div className="sheet-badges">
                 <span className="badge">{chain.length} stop{chain.length > 1 ? 's' : ''}</span>
-                <span className="badge">W{summary.startWeek}–W{summary.endWeek}</span>
+                <span className="badge">{weekRangeLabel(year, summary.startWeek, summary.endWeek)}</span>
                 <span className={`badge ${summary.surfaceConsistent ? 'badge--ok' : 'badge--mixed'}`}>
                   {summary.surfaceConsistent ? summary.surfaces[0] : `Mixed: ${summary.surfaces.join('/')}`}
                 </span>
@@ -811,7 +821,7 @@ function BuilderPanel({
                 const dMeta = STATUS_META[doublesStatuses[i]];
                 return (
                   <li key={e.editionId} className="itinerary-row">
-                    <span className="itinerary-week">{i + 1}. W{e.week}</span>
+                    <span className="itinerary-week">{i + 1}. {weekDateLabel(year, e.week)}</span>
                     <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
                     <span className="entry-pills">
                       {rankSingles != null && (
@@ -847,9 +857,9 @@ function BuilderPanel({
               })}
             </ul>
 
-            <h3 className="builder-subhead">Week {selectedWeek} — pick your next stop</h3>
+            <h3 className="builder-subhead">Week of {weekDateLabel(year, selectedWeek)} — pick your next stop</h3>
             {grouped.length === 0 ? (
-              <p className="sheet-summary">No tournaments in week {selectedWeek} for this filter.</p>
+              <p className="sheet-summary">No tournaments the week of {weekDateLabel(year, selectedWeek)} for this filter.</p>
             ) : (
               grouped.map((g) => (
                 <div key={g.tier} className="cand-group">
@@ -870,6 +880,7 @@ function BuilderPanel({
 function BottomSheet({
   state,
   setState,
+  year,
   swingsThisWeek,
   nearestUpcoming,
   activeSwing,
@@ -878,6 +889,7 @@ function BottomSheet({
 }: {
   state: SheetState;
   setState: (s: SheetState) => void;
+  year: number;
   swingsThisWeek: SwingsPageData['swings'];
   nearestUpcoming: SwingsPageData['swings'][number] | null;
   activeSwing: SwingsPageData['swings'][number] | null;
@@ -906,7 +918,7 @@ function BottomSheet({
           <div className="sheet-head">
             <h2 className="sheet-title">{activeSwing.label}</h2>
             <span className="sheet-weeks">
-              W{activeSwing.startWeek}–W{activeSwing.endWeek} · {activeSwing.totalWeeks} wk
+              {weekRangeLabel(year, activeSwing.startWeek, activeSwing.endWeek)} · {activeSwing.totalWeeks} wk
             </span>
           </div>
           <div className="sheet-badges">
@@ -920,7 +932,7 @@ function BottomSheet({
             {activeSwing.itinerary.map((row) =>
               row.events.map((e) => (
                 <li key={e.slug + row.week} className="itinerary-row">
-                  <span className="itinerary-week">W{row.week}</span>
+                  <span className="itinerary-week">{weekDateLabel(year, row.week)}</span>
                   <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
                   <span className="itinerary-meta">{e.surface}</span>
                 </li>
@@ -942,7 +954,7 @@ function BottomSheet({
                         {s.kind === 'series' && <span className="swing-list-tag">series</span>}
                       </span>
                       <span className="swing-list-meta">
-                        W{s.startWeek}–W{s.endWeek} · {s.tierMix}
+                        {weekRangeLabel(year, s.startWeek, s.endWeek)} · {s.tierMix}
                       </span>
                     </button>
                   </li>
@@ -953,7 +965,7 @@ function BottomSheet({
             <p className="sheet-summary">
               No swings this week — nearest:{' '}
               <button className="sheet-jump" onClick={() => onJumpToWeek(nearestUpcoming.startWeek)}>
-                {nearestUpcoming.label} starting W{nearestUpcoming.startWeek}
+                {nearestUpcoming.label} starting {weekDateLabel(year, nearestUpcoming.startWeek)}
               </button>
             </p>
           ) : (
