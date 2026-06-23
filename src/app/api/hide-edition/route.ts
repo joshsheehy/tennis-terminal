@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { pool } from '@/lib/db';
 
 export const runtime = 'nodejs';
@@ -133,10 +134,23 @@ export async function GET(request: NextRequest) {
     [matchValue, year]
   );
 
+  // Bust the schedule cache so the home page reflects this hide immediately
+  // instead of waiting up to 5 minutes for the unstable_cache window to
+  // expire. Tag matches getCachedSchedule() in src/app/page.tsx.
+  let cacheRevalidated = false;
+  try {
+    revalidateTag('schedule');
+    cacheRevalidated = true;
+  } catch {
+    // revalidateTag can throw in dev/test environments without the cache
+    // runtime; safe to swallow — DB write already happened.
+  }
+
   return NextResponse.json({
     ok: true,
     dryRun: false,
     hiddenCount: updated.rowCount ?? 0,
     hidden: updated.rows,
+    cacheRevalidated,
   });
 }

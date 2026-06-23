@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { DISCONTINUED_TOURNAMENTS } from '@/lib/discontinued-tournaments';
+import { CANCELLED_EDITIONS } from '@/lib/cancelled-editions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -148,6 +150,50 @@ export async function GET() {
     });
   }
 
+  // Enforce the cancelled-editions registry: specific (pattern, year) rows
+  // that were cancelled mid-season (Durham 2026 Challenger, etc.). Matches
+  // tournament name, slug, OR city via ILIKE — catches automated-importer
+  // slug variants like a bare "durham" alongside the canonical
+  // "durham-nc-durham". Like the discontinued sweep, this does NOT skip
+  // rows with cuts attached, since a cancelled edition's cuts are orphans.
+  const cancelledResults: Array<{
+    pattern: string;
+    year: number;
+    hiddenCount: number;
+    hiddenRows: Array<{ slug: string; year: number; level: string }>;
+  }> = [];
+  for (const rule of CANCELLED_EDITIONS) {
+    const result = await pool.query<{ slug: string; year: number; level: string }>(
+      `update tournament_editions te
+       set status = 'not_held',
+           updated_at = now()
+       from tournaments t
+       where te.tournament_id = t.id
+         and te.status = 'held'
+         and te.year = $1
+         and (t.slug ilike $2 or t.name ilike $2 or t.city ilike $2)
+       returning t.slug, te.year, te.level`,
+      [rule.year, `%${rule.pattern}%`]
+    );
+    cancelledResults.push({
+      pattern: rule.pattern,
+      year: rule.year,
+      hiddenCount: result.rowCount ?? 0,
+      hiddenRows: result.rows,
+    });
+  }
+
+  // Bust the schedule cache so the home page reflects this sync immediately
+  // instead of waiting up to 5 minutes for the unstable_cache revalidate
+  // window to expire. Tag matches the one set on getCachedSchedule() in
+  // src/app/page.tsx.
+  try {
+    revalidateTag('schedule');
+  } catch {
+    // revalidateTag can throw in dev/test environments without the cache
+    // runtime; safe to swallow — DB write already happened.
+  }
+
   return NextResponse.json({
     ok: failed.length === 0,
     syncedCount: synced.length,
@@ -157,6 +203,8 @@ export async function GET() {
     staleHiddenCount: staleResult.rowCount ?? 0,
     staleHidden: staleResult.rows,
     discontinuedSweeps: discontinuedResults,
+    cancelledSweeps: cancelledResults,
+    cacheRevalidated: true,
     failed,
   });
 }

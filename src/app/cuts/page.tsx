@@ -9,7 +9,9 @@ export const dynamic = 'force-dynamic';
 const getCachedSchedule = unstable_cache(
   async (year: number) => getScheduleForYear(year),
   ['schedule'],
-  { revalidate: 300 },
+  // Tag lets /api/sync-canonical and /api/hide-edition bust this cache
+  // immediately via revalidateTag('schedule') instead of waiting 5 minutes.
+  { revalidate: 300, tags: ['schedule'] },
 );
 
 export default async function CutsPage({
