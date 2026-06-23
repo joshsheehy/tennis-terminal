@@ -303,16 +303,10 @@
   scrollbar-width: none;
 }
 .week-strip::-webkit-scrollbar { display: none; }
-.week-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.week-month {
-  font-size: 10px;
-  color: var(--text-muted);
-  height: 12px;
-  white-space: nowrap;
-}
 .week-pill {
-  min-width: 40px;
-  padding: 8px 10px;
+  flex: 0 0 auto;
+  min-width: 56px;
+  padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface-subtle);

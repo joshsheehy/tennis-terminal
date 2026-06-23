@@ -70,12 +70,17 @@ function thisWeekSummary(items: SwingsPageData['swings']): string {
 }
 
 // Monday (UTC) of an ATP week, mirroring getAtpSeasonStartDateUtc.
-function weekMonth(year: number, week: number): number {
+function weekStart(year: number, week: number): Date {
   const jan1 = new Date(Date.UTC(year, 0, 1));
   const isoDow = jan1.getUTCDay() === 0 ? 7 : jan1.getUTCDay();
   const offset = isoDow <= 3 ? 1 - isoDow : 8 - isoDow;
-  const monday = new Date(jan1.getTime() + (offset + (week - 1) * 7) * 86400000);
-  return monday.getUTCMonth();
+  return new Date(jan1.getTime() + (offset + (week - 1) * 7) * 86400000);
+}
+
+// Short start-date label for a week, e.g. "Jun 29".
+function weekDateLabel(year: number, week: number): string {
+  const d = weekStart(year, week);
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
 // Drag-to-resize for the mobile bottom sheet. A pointer drag on the grip moves
@@ -516,23 +521,18 @@ function WeekStrip({
   const weeks = Array.from({ length: MAX_WEEK }, (_, i) => i + 1);
   return (
     <div className="week-strip" role="tablist" aria-label="Weeks">
-      {weeks.map((w) => {
-        const showMonth = w === 1 || weekMonth(year, w) !== weekMonth(year, w - 1);
-        return (
-          <div className="week-cell" key={w}>
-            <span className="week-month">{showMonth ? MONTHS[weekMonth(year, w)] : ' '}</span>
-            <button
-              ref={w === selectedWeek ? selectedRef : undefined}
-              role="tab"
-              aria-selected={w === selectedWeek}
-              className={`week-pill${w === selectedWeek ? ' week-pill--active' : ''}`}
-              onClick={() => onSelect(w)}
-            >
-              W{w}
-            </button>
-          </div>
-        );
-      })}
+      {weeks.map((w) => (
+        <button
+          key={w}
+          ref={w === selectedWeek ? selectedRef : undefined}
+          role="tab"
+          aria-selected={w === selectedWeek}
+          className={`week-pill${w === selectedWeek ? ' week-pill--active' : ''}`}
+          onClick={() => onSelect(w)}
+        >
+          {weekDateLabel(year, w)}
+        </button>
+      ))}
     </div>
   );
 }
