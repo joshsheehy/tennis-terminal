@@ -469,9 +469,10 @@ td {
 .site-nav__brand {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-weight: 700;
+  gap: 6px;
+  font-weight: 800;
   font-size: 15px;
+  letter-spacing: -0.02em;
   color: var(--text-strong);
   white-space: nowrap;
   margin-right: 4px;
