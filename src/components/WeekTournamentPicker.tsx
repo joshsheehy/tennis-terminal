@@ -37,6 +37,7 @@ function getDateValue(dateString: string | null) {
 
 function getLevelSortValue(level: string) {
   const n = level.toLowerCase();
+  if (n.includes('grand slam')) return 2000;
   if (n.includes('itf')) {
     // ITF M25 / ITF M15 sort below every Challenger tier but above unknowns.
     if (n.includes('m25')) return 0.25;
@@ -58,7 +59,7 @@ function getLevelSortValue(level: string) {
 function getLevelCategory(level: string): string {
   const n = level.toLowerCase();
   if (n.includes('itf')) return 'ITF';
-  if (n.includes('1000') || n.includes('500') || n.includes('250')) return 'ATP';
+  if (n.includes('grand slam') || n.includes('1000') || n.includes('500') || n.includes('250')) return 'ATP';
   if (n.includes('challenger')) return 'Challenger';
   return 'Other';
 }

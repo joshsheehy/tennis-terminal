@@ -48,7 +48,7 @@ export function levelGroup(level: string): LevelGroup | null {
   const l = level.trim().toLowerCase();
   if (l.startsWith('itf')) return 'itf';
   if (l.startsWith('challenger')) return 'challenger';
-  if (l.startsWith('atp') || l === 'grand slam') return 'atp';
+  if (l.startsWith('atp') || l.startsWith('grand slam')) return 'atp';
   return null;
 }
 

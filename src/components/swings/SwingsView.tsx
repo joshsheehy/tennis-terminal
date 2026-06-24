@@ -57,6 +57,12 @@ function formatDistance(km: number, imperial: boolean): string {
   return imperial ? `${Math.round(km * 0.621371)} mi` : `${Math.round(km)} km`;
 }
 
+// Grand Slam qualifying weeks are singles-only — no doubles draw, so the builder
+// hides the doubles entry pill for them.
+function isSinglesOnly(level: string): boolean {
+  return level.toLowerCase().includes('qualifying');
+}
+
 type SheetState = 'collapsed' | 'half' | 'full';
 type Mode = 'explore' | 'build';
 
@@ -612,6 +618,8 @@ function BuilderPanel({
     const ref = cutRefs[c.event.slug];
     const sMeta = STATUS_META[entryStatus(rankSingles, ref?.singles)];
     const dMeta = STATUS_META[entryStatus(rankDoubles, ref?.doubles)];
+    const singlesOnly = isSinglesOnly(c.event.level);
+    const showDoubles = rankDoubles != null && !singlesOnly;
     return (
       <li key={c.event.editionId}>
         <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
@@ -624,14 +632,14 @@ function BuilderPanel({
               {hasAnchor && !c.sameSurface && ' · surface change'}
             </span>
           </span>
-          {(rankSingles != null || rankDoubles != null) && (
+          {(rankSingles != null || showDoubles) && (
             <span className="entry-pills entry-pills--cand">
               {rankSingles != null && (
                 <span className="entry-pill" style={{ color: sMeta.color, borderColor: sMeta.color }}>
                   S·{sMeta.short}
                 </span>
               )}
-              {rankDoubles != null && (
+              {showDoubles && (
                 <span className="entry-pill" style={{ color: dMeta.color, borderColor: dMeta.color }}>
                   D·{dMeta.short}
                 </span>
@@ -819,6 +827,7 @@ function BuilderPanel({
                 const ref = cutRefs[e.slug];
                 const sMeta = STATUS_META[singlesStatuses[i]];
                 const dMeta = STATUS_META[doublesStatuses[i]];
+                const showDoubles = rankDoubles != null && !isSinglesOnly(e.level);
                 return (
                   <li key={e.editionId} className="itinerary-row">
                     <span className="itinerary-week">{i + 1}. {weekDateLabel(year, e.week)}</span>
@@ -837,7 +846,7 @@ function BuilderPanel({
                           S·{sMeta.short}
                         </span>
                       )}
-                      {rankDoubles != null && (
+                      {showDoubles && (
                         <span
                           className="entry-pill"
                           style={{ color: dMeta.color, borderColor: dMeta.color }}

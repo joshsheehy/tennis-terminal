@@ -167,6 +167,7 @@ describe('level groups and scopes', () => {
   it('classifies levels', () => {
     expect(levelGroup('ATP 250')).toBe('atp');
     expect(levelGroup('Grand Slam')).toBe('atp');
+    expect(levelGroup('Grand Slam Qualifying')).toBe('atp');
     expect(levelGroup('Challenger 75')).toBe('challenger');
     expect(levelGroup('ITF M25')).toBe('itf');
     expect(levelGroup('Exhibition')).toBeNull();

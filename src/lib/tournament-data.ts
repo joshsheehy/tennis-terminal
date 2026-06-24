@@ -66,6 +66,44 @@ function tourEvent(
   };
 }
 
+// A Grand Slam spans two builder weeks: qualifying (singles only) the week
+// before, then the main draw (singles + doubles) the next. We model that as two
+// editions; the "Grand Slam Qualifying" level marks the singles-only week so the
+// builder hides the doubles pill there.
+function grandSlam(
+  name: string,
+  city: string,
+  country: string,
+  year: number,
+  qualiWeek: number,
+  qualiDate: string,
+  mainWeek: number,
+  mainDate: string,
+  surface: string
+): TournamentEdition[] {
+  const base = {
+    year,
+    end_date: null,
+    surface,
+    indoor: false,
+    source: 'atp_tour_pdf' as const,
+    source_url: ATP_TOUR_CALENDAR_URL,
+    status: 'held' as const,
+    protennislive_code: null,
+    has_doubles_qualifying: false,
+  };
+  return [
+    {
+      tournament: { slug: makeSlug(`${name} Qualifying`, city), name: `${name} Qualifying`, city, country },
+      edition: { ...base, week: qualiWeek, start_date: qualiDate, level: 'Grand Slam Qualifying' },
+    },
+    {
+      tournament: { slug: makeSlug(name, city), name, city, country },
+      edition: { ...base, week: mainWeek, start_date: mainDate, level: 'Grand Slam' },
+    },
+  ];
+}
+
 function challengerEvent(
   name: string,
   city: string,
@@ -100,6 +138,14 @@ function challengerEvent(
 }
 
 export const ALL_EDITIONS: TournamentEdition[] = [
+  // ─── GRAND SLAMS ─────────────────────────────────────────────────────────────
+  // Each Slam = qualifying (singles only) one week, then main draw + doubles the
+  // next. Weeks align with the reserved slots elsewhere in this file.
+  ...grandSlam('Australian Open', 'Melbourne', 'Australia', 2026, 2, '2026-01-12', 3, '2026-01-19', 'Hard'),
+  ...grandSlam('Roland Garros', 'Paris', 'France', 2026, 21, '2026-05-25', 22, '2026-06-01', 'Clay'),
+  ...grandSlam('Wimbledon', 'London', 'Great Britain', 2026, 25, '2026-06-22', 26, '2026-06-29', 'Grass'),
+  ...grandSlam('US Open', 'New York', 'United States', 2026, 35, '2026-08-31', 36, '2026-09-07', 'Hard'),
+
   // ─── WEEK 1 (Jan 5) ──────────────────────────────────────────────────────────
   tourEvent('Brisbane International Presented by ANZ', 'Brisbane', 'Australia', 2026, 1, '2026-01-05', null, 'ATP 250', 'Hard', false, '339', false),
   tourEvent('Bank of China Hong Kong Tennis Open', 'Hong Kong', 'Hong Kong', 2026, 1, '2026-01-05', null, 'ATP 250', 'Hard', false, '336', false),
