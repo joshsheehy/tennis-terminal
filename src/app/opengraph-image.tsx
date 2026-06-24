@@ -1,5 +1,7 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
-import { SITE_URL, BRAND_GREEN, logoMarkDataUri } from '@/lib/brand';
+import { SITE_URL, BRAND_GREEN } from '@/lib/brand';
 
 // The image shown when tenniscuts.com is shared (link previews, social cards).
 export const alt = 'Tennis Cuts — entry cutoffs, schedules & swing planner for the pro tennis tour';
@@ -8,8 +10,10 @@ export const contentType = 'image/png';
 
 const BG = '#0b1220';
 
-export default function OpengraphImage() {
+export default async function OpengraphImage() {
   const domain = SITE_URL.replace(/^https?:\/\//, '');
+  const logo = await readFile(join(process.cwd(), 'public', 'logo-mark.png'));
+  const logoSrc = `data:image/png;base64,${logo.toString('base64')}`;
 
   return new ImageResponse(
     (
@@ -40,10 +44,10 @@ export default function OpengraphImage() {
           }}
         />
 
-        {/* Brand lockup */}
+        {/* Brand lockup: real logo mark + wordmark */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <img src={logoMarkDataUri({ nodeFill: BG })} width={104} height={104} alt="" />
-          <div style={{ display: 'flex', marginLeft: 22, fontSize: 64, fontWeight: 800, letterSpacing: -1.5 }}>
+          <img src={logoSrc} width={120} height={120} alt="" />
+          <div style={{ display: 'flex', marginLeft: 24, fontSize: 64, fontWeight: 800, letterSpacing: -1.5 }}>
             <span style={{ color: '#f8fafc' }}>Tennis</span>
             <span style={{ color: BRAND_GREEN }}>Cuts</span>
           </div>

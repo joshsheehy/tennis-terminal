@@ -478,7 +478,10 @@ td {
 }
 .site-nav__logo {
   flex-shrink: 0;
-  color: var(--text-strong);
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
 }
 .site-nav__brand-cut {
   color: var(--brand);
