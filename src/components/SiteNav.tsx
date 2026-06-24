@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -38,8 +39,11 @@ export default function SiteNav() {
 
   return (
     <nav className="site-nav" aria-label="Primary">
-      <Link href="/" className="site-nav__brand">
-        Tennis Cuts
+      <Link href="/" className="site-nav__brand" aria-label="Tennis Cuts — home">
+        <Image className="site-nav__logo" src="/logo-mark.png" width={24} height={24} alt="" priority />
+        <span>
+          Tennis<span className="site-nav__brand-cut">Cuts</span>
+        </span>
       </Link>
       <div className="site-nav__links">
         {LINKS.map((l) => (

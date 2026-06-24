@@ -24,6 +24,9 @@
   --border-table-head:   #d0d0d0;
   --border-tag:          #d1d5db;
 
+  /* Brand green from the TennisCuts logo (theme-independent). */
+  --brand:               #3CB043;
+
   /* Height of the global top nav; pages subtract this from full-viewport. */
   --nav-h:               50px;
 }
@@ -464,11 +467,24 @@ td {
   background: var(--surface);
 }
 .site-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 700;
   font-size: 15px;
   color: var(--text-strong);
   white-space: nowrap;
   margin-right: 4px;
+}
+.site-nav__logo {
+  flex-shrink: 0;
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+.site-nav__brand-cut {
+  color: var(--brand);
 }
 .site-nav__links {
   display: flex;

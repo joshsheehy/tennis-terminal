@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -5,6 +6,7 @@ import { getTournamentDetailRowsBySlug } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { CURRENT_SEASON, EARLIEST_SEASON, isAvailableSeason } from '@/lib/seasons';
+import { SITE_NAME, SITE_URL } from '@/lib/brand';
 
 // Look up the most recent protennislive_code we know for a slug, so the
 // CutoffTable can render a "PDF source" link even when no cuts snapshot
@@ -275,6 +277,48 @@ const getCachedDetail = unstable_cache(
   ['tournament-detail'],
   { revalidate: 300 },
 );
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ year?: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const { year: yearParam } = await searchParams;
+  const year = yearParam && isAvailableSeason(Number(yearParam)) ? Number(yearParam) : CURRENT_SEASON;
+
+  try {
+    const rows = await getCachedDetail(slug, 1, year);
+    if (rows.length === 0) return { title: 'Tournament not found' };
+
+    const e = rows[0].edition;
+    const name = displayName(e.name);
+    const place = e.city ? `${e.city}${e.country ? `, ${e.country}` : ''}` : '';
+    const title = `${name} — Entry Cutoffs & Schedule`;
+    const description =
+      `${e.level} entry cutoffs and draw history for ${name}${place ? ` (${place})` : ''}. ` +
+      `Track the last direct acceptance and qualifying cut, year by year, on ${SITE_NAME}.`;
+    const path = `/tournaments/${slug}`;
+
+    return {
+      title,
+      description,
+      alternates: { canonical: path },
+      openGraph: {
+        type: 'article',
+        url: `${SITE_URL}${path}`,
+        title: `${title} · ${SITE_NAME}`,
+        description,
+      },
+      twitter: { card: 'summary_large_image', title: `${title} · ${SITE_NAME}`, description },
+    };
+  } catch {
+    // Don't let a metadata/DB hiccup break the page render.
+    return {};
+  }
+}
 
 export default async function TournamentDetailPage({
   params,
