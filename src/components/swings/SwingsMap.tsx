@@ -241,10 +241,18 @@ export default function SwingsMap({
           iconSize: [22, 22],
           iconAnchor: [11, 11],
         });
-        L.marker([event.latitude, event.longitude], { icon })
-          .on('click', () => onPickRef.current(event.editionId))
+        // Tapping the dot only opens the popup so you can read the tournament
+        // first; adding to the swing is an explicit button inside the popup.
+        const marker = L.marker([event.latitude, event.longitude], { icon })
           .bindPopup(popupHtml(event, true))
           .addTo(layers);
+        marker.on('popupopen', (e: { popup: { getElement(): HTMLElement | null } }) => {
+          const btn = e.popup.getElement()?.querySelector('.swing-popup__add');
+          btn?.addEventListener('click', () => {
+            onPickRef.current(event.editionId);
+            mapRef.current?.closePopup();
+          });
+        });
       }
     }
   }
@@ -255,13 +263,15 @@ export default function SwingsMap({
 function popupHtml(event: MapEvent, isCandidate = false): string {
   const esc = (s: string) =>
     s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-  const hint = isCandidate ? '<div class="swing-popup__hint">Tap the dot to add to your swing</div>' : '';
+  const addButton = isCandidate
+    ? '<button type="button" class="swing-popup__add">+ Add to swing</button>'
+    : '';
   return `
     <div class="swing-popup">
       <strong>${esc(event.name)}</strong>
       <div class="swing-popup__meta">${esc(event.city)}${event.country ? `, ${esc(event.country)}` : ''}</div>
       <div class="swing-popup__meta">W${event.week} · ${esc(event.level)} · ${esc(event.surface)}</div>
-      ${hint}
+      ${addButton}
       <a class="swing-popup__link" href="/tournaments/${esc(event.slug)}">View tournament →</a>
     </div>`;
 }

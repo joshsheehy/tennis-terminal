@@ -86,7 +86,20 @@
   border: 2px solid #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
-.swing-popup__hint { font-size: 12px; color: #0284c7; margin-top: 4px; font-style: italic; }
+.swing-popup__add {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #0284c7;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.swing-popup__add:hover { background: #0369a1; }
 
 /* Builder panel */
 .builder-clear {
