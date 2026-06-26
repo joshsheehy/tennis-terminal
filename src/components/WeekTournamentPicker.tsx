@@ -64,7 +64,7 @@ function getLevelCategory(level: string): string {
   return 'Other';
 }
 
-type DisplayMode = 'main' | 'continuation' | 'qualifying';
+type DisplayMode = 'main' | 'continuation';
 type WeekGroup = { key: string; week: number | null; tournaments: DisplayTournament[]; startDate: string | null };
 type DisplayTournament = { tournament: ScheduleRow; displayWeek: number | null; displayMode: DisplayMode };
 
@@ -140,18 +140,13 @@ export default function WeekTournamentPicker({
     for (const t of tournaments) {
       expanded.push({ tournament: t, displayWeek: t.week, displayMode: 'main' });
       if (t.week === null) continue;
-      if (isGrandSlamLevel(t.level)) {
-        // Grand Slam singles qualifying runs the week BEFORE the main draw.
-        // Emit a virtual row in week-1 so the schedule shows the slam under
-        // its qualifying week too — that row renders with a "Singles
-        // Qualifying" badge and links to the same tournament detail page.
-        // Per the design choice, we DON'T expand GS main into a second week
-        // even though the actual main draw runs two weeks (consistent with
-        // how Masters 1000s currently display only in their opening week).
-        if (t.week > 1) {
-          expanded.push({ tournament: t, displayWeek: t.week - 1, displayMode: 'qualifying' });
-        }
-      } else {
+      // Grand Slam qualifying now exists as its own tournament entry, so we no
+      // longer synthesize a virtual "qualifying" row a week before the main
+      // draw (that duplicated the real qualifying entry and pushed the slam
+      // into an extra, mis-dated week). We also DON'T expand the GS main into
+      // its second week, consistent with how Masters 1000s show only in their
+      // opening week.
+      if (!isGrandSlamLevel(t.level)) {
         for (let i = 1; i <= extraWeeks(t.start_date, t.end_date); i++) {
           expanded.push({ tournament: t, displayWeek: t.week + i, displayMode: 'continuation' });
         }
@@ -646,11 +641,6 @@ export default function WeekTournamentPicker({
                       {displayMode === 'continuation' && (
                         <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>
                           in progress
-                        </span>
-                      )}
-                      {displayMode === 'qualifying' && (
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-strong)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>
-                          Singles Qualifying
                         </span>
                       )}
                     </div>
