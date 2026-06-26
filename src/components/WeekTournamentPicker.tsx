@@ -64,8 +64,13 @@ function getLevelCategory(level: string): string {
   return 'Other';
 }
 
+type DisplayMode = 'main' | 'continuation' | 'qualifying';
 type WeekGroup = { key: string; week: number | null; tournaments: DisplayTournament[]; startDate: string | null };
-type DisplayTournament = { tournament: ScheduleRow; displayWeek: number | null };
+type DisplayTournament = { tournament: ScheduleRow; displayWeek: number | null; displayMode: DisplayMode };
+
+function isGrandSlamLevel(level: string): boolean {
+  return level.toLowerCase().includes('grand slam');
+}
 
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -133,10 +138,22 @@ export default function WeekTournamentPicker({
   const weekGroups = useMemo<WeekGroup[]>(() => {
     const expanded: DisplayTournament[] = [];
     for (const t of tournaments) {
-      expanded.push({ tournament: t, displayWeek: t.week });
-      if (t.week !== null) {
+      expanded.push({ tournament: t, displayWeek: t.week, displayMode: 'main' });
+      if (t.week === null) continue;
+      if (isGrandSlamLevel(t.level)) {
+        // Grand Slam singles qualifying runs the week BEFORE the main draw.
+        // Emit a virtual row in week-1 so the schedule shows the slam under
+        // its qualifying week too — that row renders with a "Singles
+        // Qualifying" badge and links to the same tournament detail page.
+        // Per the design choice, we DON'T expand GS main into a second week
+        // even though the actual main draw runs two weeks (consistent with
+        // how Masters 1000s currently display only in their opening week).
+        if (t.week > 1) {
+          expanded.push({ tournament: t, displayWeek: t.week - 1, displayMode: 'qualifying' });
+        }
+      } else {
         for (let i = 1; i <= extraWeeks(t.start_date, t.end_date); i++) {
-          expanded.push({ tournament: t, displayWeek: t.week + i });
+          expanded.push({ tournament: t, displayWeek: t.week + i, displayMode: 'continuation' });
         }
       }
     }
@@ -603,7 +620,7 @@ export default function WeekTournamentPicker({
               </div>
             </summary>
             <div style={{ borderTop: '1px solid var(--border-inner)', background: 'var(--surface-alt)' }}>
-              {group.tournaments.map(({ tournament, displayWeek }, i) => (
+              {group.tournaments.map(({ tournament, displayWeek, displayMode }, i) => (
                 <div
                   key={`${tournament.edition_id}-${displayWeek ?? 'na'}`}
                   data-week-row=""
@@ -626,9 +643,14 @@ export default function WeekTournamentPicker({
                   <div>
                     <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {displayName(tournament.name)}
-                      {displayWeek !== null && displayWeek !== tournament.week && (
+                      {displayMode === 'continuation' && (
                         <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>
                           in progress
+                        </span>
+                      )}
+                      {displayMode === 'qualifying' && (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-strong)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>
+                          Singles Qualifying
                         </span>
                       )}
                     </div>

@@ -137,6 +137,63 @@ function challengerEvent(
   };
 }
 
+// Grand Slam helper. Same shape as tourEvent but always 'Grand Slam' level,
+// always status='held', no PTL code. start_date is Monday-of-week (Sun-start
+// slams like AO/RG/USO some years store the Mon so getAtpWeekForSeason()
+// computes the right week).
+function grandSlamEvent(
+  name: string,
+  city: string,
+  country: string,
+  year: number,
+  week: number,
+  startDate: string,
+  endDate: string,
+  surface: string
+): TournamentEdition {
+  return {
+    tournament: { slug: makeSlug(name, city), name, city, country },
+    edition: {
+      year,
+      week,
+      start_date: startDate,
+      end_date: endDate,
+      level: 'Grand Slam',
+      surface,
+      indoor: false,
+      source: 'atp_tour_pdf',
+      source_url: ATP_TOUR_CALENDAR_URL,
+      status: 'held',
+      protennislive_code: null,
+      has_doubles_qualifying: false,
+    },
+  };
+}
+
+// All Grand Slam editions across 2024–2026. Weeks/dates verified against the
+// official ATP calendar PDFs. Singles qualifying lives in week-1 (handled in
+// the schedule UI, not stored as a separate row).
+function grandSlamEntries(): TournamentEdition[] {
+  return [
+    // Australian Open — Melbourne (Sun-start, 2-week)
+    grandSlamEvent('Australian Open', 'Melbourne', 'Australia', 2024, 3, '2024-01-15', '2024-01-28', 'Hard'),
+    grandSlamEvent('Australian Open', 'Melbourne', 'Australia', 2025, 3, '2025-01-13', '2025-01-26', 'Hard'),
+    grandSlamEvent('Australian Open', 'Melbourne', 'Australia', 2026, 3, '2026-01-19', '2026-02-01', 'Hard'),
+    // Roland-Garros — Paris (Sun-start, 2-week, clay)
+    grandSlamEvent('Roland-Garros', 'Paris', 'France', 2024, 22, '2024-05-27', '2024-06-09', 'Clay'),
+    grandSlamEvent('Roland-Garros', 'Paris', 'France', 2025, 22, '2025-05-26', '2025-06-08', 'Clay'),
+    grandSlamEvent('Roland-Garros', 'Paris', 'France', 2026, 21, '2026-05-25', '2026-06-07', 'Clay'),
+    // Wimbledon — London (Mon-start, 2-week, grass)
+    grandSlamEvent('Wimbledon', 'London', 'Great Britain', 2024, 27, '2024-07-01', '2024-07-14', 'Grass'),
+    grandSlamEvent('Wimbledon', 'London', 'Great Britain', 2025, 27, '2025-06-30', '2025-07-13', 'Grass'),
+    grandSlamEvent('Wimbledon', 'London', 'Great Britain', 2026, 26, '2026-06-29', '2026-07-12', 'Grass'),
+    // US Open — New York (Mon-start, 2-week, hard)
+    grandSlamEvent('US Open', 'New York', 'United States', 2024, 35, '2024-08-26', '2024-09-08', 'Hard'),
+    grandSlamEvent('US Open', 'New York', 'United States', 2025, 35, '2025-08-25', '2025-09-07', 'Hard'),
+    grandSlamEvent('US Open', 'New York', 'United States', 2026, 35, '2026-08-31', '2026-09-13', 'Hard'),
+  ];
+}
+
 export const ALL_EDITIONS: TournamentEdition[] = [
   // ─── GRAND SLAMS ─────────────────────────────────────────────────────────────
   // Each Slam = qualifying (singles only) one week, then main draw + doubles the
@@ -669,4 +726,15 @@ export const ALL_EDITIONS: TournamentEdition[] = [
     },
   },
 
+  // ─── GRAND SLAMS ──────────────────────────────────────────────────────────
+  // Each Grand Slam has Singles Main, Singles Qualifying, Doubles Main, but
+  // no Doubles Qualifying (handled by expectedDrawsForLevel in the detail
+  // page). Singles qualifying runs the week before the main draw — the
+  // schedule (WeekTournamentPicker) emits a virtual qualifying row in
+  // week-1 for any level='Grand Slam' entry, so we only need ONE row per
+  // (slam, year). Main draw is stored at its Monday-of-start-week date.
+  // protennislive_code is null: GS draw PDFs aren't published on PTL with
+  // the standard mds/qs/mdd filename convention, so cuts are set manually.
+
+  ...grandSlamEntries(),
 ];
