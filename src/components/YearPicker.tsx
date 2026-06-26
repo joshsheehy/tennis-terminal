@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AVAILABLE_SEASONS, CURRENT_SEASON } from '@/lib/seasons';
+import { AVAILABLE_SEASONS } from '@/lib/seasons';
 
 export default function YearPicker({ currentYear }: { currentYear: number }) {
   return (
@@ -9,7 +9,7 @@ export default function YearPicker({ currentYear }: { currentYear: number }) {
         return (
           <Link
             key={year}
-            href={year === CURRENT_SEASON ? '/' : `/?year=${year}`}
+            href={`/cuts?year=${year}`}
             style={{
               padding: '8px 20px',
               borderRadius: 20,
