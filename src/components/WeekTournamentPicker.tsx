@@ -17,8 +17,10 @@ function displayName(name: string): string {
   return name.replace(/,\s*[A-Z]{2}$/, '');
 }
 
-// Indoor Hard is folded into "Hard" everywhere on this page (chip, filter
-// matching, and the displayed surface label) to keep the surface set simple.
+// Indoor Hard is folded into "Hard" for the surface chip + filter matching so
+// there's no separate "Indoor Hard" pill. The actual "Indoor Hard" label is
+// still shown on each row (and the detail page) so you can see whether an event
+// is indoors once you open it.
 function normalizeSurface(surface: string | null | undefined): string {
   if (!surface) return '';
   return surface === 'Indoor Hard' ? 'Hard' : surface;
@@ -525,7 +527,7 @@ export default function WeekTournamentPicker({
         {sortedTournaments.map((t, index) => (
           <div
             key={t.edition_id}
-            data-search={normalizeForSearch(`${t.name} ${t.city} ${t.country ?? ''} ${t.level} ${normalizeSurface(t.surface)}`)}
+            data-search={normalizeForSearch(`${t.name} ${t.city} ${t.country ?? ''} ${t.level} ${t.surface}`)}
             data-surface={normalizeSurface(t.surface)}
             data-level-cat={getLevelCategory(t.level)}
           >
@@ -552,7 +554,7 @@ export default function WeekTournamentPicker({
                   {t.week ? ` | Week ${t.week}` : ''}
                 </div>
                 <div style={{ fontSize: 16, color: 'var(--text-strong)', fontWeight: 600 }}>
-                  {t.level} · {normalizeSurface(t.surface)}
+                  {t.level} · {t.surface}
                 </div>
               </div>
               <div style={{ whiteSpace: 'nowrap', padding: '12px 18px', borderRadius: 12, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 14 }}>
@@ -661,7 +663,7 @@ export default function WeekTournamentPicker({
                       {tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
                     </div>
                     <div style={{ fontSize: 14, color: 'var(--text-strong)', fontWeight: 600 }}>
-                      {tournament.level} · {normalizeSurface(tournament.surface)}
+                      {tournament.level} · {tournament.surface}
                     </div>
                   </div>
                   <div style={{ whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: 10, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 13 }}>
