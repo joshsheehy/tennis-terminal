@@ -38,6 +38,41 @@ function fallbackPdfUrl(
   return `${base}/qdd.pdf`;
 }
 
+function isGrandSlamLevel(level: string): boolean {
+  return level.toLowerCase().includes('grand slam');
+}
+
+// Grand Slams have no protennislive draw-sheet, so the standard PTL fallback
+// link doesn't apply. Instead link each draw to its Wikipedia bracket
+// article, which is deterministic per (year, slam, event/draw), shows the
+// full draw, and exists for every season — far more reliable than the
+// official slam SPAs, which have no stable historical URLs.
+function grandSlamWikipediaBase(slug: string): string | null {
+  if (slug.startsWith('australian-open')) return 'Australian Open';
+  if (slug.startsWith('roland-garros')) return 'French Open';
+  if (slug.startsWith('wimbledon')) return 'Wimbledon Championships';
+  if (slug.startsWith('us-open')) return 'US Open';
+  return null;
+}
+
+function grandSlamDrawUrl(
+  slug: string,
+  year: number,
+  event: 'singles' | 'doubles',
+  draw: 'main' | 'qualifying'
+): string | null {
+  const base = grandSlamWikipediaBase(slug);
+  if (!base) return null;
+  const suffix =
+    draw === 'qualifying'
+      ? "Men's singles qualifying"
+      : event === 'doubles'
+        ? "Men's doubles"
+        : "Men's singles";
+  const title = `${year} ${base} – ${suffix}`.replace(/ /g, '_');
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
+}
+
 function formatDate(dateString: string | null) {
   if (!dateString) return 'NA';
 
@@ -200,8 +235,13 @@ function CutoffTable({
         // protennislive_code — viewers can still open the official draw even
         // when we don't have a cut number yet.
         const snapshotHref = cutoff ? sourceHref(cutoff) : null;
+        const isGS = isGrandSlamLevel(level);
         const href = snapshotHref
-          ?? (ptlCode && !tombstoned ? fallbackPdfUrl(ptlCode, year, eventType, drawType) : null);
+          ?? (isGS
+            ? grandSlamDrawUrl(slug, year, eventType, drawType)
+            : ptlCode && !tombstoned
+              ? fallbackPdfUrl(ptlCode, year, eventType, drawType)
+              : null);
         const hasRank =
           cutoff !== null &&
           (cutoff.last_direct_acceptance_rank !== null ||
@@ -250,7 +290,7 @@ function CutoffTable({
               <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{drawLabel(draw)}</div>
               {href && !tombstoned && (
                 <a href={href} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--text-faint)', textDecoration: 'underline' }}>
-                  PDF source
+                  {isGS ? 'View draw' : 'PDF source'}
                 </a>
               )}
             </div>
