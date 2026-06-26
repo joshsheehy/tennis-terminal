@@ -17,6 +17,13 @@ function displayName(name: string): string {
   return name.replace(/,\s*[A-Z]{2}$/, '');
 }
 
+// Indoor Hard is folded into "Hard" everywhere on this page (chip, filter
+// matching, and the displayed surface label) to keep the surface set simple.
+function normalizeSurface(surface: string | null | undefined): string {
+  if (!surface) return '';
+  return surface === 'Indoor Hard' ? 'Hard' : surface;
+}
+
 function formatDate(dateString: string | null) {
   if (!dateString) return 'NA';
   // Format in UTC so a stored '2026-01-05' always renders as "Jan 5" regardless
@@ -183,8 +190,13 @@ export default function WeekTournamentPicker({
   // Available filter options derived from data
   const surfaces = useMemo(() => {
     const s = new Set<string>();
-    for (const t of tournaments) if (t.surface) s.add(t.surface);
-    const preferred = ['Hard', 'Clay', 'Grass', 'Indoor Hard', 'Carpet'];
+    for (const t of tournaments) {
+      const surf = normalizeSurface(t.surface);
+      if (surf) s.add(surf);
+    }
+    // Carpet is intentionally omitted — it's irrelevant as a filter.
+    s.delete('Carpet');
+    const preferred = ['Hard', 'Clay', 'Grass'];
     const ordered = preferred.filter(x => s.has(x));
     for (const x of s) if (!ordered.includes(x)) ordered.push(x);
     return ordered;
@@ -513,8 +525,8 @@ export default function WeekTournamentPicker({
         {sortedTournaments.map((t, index) => (
           <div
             key={t.edition_id}
-            data-search={normalizeForSearch(`${t.name} ${t.city} ${t.country ?? ''} ${t.level} ${t.surface}`)}
-            data-surface={t.surface ?? ''}
+            data-search={normalizeForSearch(`${t.name} ${t.city} ${t.country ?? ''} ${t.level} ${normalizeSurface(t.surface)}`)}
+            data-surface={normalizeSurface(t.surface)}
             data-level-cat={getLevelCategory(t.level)}
           >
             <Link
@@ -540,7 +552,7 @@ export default function WeekTournamentPicker({
                   {t.week ? ` | Week ${t.week}` : ''}
                 </div>
                 <div style={{ fontSize: 16, color: 'var(--text-strong)', fontWeight: 600 }}>
-                  {t.level} · {t.surface}
+                  {t.level} · {normalizeSurface(t.surface)}
                 </div>
               </div>
               <div style={{ whiteSpace: 'nowrap', padding: '12px 18px', borderRadius: 12, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 14 }}>
@@ -619,7 +631,7 @@ export default function WeekTournamentPicker({
                 <div
                   key={`${tournament.edition_id}-${displayWeek ?? 'na'}`}
                   data-week-row=""
-                  data-surface={tournament.surface ?? ''}
+                  data-surface={normalizeSurface(tournament.surface)}
                   data-level-cat={getLevelCategory(tournament.level)}
                 >
                 <Link
@@ -649,7 +661,7 @@ export default function WeekTournamentPicker({
                       {tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
                     </div>
                     <div style={{ fontSize: 14, color: 'var(--text-strong)', fontWeight: 600 }}>
-                      {tournament.level} · {tournament.surface}
+                      {tournament.level} · {normalizeSurface(tournament.surface)}
                     </div>
                   </div>
                   <div style={{ whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: 10, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 13 }}>
