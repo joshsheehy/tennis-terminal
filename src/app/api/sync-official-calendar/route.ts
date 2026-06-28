@@ -277,10 +277,26 @@ async function discoverLatestChallengerCalendarPdfs(year: number, lookBackDays =
   const now = new Date();
   const seasonEnd = new Date(Date.UTC(year, 11, 31));
   const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
-  const yy2 = String((year + 1) % 100).padStart(2, '0');
-  const prefixes = [`${year}-${yy2}-atp-challenger-calendar`, `${year}-atp-challenger-calendar`];
+
+  const yyNext = String((year + 1) % 100).padStart(2, '0'); // year as FIRST season:  {year}-{yyNext}
+  const yyThis = String(year % 100).padStart(2, '0');        // year as SECOND season: {year-1}-{yyThis}
+
+  // (folder, prefix) combos to probe. The ATP publishes a two-season
+  // "{A}-{A+1}" PDF inside folder {A}, and that single file covers BOTH season
+  // A and season A+1. So a year can be found two ways:
+  //   1. As the FIRST season of its own two-season PDF (folder = year).
+  //   2. As the SECOND season of the PREVIOUS year's PDF (folder = year-1) —
+  //      this is how e.g. 2027 events are found inside the 2026-27 PDF before
+  //      a standalone 2027-28 file ever exists. Without this, year=2027
+  //      discovery looked only in /2027/ and returned "no PDF found".
+  const combos: Array<{ folder: number; prefix: string }> = [
+    { folder: year, prefix: `${year}-${yyNext}-atp-challenger-calendar` },
+    { folder: year, prefix: `${year}-atp-challenger-calendar` },
+    { folder: year - 1, prefix: `${year - 1}-${yyThis}-atp-challenger-calendar` },
+  ];
+
   const discovered: string[] = [];
-  for (const prefix of prefixes) {
+  for (const { folder, prefix } of combos) {
     let foundForPrefix: string | null = null;
     for (let back = 0; back <= lookBackDays && !foundForPrefix; back += 1) {
       const probeDate = new Date(today.getTime() - back * 24 * 60 * 60 * 1000);
@@ -289,7 +305,7 @@ async function discoverLatestChallengerCalendarPdfs(year: number, lookBackDays =
       const probeYear = probeDate.getUTCFullYear();
       for (const dayVariant of [String(day), String(day).padStart(2, '0')]) {
         const filename = `${prefix}-as-of-${dayVariant}-${month}-${probeYear}.pdf`;
-        const url = `https://www.atptour.com/-/media/files/calendar-pdfs/${year}/${filename}`;
+        const url = `https://www.atptour.com/-/media/files/calendar-pdfs/${folder}/${filename}`;
         if (await probeUrlExists(url)) {
           foundForPrefix = url;
           break;
@@ -298,7 +314,7 @@ async function discoverLatestChallengerCalendarPdfs(year: number, lookBackDays =
     }
     if (foundForPrefix) discovered.push(foundForPrefix);
   }
-  return discovered;
+  return Array.from(new Set(discovered));
 }
 
 async function discoverOfficialPdfUrls(year: number) {
