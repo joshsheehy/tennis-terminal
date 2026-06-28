@@ -181,5 +181,20 @@ jobs:
 
           request_json('/api/restore-historical-status')
 
+          # 10) Autonomous-discovery health gate. If the official Challenger
+          # calendar PDF or the ITF feed has gone stale (scraper broke, ATP
+          # changed their CDN, etc.), discovery silently imports nothing and the
+          # data quietly rots. Fail the job so GitHub emails the owner instead
+          # of leaving a broken pipeline green.
+          print('\n=== Discovery health check ===', flush=True)
+          health = request_json('/api/discovery-health', required=False)
+          if not health.get('healthy', False):
+              problems = health.get('problems') or ['discovery-health did not report healthy']
+              print('DISCOVERY UNHEALTHY:', flush=True)
+              for p in problems:
+                  print(f'  - {p}', flush=True)
+              raise RuntimeError('Autonomous discovery is unhealthy: ' + ' | '.join(problems))
+          print('Discovery healthy.', flush=True)
+
           print('\nData sync complete.', flush=True)
           PY
