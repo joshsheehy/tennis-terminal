@@ -30,9 +30,20 @@ type SourceCheck = {
 };
 
 const CHECKS: SourceCheck[] = [
-  // Official ATP Challenger calendar PDF — the main "new tournaments" feed.
-  { source: 'atp_official_calendar_pdf', label: 'Challenger calendar (official PDF)', minRows: 50, maxStaleDays: 4 },
-  // ITF World Tennis Tour calendar API.
+  // Official ATP Challenger calendar PDF — the live "new tournaments" feed.
+  //
+  // IMPORTANT: row count is NOT a reliable health signal for this source.
+  // import-calendars (the static-catalogue sync that runs in the same job)
+  // re-stamps every Challenger already in tournament-data.ts back to source
+  // 'atp_challenger_pdf'. So only the challengers NOT in the hardcoded
+  // catalogue — the genuinely-new discoveries — keep the
+  // 'atp_official_calendar_pdf' source, typically a few dozen. The meaningful
+  // signal is FRESHNESS: if live discovery breaks, those rows stop updating
+  // and staleDays climbs. minRows is just a low floor to confirm the source
+  // hasn't vanished entirely.
+  { source: 'atp_official_calendar_pdf', label: 'Challenger calendar (official PDF)', minRows: 5, maxStaleDays: 4 },
+  // ITF World Tennis Tour calendar API. Not in the catalogue, so its rows
+  // keep their source and the row count IS a valid signal here.
   { source: 'itf_calendar_api', label: 'ITF calendar (itftennis.com API)', minRows: 20, maxStaleDays: 4 },
 ];
 
