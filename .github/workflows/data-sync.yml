@@ -2,9 +2,20 @@ name: Tennis Terminal data sync
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: 'nightly (current year only) or full (incl. 2024/2025 backfills)'
+        type: choice
+        options: [full, nightly]
+        default: full
   schedule:
-    # Daily at 08:15 UTC. This keeps the production DB refreshed without manual page opens.
-    - cron: '15 8 * * *'
+    # Nightly Mon–Sat at 08:15 UTC: current season only. New cuts post during
+    # active tournament weeks, so the current year genuinely needs daily.
+    - cron: '15 8 * * 1-6'
+    # Weekly full pass Sunday at 08:15 UTC: also re-backfills 2024/2025, which
+    # rarely change. Pulling these once a week instead of nightly cuts the
+    # heavy Railway compute (esp. the 2024 paging loop) by ~6x.
+    - cron: '15 8 * * 0'
 
 jobs:
   sync:
@@ -15,6 +26,10 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          # Mon–Sat schedule → nightly (current year only). The Sunday
+          # schedule and any manual run default to full; a manual run can
+          # force nightly via the workflow_dispatch input.
+          SYNC_SCOPE: ${{ github.event_name == 'workflow_dispatch' && inputs.scope || (github.event.schedule == '15 8 * * 1-6' && 'nightly' || 'full') }}
         run: |
           set -euo pipefail
 
@@ -91,14 +106,24 @@ jobs:
               print(f'WARNING: {label} hit max_pages={max_pages}; some items may be incomplete', flush=True)
               return {'ok': True, 'hasMore': False}
 
+          # Scope: 'nightly' (current year only) or 'full' (incl. 2024/2025
+          # historical backfills). Set from the firing schedule / dispatch input.
+          import datetime
+          scope = os.environ.get('SYNC_SCOPE', 'full').strip().lower()
+          current_year = datetime.date.today().year
+          # Years to run the heavy cut-refill loops over. Nightly = current only;
+          # full = historical + current. Historical years rarely change, so
+          # pulling them once a week is plenty and saves most of the compute.
+          cut_years = [current_year] if scope == 'nightly' else [2024, 2025, current_year]
+          print(f'\n=== Data sync scope: {scope} (cut years: {cut_years}) ===', flush=True)
+
           # 1) Sync canonical hardcoded calendar rows.
           request_json('/api/import-calendars')
 
           # 2) Primary calendar source: atptour.com. Import the official
           # Challenger Calendar PDF first so newly announced 2026 rows do not
-          # wait for JeffSackmann or completed-match data.
-          import datetime
-          current_year = datetime.date.today().year
+          # wait for JeffSackmann or completed-match data. Runs every night —
+          # this is the cheap "new tournaments" discovery and must stay daily.
           request_json(f'/api/sync-official-calendar?year={current_year}', required=False)
 
           # 3) ATP result-archive discovery (older fallback). Keep around for
@@ -113,7 +138,8 @@ jobs:
           # 4) JeffSackmann backfill (fallback for completed tournaments where
           # we still want the cut PDFs but the atptour.com page no longer
           # lists them). Idempotent and deliberately second-priority.
-          for year in (2024, 2025, 2026):
+          # Historical years only run in the weekly full pass.
+          for year in cut_years:
               run_paged(
                   f'Challenger season import {year}',
                   lambda offset, y=year: f'/api/import-challenger-season?year={y}&limit=50&offset={offset}',
@@ -150,15 +176,16 @@ jobs:
           # dedicated itf-sync.yml workflow. itftennis.com's bot protection
           # blocks Railway's IPs, so the fetch must happen on a GitHub runner.
 
-          # 7) ATP-level cutoff refill for each historical year. Page through so each
-          # request is bounded; one giant call would happily blow the 180s timeout.
-          for year in (2024, 2025, 2026):
+          # 7) ATP-level cutoff refill. Page through so each request is bounded;
+          # one giant call would happily blow the 180s timeout. Nightly does
+          # current year only; the weekly full pass adds 2024/2025 (2024 alone
+          # is ~870 targets / up to 200 pages — the bulk of the compute we're
+          # moving off the nightly run).
+          for year in cut_years:
               run_paged(
                   f'ATP cutoff refill {year}',
                   lambda offset, y=year: f'/api/import-cutoffs?year={y}&limit=40&offset={offset}',
-                  required=(year == 2026),
-                  # 2024 has ~870 targets; small per-page budgets mean many round trips.
-                  # 2025/2026 have fewer entries and fewer Wayback fetches.
+                  required=(year == current_year),
                   max_pages=200 if year == 2024 else 60,
               )
 
