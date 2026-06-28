@@ -465,6 +465,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Tournaments that were inserted for the first time on this run (isNew=true).
+  // These are the genuinely-new calendar additions — what the operator and the
+  // weekly cron actually care about.
+  const newlyAdded = upserted
+    .filter((row) => row.isNew === true)
+    .map((row) => ({ slug: row.slug, name: row.name, city: row.city, year: row.year, week: row.week, level: row.level }));
+
   return NextResponse.json({
     ok: failed.length === 0 && upserted.length > 0,
     dryRun,
@@ -475,6 +482,8 @@ export async function GET(request: NextRequest) {
     parsedRowCount: allRows.length,
     uniqueSeasonRowCount: uniqueRows.size,
     upsertedCount: upserted.length,
+    newlyAddedCount: newlyAdded.length,
+    newlyAdded,
     failedCount: failed.length,
     skippedCancelledOrPostponedCount: skippedRows.length,
     withoutProTennisLiveCodeCount: upserted.filter((row) => !row.hasProTennisLiveCode).length,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,8 @@ export async function GET(request: NextRequest) {
   const baseUrl = request.nextUrl.origin;
   const year = new Date().getFullYear();
 
+  // 1. Sync the hand-curated catalogue from tournament-data.ts (names, PTL
+  //    codes, surfaces) and run the stale-row sweep.
   const calendarResult = await fetchJson(`${baseUrl}/api/import-calendars`);
   if (!calendarResult.ok) {
     return NextResponse.json(
@@ -34,17 +37,63 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Run current year and previous year — catches late PDF uploads from December events
+  // 2. Discover NEW tournaments from the live official ATP Challenger calendar
+  //    PDF and add them automatically. The calendar PDF is a "{year}-{year+1}"
+  //    two-season document, so check both the current and next season to catch
+  //    additions in either. Rows are upserted with source
+  //    'atp_official_calendar_pdf', which import-calendars' stale sweep exempts,
+  //    so a freshly-discovered event isn't immediately hidden again. apply
+  //    (i.e. not apply=false) means write, not dry-run. Failures here are
+  //    non-fatal — a flaky PDF fetch shouldn't abort the cut import below.
+  const [officialCurrent, officialNext] = await Promise.all([
+    fetchJson(`${baseUrl}/api/sync-official-calendar?year=${year}&apply=true`),
+    fetchJson(`${baseUrl}/api/sync-official-calendar?year=${year + 1}&apply=true`),
+  ]);
+
+  // 3. Pull cut PDFs. Current year and previous year — catches late PDF uploads
+  //    from December events.
   const [currentYear, previousYear] = await Promise.all([
     fetchJson(`${baseUrl}/api/import-cutoffs?year=${year}`),
     fetchJson(`${baseUrl}/api/import-cutoffs?year=${year - 1}`),
   ]);
+
+  // New tournaments / fresh cuts won't show on the schedule until the cached
+  // schedule query is invalidated.
+  try {
+    revalidateTag('schedule');
+  } catch {
+    // revalidateTag can throw outside the cache runtime; safe to swallow.
+  }
+
+  // Compact summary of any tournaments the official-calendar sweep just added,
+  // so the cron response (and any log of it) shows what changed at a glance.
+  const summarizeOfficial = (result: { ok: boolean; json: unknown }) => {
+    const j = result.json as
+      | {
+          upsertedCount?: number;
+          uniqueSeasonRowCount?: number;
+          newlyAddedCount?: number;
+          newlyAdded?: Array<{ slug?: string; name?: string; week?: number; level?: string }>;
+        }
+      | undefined;
+    return {
+      ok: result.ok,
+      upsertedCount: j?.upsertedCount ?? 0,
+      uniqueSeasonRowCount: j?.uniqueSeasonRowCount ?? 0,
+      newlyAddedCount: j?.newlyAddedCount ?? 0,
+      newlyAdded: (j?.newlyAdded ?? []).map((r) => ({ slug: r.slug, name: r.name, week: r.week, level: r.level })),
+    };
+  };
 
   return NextResponse.json({
     ok: currentYear.ok,
     ranAt: new Date().toISOString(),
     year,
     calendarResult,
+    officialCalendar: {
+      current: summarizeOfficial(officialCurrent),
+      next: summarizeOfficial(officialNext),
+    },
     currentYear,
     previousYear,
   });

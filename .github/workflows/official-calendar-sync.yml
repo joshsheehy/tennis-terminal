@@ -79,7 +79,20 @@ jobs:
           # Challenger announcements are added before any fallback import runs.
           # Tolerant: server-side PDF fetch/parse has proven flaky on Railway;
           # the calendar-diagnosis workflow covers the runner-parsed path.
-          request_json(f'/api/sync-official-calendar?year={current_year}', required=False)
+          #
+          # The Challenger calendar PDF is a two-season "{year}-{year+1}"
+          # document, so sync BOTH the current and next season to catch new
+          # tournaments announced for either. newlyAdded in each response lists
+          # the genuinely-new events discovered on this run.
+          for sync_year in (current_year, current_year + 1):
+              data = request_json(f'/api/sync-official-calendar?year={sync_year}', required=False)
+              added = data.get('newlyAdded') or []
+              if added:
+                  print(f'\nNEW {sync_year} tournaments added ({len(added)}):', flush=True)
+                  for ev in added:
+                      print(f"  + wk{ev.get('week')} {ev.get('name')} ({ev.get('level')})", flush=True)
+              else:
+                  print(f'\nNo new {sync_year} tournaments this run.', flush=True)
 
           # Fill cuts if official PDFs are already posted. This is bounded and idempotent.
           for attempt in range(20):

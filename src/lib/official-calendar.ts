@@ -99,7 +99,8 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
   const code = canonical?.edition.protennislive_code ?? null;
   const sourceUrl = code ? `${row.sourcePdfUrl} | https://www.protennislive.com/posting/${editionYear}/${code}/` : row.sourcePdfUrl;
 
-  const result = { slug, name, city, country, year: editionYear, week, startDate: row.startDate, level: row.level, surface: row.surface, sourceUrl, hasProTennisLiveCode: Boolean(code) };
+  // dryRun result carries isNew=null (we don't touch the DB to check).
+  const result = { slug, name, city, country, year: editionYear, week, startDate: row.startDate, level: row.level, surface: row.surface, sourceUrl, hasProTennisLiveCode: Boolean(code), isNew: null as boolean | null };
   if (dryRun) return result;
 
   const tournamentResult = await pool.query<{ id: string }>(
@@ -114,7 +115,10 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
     [slug, name, city, country]
   );
 
-  await pool.query(
+  // RETURNING (xmax = 0) distinguishes a fresh INSERT (xmax = 0) from an
+  // ON CONFLICT UPDATE (xmax != 0), so callers can report exactly which
+  // tournaments were newly discovered vs merely refreshed.
+  const editionResult = await pool.query<{ inserted: boolean }>(
     `insert into tournament_editions (
        tournament_id, year, week, start_date, end_date, level, surface,
        indoor, source, source_url, status, updated_at
@@ -128,9 +132,10 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
        source = excluded.source,
        source_url = excluded.source_url,
        status = 'held',
-       updated_at = now()`,
+       updated_at = now()
+     returning (xmax = 0) as inserted`,
     [tournamentResult.rows[0].id, editionYear, week, row.startDate, row.level, row.surface, row.indoor, sourceUrl]
   );
 
-  return result;
+  return { ...result, isNew: editionResult.rows[0]?.inserted ?? false };
 }
