@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 
 const LINKS = [
   { href: '/', label: 'Builder' },
-  { href: '/swings', label: 'Swings' },
+  // Swings (inspiration map) hidden for now — still reachable at /swings.
   { href: '/cuts', label: 'Cuts' },
 ] as const;
 
