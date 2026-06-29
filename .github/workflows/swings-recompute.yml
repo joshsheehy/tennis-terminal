@@ -2,9 +2,11 @@ name: Swings recompute
 
 # Recomputes swing detection from the latest calendar data. Scheduled after
 # the daily data sync (08:15 UTC) so new editions are picked up the same day.
-# Schedules and the manual Run button only activate once this file is on the
-# default branch; until then, run /api/recompute-swings?dryRun=false manually
-# or use `npm run swings:recompute -- --apply`.
+#
+# Swings are DERIVED data (groupings of the schedule), not a primary source —
+# a transient hiccup here isn't worth a failure email. So this workflow logs
+# what happened but never fails the job: the only alert that matters (discovery
+# actually broken) lives on the data-sync health gate.
 
 on:
   workflow_dispatch:
@@ -27,16 +29,52 @@ jobs:
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
           YEAR: ${{ inputs.year || 'all' }}
         run: |
-          set -euo pipefail
+          # Deliberately NOT 'set -e': we handle every error ourselves and
+          # exit 0 so a transient blip in this non-critical job never emails.
+          set -uo pipefail
+
           if [ -z "${APP_URL:-}" ] || [ -z "${ADMIN_SECRET:-}" ]; then
-            echo "Missing APP_URL or ADMIN_SECRET repository secret."
-            exit 1
+            echo "WARN: Missing APP_URL or ADMIN_SECRET repository secret; skipping."
+            exit 0
           fi
+
           BASE="${APP_URL%%/}"
           case "$BASE" in http://*|https://*) ;; *) BASE="https://$BASE" ;; esac
-          curl -sS -m 600 --fail-with-body \
-            -H "Accept: application/json" \
-            -H "User-Agent: TennisTerminalSwingsRecompute/1.0" \
-            -H "X-Admin-Secret: $ADMIN_SECRET" \
-            "$BASE/api/recompute-swings?year=$YEAR&dryRun=false" \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin); [print(f"{r[\"year\"]}: {r[\"swingCount\"]} swings from {r[\"eventCount\"]} events") for r in d["results"]]; sys.exit(0 if d.get("ok") else 1)'
+
+          # Retry transient network/5xx failures a few times.
+          ok=0
+          for attempt in 1 2 3; do
+            if curl -sS -m 600 --fail-with-body \
+                 -H "Accept: application/json" \
+                 -H "User-Agent: TennisTerminalSwingsRecompute/1.0" \
+                 -H "X-Admin-Secret: $ADMIN_SECRET" \
+                 "$BASE/api/recompute-swings?year=$YEAR&dryRun=false" \
+                 -o /tmp/swings.json; then
+              ok=1
+              break
+            fi
+            echo "attempt $attempt/3 failed; retrying in $((attempt * 5))s..."
+            sleep $((attempt * 5))
+          done
+
+          if [ "$ok" != "1" ]; then
+            echo "WARN: recompute-swings unreachable after 3 attempts; swings left as-is (no alert — derived data)."
+            exit 0
+          fi
+
+          # Clean heredoc parse — no shell-escaped quotes (the old inline -c
+          # broke here with 'unexpected character after line continuation').
+          python3 - <<'PY'
+          import json
+          try:
+              with open('/tmp/swings.json') as f:
+                  d = json.load(f)
+          except Exception as e:
+              print(f"WARN: could not parse recompute-swings response: {e}")
+              raise SystemExit(0)
+          for r in d.get('results', []):
+              print(f"{r.get('year')}: {r.get('swingCount')} swings from {r.get('eventCount')} events")
+          print('Swings recompute OK.' if d.get('ok') else 'WARN: API reported ok=false; swings left as-is.')
+          PY
+          # Always succeed — see header note.
+          exit 0

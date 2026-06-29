@@ -49,7 +49,16 @@ jobs:
               echo "WARNING: ITF fetch/parse failed for $Y"
             fi
           done
-          [ "$ok" -gt 0 ] || { echo "no season produced any events"; exit 1; }
+          # itftennis.com periodically bot-blocks the runner — that's transient
+          # and recovers next day, so don't fail/email on it. If ITF genuinely
+          # stays broken, the data-sync discovery-health gate (which tracks
+          # itf_calendar_api freshness with a 4-day window) is the single place
+          # that alerts. Exit 0 here either way.
+          if [ "$ok" -gt 0 ]; then
+            echo "ITF fetch produced events for $ok season(s)."
+          else
+            echo "WARN: no season produced any events this run (likely a transient itftennis block); leaving ITF as-is."
+          fi
 
       - name: POST parsed ITF events to production
         run: |
@@ -61,7 +70,11 @@ jobs:
 
           files = sorted(glob.glob('/tmp/itf-rows-*.json'))
           if not files:
-              raise SystemExit('no parsed row files found')
+              # All fetches were blocked this run (transient itftennis block).
+              # Nothing to post; don't fail/email — the data-sync health gate
+              # alerts if ITF data actually goes stale for 4+ days.
+              print('WARN: no parsed ITF row files this run (transient fetch block); nothing to post.')
+              raise SystemExit(0)
 
           grand_total = 0
           for path in files:
