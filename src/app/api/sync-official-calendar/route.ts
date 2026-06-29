@@ -317,10 +317,47 @@ async function discoverLatestChallengerCalendarPdfs(year: number, lookBackDays =
   return Array.from(new Set(discovered));
 }
 
+// ATP Player Zone "combined" calendar. This is the BEST source: the host
+// (rsc.atppz.com) is NOT bot-blocked like atptour.com, it's published more
+// frequently, and its detailed Challenger table covers the WHOLE season —
+// whereas the atptour.com challenger PDF lagged badly (e.g. the 28-May-2026
+// version stopped at week 37 / mid-September, so every post-September
+// Challenger was missing). The detailed-table format is identical to the
+// atptour PDF, so parseOfficialChallengerRows handles it unchanged; the
+// pages 1–4 ATP-Tour summary is skipped because those rows don't match the
+// Challenger row pattern.
+//
+// URL shape: .../calendars/{year}/{YYYYMMDD}_{year}_combined_calendar.pdf
+// Probe backwards from today (or season end for past years) for the newest.
+async function discoverPlayerZoneCombinedCalendars(year: number, lookBackDays = 120): Promise<string[]> {
+  const now = new Date();
+  const seasonEnd = new Date(Date.UTC(year, 11, 31));
+  const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
+  for (let back = 0; back <= lookBackDays; back += 1) {
+    const probeDate = new Date(today.getTime() - back * 24 * 60 * 60 * 1000);
+    const y = probeDate.getUTCFullYear();
+    const m = String(probeDate.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(probeDate.getUTCDate()).padStart(2, '0');
+    const ymd = `${y}${m}${d}`;
+    const url = `https://rsc.atppz.com/-/media/atp-player-zone/pdf-files/calendars/${year}/${ymd}_${year}_combined_calendar.pdf`;
+    if (await probeUrlExists(url)) return [url];
+  }
+  return [];
+}
+
 async function discoverOfficialPdfUrls(year: number) {
-  const pages = ['https://www.atptour.com/en/tournaments', 'https://www.atptour.com/en/atp-challenger-tour/calendar'];
   const urls = new Set<string>();
   const pageErrors: Array<{ url: string; error: string }> = [];
+
+  // 1) Primary: ATP Player Zone combined calendar (reachable, freshest, full
+  //    season). When found we use it alone — it's a superset of the atptour
+  //    challenger PDF, so there's no need to also probe the laggy CDN copy.
+  for (const pdfUrl of await discoverPlayerZoneCombinedCalendars(year)) urls.add(pdfUrl);
+
+  // 2) atptour.com listing pages. These reliably 403 datacenter IPs (Railway,
+  //    CI), but keep trying in case the block ever lifts — and surface the
+  //    error so the operator can see why this path is empty.
+  const pages = ['https://www.atptour.com/en/tournaments', 'https://www.atptour.com/en/atp-challenger-tour/calendar'];
   for (const pageUrl of pages) {
     try {
       const html = await fetchHtml(pageUrl);
@@ -329,6 +366,10 @@ async function discoverOfficialPdfUrls(year: number) {
       pageErrors.push({ url: pageUrl, error: error instanceof Error ? error.message : String(error) });
     }
   }
+
+  // 3) Fallback: the atptour.com challenger calendar PDF probed off the media
+  //    CDN (incl. the previous season's two-season PDF for next-year events).
+  //    Only used when Player Zone and the listing pages turned up nothing.
   if (urls.size === 0) {
     for (const pdfUrl of await discoverLatestChallengerCalendarPdfs(year)) urls.add(pdfUrl);
   }
