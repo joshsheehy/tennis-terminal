@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SwingsPageData, SwingMapEvent } from '@/lib/swings-page-data';
 import { LevelGroup, levelRank } from '@/lib/swings';
@@ -865,6 +866,13 @@ function BuilderPanel({
                 );
               })}
             </ul>
+
+            <Link
+              className="builder-finish"
+              href={`/itinerary?build=${chain.map((e) => e.editionId).join(',')}&year=${year}`}
+            >
+              Finish &amp; plan travel →
+            </Link>
 
             <h3 className="builder-subhead">Week of {weekDateLabel(year, selectedWeek)} — pick your next stop</h3>
             {grouped.length === 0 ? (
