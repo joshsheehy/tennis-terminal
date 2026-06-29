@@ -314,6 +314,7 @@ export async function getTournamentDetailRowsBySlug(
       coalesce(exact_challenger.surface, te.surface) as surface,
       coalesce(exact_challenger.indoor, te.indoor) as indoor,
       te.source,
+      te.source_url,
       te.status
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id

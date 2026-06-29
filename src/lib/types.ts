@@ -13,6 +13,10 @@ export type ScheduleRow = {
   surface: string;
   indoor: boolean | null;
   source: string;
+  // Present on the tournament detail query; used to recover the ProTennisLive
+  // code for tournaments discovered from the calendar (not in the static
+  // catalogue). Optional because the schedule query doesn't select it.
+  source_url?: string | null;
   status: string;
 };
 

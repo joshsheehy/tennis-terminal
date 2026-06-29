@@ -49,6 +49,26 @@ function detailSheetUrl(code: string, year: number): string {
   return `https://www.protennislive.com/posting/${year}/${code}/ds.pdf`;
 }
 
+// Detail sheets only exist for ATP Tour and Challenger events (ProTennisLive
+// postings). Grand Slams, ITF, and team events (Cups/Finals) have no ds.pdf.
+function isAtpTourLevel(level: string): boolean {
+  return /\batp\s*(250|500|1000)\b/i.test(level);
+}
+function levelGetsDetailSheet(level: string): boolean {
+  return isChallengerLevel(level) || isAtpTourLevel(level);
+}
+
+// Recover the ProTennisLive code for an edition. Prefer the static catalogue
+// (stable code per slug); fall back to the code embedded in the DB source_url
+// for tournaments discovered from the calendar (e.g. post-September challengers
+// that aren't in tournament-data.ts).
+function resolveProTennisLiveCode(slug: string, sourceUrl: string | null | undefined): string | null {
+  const fromCatalogue = getProtennislivCodeForSlug(slug);
+  if (fromCatalogue) return fromCatalogue;
+  const m = (sourceUrl ?? '').match(/protennislive\.com\/posting\/\d{4}\/(\d+)/i);
+  return m ? m[1] : null;
+}
+
 // Grand Slams have no protennislive draw-sheet, so the standard PTL fallback
 // link doesn't apply. Instead link each draw to its Wikipedia bracket
 // article, which is deterministic per (year, slam, event/draw), shows the
@@ -385,9 +405,6 @@ export default async function TournamentDetailPage({
   if (rows.length === 0) notFound();
 
   const current = rows[0].edition;
-  // ProTennisLive code for this tournament (stable across years). Used to build
-  // the per-year detail-sheet link; null for Grand Slams / events with no code.
-  const ptlCode = getProtennislivCodeForSlug(slug);
 
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: 'var(--bg)', color: 'var(--text)', minHeight: 'calc(100dvh - var(--nav-h))' }}>
@@ -421,15 +438,18 @@ export default async function TournamentDetailPage({
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {rows.map((row, i) => {
           const prevRow = rows[i + 1] ?? null;
+          const detailCode = levelGetsDetailSheet(row.edition.level)
+            ? resolveProTennisLiveCode(row.edition.slug, row.edition.source_url)
+            : null;
           return (
           <div key={row.edition.edition_id} style={{ border: '1px solid var(--border-table)', borderRadius: 10, overflow: 'hidden' }}>
             <div style={{ background: 'var(--surface-raised)', padding: '14px 16px', borderBottom: '1px solid var(--border-table)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{row.edition.year}</h3>
                 <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{editionSummary(row.edition)}</p>
-                {ptlCode && (
+                {detailCode && (
                   <a
-                    href={detailSheetUrl(ptlCode, row.edition.year)}
+                    href={detailSheetUrl(detailCode, row.edition.year)}
                     target="_blank"
                     rel="noreferrer"
                     style={{ display: 'inline-block', marginTop: 6, fontSize: 12, color: 'var(--text-faint)', textDecoration: 'underline' }}
