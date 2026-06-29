@@ -49,6 +49,8 @@ create table if not exists cutoff_snapshots (
   parser_version text,
   source_notes text,
   alternate_entries_count int not null default 0,
+  -- ITF only: byes in the qualifying draw (on the singles-qualifying row).
+  qualifying_byes_count int,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (tournament_edition_id, event_type, draw_type)

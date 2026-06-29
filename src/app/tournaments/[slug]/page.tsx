@@ -210,6 +210,68 @@ function drawLabel(draw: DrawKey): string {
   }
 }
 
+// ITF cut display. The 2025 ITF strength sheet gives a main-draw cut (always a
+// rank) and a qualifying cut (a rank, or "Unranked"/"National ranking"/"Draw
+// not full") plus the number of byes in qualifying. No alts/lucky-losers.
+function itfCutText(c: CutoffSnapshot | null): string {
+  if (!c) return '—';
+  if (c.last_direct_acceptance_rank != null) {
+    const itf = (c.source_notes ?? '').includes('ITF World Ranking');
+    return `${itf ? 'ITF ' : ''}#${c.last_direct_acceptance_rank}`;
+  }
+  const n = c.source_notes ?? '';
+  if (n.includes('draw was not full')) return 'Draw not full';
+  if (n.includes('unranked')) return 'Unranked';
+  if (n.includes('national ranking')) return 'National ranking';
+  return '—';
+}
+
+function ItfCutoffTable({ cutoffs, year }: { cutoffs: CutoffSnapshot[]; year: number }) {
+  const sm = findCutoff(cutoffs, 'singles', 'main');
+  const sq = findCutoff(cutoffs, 'singles', 'qualifying');
+  const hasData =
+    (sm?.last_direct_acceptance_rank != null) ||
+    (sq != null && (sq.last_direct_acceptance_rank != null || sq.qualifying_byes_count != null));
+
+  if (!hasData) {
+    return (
+      <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
+        ITF World Tennis Tour event — no cut data on record for {year}. (2025
+        cutoffs are imported from the official ITF strength sheet; other seasons
+        aren&apos;t published in that format.)
+      </div>
+    );
+  }
+
+  const byes = sq?.qualifying_byes_count ?? null;
+  const rows: Array<{ label: string; value: string; sub?: string }> = [
+    { label: 'Singles main', value: itfCutText(sm) },
+    {
+      label: 'Singles qualifying',
+      value: itfCutText(sq),
+      sub: byes != null ? `${byes} ${byes === 1 ? 'bye' : 'byes'} in qualifying` : undefined,
+    },
+  ];
+
+  return (
+    <div style={{ borderRadius: 8, border: '1px solid var(--border-table)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 16px', background: 'var(--surface-table-head)', borderBottom: '2px solid var(--border-table-head)' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Draw</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cut</span>
+      </div>
+      {rows.map((r, i) => (
+        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, padding: '14px 16px', background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)', borderTop: i === 0 ? 'none' : '1px solid var(--border-table)' }}>
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{r.label}</div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{r.value}</div>
+            {r.sub && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{r.sub}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CutoffTable({
   cutoffs,
   level,
@@ -231,12 +293,7 @@ function CutoffTable({
   }
 
   if (isItfLevel(level)) {
-    return (
-      <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
-        ITF World Tennis Tour event — cuts are not tracked here. Entries close
-        via IPIN sign-in; acceptance lists are published on itftennis.com.
-      </div>
-    );
+    return <ItfCutoffTable cutoffs={cutoffs} year={year} />;
   }
 
   const isChallenger = isChallengerLevel(level);

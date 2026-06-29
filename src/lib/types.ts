@@ -39,6 +39,8 @@ export type CutoffSnapshot = {
   source_notes: string | null;
   alternate_entries_count: number;
   lucky_loser_count: number;
+  // Byes in the qualifying draw (ITF only). On the singles-qualifying row.
+  qualifying_byes_count?: number | null;
   created_at?: string;
   updated_at?: string;
 };
