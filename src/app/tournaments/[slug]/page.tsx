@@ -42,6 +42,13 @@ function isGrandSlamLevel(level: string): boolean {
   return level.toLowerCase().includes('grand slam');
 }
 
+// Official ProTennisLive tournament fact/detail sheet for a given year.
+// Pattern: /posting/{year}/{code}/ds.pdf — same code we already store for the
+// draw sheets, just a different filename. One per edition/year.
+function detailSheetUrl(code: string, year: number): string {
+  return `https://www.protennislive.com/posting/${year}/${code}/ds.pdf`;
+}
+
 // Grand Slams have no protennislive draw-sheet, so the standard PTL fallback
 // link doesn't apply. Instead link each draw to its Wikipedia bracket
 // article, which is deterministic per (year, slam, event/draw), shows the
@@ -378,6 +385,9 @@ export default async function TournamentDetailPage({
   if (rows.length === 0) notFound();
 
   const current = rows[0].edition;
+  // ProTennisLive code for this tournament (stable across years). Used to build
+  // the per-year detail-sheet link; null for Grand Slams / events with no code.
+  const ptlCode = getProtennislivCodeForSlug(slug);
 
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: 'var(--bg)', color: 'var(--text)', minHeight: 'calc(100dvh - var(--nav-h))' }}>
@@ -417,6 +427,16 @@ export default async function TournamentDetailPage({
               <div>
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{row.edition.year}</h3>
                 <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{editionSummary(row.edition)}</p>
+                {ptlCode && (
+                  <a
+                    href={detailSheetUrl(ptlCode, row.edition.year)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-block', marginTop: 6, fontSize: 12, color: 'var(--text-faint)', textDecoration: 'underline' }}
+                  >
+                    Tournament detail sheet ↗
+                  </a>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border-tag)', borderRadius: 6, color: 'var(--text-muted)' }}>
