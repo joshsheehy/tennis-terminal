@@ -349,22 +349,63 @@ export default function WeekTournamentPicker({
     filterWeekGroups(surfaces, levels);
   }, [year, restoreWeekGroups, filterWeekGroups]);
 
+  // Persist the active filter (surface/level chips + search) so that clicking
+  // into a tournament and hitting Back restores the exact filtered view —
+  // otherwise the ITF pill (and any other filter) is lost and the schedule
+  // snaps back to the current week. Keyed by year. Cleared when no filter is
+  // active so a fresh visit isn't pinned to a stale filter.
+  const persistFilter = useCallback(() => {
+    try {
+      const surfaces = Array.from(activeSurfacesRef.current);
+      const levels = Array.from(activeLevelsRef.current);
+      const search = inputRef.current?.value ?? '';
+      const key = `scheduleFilter:${year}`;
+      if (surfaces.length || levels.length || search) {
+        sessionStorage.setItem(key, JSON.stringify({ surfaces, levels, search }));
+      } else {
+        sessionStorage.removeItem(key);
+      }
+    } catch {
+      // sessionStorage can throw in private mode; filter persistence is a
+      // nice-to-have, never break the page over it.
+    }
+  }, [year]);
+
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
+    // Restore a persisted filter first (back-navigation from a tournament
+    // page): set the chip refs/state + search box so the view re-renders
+    // exactly as the user left it. applyFilter reads the refs, so setting them
+    // synchronously here is enough — the setState calls only re-light the chips.
+    try {
+      const saved = sessionStorage.getItem(`scheduleFilter:${year}`);
+      if (saved) {
+        const { surfaces = [], levels = [], search = '' } = JSON.parse(saved) as
+          { surfaces?: string[]; levels?: string[]; search?: string };
+        activeSurfacesRef.current = new Set(surfaces);
+        activeLevelsRef.current = new Set(levels);
+        setChipSurfaces(new Set(surfaces));
+        setChipLevels(new Set(levels));
+        el.value = search;
+      }
+    } catch {
+      // ignore malformed/blocked storage
+    }
     // Always run on mount: the baseline view needs the ITF-hiding pass even
     // with no search text or chips.
     applyFilter(el.value);
-    const handle = () => applyFilter(el.value);
+    const handle = () => { applyFilter(el.value); persistFilter(); };
     el.addEventListener('input', handle);
     return () => el.removeEventListener('input', handle);
-  }, [applyFilter]);
+  }, [applyFilter, persistFilter, year]);
 
   const clearSearch = useCallback(() => {
     vibrate();
     if (inputRef.current) { inputRef.current.value = ''; inputRef.current.focus(); }
     applyFilter('');
-  }, [applyFilter]);
+    persistFilter();
+  }, [applyFilter, persistFilter]);
 
   const toggleSurface = useCallback((surface: string) => {
     vibrate();
@@ -373,7 +414,8 @@ export default function WeekTournamentPicker({
     activeSurfacesRef.current = next;
     setChipSurfaces(new Set(next));
     applyFilter(inputRef.current?.value ?? '');
-  }, [applyFilter]);
+    persistFilter();
+  }, [applyFilter, persistFilter]);
 
   const toggleLevel = useCallback((level: string) => {
     vibrate();
@@ -382,7 +424,8 @@ export default function WeekTournamentPicker({
     activeLevelsRef.current = next;
     setChipLevels(new Set(next));
     applyFilter(inputRef.current?.value ?? '');
-  }, [applyFilter]);
+    persistFilter();
+  }, [applyFilter, persistFilter]);
 
   // Open every currently-visible week. If everything visible is already open,
   // collapse them all instead — same button toggles direction so it doesn't

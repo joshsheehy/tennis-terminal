@@ -1,7 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import WeekTournamentPicker from './WeekTournamentPicker';
 import type { ScheduleRow } from '@/lib/types';
+
+// The picker now persists the active filter to sessionStorage so Back-
+// navigation restores it. Clear it between tests so a filter toggled in one
+// case doesn't restore as the baseline in the next.
+beforeEach(() => {
+  try { window.sessionStorage.clear(); } catch { /* jsdom may lack it */ }
+});
 
 function row(partial: Partial<ScheduleRow> & Pick<ScheduleRow, 'slug' | 'name' | 'week' | 'level' | 'surface' | 'start_date'>): ScheduleRow {
   return {
