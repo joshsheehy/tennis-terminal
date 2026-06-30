@@ -367,3 +367,60 @@ export async function getTournamentDetailRowsBySlug(
     };
   });
 }
+
+// Accent/punctuation-insensitive city key, matching the JS normalization used
+// when the ITF cutoffs were imported.
+const CITY_KEY_SQL = (col: string) =>
+  `regexp_replace(${STRICT_TOURNAMENT_KEY_SQL(col)}, '[^a-z0-9]', '', 'g')`;
+
+// ITF tournaments have no stable code, and each event-week is its own
+// date-namespaced slug — so a 2026 ITF page can't show its own history the way
+// ATP/Challenger pages do. To still answer "what was the cut last year?", find
+// the nearest PRIOR-year ITF edition of the SAME tier + city (the only fuzzy
+// key we have), within a small week window, that actually has cut data. Returns
+// it as a TournamentDetailRow so the page can render it as a labeled reference.
+export async function getItfPriorYearCutEditions(
+  level: string,
+  city: string,
+  week: number | null,
+  beforeYear: number,
+  windowWeeks = 2,
+  limit = 1
+): Promise<TournamentDetailRow[]> {
+  if (week == null) return [];
+  const result = await pool.query<ScheduleRow>(
+    `
+    select
+      te.id as edition_id, t.id as tournament_id, t.slug, t.name, t.city, t.country,
+      te.year, te.week, te.start_date, te.end_date, te.level, te.surface, te.indoor,
+      te.source, te.source_url, te.status
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    where te.level = $1
+      and te.year < $2
+      and te.status = 'held'
+      and ${CITY_KEY_SQL('t.city')} = ${CITY_KEY_SQL('$3')}
+      and abs(coalesce(te.week, 0) - $4) <= $5
+      and exists (
+        select 1 from cutoff_snapshots cs
+        where cs.tournament_edition_id = te.id
+          and cs.event_type = 'singles' and cs.draw_type = 'main'
+          and cs.last_direct_acceptance_rank is not null
+      )
+    order by abs(coalesce(te.week, 0) - $4) asc, te.year desc
+    limit $6
+    `,
+    [level, beforeYear, city, week, windowWeeks, limit]
+  );
+
+  const editions = result.rows;
+  const editionIds = editions.map((e) => e.edition_id);
+  const cutoffs = await getCutoffSnapshotsForEditionIds(editionIds);
+
+  return editions.map((edition) => ({
+    edition,
+    cutoffs: cutoffs.filter((c) => c.tournament_edition_id === edition.edition_id),
+    same_level_as_previous_year: null,
+    same_week_as_previous_year: null,
+  }));
+}

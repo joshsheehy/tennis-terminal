@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getTournamentDetailRowsBySlug } from '@/lib/db';
+import { getTournamentDetailRowsBySlug, getItfPriorYearCutEditions } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { CURRENT_SEASON, EARLIEST_SEASON, isAvailableSeason } from '@/lib/seasons';
@@ -463,6 +463,19 @@ export default async function TournamentDetailPage({
 
   const current = rows[0].edition;
 
+  // ITF events have no fixed code and each week is its own slug, so a current
+  // ITF edition with no cut data (e.g. 2026, before that season's strength
+  // sheet exists) can't show its own history. Pull the nearest prior-year
+  // edition of the same tier + city by week as a "last year's cut" reference,
+  // so you can gauge entry chances from 2025 data.
+  const currentHasItfCut = rows[0].cutoffs.some(
+    (c) => c.event_type === 'singles' && c.draw_type === 'main' && c.last_direct_acceptance_rank != null
+  );
+  const itfReference =
+    isItfLevel(current.level) && !currentHasItfCut
+      ? await getItfPriorYearCutEditions(current.level, current.city, current.week, current.year)
+      : [];
+
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: 'var(--bg)', color: 'var(--text)', minHeight: 'calc(100dvh - var(--nav-h))' }}>
       <Link href={year !== CURRENT_SEASON ? `/cuts?year=${year}` : '/cuts'} style={{ fontSize: 14, color: 'var(--text-muted)' }}>
@@ -552,6 +565,29 @@ export default async function TournamentDetailPage({
           );
         })}
       </div>
+
+      {itfReference.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px' }}>Last year&apos;s cut (reference)</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px' }}>
+            ITF events have no fixed tournament code, so this is the nearest prior-year
+            {' '}{current.city} {current.level.replace(/^ITF\s*/, '')} by week — a guide to your entry chances, not the same draw.
+          </p>
+          <div style={{ display: 'grid', gap: 16 }}>
+            {itfReference.map((ref) => (
+              <div key={ref.edition.edition_id} style={{ border: '1px solid var(--border-table)', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ background: 'var(--surface-raised)', padding: '14px 16px', borderBottom: '1px solid var(--border-table)' }}>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{ref.edition.year}</h3>
+                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{editionSummary(ref.edition)}</p>
+                </div>
+                <div style={{ padding: 16 }}>
+                  <ItfCutoffTable cutoffs={ref.cutoffs} year={ref.edition.year} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
