@@ -80,6 +80,34 @@ export async function GET() {
       create index if not exists cutoff_snapshots_tournament_edition_idx on cutoff_snapshots(tournament_edition_id);
     `);
 
+    // Email alert subscribers + per-(subscriber, deadline) send log. Also
+    // created lazily by ensureSubscriberTables(); kept here so a fresh /api/setup
+    // provisions everything in one pass.
+    await client.query(`
+      create table if not exists alert_subscribers (
+        id uuid primary key default gen_random_uuid(),
+        email text not null unique,
+        active boolean not null default true,
+        categories text[] not null default array['atp','challenger'],
+        unsubscribe_token text not null default encode(gen_random_bytes(16), 'hex'),
+        created_at timestamptz not null default now(),
+        unsubscribed_at timestamptz
+      );
+    `);
+    await client.query(
+      `alter table alert_subscribers
+         add column if not exists categories text[] not null default array['atp','challenger'];`
+    );
+    await client.query(`
+      create table if not exists alert_sends (
+        id uuid primary key default gen_random_uuid(),
+        subscriber_id uuid not null references alert_subscribers(id) on delete cascade,
+        alert_key text not null,
+        sent_at timestamptz not null default now(),
+        unique (subscriber_id, alert_key)
+      );
+    `);
+
     for (const item of ALL_EDITIONS) {
       const tournamentResult = await client.query<{ id: string }>(
         `

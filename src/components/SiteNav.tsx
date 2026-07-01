@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/', label: 'Builder' },
   // Swings (inspiration map) hidden for now — still reachable at /swings.
   { href: '/cuts', label: 'Cuts' },
+  { href: '/alerts', label: 'Alerts' },
 ] as const;
 
 export default function SiteNav() {

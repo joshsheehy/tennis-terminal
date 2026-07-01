@@ -1,0 +1,80 @@
+name: Entry deadline alerts
+
+# Emails subscribers ~24 hours before each ATP/Challenger/ITF/Grand Slam entry
+# deadline. Runs daily at 16:00 UTC — that's noon Eastern Time, when the ATP
+# deadlines themselves fall, so "the day before" lands close to a true 24-hour
+# heads-up. The endpoint is idempotent (alert_sends dedupes per subscriber +
+# deadline), so an extra run or a retry never double-emails.
+
+on:
+  workflow_dispatch:
+    inputs:
+      lead:
+        description: 'Lead time in days (1 = 24h before)'
+        required: false
+        default: '1'
+      dry:
+        description: "Dry run? '1' computes without sending"
+        required: false
+        default: '0'
+  schedule:
+    - cron: '0 16 * * *'
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Send due deadline alerts
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          LEAD: ${{ inputs.lead || '1' }}
+          DRY: ${{ inputs.dry || '0' }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "WARN: Missing APP_URL or ADMIN_SECRET repository secret; skipping."
+            exit 0
+          fi
+
+          BASE="${APP_URL%%/}"
+          case "$BASE" in http://*|https://*) ;; *) BASE="https://$BASE" ;; esac
+
+          ok=0
+          for attempt in 1 2 3; do
+            if curl -sS -m 120 --fail-with-body \
+                 -H "Accept: application/json" \
+                 -H "User-Agent: TennisTerminalDeadlineAlerts/1.0" \
+                 -H "X-Admin-Secret: $ADMIN_SECRET" \
+                 "$BASE/api/send-deadline-alerts?lead=$LEAD&dry=$DRY" \
+                 -o /tmp/alerts.json; then
+              ok=1
+              break
+            fi
+            echo "attempt $attempt/3 failed; retrying in $((attempt * 5))s..."
+            sleep $((attempt * 5))
+          done
+
+          if [ "$ok" != "1" ]; then
+            echo "WARN: send-deadline-alerts unreachable after 3 attempts."
+            exit 0
+          fi
+
+          python3 - <<'PY'
+          import json
+          try:
+              with open('/tmp/alerts.json') as f:
+                  d = json.load(f)
+          except Exception as e:
+              print(f"WARN: could not parse response: {e}")
+              raise SystemExit(0)
+          print(f"subscribers={d.get('subscribers')} emailsSent={d.get('emailsSent')} "
+                f"deadlineHits={d.get('deadlineHits')} leadDays={d.get('leadDays')}")
+          for s in d.get('perSubscriber', []):
+              if s.get('newDeadlines'):
+                  status = 'sent' if s.get('sent') else f"FAILED ({s.get('error')})"
+                  print(f"  {s.get('email')}: {s.get('newDeadlines')} deadline(s) -> {status}")
+          PY
+          exit 0

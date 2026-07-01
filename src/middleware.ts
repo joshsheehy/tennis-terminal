@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Every /api route is an operator/sync tool that can read or mutate the
 // production database, so they all require the admin secret. The only
-// exception is the public coverage snapshot.
-const PUBLIC_API_PATHS = new Set(['/api/status']);
+// exceptions are the public coverage snapshot and the alert signup/unsubscribe
+// endpoints, which are reached by anonymous visitors (form POST + email link).
+const PUBLIC_API_PATHS = new Set(['/api/status', '/api/subscribe', '/api/unsubscribe']);
 
 // The secret can be supplied three ways so both automation and a human in a
 // browser address bar can authenticate:

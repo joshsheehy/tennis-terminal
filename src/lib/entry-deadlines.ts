@@ -1,0 +1,198 @@
+// Entry-deadline rules per tour category. Sources:
+//   ATP Tour & Challenger — 2026 ATP Official Rulebook §7.03 "Entry Deadlines".
+//     Deadlines are 12:00 noon Eastern Time, counted back from the MONDAY of
+//     the tournament week:
+//       Singles main draw:  ATP = 28 days,   Challenger = 21 days
+//       Singles qualifying: ATP = 21 days,   Challenger = 19 days (Wednesday)
+//       Doubles main draw:  ATP = 14 days,   Challenger =  7 days
+//   ITF World Tennis Tour — 2026 WTT Regulations. Entry deadline is 14:00 GMT
+//     on the Thursday 18 days before the Monday of the tournament week.
+//   Grand Slam — entry deadline is ~6 weeks (42 days) before the event; run by
+//     the Grand Slam Board, not the ATP, so treat as approximate.
+//
+// A subscriber chooses which of these categories they want alerts for.
+
+import { ScheduleRow } from './types';
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export type Category = 'atp' | 'challenger' | 'itf' | 'grandslam';
+
+export const CATEGORIES: Category[] = ['atp', 'challenger', 'itf', 'grandslam'];
+
+export const CATEGORY_LABEL: Record<Category, string> = {
+  atp: 'ATP Tour (250 / 500 / 1000)',
+  challenger: 'ATP Challenger Tour',
+  itf: 'ITF World Tennis Tour',
+  grandslam: 'Grand Slam',
+};
+
+export function isCategory(value: string): value is Category {
+  return (CATEGORIES as string[]).includes(value);
+}
+
+// Parse a "?cats=atp,itf" query param into a category list; empty/invalid input
+// falls back to all categories (useful for the admin test endpoint).
+export function normalizeCategoriesFromParam(raw: string | null): Category[] {
+  if (!raw) return [...CATEGORIES];
+  const parsed = raw
+    .split(',')
+    .map((c) => c.trim().toLowerCase())
+    .filter(isCategory) as Category[];
+  return parsed.length ? Array.from(new Set(parsed)) : [...CATEGORIES];
+}
+
+type RuleDef = {
+  kind: string; // stable id, part of the dedupe key
+  label: string; // human label shown in emails
+  daysPrior: number; // days before the Monday of the tournament week
+  timeNote: string; // when on that day the deadline falls
+};
+
+const CATEGORY_RULES: Record<Category, RuleDef[]> = {
+  atp: [
+    { kind: 'main', label: 'Singles main draw', daysPrior: 28, timeNote: '12:00 noon ET' },
+    { kind: 'qualifying', label: 'Singles qualifying', daysPrior: 21, timeNote: '12:00 noon ET' },
+    { kind: 'doubles', label: 'Doubles main draw', daysPrior: 14, timeNote: '12:00 noon ET' },
+  ],
+  challenger: [
+    { kind: 'main', label: 'Singles main draw', daysPrior: 21, timeNote: '12:00 noon ET' },
+    { kind: 'qualifying', label: 'Singles qualifying', daysPrior: 19, timeNote: '12:00 noon ET (Wed)' },
+    { kind: 'doubles', label: 'Doubles main draw', daysPrior: 7, timeNote: '12:00 noon ET' },
+  ],
+  itf: [
+    { kind: 'entry', label: 'Entry deadline', daysPrior: 18, timeNote: '14:00 GMT (Thu)' },
+  ],
+  grandslam: [
+    { kind: 'main', label: 'Main draw entry', daysPrior: 42, timeNote: '~6 weeks before (approx.)' },
+  ],
+};
+
+// Map a tournament level string ("ATP 250", "Challenger 75", "ITF M25",
+// "Grand Slam"…) to its category, or null when no rule governs it.
+export function categoryForLevel(level: string): Category | null {
+  const l = level.trim().toLowerCase();
+  if (l.startsWith('challenger')) return 'challenger';
+  if (l.startsWith('atp')) return 'atp';
+  if (l.startsWith('grand slam')) return 'grandslam';
+  if (l.startsWith('itf')) return 'itf';
+  return null;
+}
+
+function parseUtcDateOnly(value: string | Date): Date | null {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+  }
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+}
+
+// The Monday on or before a date. Tournament start_dates are normally already a
+// Monday, but a stray Sunday/Tuesday shouldn't shift every deadline by a day.
+export function mondayOfWeekUtc(date: Date): Date {
+  const isoDow = date.getUTCDay() === 0 ? 7 : date.getUTCDay(); // Sun=7
+  return new Date(date.getTime() - (isoDow - 1) * MS_PER_DAY);
+}
+
+function toDateOnlyString(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export type Deadline = {
+  editionId: string;
+  slug: string;
+  name: string;
+  city: string;
+  country: string | null;
+  level: string;
+  category: Category;
+  categoryLabel: string;
+  kind: string;
+  kindLabel: string;
+  tournamentStart: string; // YYYY-MM-DD, Monday of the tournament week
+  daysPrior: number;
+  deadlineDate: string; // YYYY-MM-DD the deadline falls on
+  timeNote: string;
+};
+
+// All entry deadlines for a single tournament edition, or [] for levels with no
+// rule (unknown / not covered).
+export function deadlinesForEdition(row: ScheduleRow): Deadline[] {
+  const category = categoryForLevel(row.level);
+  if (!category) return [];
+
+  const start = parseUtcDateOnly(row.start_date);
+  if (!start) return [];
+  const monday = mondayOfWeekUtc(start);
+
+  return CATEGORY_RULES[category].map((rule) => {
+    const deadline = new Date(monday.getTime() - rule.daysPrior * MS_PER_DAY);
+    return {
+      editionId: row.edition_id,
+      slug: row.slug,
+      name: row.name,
+      city: row.city,
+      country: row.country,
+      level: row.level,
+      category,
+      categoryLabel: CATEGORY_LABEL[category],
+      kind: rule.kind,
+      kindLabel: rule.label,
+      tournamentStart: toDateOnlyString(monday),
+      daysPrior: rule.daysPrior,
+      deadlineDate: toDateOnlyString(deadline),
+      timeNote: rule.timeNote,
+    };
+  });
+}
+
+// Deadlines that fall due within the next `leadDays` days of `today` — i.e.
+// deadlineDate is in [today, today + leadDays]. With leadDays = 1 (the default)
+// this is the "~24 hours before" window: it fires the day before the deadline,
+// and also catches a same-day deadline if a cron run was missed. Filtered to the
+// caller's chosen categories; doubles is opt-in via includeDoubles.
+export function dueDeadlines(
+  rows: ScheduleRow[],
+  today: Date,
+  opts: {
+    leadDays?: number;
+    categories?: Category[];
+    includeDoubles?: boolean;
+  } = {}
+): Deadline[] {
+  const leadDays = opts.leadDays ?? 1;
+  const categories = opts.categories ?? CATEGORIES;
+  const includeDoubles = opts.includeDoubles ?? false;
+  const wanted = new Set(categories);
+
+  const start = parseUtcDateOnly(today);
+  if (!start) return [];
+  const end = new Date(start.getTime() + leadDays * MS_PER_DAY);
+
+  const out: Deadline[] = [];
+  for (const row of rows) {
+    for (const d of deadlinesForEdition(row)) {
+      if (!wanted.has(d.category)) continue;
+      if (!includeDoubles && d.kind === 'doubles') continue;
+      const when = parseUtcDateOnly(d.deadlineDate);
+      if (!when) continue;
+      if (when.getTime() >= start.getTime() && when.getTime() <= end.getTime()) {
+        out.push(d);
+      }
+    }
+  }
+  out.sort((a, b) =>
+    a.deadlineDate === b.deadlineDate
+      ? a.name.localeCompare(b.name)
+      : a.deadlineDate.localeCompare(b.deadlineDate)
+  );
+  return out;
+}
+
+// Stable idempotency key for one deadline occurrence, so a subscriber is never
+// emailed about the same deadline twice.
+export function deadlineKey(d: Deadline): string {
+  return `${d.editionId}:${d.kind}`;
+}
