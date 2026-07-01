@@ -81,6 +81,57 @@ function isGrandSlamLevel(level: string): boolean {
   return level.toLowerCase().includes('grand slam');
 }
 
+function levelBadgeClass(level: string): string {
+  if (isGrandSlamLevel(level)) return 'badge-level badge-level--gs';
+  const cat = getLevelCategory(level);
+  if (cat === 'ATP') return 'badge-level badge-level--atp';
+  if (cat === 'Challenger') return 'badge-level badge-level--ch';
+  return 'badge-level';
+}
+
+function surfaceDotClass(surface: string | null | undefined): string {
+  const s = normalizeSurface(surface).toLowerCase();
+  if (s === 'hard') return 'surface-dot surface-dot--hard';
+  if (s === 'clay') return 'surface-dot surface-dot--clay';
+  if (s === 'grass') return 'surface-dot surface-dot--grass';
+  return 'surface-dot';
+}
+
+// Shared row body for both the flat search results and the week groups.
+function TournamentRowBody({
+  tournament,
+  dateText,
+  extraTag,
+}: {
+  tournament: ScheduleRow;
+  dateText: string;
+  extraTag?: React.ReactNode;
+}) {
+  return (
+    <>
+      <div className="t-row__main">
+        <div className="t-row__name">
+          {displayName(tournament.name)}
+          {extraTag}
+        </div>
+        <div className="t-row__sub">
+          {tournament.city}{tournament.country ? `, ${tournament.country}` : ''} · {dateText}
+        </div>
+        <div className="badges">
+          <span className={levelBadgeClass(tournament.level)}>{tournament.level}</span>
+          {tournament.surface && (
+            <span className="badge-surface">
+              <span className={surfaceDotClass(tournament.surface)} />
+              {tournament.surface}
+            </span>
+          )}
+        </div>
+      </div>
+      <span className="t-row__go" aria-hidden="true">→</span>
+    </>
+  );
+}
+
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
 function parseDate(s: string | null) {
@@ -454,22 +505,10 @@ export default function WeekTournamentPicker({
     setAllExpanded(anyClosed);
   }, []);
 
-  const chipStyle = (active: boolean): React.CSSProperties => ({
-    padding: '6px 14px',
-    borderRadius: 20,
-    border: active ? '2px solid var(--text-strong)' : '1px solid var(--border-tag)',
-    background: active ? 'var(--text-strong)' : 'var(--surface)',
-    color: active ? 'var(--bg)' : 'var(--text-secondary)',
-    fontSize: 14,
-    fontWeight: active ? 700 : 400,
-    cursor: 'pointer',
-    lineHeight: 1.4,
-  });
-
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       {/* Search input */}
-      <div style={{ position: 'relative' }}>
+      <div className="search-wrap">
         <input
           ref={inputRef}
           type="text"
@@ -483,90 +522,62 @@ export default function WeekTournamentPicker({
           spellCheck={false}
           inputMode="search"
           enterKeyHint="search"
-          style={{
-            width: '100%',
-            boxSizing: 'border-box',
-            padding: '12px 40px 12px 14px',
-            borderRadius: 12,
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-            color: 'var(--text-strong)',
-            fontSize: 16,
-            outline: 'none',
-          }}
+          className="search-input"
         />
         <button
           ref={clearRef}
           type="button"
           onClick={clearSearch}
           aria-label="Clear search"
-          style={{
-            display: 'none',
-            position: 'absolute',
-            top: '50%',
-            right: 8,
-            transform: 'translateY(-50%)',
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            fontSize: 18,
-            padding: 6,
-            lineHeight: 1,
-          }}
+          className="search-clear"
+          style={{ display: 'none' }}
         >
           ×
         </button>
       </div>
 
       {/* Filter chips + expand-all pill */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+      <div className="chip-row">
         {surfaces.map(surface => (
-          <button key={surface} onClick={() => toggleSurface(surface)} style={chipStyle(chipSurfaces.has(surface))}>
+          <button
+            key={surface}
+            onClick={() => toggleSurface(surface)}
+            className={`chip${chipSurfaces.has(surface) ? ' chip--on' : ''}`}
+          >
             {surface}
           </button>
         ))}
         {levelCategories.map(level => (
-          <button key={level} onClick={() => toggleLevel(level)} style={chipStyle(chipLevels.has(level))}>
+          <button
+            key={level}
+            onClick={() => toggleLevel(level)}
+            className={`chip${chipLevels.has(level) ? ' chip--on' : ''}`}
+          >
             {level}
           </button>
         ))}
         {/* Spacer pushes the expand toggle to the right on wide screens; on
             mobile it just wraps onto the next line with the other pills. */}
-        <span style={{ flex: 1, minWidth: 0 }} />
+        <span className="chip-row__spacer" />
         <button
           type="button"
           onClick={handleExpandToggle}
           aria-label={allExpanded ? 'Collapse all weeks' : 'Expand all weeks'}
-          style={{
-            ...chipStyle(allExpanded),
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
+          className={`chip${allExpanded ? ' chip--on' : ''}`}
         >
-          <span aria-hidden="true" style={{ fontSize: 11, lineHeight: 1 }}>{allExpanded ? '▲' : '▼'}</span>
+          <span className="chip__icon" aria-hidden="true">{allExpanded ? '▲' : '▼'}</span>
           {allExpanded ? 'Collapse all' : 'Expand all'}
         </button>
       </div>
 
       {/* Match count */}
-      <div
-        ref={countRef}
-        style={{ display: 'none', color: 'var(--text-muted)', padding: '4px 4px 0', fontSize: 13 }}
-      />
+      <div ref={countRef} className="hint-text" style={{ display: 'none' }} />
 
       {/* No-match message */}
-      <div
-        ref={noMatchRef}
-        style={{ display: 'none', color: 'var(--text-muted)', padding: '12px 4px', fontSize: 14 }}
-      />
+      <div ref={noMatchRef} className="hint-text hint-text--empty" style={{ display: 'none' }} />
 
       {/* Flat search/filter results — always in DOM, shown/hidden via ref */}
-      <div
-        ref={resultsRef}
-        style={{ display: 'none', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: 'var(--surface)' }}
-      >
+      <div ref={resultsRef} className="results-card" style={{ display: 'none' }}>
         {sortedTournaments.map((t, index) => (
           <div
             key={t.edition_id}
@@ -576,33 +587,12 @@ export default function WeekTournamentPicker({
           >
             <Link
               href={`/tournaments/${t.slug}${year !== CURRENT_SEASON ? `?year=${year}` : ''}`}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 20,
-                padding: '20px 24px',
-                borderTop: index === 0 ? 'none' : '1px solid var(--border-inner)',
-                textDecoration: 'none',
-                color: 'inherit',
-              }}
+              className={`t-row${index === 0 ? ' t-row--first' : ''}`}
             >
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 6 }}>
-                  {displayName(t.name)}
-                </div>
-                <div style={{ fontSize: 16, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                  {t.city}{t.country ? `, ${t.country}` : ''}{' | '}
-                  {t.start_date ? formatDate(t.start_date) : 'NA'}
-                  {t.week ? ` | Week ${t.week}` : ''}
-                </div>
-                <div style={{ fontSize: 16, color: 'var(--text-strong)', fontWeight: 600 }}>
-                  {t.level} · {t.surface}
-                </div>
-              </div>
-              <div style={{ whiteSpace: 'nowrap', padding: '12px 18px', borderRadius: 12, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 14 }}>
-                Open
-              </div>
+              <TournamentRowBody
+                tournament={t}
+                dateText={`${t.start_date ? formatDate(t.start_date) : 'NA'}${t.week ? ` · Week ${t.week}` : ''}`}
+              />
             </Link>
           </div>
         ))}
@@ -630,48 +620,28 @@ export default function WeekTournamentPicker({
                 // the open-week persistence is fine — never crash the tree.
               }
             }}
-            style={{
-              border: '1px solid var(--border)',
-              borderRadius: 16,
-              overflow: 'hidden',
-              background: 'var(--surface)',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-              marginBottom: 16,
-            }}
+            className="week-card"
           >
-            <summary
-              style={{
-                listStyle: 'none',
-                cursor: 'pointer',
-                padding: '22px 24px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
+            <summary className="week-card__summary">
               <div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="week-card__title">
                   {group.week === null ? 'Week NA' : `Week ${group.week}`}
                   {group.key === currentWeekKey && (
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 8px' }}>
-                      Current
-                    </span>
+                    <span className="tag-soft tag-soft--brand">Current</span>
                   )}
                 </div>
-                <div style={{ fontSize: 18, color: 'var(--text-secondary)' }}>
+                <div className="week-card__sub">
                   {group.startDate ? formatDate(group.startDate) : 'NA'}
-                  {' | '}
+                  {' · '}
                   <span data-week-count data-week-total={group.tournaments.length}>
                     {group.tournaments.length}{' '}
                     {group.tournaments.length === 1 ? 'tournament' : 'tournaments'}
                   </span>
                 </div>
               </div>
-              <div style={{ fontSize: 18, color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                View all ▾
-              </div>
+              <span className="week-card__chevron" aria-hidden="true">▾</span>
             </summary>
-            <div style={{ borderTop: '1px solid var(--border-inner)', background: 'var(--surface-alt)' }}>
+            <div className="week-card__body">
               {group.tournaments.map(({ tournament, displayWeek, displayMode }, i) => (
                 <div
                   key={`${tournament.edition_id}-${displayWeek ?? 'na'}`}
@@ -681,37 +651,13 @@ export default function WeekTournamentPicker({
                 >
                 <Link
                   href={`/tournaments/${tournament.slug}${year !== CURRENT_SEASON ? `?year=${year}` : ''}`}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 20,
-                    padding: '20px 24px',
-                    borderTop: i === 0 ? 'none' : '1px solid var(--border-inner)',
-                    textDecoration: 'none',
-                    color: 'inherit',
-                  }}
+                  className={`t-row${i === 0 ? ' t-row--first' : ''}`}
                 >
-                  <div>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {displayName(tournament.name)}
-                      {displayMode === 'continuation' && (
-                        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', background: 'var(--surface-tag)', border: '1px solid var(--border-tag)', borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>
-                          in progress
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 3 }}>
-                      {tournament.city}{tournament.country ? `, ${tournament.country}` : ''}{' | '}
-                      {tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
-                    </div>
-                    <div style={{ fontSize: 14, color: 'var(--text-strong)', fontWeight: 600 }}>
-                      {tournament.level} · {tournament.surface}
-                    </div>
-                  </div>
-                  <div style={{ whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: 10, border: '2px solid var(--text-strong)', background: 'var(--surface)', color: 'var(--text-strong)', fontWeight: 700, fontSize: 13 }}>
-                    Open
-                  </div>
+                  <TournamentRowBody
+                    tournament={tournament}
+                    dateText={tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
+                    extraTag={displayMode === 'continuation' ? <span className="tag-soft">in progress</span> : undefined}
+                  />
                 </Link>
                 </div>
               ))}

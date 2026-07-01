@@ -62,19 +62,18 @@ export default function AlertSignup() {
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <legend style={{ padding: 0, fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
+        <legend style={{ padding: 0, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
           Which deadlines do you want?
         </legend>
         {CATEGORY_OPTIONS.map((opt) => (
           <label
             key={opt.key}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, cursor: 'pointer' }}
+            className={`check-option${selected.has(opt.key) ? ' check-option--on' : ''}`}
           >
             <input
               type="checkbox"
               checked={selected.has(opt.key)}
               onChange={() => toggle(opt.key)}
-              style={{ width: 16, height: 16, accentColor: '#3CB043' }}
             />
             {opt.label}
           </label>
@@ -89,38 +88,17 @@ export default function AlertSignup() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
           aria-label="Email address"
-          style={{
-            flex: '1 1 220px',
-            padding: '10px 12px',
-            fontSize: 15,
-            borderRadius: 8,
-            border: '1px solid var(--border, #ccc)',
-            background: 'var(--bg)',
-            color: 'var(--text)',
-          }}
+          className="field-input"
+          style={{ flex: '1 1 220px' }}
         />
-        <button
-          type="submit"
-          disabled={status === 'loading'}
-          style={{
-            padding: '10px 18px',
-            fontSize: 15,
-            fontWeight: 600,
-            borderRadius: 8,
-            border: 'none',
-            cursor: status === 'loading' ? 'default' : 'pointer',
-            background: '#3CB043',
-            color: '#fff',
-            opacity: status === 'loading' ? 0.7 : 1,
-          }}
-        >
+        <button type="submit" disabled={status === 'loading'} className="btn btn--primary">
           {status === 'loading' ? 'Signing up…' : 'Notify me'}
         </button>
       </div>
       {message && (
         <p
           role="status"
-          style={{ margin: 0, fontSize: 14, color: status === 'error' ? '#c0392b' : '#3CB043' }}
+          className={`form-status ${status === 'error' ? 'form-status--error' : 'form-status--ok'}`}
         >
           {message}
         </p>

@@ -68,46 +68,30 @@ export default function ManagePreferences({
         Alerts for <strong>{email}</strong>
       </p>
       <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <legend style={{ padding: 0, fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
+        <legend style={{ padding: 0, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
           Which deadlines do you want?
         </legend>
         {CATEGORY_OPTIONS.map((opt) => (
           <label
             key={opt.key}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, cursor: 'pointer' }}
+            className={`check-option${selected.has(opt.key) ? ' check-option--on' : ''}`}
           >
             <input
               type="checkbox"
               checked={selected.has(opt.key)}
               onChange={() => toggle(opt.key)}
-              style={{ width: 16, height: 16, accentColor: '#3CB043' }}
             />
             {opt.label}
           </label>
         ))}
       </fieldset>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          onClick={save}
-          disabled={status === 'loading'}
-          style={{
-            padding: '10px 18px',
-            fontSize: 15,
-            fontWeight: 600,
-            borderRadius: 8,
-            border: 'none',
-            cursor: status === 'loading' ? 'default' : 'pointer',
-            background: '#3CB043',
-            color: '#fff',
-            opacity: status === 'loading' ? 0.7 : 1,
-          }}
-        >
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button type="button" onClick={save} disabled={status === 'loading'} className="btn btn--primary">
           {status === 'loading' ? 'Saving…' : 'Save preferences'}
         </button>
         <a
           href={`/api/unsubscribe?token=${encodeURIComponent(token)}`}
-          style={{ fontSize: 14, color: 'var(--text-muted)' }}
+          style={{ fontSize: 14, color: 'var(--text-muted)', textDecoration: 'underline', textUnderlineOffset: 2 }}
         >
           Unsubscribe from all
         </a>
@@ -115,7 +99,7 @@ export default function ManagePreferences({
       {message && (
         <p
           role="status"
-          style={{ margin: 0, fontSize: 14, color: status === 'error' ? '#c0392b' : '#3CB043' }}
+          className={`form-status ${status === 'error' ? 'form-status--error' : 'form-status--ok'}`}
         >
           {message}
         </p>

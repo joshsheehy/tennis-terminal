@@ -25,34 +25,15 @@ export default async function CutsPage({
   const tournaments = await getCachedSchedule(year);
 
   return (
-    <main
-      style={{
-        maxWidth: 900,
-        margin: '0 auto',
-        padding: '32px 16px',
-        background: 'var(--bg)',
-        color: 'var(--text)',
-        minHeight: 'calc(100dvh - var(--nav-h))',
-      }}
-    >
+    <main className="page">
       <div style={{ marginBottom: 24 }}>
-        <p
-          style={{
-            fontSize: 12,
-            textTransform: 'uppercase',
-            letterSpacing: '0.2em',
-            color: 'var(--text-muted)',
-            marginBottom: 8,
-          }}
-        >
-          Entry cuts
-        </p>
+        <p className="eyebrow">Entry cuts</p>
 
-        <h1 style={{ margin: 0, marginBottom: 16 }}>Tournament calendar</h1>
+        <h1 className="page-title" style={{ marginBottom: 16 }}>Tournament calendar</h1>
 
         <YearPicker currentYear={year} />
 
-        <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+        <p className="page-lede">
           Pick a week first, then choose a tournament to open its historical page.
         </p>
       </div>
@@ -63,11 +44,9 @@ export default async function CutsPage({
         <WeekTournamentPicker tournaments={tournaments} year={year} defaultWeekKey={weekParam} />
       )}
 
-      <p style={{ marginTop: 48, fontSize: 13, color: 'var(--text-faint)', textAlign: 'center' }}>
+      <p className="page-footnote">
         Questions, comments, or just want to talk?{' '}
-        <a href="mailto:josh@tenniscuts.com" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
-          josh@tenniscuts.com
-        </a>
+        <a href="mailto:josh@tenniscuts.com">josh@tenniscuts.com</a>
       </p>
     </main>
   );

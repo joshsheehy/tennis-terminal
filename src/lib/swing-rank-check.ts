@@ -30,11 +30,14 @@ export const EMPTY_CUT_REFERENCE: CutReference = {
 
 export type EntryStatus = 'main' | 'qualifying' | 'out' | 'unknown';
 
+// Colors resolve through CSS variables so each theme can pick a readable
+// shade (amber/red need darker cuts on the light background). Fallbacks keep
+// non-DOM consumers (e.g. tests) working.
 export const STATUS_META: Record<EntryStatus, { label: string; short: string; color: string }> = {
-  main: { label: 'Main draw', short: 'MD', color: '#22c55e' },
-  qualifying: { label: 'Qualifying', short: 'Q', color: '#fbbf24' },
-  out: { label: 'Out', short: 'OUT', color: '#f87171' },
-  unknown: { label: 'No cut data', short: '—', color: '#64748b' },
+  main: { label: 'Main draw', short: 'MD', color: 'var(--status-main, #22c55e)' },
+  qualifying: { label: 'Qualifying', short: 'Q', color: 'var(--status-q, #fbbf24)' },
+  out: { label: 'Out', short: 'OUT', color: 'var(--status-out, #f87171)' },
+  unknown: { label: 'No cut data', short: '—', color: 'var(--status-unknown, #64748b)' },
 };
 
 /**

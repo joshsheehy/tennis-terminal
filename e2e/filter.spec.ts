@@ -5,7 +5,8 @@ import { test, expect } from '@playwright/test';
 // narrowed to the selected level. Assumes the seeded dev DB (npm run db:setup).
 test.describe('tournament pill filters', () => {
   test('clicking a level pill keeps the week dropdowns and filters rows', async ({ page }) => {
-    await page.goto('/');
+    // The schedule lives at /cuts (home is the swing Builder).
+    await page.goto('/cuts');
 
     const weeks = page.locator('details[data-week-key]');
     await expect(weeks.first()).toBeVisible();

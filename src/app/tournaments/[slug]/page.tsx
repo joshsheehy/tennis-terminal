@@ -235,7 +235,7 @@ function ItfCutoffTable({ cutoffs, year }: { cutoffs: CutoffSnapshot[]; year: nu
 
   if (!hasData) {
     return (
-      <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
+      <div className="muted-panel">
         ITF World Tennis Tour event — no cut data on record for {year}. (2025
         cutoffs are imported from the official ITF strength sheet; other seasons
         aren&apos;t published in that format.)
@@ -254,17 +254,17 @@ function ItfCutoffTable({ cutoffs, year }: { cutoffs: CutoffSnapshot[]; year: nu
   ];
 
   return (
-    <div style={{ borderRadius: 8, border: '1px solid var(--border-table)', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 16px', background: 'var(--surface-table-head)', borderBottom: '2px solid var(--border-table-head)' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Draw</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cut</span>
+    <div className="cut-table">
+      <div className="cut-table__head">
+        <span>Draw</span>
+        <span>Cut</span>
       </div>
-      {rows.map((r, i) => (
-        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, padding: '14px 16px', background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)', borderTop: i === 0 ? 'none' : '1px solid var(--border-table)' }}>
-          <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{r.label}</div>
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{r.value}</div>
-            {r.sub && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{r.sub}</div>}
+      {rows.map((r) => (
+        <div key={r.label} className="cut-table__row">
+          <div className="cut-table__label">{r.label}</div>
+          <div className="cut-table__right">
+            <div className="cut-value">{r.value}</div>
+            {r.sub && <div className="cut-sub">{r.sub}</div>}
           </div>
         </div>
       ))}
@@ -286,7 +286,7 @@ function CutoffTable({
   const ptlCode = getProtennislivCodeForSlug(slug);
   if (isInvitationOnlyLevel(level)) {
     return (
-      <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
+      <div className="muted-panel">
         Invitation-only / team format — no ranking-based cutoff applies.
       </div>
     );
@@ -300,15 +300,15 @@ function CutoffTable({
   const expected = expectedDrawsForLevel(level);
 
   return (
-    <div style={{ borderRadius: 8, border: '1px solid var(--border-table)', overflow: 'hidden' }}>
+    <div className="cut-table">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 16px', background: 'var(--surface-table-head)', borderBottom: '2px solid var(--border-table-head)' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Draw</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cut · ALT/LL</span>
+      <div className="cut-table__head">
+        <span>Draw</span>
+        <span>Cut · ALT/LL</span>
       </div>
 
       {/* Rows */}
-      {expected.map((draw, i) => {
+      {expected.map((draw) => {
         const [eventType, drawType] = draw.split('_') as ['singles' | 'doubles', 'main' | 'qualifying'];
         const cutoff = findCutoff(cutoffs, eventType, drawType);
         const tombstoned = cutoff ? isTombstone(cutoff) : false;
@@ -335,57 +335,44 @@ function CutoffTable({
 
         let cutDisplay: React.ReactNode;
         if (!cutoff) {
-          cutDisplay = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontSize: 13 }}>Not yet imported</span>;
+          cutDisplay = <span className="cut-value cut-value--na">Not yet imported</span>;
         } else if (!hasRank || tombstoned) {
-          cutDisplay = <span style={{ color: 'var(--text-placeholder)', fontStyle: 'italic', fontSize: 13 }}>Not on record</span>;
+          cutDisplay = <span className="cut-value cut-value--na">Not on record</span>;
         } else if (isChallenger && eventType === 'doubles') {
-          cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{challengerDoublesCutText(cutoff)}</span>;
+          cutDisplay = <span className="cut-value">{challengerDoublesCutText(cutoff)}</span>;
         } else if (cutoff.last_alternate_rank != null) {
           // Hand-sourced "real" cut after alternates/withdrawals — show it as the
           // primary number (matches the swing checker), with the direct cut noted
           // beneath for transparency.
           cutDisplay = (
             <>
-              <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_alternate_rank)}</span>
+              <span className="cut-value">{rankText(cutoff.last_alternate_rank)}</span>
               {cutoff.last_direct_acceptance_rank != null && (
-                <div style={{ fontSize: 11, color: 'var(--text-faint)', fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)} direct</div>
+                <div className="cut-sub cut-sub--faint">{rankText(cutoff.last_direct_acceptance_rank)} direct</div>
               )}
             </>
           );
         } else {
-          cutDisplay = <span style={{ color: 'var(--text-strong)', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{rankText(cutoff.last_direct_acceptance_rank)}</span>;
+          cutDisplay = <span className="cut-value">{rankText(cutoff.last_direct_acceptance_rank)}</span>;
         }
 
         return (
-          <div
-            key={draw}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              gap: 16,
-              padding: '14px 16px',
-              background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)',
-              borderTop: i === 0 ? 'none' : '1px solid var(--border-table)',
-            }}
-          >
+          <div key={draw} className="cut-table__row">
             {/* Left: draw label + PDF link */}
             <div>
-              <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{drawLabel(draw)}</div>
+              <div className="cut-table__label">{drawLabel(draw)}</div>
               {href && !tombstoned && (
-                <a href={href} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--text-faint)', textDecoration: 'underline' }}>
+                <a href={href} target="_blank" rel="noreferrer" className="src-link">
                   {isGS ? 'View draw' : 'PDF source'}
                 </a>
               )}
             </div>
 
             {/* Right: cut rank + ALT/LL stacked */}
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div className="cut-table__right">
               <div>{cutDisplay}</div>
               {hasRank && cutoff && (
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
-                  {altLlText(cutoff)}
-                </div>
+                <div className="cut-sub">{altLlText(cutoff)}</div>
               )}
             </div>
           </div>
@@ -477,17 +464,15 @@ export default async function TournamentDetailPage({
       : [];
 
   return (
-    <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 16px', background: 'var(--bg)', color: 'var(--text)', minHeight: 'calc(100dvh - var(--nav-h))' }}>
-      <Link href={year !== CURRENT_SEASON ? `/cuts?year=${year}` : '/cuts'} style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+    <main className="page">
+      <Link href={year !== CURRENT_SEASON ? `/cuts?year=${year}` : '/cuts'} className="back-link">
         ← Back to {year} schedule
       </Link>
 
-      <div style={{ marginTop: 24, paddingBottom: 20, borderBottom: '1px solid var(--border-table)' }}>
-        <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--text-faint)', marginBottom: 6 }}>
-          Tournament
-        </p>
-        <h1 style={{ margin: 0, marginBottom: 4, fontSize: 28, fontWeight: 700 }}>{displayName(current.name)}</h1>
-        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 15 }}>
+      <div className="detail-hero">
+        <p className="eyebrow">Tournament</p>
+        <h1 className="page-title" style={{ fontSize: 28, marginBottom: 4 }}>{displayName(current.name)}</h1>
+        <p className="detail-hero__place">
           {current.city}{current.country ? `, ${current.country}` : ''}
         </p>
         <div className="meta-grid">
@@ -498,60 +483,57 @@ export default async function TournamentDetailPage({
             ['Start', formatDate(current.start_date)],
           ].map(([label, value]) => (
             <div key={String(label)}>
-              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-faint)', marginBottom: 2 }}>{label}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>{value}</div>
+              <div className="meta-grid__label">{label}</div>
+              <div className="meta-grid__value">{value}</div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
         {rows.map((row, i) => {
           const prevRow = rows[i + 1] ?? null;
           const detailCode = levelGetsDetailSheet(row.edition.level)
             ? resolveProTennisLiveCode(row.edition.slug, row.edition.source_url)
             : null;
           return (
-          <div key={row.edition.edition_id} style={{ border: '1px solid var(--border-table)', borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ background: 'var(--surface-raised)', padding: '14px 16px', borderBottom: '1px solid var(--border-table)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+          <div key={row.edition.edition_id} className="edition-card">
+            <div className="edition-card__head">
               <div>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{row.edition.year}</h3>
-                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{editionSummary(row.edition)}</p>
+                <h3 className="edition-card__year">{row.edition.year}</h3>
+                <p className="edition-card__meta">{editionSummary(row.edition)}</p>
                 {detailCode && (
                   <a
                     href={detailSheetUrl(detailCode, row.edition.year)}
                     target="_blank"
                     rel="noreferrer"
-                    style={{ display: 'inline-block', marginTop: 6, fontSize: 12, color: 'var(--text-faint)', textDecoration: 'underline' }}
+                    className="src-link"
+                    style={{ marginTop: 6 }}
                   >
                     Tournament detail sheet ↗
                   </a>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12, padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border-tag)', borderRadius: 6, color: 'var(--text-muted)' }}>
+                <span className="pill-note">
                   Level: <strong>{fallback(row.edition.level)}</strong>
                   {row.same_level_as_previous_year === false && prevRow && (
-                    <span style={{ color: 'var(--text-faint)' }}> ← was {fallback(prevRow.edition.level)}</span>
+                    <span className="was"> ← was {fallback(prevRow.edition.level)}</span>
                   )}
                 </span>
-                <span style={{ fontSize: 12, padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border-tag)', borderRadius: 6, color: 'var(--text-muted)' }}>
+                <span className="pill-note">
                   Week: <strong>{fallback(row.edition.week)}</strong>
                   {row.same_week_as_previous_year === false && prevRow && (
-                    <span style={{ color: 'var(--text-faint)' }}> ← was {fallback(prevRow.edition.week)}</span>
+                    <span className="was"> ← was {fallback(prevRow.edition.week)}</span>
                   )}
                 </span>
               </div>
             </div>
-            <div style={{ padding: 16 }}>
+            <div className="edition-card__body">
               {row.edition.status === 'not_held' ? (
-                <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
-                  Tournament not held this year.
-                </div>
+                <div className="muted-panel">Tournament not held this year.</div>
               ) : row.edition.start_date && new Date(row.edition.start_date) > new Date() ? (
-                <div style={{ padding: '12px 16px', background: 'var(--surface-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 14 }}>
-                  Tournament has not started yet.
-                </div>
+                <div className="muted-panel">Tournament has not started yet.</div>
               ) : (
                 <CutoffTable
                   cutoffs={row.cutoffs}
@@ -568,19 +550,21 @@ export default async function TournamentDetailPage({
 
       {itfReference.length > 0 && (
         <div style={{ marginTop: 28 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px' }}>Last year&apos;s cut (reference)</h2>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px', color: 'var(--text-strong)' }}>Last year&apos;s cut (reference)</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
             ITF events have no fixed tournament code, so this is the nearest prior-year
             {' '}{current.city} {current.level.replace(/^ITF\s*/, '')} by week — a guide to your entry chances, not the same draw.
           </p>
           <div style={{ display: 'grid', gap: 16 }}>
             {itfReference.map((ref) => (
-              <div key={ref.edition.edition_id} style={{ border: '1px solid var(--border-table)', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ background: 'var(--surface-raised)', padding: '14px 16px', borderBottom: '1px solid var(--border-table)' }}>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{ref.edition.year}</h3>
-                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{editionSummary(ref.edition)}</p>
+              <div key={ref.edition.edition_id} className="edition-card">
+                <div className="edition-card__head">
+                  <div>
+                    <h3 className="edition-card__year">{ref.edition.year}</h3>
+                    <p className="edition-card__meta">{editionSummary(ref.edition)}</p>
+                  </div>
                 </div>
-                <div style={{ padding: 16 }}>
+                <div className="edition-card__body">
                   <ItfCutoffTable cutoffs={ref.cutoffs} year={ref.edition.year} />
                 </div>
               </div>
