@@ -3,9 +3,11 @@ import { test, expect } from '@playwright/test';
 // Verifies the core behaviour of the pill filters: the week-grouped dropdowns
 // stay in place (the app does not collapse into a flat list) and rows are
 // narrowed to the selected level. Assumes the seeded dev DB (npm run db:setup).
+// Lives on /cuts — the IA restructure made the homepage the swing Builder and
+// moved the week-grouped calendar there.
 test.describe('tournament pill filters', () => {
   test('clicking a level pill keeps the week dropdowns and filters rows', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/cuts');
 
     const weeks = page.locator('details[data-week-key]');
     await expect(weeks.first()).toBeVisible();
