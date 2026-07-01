@@ -98,6 +98,38 @@ export async function listActiveSubscribers(): Promise<Subscriber[]> {
   return result.rows;
 }
 
+// Look up a subscriber by their token (the same token used for unsubscribe
+// links). Used by the "edit preferences" page. Returns null for unknown tokens.
+export async function getSubscriberByToken(token: string): Promise<Subscriber | null> {
+  await ensureSubscriberTables();
+  if (!token) return null;
+  const result = await pool.query<Subscriber>(
+    `select id, email, active, categories, unsubscribe_token
+       from alert_subscribers
+      where unsubscribe_token = $1`,
+    [token]
+  );
+  return result.rows[0] ?? null;
+}
+
+// Update a subscriber's chosen categories via their token. Editing preferences
+// also re-activates a previously-unsubscribed address. Returns the updated
+// subscriber, or null if the token is unknown.
+export async function updateCategoriesByToken(
+  token: string,
+  categories: Category[]
+): Promise<Subscriber | null> {
+  await ensureSubscriberTables();
+  const result = await pool.query<Subscriber>(
+    `update alert_subscribers
+        set categories = $2, active = true, unsubscribed_at = null
+      where unsubscribe_token = $1
+      returning id, email, active, categories, unsubscribe_token`,
+    [token, categories]
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function unsubscribeByToken(token: string): Promise<string | null> {
   await ensureSubscriberTables();
   const result = await pool.query<{ email: string }>(

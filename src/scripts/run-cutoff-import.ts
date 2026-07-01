@@ -39,14 +39,14 @@ async function main() {
     throw new Error('APP_URL or RAILWAY_PUBLIC_DOMAIN is required for scheduled data sync');
   }
 
-  console.log(`Starting Tennis Terminal scheduled data sync for ${baseUrl}`);
+  console.log(`Starting Tennis Cuts scheduled data sync for ${baseUrl}`);
 
   await runStep('calendar import', `${baseUrl}/api/import-calendars`);
   await runStep('2026 cutoff import', `${baseUrl}/api/import-cutoffs?year=2026`);
   await runStep('2025 cutoff import', `${baseUrl}/api/import-cutoffs?year=2025`);
   await runStep('2024 cutoff import', `${baseUrl}/api/import-cutoffs?year=2024`);
 
-  console.log('Full Tennis Terminal scheduled data sync finished');
+  console.log('Full Tennis Cuts scheduled data sync finished');
 }
 
 main().catch((error) => {

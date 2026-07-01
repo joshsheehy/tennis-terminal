@@ -3,7 +3,7 @@
 // other service with plain fetch). Set these on Railway:
 //
 //   RESEND_API_KEY   - from https://resend.com (free tier is plenty for this)
-//   ALERT_FROM_EMAIL - a verified sender, e.g. "Tennis Terminal <alerts@yourdomain>".
+//   ALERT_FROM_EMAIL - a verified sender, e.g. "Tennis Cuts <alerts@yourdomain>".
 //                      Before you verify a domain, Resend lets you send from
 //                      "onboarding@resend.dev" to your OWN account email — ideal
 //                      for testing with yourself.
@@ -17,7 +17,7 @@ export function emailConfigured(): boolean {
 }
 
 export function fromAddress(): string {
-  return process.env.ALERT_FROM_EMAIL || 'Tennis Terminal <onboarding@resend.dev>';
+  return process.env.ALERT_FROM_EMAIL || 'Tennis Cuts <onboarding@resend.dev>';
 }
 
 export async function sendEmail(opts: {

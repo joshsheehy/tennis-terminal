@@ -8,6 +8,7 @@ import {
   dueDeadlines,
   normalizeCategoriesFromParam,
 } from '@/lib/entry-deadlines';
+import { renderDigest } from '@/lib/alert-email';
 import { emailConfigured, sendEmail } from '@/lib/email';
 import {
   claimSend,
@@ -169,83 +170,3 @@ function summarize(d: Deadline) {
   };
 }
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  return d.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  });
-}
-
-// Build the subject + HTML + plain-text digest for a set of deadlines.
-function renderDigest(deadlines: Deadline[], origin: string, unsubToken: string) {
-  const count = deadlines.length;
-  const soonest = deadlines[0];
-  const subject =
-    count === 1
-      ? `Entry deadline tomorrow: ${soonest.name} (${soonest.kindLabel})`
-      : `${count} entry deadlines coming up`;
-
-  const rows = deadlines
-    .map(
-      (d) => `
-      <tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee">
-          <strong>${esc(d.name)}</strong><br>
-          <span style="color:#666;font-size:13px">${esc(d.level)} · ${esc(d.city)}${
-            d.country ? ', ' + esc(d.country) : ''
-          } · starts ${formatDate(d.tournamentStart)}</span>
-        </td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;white-space:nowrap">
-          ${esc(d.kindLabel)}
-        </td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;white-space:nowrap">
-          <strong>${formatDate(d.deadlineDate)}</strong><br>
-          <span style="color:#666;font-size:13px">${esc(d.timeNote)}</span>
-        </td>
-      </tr>`
-    )
-    .join('');
-
-  const unsubUrl = `${origin}/api/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
-  const html = `<!doctype html><html><body style="margin:0;background:#f6f7f8;font-family:system-ui,-apple-system,sans-serif;color:#111">
-  <div style="max-width:640px;margin:0 auto;padding:24px 16px">
-    <h1 style="font-size:18px;margin:0 0 4px">Entry deadlines</h1>
-    <p style="color:#555;font-size:14px;margin:0 0 16px">
-      ${count === 1 ? 'A deadline is' : count + ' deadlines are'} due within about 24 hours. Times are shown per the governing body.
-    </p>
-    <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #eee;border-radius:8px;overflow:hidden;font-size:14px">
-      <thead>
-        <tr style="background:#fafafa;text-align:left">
-          <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase">Tournament</th>
-          <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase">Draw</th>
-          <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase">Deadline</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <p style="color:#999;font-size:12px;margin:20px 0 0">
-      You're receiving this because you signed up for Tennis Terminal alerts.
-      <a href="${unsubUrl}" style="color:#999">Unsubscribe</a>.
-    </p>
-  </div>
-</body></html>`;
-
-  const text =
-    `Entry deadlines due within ~24 hours:\n\n` +
-    deadlines
-      .map(
-        (d) =>
-          `- ${d.name} (${d.level}) — ${d.kindLabel}: ${formatDate(d.deadlineDate)} ${d.timeNote}. Tournament starts ${formatDate(d.tournamentStart)}.`
-      )
-      .join('\n') +
-    `\n\nUnsubscribe: ${unsubUrl}`;
-
-  return { subject, html, text };
-}
