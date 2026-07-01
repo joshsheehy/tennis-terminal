@@ -1,13 +1,15 @@
 @import 'leaflet/dist/leaflet.css';
 
 /* /swings map view — mobile-first (built/verified at 380px), desktop as an
-   enhancement at the bottom. Uses the app's existing CSS theme variables. */
+   enhancement at the bottom. Uses the app's existing CSS theme variables.
+
+   V2 layout: the map is full-bleed behind everything; filters and the season
+   timeline float over it as frosted-glass clusters, and on desktop the
+   itinerary sheet becomes a floating card inset from the right edge. */
 
 .swings-root {
-  display: flex;
-  flex-direction: column;
   /* Sits below the global top nav. position:relative so the absolutely
-     positioned bottom sheet anchors here (below the nav), not the viewport. */
+     positioned overlays + bottom sheet anchor here, not the viewport. */
   position: relative;
   height: calc(100dvh - var(--nav-h));
   background: var(--bg);
@@ -15,19 +17,37 @@
   overflow: hidden;
 }
 
-/* Inline filter pills: the only filter UI now (no gear/sheet). Year (single
+/* Floating control cluster (filters + timeline). pointer-events pass through
+   the container so the map stays draggable between the glass cards. */
+.swings-float {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.swings-float > * { pointer-events: auto; }
+
+/* Inline filter pills: the only filter UI (no gear/sheet). Year (single
    select), levels and surfaces (multi toggle). Horizontally scrollable so the
-   row never wraps. This is the top bar of the map view. */
+   row never wraps. Frosted-glass card floating over the map. */
 .swings-filters {
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 14px;
+  padding: 8px 10px;
   overflow-x: auto;
   scrollbar-width: none;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--nav-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-2);
 }
 .swings-filters::-webkit-scrollbar { display: none; }
 .filter-sep {
@@ -318,65 +338,156 @@
   white-space: nowrap;
 }
 
-/* Week strip */
-.week-strip {
-  flex: 0 0 auto;
+/* Season timeline — months as anchors, weeks as ticks with density bars. */
+.timeline {
   display: flex;
-  gap: 4px;
+  align-items: flex-end;
+  gap: 14px;
   overflow-x: auto;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
   scrollbar-width: none;
-}
-.week-strip::-webkit-scrollbar { display: none; }
-.week-pill {
-  flex: 0 0 auto;
-  min-width: 56px;
-  padding: 8px 12px;
-  border-radius: 10px;
+  padding: 8px 12px 6px;
   border: 1px solid var(--border);
-  background: var(--surface-subtle);
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+  border-radius: 14px;
+  background: var(--nav-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-2);
 }
-.week-pill:hover { color: var(--text-strong); border-color: var(--text-faint); }
-.week-pill--active {
+.timeline::-webkit-scrollbar { display: none; }
+.timeline__month { flex: 0 0 auto; }
+.timeline__month-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  margin: 0 0 2px 4px;
+}
+.timeline__weeks { display: flex; gap: 2px; }
+.timeline__week {
+  flex: 0 0 auto;
+  width: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  padding: 3px 0 2px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.timeline__week:hover { background: var(--surface-subtle); }
+.timeline__bar {
+  width: 14px;
+  border-radius: 3px 3px 1px 1px;
+  background: var(--text-faint);
+  opacity: 0.55;
+  transition: background 120ms ease, opacity 120ms ease;
+}
+.timeline__week:hover .timeline__bar { opacity: 0.85; }
+.timeline__day {
+  min-width: 22px;
+  padding: 1px 0;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.timeline__week--on .timeline__bar {
+  background: var(--brand-ink);
+  opacity: 1;
+}
+.timeline__week--on .timeline__day {
   background: var(--brand-ink);
   color: #fff;
-  border-color: var(--brand-ink);
-  font-weight: 600;
 }
-.week-pill--active:hover { color: #fff; border-color: var(--brand-ink); }
 
-/* Map */
-.swings-map-wrap { position: relative; flex: 1 1 auto; min-height: 0; }
+/* Map — full-bleed behind the floating UI */
+.swings-map-wrap { position: absolute; inset: 0; }
 .swings-map { position: absolute; inset: 0; height: 100%; width: 100%; }
 .swings-map--loading {
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
+  background: var(--surface-alt);
 }
 
-/* Numbered swing dots (Leaflet divIcon content) */
+/* Leaflet chrome, themed. Zoom sits bottom-left (hidden on touch layouts,
+   where pinch does the job); attribution rides just above the bottom sheet. */
+.leaflet-container { background: var(--surface-alt); font: inherit; }
+.leaflet-bottom.leaflet-left {
+  bottom: 94px; /* clear the collapsed mobile sheet */
+  transition: bottom 0.22s ease;
+}
+.leaflet-control-zoom { display: none; }
+.leaflet-touch .leaflet-control-zoom.leaflet-bar,
+.leaflet-control-zoom.leaflet-bar {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow-2);
+}
+.leaflet-control-zoom a,
+.leaflet-touch .leaflet-control-zoom a {
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+  font-size: 17px;
+  background: var(--nav-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--text-secondary);
+  border: none;
+}
+.leaflet-control-zoom a:first-child { border-bottom: 1px solid var(--border-inner); }
+.leaflet-control-zoom a:hover { background: var(--surface-subtle); color: var(--text-strong); }
+.leaflet-control-attribution {
+  background: var(--nav-glass) !important;
+  color: var(--text-faint);
+  border-radius: 8px;
+  margin-left: 6px;
+  font-size: 10px;
+}
+.leaflet-control-attribution a { color: var(--text-muted); }
+
+/* Branded popup card (replaces Leaflet's default white bubble) */
+.leaflet-popup-content-wrapper {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-pop);
+}
+.leaflet-popup-content { margin: 12px 14px; line-height: 1.45; }
+.leaflet-popup-tip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.leaflet-popup-close-button { color: var(--text-faint) !important; }
+.leaflet-popup-close-button:hover { color: var(--text-strong) !important; }
+
+/* Numbered swing dots (Leaflet divIcon content). --dot / --dot-text are set
+   inline per marker (level color in explore, status color on chain stops). */
 .swing-dot {
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--dot, #38bdf8);
-  color: #05223a;
+  background: var(--dot, #3CB043);
+  color: var(--dot-text, #ffffff);
   font-weight: 700;
   font-size: 12px;
   border: 2px solid #ffffff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
-.swing-dot--selected { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.5); }
+.swing-dot--selected { box-shadow: 0 0 0 3px rgba(60, 176, 67, 0.55); }
 
 /* Series marker: single-city residency, amber, shows the week count. */
 .series-dot {
@@ -407,9 +518,41 @@
   vertical-align: middle;
 }
 
-.swing-popup strong { font-size: 14px; }
-.swing-popup__meta { font-size: 12px; color: #475569; margin-top: 2px; }
-.swing-popup__link { display: inline-block; margin-top: 6px; font-size: 13px; color: #0284c7; }
+.swing-popup { min-width: 190px; }
+.swing-popup__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+  letter-spacing: -0.01em;
+}
+.swing-popup__meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.swing-popup__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+}
+.swing-popup__cut {
+  margin-top: 8px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: var(--surface-subtle);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+/* Leaflet's own `.leaflet-container a` rule outranks a bare class, so scope
+   under .swing-popup to win specificity. */
+.swing-popup a.swing-popup__link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-ink);
+}
+.swing-popup a.swing-popup__link:hover { color: var(--brand-ink-hover); }
 
 /* Bottom sheet */
 .sheet {
@@ -515,25 +658,96 @@
 .itinerary-link:hover { text-decoration: underline; }
 .itinerary-meta { font-size: 12px; color: var(--text-muted); }
 
-/* Desktop: two-pane split. Map + controls on the left; sheet becomes a fixed
-   right sidebar. Header and week strip only span the map area. */
+/* ─── Welcome card (first visit, build mode) ────────────────────────────────── */
+
+.welcome-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(9, 14, 24, 0.35);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.welcome-card {
+  width: 100%;
+  max-width: 350px;
+  padding: 26px 24px 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.welcome-kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--brand-ink);
+}
+.welcome-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-strong);
+}
+.welcome-copy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.welcome-start {
+  margin-top: 4px;
+  padding: 11px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--brand-ink);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.welcome-start:hover { background: var(--brand-ink-hover); }
+.welcome-skip {
+  align-self: center;
+  background: none;
+  border: none;
+  padding: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.welcome-skip:hover { color: var(--text-strong); }
+
+/* Desktop: the sheet becomes a floating itinerary card inset from the right
+   edge; the map stays full-bleed behind it. Controls shift left of the card. */
 @media (min-width: 900px) {
-  .swings-filters { margin-right: 380px; }
-  .week-strip    { margin-right: 380px; }
-  .swings-map-wrap { margin-right: 380px; }
+  .swings-float { right: 434px; }
 
   .sheet {
     left: auto;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 380px;
-    border-radius: 0;
-    border-top: none;
-    border-left: 1px solid var(--border);
-    box-shadow: none;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: 410px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-pop);
     height: auto !important;
   }
   .sheet-grip-row { display: none; }
   .sheet-body { padding-top: 16px; }
+
+  .leaflet-control-zoom { display: block; }
+  .leaflet-bottom.leaflet-left { bottom: 0; }
 }

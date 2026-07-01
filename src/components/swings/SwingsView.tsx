@@ -191,6 +191,33 @@ export default function SwingsView({
   const [imperial, setImperial] = useState(false);
   useEffect(() => setImperial(detectImperial()), []);
 
+  // First-visit welcome card (build mode only). Shown once, then remembered;
+  // returning users — anyone with a stored rank or a chain in the URL — never
+  // see it.
+  const [showWelcome, setShowWelcome] = useState(false);
+  useEffect(() => {
+    if (mode !== 'build') return;
+    try {
+      if (localStorage.getItem('swings.welcomed')) return;
+      if (localStorage.getItem('swings.rank.singles') || chainIds.length > 0) {
+        localStorage.setItem('swings.welcomed', '1');
+        return;
+      }
+      setShowWelcome(true);
+    } catch {
+      // storage blocked (private mode) — skip the card rather than nag forever
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const dismissWelcome = useCallback(() => {
+    try {
+      localStorage.setItem('swings.welcomed', '1');
+    } catch {
+      // ignore
+    }
+    setShowWelcome(false);
+  }, []);
+
   // Remember both rankings between visits.
   useEffect(() => {
     const s = Number(localStorage.getItem('swings.rank.singles'));
@@ -221,6 +248,30 @@ export default function SwingsView({
   );
 
   useEffect(() => setFitNonce((n) => n + 1), [selectedWeek, selectedSwing, mode, chainIds.length]);
+
+  // One-line reference-cut summary for map popups ("2025 cut · MD #245 · Q #390").
+  const cutTextFor = useCallback(
+    (slug: string): string | undefined => {
+      const ref = data.cutRefs[slug]?.singles;
+      if (!ref?.fromYear) return undefined;
+      const md = ref.mainAlt ?? ref.mainCut;
+      const parts: string[] = [];
+      if (md != null) parts.push(`MD #${md}`);
+      if (ref.qualCut != null) parts.push(`Q #${ref.qualCut}`);
+      return parts.length ? `${ref.fromYear} cut · ${parts.join(' · ')}` : undefined;
+    },
+    [data.cutRefs]
+  );
+
+  // Tournaments per week under the current surface filter — drives the
+  // timeline's density bars so the shape of the season is visible at a glance.
+  const weekCounts = useMemo(() => {
+    const counts = new Array<number>(MAX_WEEK + 1).fill(0);
+    for (const e of data.events) {
+      if (e.week >= 1 && e.week <= MAX_WEEK && surfaceOk(e.surface)) counts[e.week]++;
+    }
+    return counts;
+  }, [data.events, surfaceOk]);
 
   // --- shared helpers -------------------------------------------------------
   const pushParams = (mut: (p: URLSearchParams) => void) => {
@@ -300,9 +351,10 @@ export default function SwingsView({
       .map((e) => ({
         ...e,
         dim: selectedEditionIds?.has(e.editionId) ? false : e.week !== selectedWeek,
+        cutText: cutTextFor(e.slug),
       }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, selectedWeek, selectedSwing, surfaces]);
+  }, [data, selectedWeek, selectedSwing, surfaces, cutTextFor]);
 
   const visibleSwingIndexes = useMemo(() => {
     if (mode === 'build') return [];
@@ -351,6 +403,7 @@ export default function SwingsView({
       dim: false,
       builderRole: 'chain',
       chainPos: i + 1,
+      cutText: cutTextFor(e.slug),
       // Tint the chain dot by entry status — singles if entered, else doubles.
       statusColor:
         rankSingles != null
@@ -361,9 +414,15 @@ export default function SwingsView({
     }));
     const candEvents: MapEvent[] = candidates
       .filter((c) => c.event.latitude != null && c.event.longitude != null)
-      .map((c) => ({ ...c.event, dim: false, builderRole: 'candidate', tier: c.tier }));
+      .map((c) => ({
+        ...c.event,
+        dim: false,
+        builderRole: 'candidate' as const,
+        tier: c.tier,
+        cutText: cutTextFor(c.event.slug),
+      }));
     return [...chainEvents, ...candEvents];
-  }, [mode, chain, candidates, rankSingles, rankDoubles, singlesStatuses, doublesStatuses]);
+  }, [mode, chain, candidates, rankSingles, rankDoubles, singlesStatuses, doublesStatuses, cutTextFor]);
 
   const fitPoints: [number, number][] = useMemo(() => {
     if (mode === 'build') {
@@ -412,50 +471,6 @@ export default function SwingsView({
 
   return (
     <div className="swings-root">
-      <div className="swings-filters" role="group" aria-label="Filters">
-        <select
-          className="filter-select"
-          aria-label="Season"
-          value={data.year}
-          onChange={(e) => setYear(Number(e.target.value))}
-        >
-          {SEASONS.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-        <span className="filter-sep" aria-hidden="true" />
-        {(['atp', 'challenger', 'itf'] as LevelGroup[]).map((g) => (
-          <button
-            key={g}
-            className={`filter-chip${data.groups.includes(g) ? ' filter-chip--on' : ''}`}
-            onClick={() => toggleGroup(g)}
-          >
-            {GROUP_LABELS[g]}
-          </button>
-        ))}
-        <span className="filter-sep" aria-hidden="true" />
-        {SURFACES.map((s) => (
-          <button
-            key={s}
-            className={`filter-chip${surfaces?.has(s) ? ' filter-chip--on' : ''}`}
-            onClick={() => toggleSurface(s)}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      <WeekStrip
-        year={data.year}
-        selectedWeek={selectedWeek}
-        onSelect={(w) => {
-          setSelectedWeek(w);
-          setSelectedSwing(null);
-        }}
-      />
-
       <div className="swings-map-wrap">
         <SwingsMap
           events={mode === 'build' ? builderMapEvents : exploreEvents}
@@ -472,6 +487,93 @@ export default function SwingsView({
           onPickEvent={addStop}
         />
       </div>
+
+      {/* Floating glass control cluster over the full-bleed map */}
+      <div className="swings-float">
+        <div className="swings-filters" role="group" aria-label="Filters">
+          <select
+            className="filter-select"
+            aria-label="Season"
+            value={data.year}
+            onChange={(e) => setYear(Number(e.target.value))}
+          >
+            {SEASONS.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <span className="filter-sep" aria-hidden="true" />
+          {(['atp', 'challenger', 'itf'] as LevelGroup[]).map((g) => (
+            <button
+              key={g}
+              className={`filter-chip${data.groups.includes(g) ? ' filter-chip--on' : ''}`}
+              onClick={() => toggleGroup(g)}
+            >
+              {GROUP_LABELS[g]}
+            </button>
+          ))}
+          <span className="filter-sep" aria-hidden="true" />
+          {SURFACES.map((s) => (
+            <button
+              key={s}
+              className={`filter-chip${surfaces?.has(s) ? ' filter-chip--on' : ''}`}
+              onClick={() => toggleSurface(s)}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <Timeline
+          year={data.year}
+          selectedWeek={selectedWeek}
+          weekCounts={weekCounts}
+          onSelect={(w) => {
+            setSelectedWeek(w);
+            setSelectedSwing(null);
+          }}
+        />
+      </div>
+
+      {showWelcome && (
+        <div className="welcome-backdrop" onClick={dismissWelcome}>
+          <div
+            className="welcome-card"
+            role="dialog"
+            aria-label="Welcome"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="welcome-kicker">Tennis Cuts</p>
+            <h2 className="welcome-title">Plan your season.</h2>
+            <p className="welcome-copy">
+              Build a week-by-week swing across ATP, Challenger and ITF events — and see
+              where your ranking would have gotten in.
+            </p>
+            <label className="rank-field">
+              <span>Your singles rank (optional)</span>
+              <input
+                className="rank-input"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                placeholder="e.g. 250"
+                value={rankSingles ?? ''}
+                onChange={(ev) => {
+                  const v = Number(ev.target.value);
+                  updateRankSingles(Number.isFinite(v) && v > 0 ? v : null);
+                }}
+              />
+            </label>
+            <button className="welcome-start" onClick={dismissWelcome}>
+              Start building →
+            </button>
+            <button className="welcome-skip" onClick={dismissWelcome}>
+              Just explore the map
+            </button>
+          </div>
+        </div>
+      )}
 
       {mode === 'build' ? (
         <BuilderPanel
@@ -516,14 +618,19 @@ export default function SwingsView({
   );
 }
 
-// --- Week strip -------------------------------------------------------------
-function WeekStrip({
+// --- Season timeline ----------------------------------------------------------
+// Replaces the flat 52-pill week strip: weeks are grouped under month anchors
+// and each week carries a density bar (tournaments matching the current
+// filters), so the shape of the season is readable at a glance.
+function Timeline({
   year,
   selectedWeek,
+  weekCounts,
   onSelect,
 }: {
   year: number;
   selectedWeek: number;
+  weekCounts: number[];
   onSelect: (week: number) => void;
 }) {
   const selectedRef = useRef<HTMLButtonElement>(null);
@@ -531,20 +638,51 @@ function WeekStrip({
     selectedRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   }, [selectedWeek]);
 
-  const weeks = Array.from({ length: MAX_WEEK }, (_, i) => i + 1);
+  // Group consecutive weeks by the month their Monday falls in.
+  const months = useMemo(() => {
+    const out: Array<{ label: string; weeks: Array<{ week: number; day: number }> }> = [];
+    for (let w = 1; w <= MAX_WEEK; w++) {
+      const d = weekStart(year, w);
+      const label = MONTHS[d.getUTCMonth()];
+      const last = out[out.length - 1];
+      const entry = { week: w, day: d.getUTCDate() };
+      if (last && last.label === label) last.weeks.push(entry);
+      else out.push({ label, weeks: [entry] });
+    }
+    return out;
+  }, [year]);
+
+  const maxCount = Math.max(1, ...weekCounts);
+
   return (
-    <div className="week-strip" role="tablist" aria-label="Weeks">
-      {weeks.map((w) => (
-        <button
-          key={w}
-          ref={w === selectedWeek ? selectedRef : undefined}
-          role="tab"
-          aria-selected={w === selectedWeek}
-          className={`week-pill${w === selectedWeek ? ' week-pill--active' : ''}`}
-          onClick={() => onSelect(w)}
-        >
-          {weekDateLabel(year, w)}
-        </button>
+    <div className="timeline" role="tablist" aria-label="Weeks">
+      {months.map((m, mi) => (
+        <div key={`${m.label}-${mi}`} className="timeline__month">
+          <span className="timeline__month-label">{m.label}</span>
+          <div className="timeline__weeks">
+            {m.weeks.map(({ week, day }) => {
+              const count = weekCounts[week] ?? 0;
+              // sqrt scale keeps busy ITF weeks from flattening everything else
+              const h = count === 0 ? 2 : 3 + Math.round((Math.sqrt(count) / Math.sqrt(maxCount)) * 13);
+              const on = week === selectedWeek;
+              return (
+                <button
+                  key={week}
+                  ref={on ? selectedRef : undefined}
+                  role="tab"
+                  aria-selected={on}
+                  aria-label={`Week of ${weekDateLabel(year, week)} — ${count} tournament${count === 1 ? '' : 's'}`}
+                  title={`${weekDateLabel(year, week)} · ${count} tournament${count === 1 ? '' : 's'}`}
+                  className={`timeline__week${on ? ' timeline__week--on' : ''}`}
+                  onClick={() => onSelect(week)}
+                >
+                  <span className="timeline__bar" style={{ height: h }} aria-hidden="true" />
+                  <span className="timeline__day">{day}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       ))}
     </div>
   );

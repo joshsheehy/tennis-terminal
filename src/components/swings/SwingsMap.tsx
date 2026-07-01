@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import type { Map as LeafletMap, LayerGroup } from 'leaflet';
+import { useEffect, useRef, useState } from 'react';
+import type { Map as LeafletMap, LayerGroup, TileLayer } from 'leaflet';
 import type { SwingMapEvent, SwingMapSwing } from '@/lib/swings-page-data';
 import type { CandidateTier } from '@/lib/swing-builder';
 
-const ACCENT = '#38bdf8';
-const ACCENT_DIM = 'rgba(56,189,248,0.5)';
-const SERIES = '#fbbf24';
-const GRAY = '#64748b';
+// Route lines use the brand green so a swing reads as "your trip".
+const ROUTE = '#3CB043';
+const ROUTE_DIM = 'rgba(60, 176, 67, 0.55)';
 
 // Candidate colors in build mode, by relationship tier.
 const TIER_COLOR: Record<CandidateTier, string> = {
@@ -19,6 +18,95 @@ const TIER_COLOR: Record<CandidateTier, string> = {
   far: '#94a3b8',
 };
 
+// CARTO basemaps (OSM-derived, Latin/romanized labels worldwide). The pair is
+// theme-matched: Positron for light UI, Dark Matter for dark UI.
+const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+// Marker color/size by event level, matching the level-badge palette used on
+// the schedule (Grand Slam purple, ATP blue, Challenger amber, ITF slate).
+// These sit on map tiles (not themed surfaces), so fixed hex values work for
+// both themes.
+function levelStyle(event: SwingMapEvent): { color: string; text: string; size: number } {
+  if (/grand slam/i.test(event.level)) return { color: '#8b5cf6', text: '#ffffff', size: 34 };
+  if (event.group === 'atp') return { color: '#3b82f6', text: '#ffffff', size: 30 };
+  if (event.group === 'challenger') return { color: '#f59e0b', text: '#422006', size: 26 };
+  return { color: '#64748b', text: '#ffffff', size: 22 };
+}
+
+function levelBadgeClass(event: SwingMapEvent): string {
+  if (/grand slam/i.test(event.level)) return 'badge-level badge-level--gs';
+  if (event.group === 'atp') return 'badge-level badge-level--atp';
+  if (event.group === 'challenger') return 'badge-level badge-level--ch';
+  return 'badge-level';
+}
+
+function surfaceDotClass(surface: string): string {
+  const s = (surface === 'Indoor Hard' ? 'Hard' : surface).toLowerCase();
+  if (s === 'hard') return 'surface-dot surface-dot--hard';
+  if (s === 'clay') return 'surface-dot surface-dot--clay';
+  if (s === 'grass') return 'surface-dot surface-dot--grass';
+  return 'surface-dot';
+}
+
+// Quadratic-bezier arc between two points, bowed perpendicular to the segment.
+// Purely visual (not geodesic) — it makes an itinerary read as a journey
+// rather than a wire polygon.
+function arcPoints(
+  a: [number, number],
+  b: [number, number],
+  curvature = 0.18,
+  steps = 24
+): [number, number][] {
+  const [lat1, lng1] = a;
+  const [lat2, lng2] = b;
+  const dLat = lat2 - lat1;
+  const dLng = lng2 - lng1;
+  const cLat = (lat1 + lat2) / 2 - dLng * curvature;
+  const cLng = (lng1 + lng2) / 2 + dLat * curvature;
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const u = 1 - t;
+    pts.push([
+      u * u * lat1 + 2 * u * t * cLat + t * t * lat2,
+      u * u * lng1 + 2 * u * t * cLng + t * t * lng2,
+    ]);
+  }
+  return pts;
+}
+
+function arcPath(points: [number, number][]): [number, number][] {
+  const out: [number, number][] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    out.push(...arcPoints(points[i], points[i + 1]));
+  }
+  return out;
+}
+
+// Tracks the effective theme (data-theme attribute, falling back to the OS
+// preference) so the map can swap tile sets in step with the UI.
+function useIsDark(): boolean {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const compute = () => {
+      const attr = root.getAttribute('data-theme');
+      setDark(attr === 'dark' || (attr !== 'light' && mq.matches));
+    };
+    compute();
+    const mo = new MutationObserver(compute);
+    mo.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    mq.addEventListener('change', compute);
+    return () => {
+      mo.disconnect();
+      mq.removeEventListener('change', compute);
+    };
+  }, []);
+  return dark;
+}
+
 export type MapEvent = SwingMapEvent & {
   dim: boolean;
   /** Builder annotations (only set in build mode). */
@@ -27,6 +115,8 @@ export type MapEvent = SwingMapEvent & {
   tier?: CandidateTier;
   /** Entry-status tint for a chain dot once a ranking is entered. */
   statusColor?: string;
+  /** Pre-formatted reference-cut line for the popup (e.g. "2025 cut · MD #245 · Q #390"). */
+  cutText?: string;
 };
 
 type Props = {
@@ -64,10 +154,14 @@ export default function SwingsMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layersRef = useRef<LayerGroup | null>(null);
+  const tileRef = useRef<TileLayer | null>(null);
   const onSelectRef = useRef(onSelectSwing);
   onSelectRef.current = onSelectSwing;
   const onPickRef = useRef(onPickEvent);
   onPickRef.current = onPickEvent;
+  const isDark = useIsDark();
+  const isDarkRef = useRef(isDark);
+  isDarkRef.current = isDark;
 
   // Create the map once.
   useEffect(() => {
@@ -80,17 +174,19 @@ export default function SwingsMap({
         center: initialCenter,
         zoom: initialZoom,
         zoomControl: false,
-        attributionControl: true,
+        attributionControl: false,
         worldCopyJump: true,
       });
-      L.control.zoom({ position: 'topright' }).addTo(map);
-      // CARTO Voyager: OSM-derived tiles that render place labels in Latin
-      // script (romanized), so the map reads in English worldwide rather than
-      // each country's local language/script.
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      // Controls live bottom-left so the floating filter/timeline cluster
+      // (top) and the itinerary panel (right, desktop) never cover them.
+      L.control.zoom({ position: 'bottomleft' }).addTo(map);
+      L.control
+        .attribution({ position: 'bottomleft', prefix: false })
+        .addAttribution('&copy; OpenStreetMap &copy; CARTO')
+        .addTo(map);
+      tileRef.current = L.tileLayer(isDarkRef.current ? TILE_DARK : TILE_LIGHT, {
         maxZoom: 20,
         subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
       }).addTo(map);
       // Map sits inside a flex pane that sizes after paint; nudge Leaflet.
       setTimeout(() => map.invalidateSize(), 0);
@@ -103,9 +199,15 @@ export default function SwingsMap({
       cancelled = true;
       mapRef.current?.remove();
       mapRef.current = null;
+      tileRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Swap tile sets when the theme flips.
+  useEffect(() => {
+    tileRef.current?.setUrl(isDark ? TILE_DARK : TILE_LIGHT);
+  }, [isDark]);
 
   // Redraw markers + chains whenever inputs change.
   useEffect(() => {
@@ -149,12 +251,13 @@ export default function SwingsMap({
       if (!swing || swing.kind !== 'swing' || swing.path.length < 2) continue;
       const selected = index === selectedSwingIndex;
       L.polyline(
-        swing.path.map((p) => [p.lat, p.lng]),
+        arcPath(swing.path.map((p) => [p.lat, p.lng] as [number, number])),
         {
-          color: ACCENT,
-          weight: selected ? 5 : 3,
-          opacity: selected ? 0.95 : 0.6,
-          dashArray: selected ? undefined : '4 6',
+          color: selected ? ROUTE : ROUTE_DIM,
+          weight: selected ? 4 : 3,
+          opacity: selected ? 0.95 : 0.65,
+          dashArray: selected ? undefined : '6 8',
+          lineCap: 'round',
         }
       )
         .on('click', () => onSelectRef.current(index))
@@ -169,13 +272,13 @@ export default function SwingsMap({
       const size = selected ? 34 : 28;
       const icon = L.divIcon({
         className: 'swing-dot-icon',
-        html: `<div class="series-dot${selected ? ' swing-dot--selected' : ''}" style="--dot:${SERIES};width:${size}px;height:${size}px">${swing.totalWeeks}w</div>`,
+        html: `<div class="series-dot${selected ? ' swing-dot--selected' : ''}" style="--dot:#fbbf24;width:${size}px;height:${size}px">${swing.totalWeeks}w</div>`,
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
       });
       L.marker([swing.path[0].lat, swing.path[0].lng], { icon, zIndexOffset: selected ? 1000 : 0 })
         .on('click', () => onSelectRef.current(index))
-        .bindPopup(`<div class="swing-popup"><strong>${swing.label}</strong><div class="swing-popup__meta">W${swing.startWeek}–W${swing.endWeek} · ${swing.totalWeeks} weeks · same city</div></div>`)
+        .bindPopup(`<div class="swing-popup"><div class="swing-popup__name">${swing.label}</div><div class="swing-popup__meta">W${swing.startWeek}–W${swing.endWeek} · ${swing.totalWeeks} weeks · same city</div></div>`)
         .addTo(layers);
     }
 
@@ -184,13 +287,13 @@ export default function SwingsMap({
       if (event.swingIndex != null && swings[event.swingIndex]?.kind === 'series') continue;
       const inSwing = event.swingIndex != null;
       const selected = inSwing && event.swingIndex === selectedSwingIndex;
+      const style = levelStyle(event);
 
       if (inSwing) {
-        const color = event.dim && !selected ? ACCENT_DIM : ACCENT;
-        const size = selected ? 32 : 26;
+        const size = selected ? style.size + 4 : style.size;
         const icon = L.divIcon({
           className: 'swing-dot-icon',
-          html: `<div class="swing-dot${selected ? ' swing-dot--selected' : ''}" style="--dot:${color};width:${size}px;height:${size}px;opacity:${event.dim && !selected ? 0.55 : 1}">${event.week}</div>`,
+          html: `<div class="swing-dot${selected ? ' swing-dot--selected' : ''}" style="--dot:${style.color};--dot-text:${style.text};width:${size}px;height:${size}px;opacity:${event.dim && !selected ? 0.5 : 1}">${event.week}</div>`,
           iconSize: [size, size],
           iconAnchor: [size / 2, size / 2],
         });
@@ -200,12 +303,12 @@ export default function SwingsMap({
           .addTo(layers);
       } else {
         L.circleMarker([event.latitude, event.longitude], {
-          radius: 5,
-          color: GRAY,
-          weight: 1,
-          fillColor: GRAY,
-          fillOpacity: event.dim ? 0.3 : 0.6,
-          opacity: event.dim ? 0.4 : 0.8,
+          radius: Math.max(4, style.size / 5),
+          color: '#ffffff',
+          weight: 1.5,
+          fillColor: style.color,
+          fillOpacity: event.dim ? 0.35 : 0.85,
+          opacity: event.dim ? 0.4 : 0.9,
         })
           .bindPopup(popupHtml(event))
           .addTo(layers);
@@ -213,12 +316,19 @@ export default function SwingsMap({
     }
   }
 
-  // Build mode: bright numbered chain + polyline, plus tier-colored, tappable
-  // candidate dots. Nothing else is drawn, which keeps the map uncluttered.
+  // Build mode: numbered chain stops joined by a dashed brand-green arc, plus
+  // tier-colored, tappable candidate dots. Nothing else is drawn, which keeps
+  // the map uncluttered.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function renderBuilderLayers(L: any, layers: any) {
     if (builderPath.length >= 2) {
-      L.polyline(builderPath, { color: ACCENT, weight: 5, opacity: 0.95 }).addTo(layers);
+      L.polyline(arcPath(builderPath), {
+        color: ROUTE,
+        weight: 3.5,
+        opacity: 0.9,
+        dashArray: '7 9',
+        lineCap: 'round',
+      }).addTo(layers);
     }
 
     for (const event of events) {
@@ -226,7 +336,7 @@ export default function SwingsMap({
         const size = 30;
         const icon = L.divIcon({
           className: 'swing-dot-icon',
-          html: `<div class="swing-dot" style="--dot:${event.statusColor ?? ACCENT};width:${size}px;height:${size}px">${event.chainPos}</div>`,
+          html: `<div class="swing-dot" style="--dot:${event.statusColor ?? ROUTE};--dot-text:#ffffff;width:${size}px;height:${size}px">${event.chainPos}</div>`,
           iconSize: [size, size],
           iconAnchor: [size / 2, size / 2],
         });
@@ -234,7 +344,7 @@ export default function SwingsMap({
           .bindPopup(popupHtml(event))
           .addTo(layers);
       } else {
-        const color = event.tier ? TIER_COLOR[event.tier] : ACCENT;
+        const color = event.tier ? TIER_COLOR[event.tier] : ROUTE;
         const icon = L.divIcon({
           className: 'swing-dot-icon',
           html: `<div class="cand-dot" style="--dot:${color}">${event.week}</div>`,
@@ -263,14 +373,21 @@ export default function SwingsMap({
 function popupHtml(event: MapEvent, isCandidate = false): string {
   const esc = (s: string) =>
     s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+  const cutLine = event.cutText
+    ? `<div class="swing-popup__cut">${esc(event.cutText)}</div>`
+    : '';
   const addButton = isCandidate
     ? '<button type="button" class="swing-popup__add">+ Add to swing</button>'
     : '';
   return `
     <div class="swing-popup">
-      <strong>${esc(event.name)}</strong>
-      <div class="swing-popup__meta">${esc(event.city)}${event.country ? `, ${esc(event.country)}` : ''}</div>
-      <div class="swing-popup__meta">W${event.week} · ${esc(event.level)} · ${esc(event.surface)}</div>
+      <div class="swing-popup__name">${esc(event.name)}</div>
+      <div class="swing-popup__meta">${esc(event.city)}${event.country ? `, ${esc(event.country)}` : ''} · Week ${event.week}</div>
+      <div class="swing-popup__badges">
+        <span class="${levelBadgeClass(event)}">${esc(event.level)}</span>
+        <span class="badge-surface"><span class="${surfaceDotClass(event.surface)}"></span>${esc(event.surface)}</span>
+      </div>
+      ${cutLine}
       ${addButton}
       <a class="swing-popup__link" href="/tournaments/${esc(event.slug)}">View tournament →</a>
     </div>`;
