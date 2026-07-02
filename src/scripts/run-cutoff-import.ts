@@ -17,7 +17,7 @@ async function runStep(label: string, url: string) {
     method: 'GET',
     headers: {
       accept: 'application/json',
-      'user-agent': 'TennisTerminalCron/0.3',
+      'user-agent': 'TennisCutsCron/0.3',
     },
   });
 

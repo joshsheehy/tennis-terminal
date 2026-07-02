@@ -76,7 +76,7 @@ jobs:
                   url,
                   headers={
                       'Accept': 'application/json',
-                      'User-Agent': 'TennisTerminalGeocodeBackfill/1.0',
+                      'User-Agent': 'TennisCutsGeocodeBackfill/1.0',
                       'X-Admin-Secret': os.environ['ADMIN_SECRET'],
                   },
               )

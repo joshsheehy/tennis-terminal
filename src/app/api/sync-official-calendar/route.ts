@@ -220,7 +220,7 @@ async function fetchReaderLinesForPdf(pdfUrl: string): Promise<string[]> {
     const res = await fetch(readerUrl, {
       headers: {
         Accept: 'text/plain, text/markdown, */*',
-        'User-Agent': 'TennisTerminalCalendarSync/1.0',
+        'User-Agent': 'TennisCutsCalendarSync/1.0',
       },
       cache: 'no-store',
       signal: controller.signal,

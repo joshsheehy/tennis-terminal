@@ -1,4 +1,4 @@
-name: Tennis Terminal data sync
+name: Tennis Cuts data sync
 
 on:
   workflow_dispatch:
@@ -64,7 +64,7 @@ jobs:
                       url,
                       headers={
                           'Accept': 'application/json',
-                          'User-Agent': 'TennisTerminalDataSync/1.0',
+                          'User-Agent': 'TennisCutsDataSync/1.0',
                           'X-Admin-Secret': os.environ['ADMIN_SECRET'],
                       },
                   )

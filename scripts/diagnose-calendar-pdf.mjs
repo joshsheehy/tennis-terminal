@@ -413,7 +413,7 @@ function normalizeReaderTextToLines(text) {
 
 async function fetchReaderLines(pdfUrl) {
   const res = await fetch(`https://r.jina.ai/${pdfUrl}`, {
-    headers: { Accept: 'text/plain, text/markdown, */*', 'User-Agent': 'TennisTerminalCalendarSync/1.0' },
+    headers: { Accept: 'text/plain, text/markdown, */*', 'User-Agent': 'TennisCutsCalendarSync/1.0' },
   });
   if (!res.ok) throw new Error(`Reader returned ${res.status}`);
   return normalizeReaderTextToLines(await res.text());

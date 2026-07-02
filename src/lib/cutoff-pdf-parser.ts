@@ -369,7 +369,7 @@ async function fetchPdfBuffer(url: string, timeoutMs = 4000): Promise<Buffer> {
     const response = await fetch(url, {
       headers: {
         accept: 'application/pdf,*/*;q=0.8',
-        'user-agent': 'Mozilla/5.0 (compatible; TennisTerminalBot/1.0)',
+        'user-agent': 'Mozilla/5.0 (compatible; TennisCutsBot/1.0)',
         referer: 'https://www.protennislive.com/',
       },
       cache: 'no-store',

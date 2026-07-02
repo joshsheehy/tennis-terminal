@@ -12,7 +12,7 @@ export const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
 export const NOMINATIM_REVERSE_ENDPOINT = 'https://nominatim.openstreetmap.org/reverse';
 
 export const GEOCODE_USER_AGENT =
-  'tennis-terminal/1.0 (https://tennis-terminal-production.up.railway.app; josh@tenniscuts.com)';
+  'tenniscuts/1.0 (https://tenniscuts.com; josh@tenniscuts.com)';
 
 // Nominatim allows 1 req/s; a small buffer keeps bursts safely under it.
 export const GEOCODE_MIN_INTERVAL_MS = 1100;

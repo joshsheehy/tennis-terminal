@@ -214,7 +214,7 @@ export async function fetchItfCalendarPage(
     headers: {
       accept: 'application/json',
       // The ITF edge occasionally rejects empty/bot UAs.
-      'user-agent': 'Mozilla/5.0 (compatible; TennisTerminal/1.0; +https://tenniscuts.com)',
+      'user-agent': 'Mozilla/5.0 (compatible; TennisCuts/1.0; +https://tenniscuts.com)',
     },
     cache: 'no-store',
   });

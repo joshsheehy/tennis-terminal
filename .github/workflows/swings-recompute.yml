@@ -46,7 +46,7 @@ jobs:
           for attempt in 1 2 3; do
             if curl -sS -m 600 --fail-with-body \
                  -H "Accept: application/json" \
-                 -H "User-Agent: TennisTerminalSwingsRecompute/1.0" \
+                 -H "User-Agent: TennisCutsSwingsRecompute/1.0" \
                  -H "X-Admin-Secret: $ADMIN_SECRET" \
                  "$BASE/api/recompute-swings?year=$YEAR&dryRun=false" \
                  -o /tmp/swings.json; then

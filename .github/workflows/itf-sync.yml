@@ -95,7 +95,7 @@ jobs:
                               'X-Admin-Secret': secret,
                               'Accept': 'application/json',
                               # urllib's default Python UA gets 403'd by the WAF.
-                              'User-Agent': 'TennisTerminalITFSync/1.0 (+https://tenniscuts.com)',
+                              'User-Agent': 'TennisCutsITFSync/1.0 (+https://tenniscuts.com)',
                           },
                       )
                       try:

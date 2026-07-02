@@ -207,7 +207,7 @@ async function fetchPdfText(url: string) {
   try {
     const response = await fetch(url, {
       method: 'GET',
-      headers: { accept: 'application/pdf,*/*;q=0.8', 'user-agent': 'TennisTerminalCodeDiscovery/0.1' },
+      headers: { accept: 'application/pdf,*/*;q=0.8', 'user-agent': 'TennisCutsCodeDiscovery/0.1' },
       cache: 'no-store',
       signal: controller.signal,
     });

@@ -46,7 +46,7 @@ jobs:
           for attempt in 1 2 3; do
             if curl -sS -m 120 --fail-with-body \
                  -H "Accept: application/json" \
-                 -H "User-Agent: TennisTerminalDeadlineAlerts/1.0" \
+                 -H "User-Agent: TennisCutsDeadlineAlerts/1.0" \
                  -H "X-Admin-Secret: $ADMIN_SECRET" \
                  "$BASE/api/send-deadline-alerts?lead=$LEAD&dry=$DRY" \
                  -o /tmp/alerts.json; then

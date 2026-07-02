@@ -1,4 +1,4 @@
-# Tennis Terminal
+# Tennis Cuts
 
 Tournament schedule and entry-cutoff data for the men's pro tour, served as a small Next.js + Postgres app.
 

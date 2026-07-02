@@ -11,7 +11,7 @@ async function fetchJson(url: string) {
     method: 'GET',
     headers: {
       accept: 'application/json',
-      'user-agent': 'TennisTerminalCron/1.0',
+      'user-agent': 'TennisCutsCron/1.0',
       'x-admin-secret': secret,
     },
     cache: 'no-store',

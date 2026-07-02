@@ -83,7 +83,7 @@ jobs:
           curl -sS -o /tmp/itf-direct.json -w "HTTP %{http_code} in %{time_total}s\n" --max-time 30 \
             "https://www.itftennis.com/tennis/api/TournamentApi/GetCalendar?circuitCode=MT&searchString=&skip=0&take=2&nationCodes=&zoneCodes=&dateFrom=2026-01-01&dateTo=2026-12-31&indoorOutdoor=&categories=&isOrderAscending=true&orderField=startDate&surfaceCodes=" \
             -H "accept: application/json" \
-            -H "user-agent: Mozilla/5.0 (compatible; TennisTerminal/1.0; +https://tenniscuts.com)" || true
+            -H "user-agent: Mozilla/5.0 (compatible; TennisCuts/1.0; +https://tenniscuts.com)" || true
           head -c 600 /tmp/itf-direct.json 2>/dev/null; echo
 
           echo "--- via production route (dry run, debug=true); waiting for this commit to deploy:"
