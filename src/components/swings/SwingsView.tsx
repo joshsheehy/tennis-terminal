@@ -471,6 +471,12 @@ export default function SwingsView({
   // the itinerary is visible in the season overview.
   const chainWeeks = useMemo(() => new Set(chain.map((e) => e.week)), [chain]);
 
+  // The scheduling frontier: your latest stop's week, and the first week with
+  // events after it. When the user wanders behind the frontier (reviewing
+  // earlier weeks), "resume scheduling" jumps them straight back here.
+  const lastStopWeek = chain.length ? Math.max(...chain.map((e) => e.week)) : null;
+  const resumeWeek = lastStopWeek != null ? nextEventWeek(lastStopWeek + 1) : null;
+
   // Inline filter controls (replaces the old gear/filter sheet).
   const setYear = (y: number) => pushParams((p) => p.set('year', String(y)));
   const toggleGroup = (g: LevelGroup) => {
@@ -609,6 +615,8 @@ export default function SwingsView({
           weekCounts={weekCounts}
           nextWeek={nextEventWeek(selectedWeek + 1)}
           prevWeek={prevEventWeek(selectedWeek - 1)}
+          lastStopWeek={lastStopWeek}
+          resumeWeek={resumeWeek}
           onGoToWeek={setSelectedWeek}
           onAdd={addStop}
           onRemove={removeStop}
@@ -729,6 +737,8 @@ function BuilderPanel({
   weekCounts,
   nextWeek,
   prevWeek,
+  lastStopWeek,
+  resumeWeek,
   onGoToWeek,
   onAdd,
   onRemove,
@@ -755,6 +765,9 @@ function BuilderPanel({
   /** Nearest week after/before the selected one that has events (null = none). */
   nextWeek: number | null;
   prevWeek: number | null;
+  /** Latest stop's week and the first event week after it (the scheduling frontier). */
+  lastStopWeek: number | null;
+  resumeWeek: number | null;
   onGoToWeek: (week: number) => void;
   onAdd: (editionId: string) => void;
   onRemove: (index: number) => void;
@@ -947,23 +960,52 @@ function BuilderPanel({
     </div>
   );
 
+  // True when the user is reviewing weeks at/behind their latest stop — the
+  // useful jump from there is back to the scheduling frontier, not the next
+  // calendar week (which often lands mid-chain and reads as a dead end).
+  const behindFrontier = lastStopWeek != null && selectedWeek <= lastStopWeek;
+  const stopsThisWeek = chain.filter((e) => e.week === selectedWeek);
+
+  const resumeButton =
+    behindFrontier && resumeWeek != null ? (
+      <button className="builder-jump" onClick={() => onGoToWeek(resumeWeek)}>
+        Resume scheduling — {weekDateLabel(year, resumeWeek)} · {weekCounts[resumeWeek]}{' '}
+        tournament{weekCounts[resumeWeek] === 1 ? '' : 's'} →
+      </button>
+    ) : null;
+
   // Rich empty state: explains why the week is empty and offers one-tap jumps
-  // to the nearest weeks that do have tournaments — no dead ends.
+  // — resume-after-your-last-stop first, never a dead end.
   const emptyWeek = (
     <div className="builder-empty">
-      <p className="builder-empty__title">
-        Nothing the week of {weekDateLabel(year, selectedWeek)}
-      </p>
-      <p className="builder-empty__hint">
-        No tournaments match your level &amp; surface filters this week — weeks with a
-        taller bar in the timeline above have events.
-      </p>
-      {nextWeek != null && (
-        <button className="builder-jump" onClick={() => onGoToWeek(nextWeek)}>
-          Jump to {weekDateLabel(year, nextWeek)} · {weekCounts[nextWeek]}{' '}
-          tournament{weekCounts[nextWeek] === 1 ? '' : 's'} →
-        </button>
+      {stopsThisWeek.length > 0 ? (
+        <>
+          <p className="builder-empty__title">
+            You&rsquo;re set for {weekDateLabel(year, selectedWeek)}
+          </p>
+          <p className="builder-empty__hint">
+            {stopsThisWeek.map((e) => e.name).join(' and ')} is already on your swing this
+            week; nothing else matches your filters.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="builder-empty__title">
+            Nothing the week of {weekDateLabel(year, selectedWeek)}
+          </p>
+          <p className="builder-empty__hint">
+            No tournaments match your level &amp; surface filters this week — weeks with a
+            taller bar in the timeline above have events.
+          </p>
+        </>
       )}
+      {resumeButton ??
+        (nextWeek != null && (
+          <button className="builder-jump" onClick={() => onGoToWeek(nextWeek)}>
+            Jump to {weekDateLabel(year, nextWeek)} · {weekCounts[nextWeek]}{' '}
+            tournament{weekCounts[nextWeek] === 1 ? '' : 's'} →
+          </button>
+        ))}
       {prevWeek != null && (
         <button className="builder-jump builder-jump--ghost" onClick={() => onGoToWeek(prevWeek)}>
           ← Back to {weekDateLabel(year, prevWeek)}
@@ -978,7 +1020,12 @@ function BuilderPanel({
   );
 
   const skipButton =
-    nextWeek != null ? (
+    behindFrontier && resumeWeek != null ? (
+      <button className="builder-skip" onClick={() => onGoToWeek(resumeWeek)}>
+        ↪ Resume scheduling after {weekDateLabel(year, lastStopWeek!)} —{' '}
+        {weekDateLabel(year, resumeWeek)} →
+      </button>
+    ) : nextWeek != null ? (
       <button className="builder-skip" onClick={() => onGoToWeek(nextWeek)}>
         Nothing here for you? Skip to {weekDateLabel(year, nextWeek)} →
       </button>
@@ -1033,9 +1080,8 @@ function BuilderPanel({
                 <span className={`badge ${summary.surfaceConsistent ? 'badge--ok' : 'badge--mixed'}`}>
                   {summary.surfaceConsistent ? summary.surfaces[0] : `Mixed: ${summary.surfaces.join('/')}`}
                 </span>
-                {summary.maxHopKm != null && (
-                  <span className="badge">max hop {formatDistance(summary.maxHopKm, imperial)}</span>
-                )}
+                {/* max-hop badge removed: per-leg distances already show on each
+                    candidate row, where the decision is actually made. */}
               </div>
             )}
 
