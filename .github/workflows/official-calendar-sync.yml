@@ -132,10 +132,63 @@ jobs:
                   except Exception as exc:
                       print(f'non-fatal: {exc}', flush=True)
 
+          current_year = datetime.date.today().year
+
+          # ProTennisLive code discovery for editions still missing one — this
+          # is what unlocks each tournament's detail sheet (ds.pdf), draw PDFs,
+          # and cut import. Auto-ranged around the codes we already know for
+          # the season; paged via nextStartCode; runs every night (the route
+          # short-circuits for free when nothing is missing a code).
+          print('\n=== ProTennisLive code discovery ===', flush=True)
+          try:
+              path = f'/api/discover-codes?year={current_year}&auto=true&apply=true&applyMinConfidence=high'
+              end_code = None
+              applied_total = 0
+              for page in range(30):
+                  out = request_json(path, timeout=120, retries=2)
+                  if out.get('skipped'):
+                      print('all Challenger/ATP editions already have codes — skipped', flush=True)
+                      break
+                  applied = out.get('applied') or []
+                  applied_total += len(applied)
+                  for a in applied:
+                      print(f"  + code {a.get('code')} -> {a.get('slug')} ({a.get('confidence')})", flush=True)
+                  for amb in out.get('ambiguousCodes') or []:
+                      print(f"  ? code {amb.get('code')} matched multiple events "
+                            f"({', '.join(amb.get('slugs') or [])}) — skipped, needs manual review", flush=True)
+                  if end_code is None:
+                      end_code = (out.get('range') or {}).get('endCode')
+                  if not out.get('hasMore') or out.get('nextStartCode') is None or end_code is None:
+                      break
+                  path = (f'/api/discover-codes?year={current_year}&auto=true&apply=true'
+                          f"&applyMinConfidence=high&startCode={out['nextStartCode']}&endCode={end_code}")
+              print(f'code discovery done: {applied_total} codes written', flush=True)
+          except Exception as exc:
+              print(f'code discovery failed (non-fatal): {exc}', flush=True)
+
+          # Detail-sheet coverage report: probe ds.pdf for every Challenger/ATP
+          # edition so the log shows exactly how many fact sheets now resolve.
+          print('\n=== Detail-sheet coverage ===', flush=True)
+          try:
+              offset = 0
+              exists = missing = nocode = 0
+              for page in range(30):
+                  out = request_json(f'/api/verify-detail-sheets?year={current_year}&limit=100&offset={offset}',
+                                     timeout=120, retries=2)
+                  exists += out.get('existsCount') or 0
+                  missing += out.get('missingCount') or 0
+                  nocode += out.get('noCodeCount') or 0
+                  if not out.get('hasMore') or out.get('nextOffset') is None:
+                      break
+                  offset = out['nextOffset']
+              print(f'detail sheets: {exists} available · {missing} not yet posted · {nocode} still missing a code',
+                    flush=True)
+          except Exception as exc:
+              print(f'detail-sheet verification failed (non-fatal): {exc}', flush=True)
+
           # Backup: the server-side sync (fetches + parses on Railway). Kept
           # tolerant — it 403s from datacenter IPs often, and the runner path
           # above is the source of truth now.
-          current_year = datetime.date.today().year
           for sync_year in (current_year, current_year + 1):
               try:
                   data = request_json(f'/api/sync-official-calendar?year={sync_year}', timeout=240, retries=1)

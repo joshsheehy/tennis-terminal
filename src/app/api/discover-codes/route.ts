@@ -93,28 +93,20 @@ function parseNumberParam(value: string | null, field: string) {
 }
 
 function parseYearParam(value: string | null): number {
-  const year = value ? Number(value) : 2026;
-  if (![2024, 2025, 2026].includes(year)) throw new Error('year must be 2024, 2025, or 2026');
+  const year = value ? Number(value) : new Date().getFullYear();
+  if (!Number.isInteger(year) || year < 2024 || year > 2030) {
+    throw new Error('year must be between 2024 and 2030');
+  }
   return year;
 }
 
-function getMissingEditionsFromCanonical(weekFilter: number | null): MissingEdition[] {
-  return ALL_EDITIONS
-    .filter((item) => item.edition.status === 'held' && item.edition.year === 2026 && item.edition.protennislive_code === null)
-    .filter((item) => (weekFilter === null ? true : item.edition.week === weekFilter))
-    .map((item) => ({
-      week: item.edition.week,
-      slug: item.tournament.slug,
-      name: item.tournament.name,
-      city: item.tournament.city,
-      start_date: item.edition.start_date,
-    }));
-}
-
-// Returns DB editions for a historical year (2024/2025) that have no
-// recoverable ProTennisLive code anywhere — not in the static catalogue,
-// not in te.source_url, and not in cutoff_snapshots.source_notes.
-// These are the tournaments that need brute-force code discovery to fill.
+// Returns DB editions for a year that have no recoverable ProTennisLive code
+// anywhere — not in the static catalogue, not in te.source_url, and not in
+// cutoff_snapshots.source_notes. These are the tournaments that need
+// brute-force code discovery to fill. Reading from the DB (not the static
+// catalogue) is what lets freshly calendar-discovered tournaments get codes:
+// they exist only as DB rows. ITF events never have PTL postings, so only
+// Challenger + ATP Tour levels are eligible.
 async function getMissingEditionsFromDb(
   year: number,
   weekFilter: number | null
@@ -145,6 +137,7 @@ async function getMissingEditionsFromDb(
     where te.year = $1
       and te.status = 'held'
       and te.start_date is not null
+      and (te.level ilike 'Challenger%' or te.level ~* 'ATP\\s*(250|500|1000)')
       and (
         (
           extract(year from te.start_date) = te.year
@@ -196,8 +189,40 @@ async function resolveMissingEditions(
   year: number,
   weekFilter: number | null
 ): Promise<MissingEdition[]> {
-  if (year === 2026) return getMissingEditionsFromCanonical(weekFilter);
   return getMissingEditionsFromDb(year, weekFilter);
+}
+
+// Known PTL codes for a year (catalogue + DB source_url/source_notes) — the
+// anchor for auto-ranged scans: new events get codes allocated near the top
+// of the existing band, so scan [max - back, max + ahead].
+async function getKnownCodesForYear(year: number): Promise<number[]> {
+  const codes = new Set<number>();
+  for (const item of ALL_EDITIONS) {
+    if (item.edition.year === year && item.edition.protennislive_code) {
+      const n = Number(item.edition.protennislive_code);
+      if (Number.isFinite(n)) codes.add(n);
+    }
+  }
+  const result = await pool.query<{ code: string }>(
+    `
+    select distinct code from (
+      select (regexp_match(te.source_url, '/posting/\\d+/(\\d+)/'))[1] as code
+      from tournament_editions te
+      where te.year = $1 and te.source_url ~ '/posting/\\d+/\\d+/'
+      union all
+      select (regexp_match(cs.source_notes, '/posting/\\d+/(\\d+)/'))[1] as code
+      from cutoff_snapshots cs
+      join tournament_editions te on te.id = cs.tournament_edition_id
+      where te.year = $1 and cs.source_notes ~ '/posting/\\d+/\\d+/'
+    ) x where code is not null
+    `,
+    [year]
+  );
+  for (const row of result.rows) {
+    const n = Number(row.code);
+    if (Number.isFinite(n)) codes.add(n);
+  }
+  return Array.from(codes);
 }
 
 async function fetchPdfText(url: string) {
@@ -317,12 +342,52 @@ async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, limit: numb
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const startCode = parseNumberParam(searchParams.get('startCode'), 'startCode');
-    const endCode = parseNumberParam(searchParams.get('endCode'), 'endCode');
-    if (endCode < startCode) throw new Error('endCode must be >= startCode');
+    const year = parseYearParam(searchParams.get('year'));
 
     const week = searchParams.get('week');
     const weekFilter = week ? parseNumberParam(week, 'week') : null;
+
+    const missing = await resolveMissingEditions(year, weekFilter);
+    if (missing.length === 0) {
+      // Nothing to match against — skip the (expensive) PDF scan entirely.
+      // The nightly workflow calls this unconditionally; this makes the
+      // no-work night free.
+      return NextResponse.json({
+        ok: true,
+        year,
+        skipped: true,
+        reason: 'No Challenger/ATP editions are missing a ProTennisLive code.',
+        hasMore: false,
+        matches: [],
+        applied: [],
+        unmatchedMissingCodes: [],
+      });
+    }
+
+    // Auto range: anchor on the codes we already know for this season.
+    // startCode/endCode can still override either bound (paged resumes pass
+    // startCode=nextStartCode&endCode=<first response's range.endCode>).
+    let startCode: number;
+    let endCode: number;
+    if (searchParams.get('auto') === 'true') {
+      const known = await getKnownCodesForYear(year);
+      if (known.length === 0) {
+        throw new Error(`auto range requested but no known ProTennisLive codes exist for ${year}`);
+      }
+      const maxKnown = Math.max(...known);
+      const back = Number(searchParams.get('back') ?? 120);
+      const ahead = Number(searchParams.get('ahead') ?? 160);
+      startCode = searchParams.get('startCode')
+        ? parseNumberParam(searchParams.get('startCode'), 'startCode')
+        : Math.max(1, maxKnown - back);
+      endCode = searchParams.get('endCode')
+        ? parseNumberParam(searchParams.get('endCode'), 'endCode')
+        : maxKnown + ahead;
+    } else {
+      startCode = parseNumberParam(searchParams.get('startCode'), 'startCode');
+      endCode = parseNumberParam(searchParams.get('endCode'), 'endCode');
+    }
+    if (endCode < startCode) throw new Error('endCode must be >= startCode');
 
     const maxRequestsRaw = searchParams.get('maxRequests');
     const maxRequests = Math.min(
@@ -347,11 +412,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const year = parseYearParam(searchParams.get('year'));
     const apply = searchParams.get('apply') === 'true';
     const applyMinConfidence = (searchParams.get('applyMinConfidence') ?? 'high') as MatchConfidence;
 
-    const missing = await resolveMissingEditions(year, weekFilter);
     const matches: MatchCandidate[] = [];
     const workingUnknown: WorkingUnknown[] = [];
     let workingPdfCount = 0;
@@ -428,13 +491,35 @@ export async function GET(request: NextRequest) {
     const nextStartCode = hasMore ? lastProcessedCode + 1 : null;
 
     const applied: Array<{ slug: string; code: number; pdf_url: string; confidence: MatchConfidence }> = [];
+    const ambiguousCodes: Array<{ code: number; slugs: string[] }> = [];
     if (apply && matches.length > 0) {
       const confidenceRank: Record<MatchConfidence, number> = { high: 3, medium: 2, low: 1 };
       const minRank = confidenceRank[applyMinConfidence] ?? confidenceRank.high;
+
+      // A ProTennisLive code identifies exactly ONE tournament. Entry-list
+      // PDFs are full of player names that can collide with other events'
+      // city/name tokens, so a code whose text "matches" several different
+      // tournaments is ambiguous — auto-applying it would write the same code
+      // to multiple slugs and later dedupe-by-code could merge unrelated
+      // tournaments. Skip those codes entirely; they stay in `matches` for a
+      // human to resolve.
+      const slugsByCode = new Map<number, Set<string>>();
+      for (const m of matches) {
+        if (confidenceRank[m.confidence] < minRank) continue;
+        if (!slugsByCode.has(m.code)) slugsByCode.set(m.code, new Set());
+        slugsByCode.get(m.code)!.add(m.matched_slug);
+      }
+      const unambiguousCodes = new Set<number>();
+      for (const [code, slugs] of slugsByCode) {
+        if (slugs.size === 1) unambiguousCodes.add(code);
+        else ambiguousCodes.push({ code, slugs: Array.from(slugs) });
+      }
+
       // Take the highest-confidence match per slug to avoid writing the wrong code.
       const bestBySlug = new Map<string, MatchCandidate>();
       for (const m of matches) {
         if (confidenceRank[m.confidence] < minRank) continue;
+        if (!unambiguousCodes.has(m.code)) continue;
         const existing = bestBySlug.get(m.matched_slug);
         if (!existing || confidenceRank[m.confidence] > confidenceRank[existing.confidence]) {
           bestBySlug.set(m.matched_slug, m);
@@ -477,6 +562,7 @@ export async function GET(request: NextRequest) {
       apply,
       applyMinConfidence,
       applied,
+      ambiguousCodes,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Invalid request';
