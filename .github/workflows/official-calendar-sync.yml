@@ -166,6 +166,43 @@ jobs:
           except Exception as exc:
               print(f'code discovery failed (non-fatal): {exc}', flush=True)
 
+          # Geocode any tournaments still missing coordinates. Without this,
+          # newly imported tournaments never appear on the Builder map/timeline
+          # (swings-page-data filters events to latitude != null) even though
+          # /cuts lists them — the exact "challengers missing through November"
+          # failure. Paged; reused cities are free, new ones ~1.1s (Nominatim).
+          print('\n=== Geocode new tournaments ===', flush=True)
+          try:
+              written_total = 0
+              for page in range(60):
+                  out = request_json('/api/geocode-tournaments?year=all&limit=100&dryRun=false',
+                                     timeout=300, retries=2)
+                  if not out.get('ok'):
+                      print(f'geocode page failed: {json.dumps(out)[:400]}', flush=True)
+                      break
+                  written_total += int(out.get('written') or 0)
+                  remaining = int(out.get('remaining') or 0)
+                  processed = int(out.get('processed') or 0)
+                  print(f"page {page + 1}: written={out.get('written')} remaining={remaining}", flush=True)
+                  if remaining <= 0 or processed == 0:
+                      break
+                  time.sleep(2)
+              print(f'geocoding done: {written_total} tournaments located', flush=True)
+              for f in (out.get('failures') or [])[:10]:
+                  print(f'  ! could not geocode: {json.dumps(f)}', flush=True)
+          except Exception as exc:
+              print(f'geocoding failed (non-fatal): {exc}', flush=True)
+
+          # Recompute swings right away so the Builder reflects tonight's
+          # imports + coordinates immediately (the 09:45 swings workflow
+          # remains as a second pass).
+          print('\n=== Recompute swings ===', flush=True)
+          try:
+              out = request_json('/api/recompute-swings?dryRun=false&year=all', timeout=280, retries=2)
+              print(f"recompute ok={out.get('ok')}", flush=True)
+          except Exception as exc:
+              print(f'swings recompute failed (non-fatal): {exc}', flush=True)
+
           # Detail-sheet coverage report: probe ds.pdf for every Challenger/ATP
           # edition so the log shows exactly how many fact sheets now resolve.
           print('\n=== Detail-sheet coverage ===', flush=True)
