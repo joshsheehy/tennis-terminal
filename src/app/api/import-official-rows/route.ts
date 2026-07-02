@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import {
   cleanName,
   deriveCity,
@@ -67,8 +68,18 @@ export async function POST(request: NextRequest) {
   if (!Number.isInteger(year) || (year as number) < 2024 || (year as number) > 2030) {
     return NextResponse.json({ ok: false, error: 'year must be an integer 2024-2030' }, { status: 400 });
   }
-  if (typeof sourcePdfUrl !== 'string' || !/^https:\/\/www\.atptour\.com\/.+\.pdf/i.test(sourcePdfUrl)) {
-    return NextResponse.json({ ok: false, error: 'sourcePdfUrl must be an atptour.com PDF URL' }, { status: 400 });
+  // Two official hosts publish the challenger calendar: atptour.com (laggy,
+  // bot-blocked from datacenters) and rsc.atppz.com (ATP Player Zone — the
+  // fresher combined calendar the server-side sync itself prefers). Rejecting
+  // Player Zone URLs here silently broke the runner-parsed import path.
+  if (
+    typeof sourcePdfUrl !== 'string' ||
+    !/^https:\/\/(www\.atptour\.com|rsc\.atppz\.com)\/.+\.pdf/i.test(sourcePdfUrl)
+  ) {
+    return NextResponse.json(
+      { ok: false, error: 'sourcePdfUrl must be an atptour.com or rsc.atppz.com PDF URL' },
+      { status: 400 }
+    );
   }
   if (!Array.isArray(rows) || rows.length === 0 || rows.length > MAX_ROWS) {
     return NextResponse.json({ ok: false, error: `rows must be a non-empty array of <= ${MAX_ROWS}` }, { status: 400 });
@@ -104,11 +115,29 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // New tournaments won't show on the schedule until the cached query is
+  // invalidated — do it now instead of waiting out the 5-minute TTL.
+  if (apply && upserted.length > 0) {
+    try {
+      revalidateTag('schedule');
+    } catch {
+      // revalidateTag can throw outside the cache runtime; safe to swallow.
+    }
+  }
+
+  // Genuinely-new editions inserted on this run (isNew=true), for the
+  // workflow log — mirrors sync-official-calendar's newlyAdded reporting.
+  const newlyAdded = upserted
+    .filter((row) => row.isNew === true)
+    .map((row) => ({ slug: row.slug, name: row.name, year: row.year, week: row.week, level: row.level }));
+
   return NextResponse.json({
     ok: failed.length === 0 && invalid.length === 0,
     apply,
     year,
     received: rows.length,
+    newlyAddedCount: newlyAdded.length,
+    newlyAdded: newlyAdded.slice(0, 40),
     upsertedCount: upserted.length,
     failedCount: failed.length,
     invalidCount: invalid.length,

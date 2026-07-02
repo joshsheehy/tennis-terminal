@@ -55,8 +55,31 @@ async function probeUrlExists(url) {
   } catch { return false; }
 }
 
+// ATP Player Zone "combined" calendar — mirrors discoverPlayerZoneCombinedCalendars
+// in src/app/api/sync-official-calendar/route.ts. This is the freshest source
+// and covers the whole season; the atptour.com challenger PDF lags badly.
+async function discoverPlayerZoneCombinedCalendars(lookBackDays = 120) {
+  const now = new Date();
+  const seasonEnd = new Date(Date.UTC(year, 11, 31));
+  const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
+  for (let back = 0; back <= lookBackDays; back += 1) {
+    const d = new Date(today.getTime() - back * 86400000);
+    const ymd = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
+    const url = `https://rsc.atppz.com/-/media/atp-player-zone/pdf-files/calendars/${year}/${ymd}_${year}_combined_calendar.pdf`;
+    if (await probeUrlExists(url)) return [url];
+  }
+  return [];
+}
+
 async function discoverPdfUrls() {
   const urls = new Set();
+
+  // 1) Primary: Player Zone combined calendar. A superset of the atptour
+  //    challenger PDF — when found, use it alone.
+  for (const u of await discoverPlayerZoneCombinedCalendars()) urls.add(u);
+  if (urls.size > 0) return Array.from(urls);
+
+  // 2) atptour.com listing pages.
   for (const pageUrl of ['https://www.atptour.com/en/tournaments', 'https://www.atptour.com/en/atp-challenger-tour/calendar']) {
     try {
       for (const u of findCalendarPdfUrls(await fetchHtml(pageUrl), pageUrl)) urls.add(u);
@@ -65,20 +88,27 @@ async function discoverPdfUrls() {
     }
   }
   if (urls.size === 0) {
-    // Past seasons: the newest "as-of" PDF was published near season end.
+    // 3) atptour CDN "as-of" probing. Mirrors the route's combos, including the
+    //    PREVIOUS year's two-season PDF (folder year-1) — that's how e.g. 2027
+    //    events are found inside the 2026-27 PDF before a 2027-28 file exists.
     const now = new Date();
     const seasonEnd = new Date(Date.UTC(year, 11, 31));
     const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
-    const yy2 = String((year + 1) % 100).padStart(2, '0');
-    for (const prefix of [`${year}-${yy2}-atp-challenger-calendar`, `${year}-atp-challenger-calendar`]) {
-      for (let back = 0; back <= 120; back += 1) {
+    const yyNext = String((year + 1) % 100).padStart(2, '0');
+    const yyThis = String(year % 100).padStart(2, '0');
+    const combos = [
+      { folder: year, prefix: `${year}-${yyNext}-atp-challenger-calendar` },
+      { folder: year, prefix: `${year}-atp-challenger-calendar` },
+      { folder: year - 1, prefix: `${year - 1}-${yyThis}-atp-challenger-calendar` },
+    ];
+    for (const { folder, prefix } of combos) {
+      let foundForPrefix = false;
+      for (let back = 0; back <= 120 && !foundForPrefix; back += 1) {
         const d = new Date(today.getTime() - back * 86400000);
-        let found = false;
         for (const dayVariant of [String(d.getUTCDate()), String(d.getUTCDate()).padStart(2, '0')]) {
-          const url = `https://www.atptour.com/-/media/files/calendar-pdfs/${year}/${prefix}-as-of-${dayVariant}-${MONTH_NAMES[d.getUTCMonth()]}-${d.getUTCFullYear()}.pdf`;
-          if (await probeUrlExists(url)) { urls.add(url); found = true; break; }
+          const url = `https://www.atptour.com/-/media/files/calendar-pdfs/${folder}/${prefix}-as-of-${dayVariant}-${MONTH_NAMES[d.getUTCMonth()]}-${d.getUTCFullYear()}.pdf`;
+          if (await probeUrlExists(url)) { urls.add(url); foundForPrefix = true; break; }
         }
-        if (found) break;
       }
     }
   }

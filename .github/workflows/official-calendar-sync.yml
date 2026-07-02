@@ -3,15 +3,42 @@ name: Official ATP calendar sync
 on:
   workflow_dispatch:
   schedule:
-    # Weekly on Monday at 07:45 UTC. Official ATP calendars do not need hourly refreshes.
-    - cron: '45 7 * * 1'
+    # Nightly at 07:45 UTC, before the 08:15 data-sync run. New PDFs publish
+    # irregularly; a daily runner-parsed pass catches them within 24h.
+    - cron: '45 7 * * *'
 
+# The PDF is downloaded and parsed HERE on the GitHub runner, then POSTed to
+# /api/import-official-rows. Fetching/parsing the PDF on the Railway web
+# process proved flaky (atptour.com 403s datacenter IPs and the parse is
+# heavy), so the server-side /api/sync-official-calendar remains only as a
+# tolerant backup at the end.
 jobs:
   sync-official-calendar:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - name: Import official ATP calendar updates
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Parse official calendar PDFs on the runner (current + next season)
+        run: |
+          set -euo pipefail
+          year=$(date -u +%Y)
+          for y in "$year" "$((year + 1))"; do
+            echo "=== Parsing season $y ==="
+            node scripts/diagnose-calendar-pdf.mjs "$y" --emit-rows "/tmp/official-rows-$y.json" || true
+            if [ -s "/tmp/official-rows-$y.json" ]; then
+              echo "season $y: rows emitted"
+            else
+              echo "season $y: no rows emitted (no PDF found or parse empty)"
+            fi
+          done
+
+      - name: Import parsed rows into production
         env:
           APP_URL: ${{ secrets.APP_URL }}
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
@@ -22,7 +49,6 @@ jobs:
             echo "Missing APP_URL repository secret. Set it to the production Railway URL, for example https://tennis-terminal-production.up.railway.app"
             exit 1
           fi
-
           if [ -z "${ADMIN_SECRET:-}" ]; then
             echo "Missing ADMIN_SECRET repository secret. Set it to the same value as the ADMIN_SECRET environment variable on Railway."
             exit 1
@@ -30,73 +56,101 @@ jobs:
 
           python3 - <<'PY'
           import datetime
+          import glob
           import json
           import os
-          import socket
           import time
-          import urllib.error
           import urllib.request
 
-          base_url = os.environ['APP_URL'].strip().rstrip('/')
-          if not base_url.startswith(('http://', 'https://')):
-              base_url = 'https://' + base_url
+          base = os.environ['APP_URL'].strip().rstrip('/')
+          if not base.startswith(('http://', 'https://')):
+              base = 'https://' + base
+          secret = os.environ['ADMIN_SECRET']
 
-          def request_json(path: str, *, required: bool = True, timeout: int = 180, retries: int = 3):
-              url = base_url + path
+          def request_json(path, *, data=None, method='GET', timeout=180, retries=4):
+              url = base + path
               last_error = None
               for attempt in range(1, retries + 1):
-                  print(f'\nGET {url} (attempt {attempt}/{retries}, timeout={timeout}s)', flush=True)
                   req = urllib.request.Request(
                       url,
+                      data=data,
+                      method=method,
                       headers={
                           'Accept': 'application/json',
-                          'User-Agent': 'TennisTerminalOfficialCalendarSync/1.0',
-                          'X-Admin-Secret': os.environ['ADMIN_SECRET'],
+                          'Content-Type': 'application/json',
+                          'User-Agent': 'TennisTerminalOfficialCalendarSync/2.0',
+                          'X-Admin-Secret': secret,
                       },
                   )
                   try:
                       with urllib.request.urlopen(req, timeout=timeout) as res:
-                          body = res.read().decode('utf-8', errors='replace')
-                          print(body[:5000], flush=True)
-                          return json.loads(body)
-                  except (socket.timeout, TimeoutError, urllib.error.URLError, ConnectionError) as exc:
-                      last_error = exc
-                      print(f'TRANSIENT ERROR: {exc}', flush=True)
-                      if attempt < retries:
-                          time.sleep(5 * attempt)
-                          continue
+                          return json.loads(res.read().decode('utf-8', errors='replace'))
                   except Exception as exc:
                       last_error = exc
-                      print(f'ERROR: {exc}', flush=True)
-                      break
-              if required:
-                  raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
-              return {'ok': False, 'error': str(last_error)}
+                      print(f'{method} {url} attempt {attempt}/{retries} failed: {exc}', flush=True)
+                      if attempt < retries:
+                          time.sleep(10 * attempt)
+              raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
 
-          current_year = datetime.date.today().year
-
-          # Official atptour.com calendar PDF import. This is first so new
-          # Challenger announcements are added before any fallback import runs.
-          # Tolerant: server-side PDF fetch/parse has proven flaky on Railway;
-          # the calendar-diagnosis workflow covers the runner-parsed path.
-          #
-          # The Challenger calendar PDF is a two-season "{year}-{year+1}"
-          # document, so sync BOTH the current and next season to catch new
-          # tournaments announced for either. newlyAdded in each response lists
-          # the genuinely-new events discovered on this run.
-          for sync_year in (current_year, current_year + 1):
-              data = request_json(f'/api/sync-official-calendar?year={sync_year}', required=False)
-              added = data.get('newlyAdded') or []
-              if added:
-                  print(f'\nNEW {sync_year} tournaments added ({len(added)}):', flush=True)
-                  for ev in added:
+          imported_any = False
+          parsed_any = False
+          for path in sorted(glob.glob('/tmp/official-rows-*.json')):
+              payload = json.load(open(path))
+              rows = payload['rows']
+              parsed_any = True
+              print(f"\n=== {payload['year']}: {len(rows)} rows from {payload['sourcePdfUrl']} ===", flush=True)
+              new_total = 0
+              for start in range(0, len(rows), 100):
+                  chunk = {'year': payload['year'], 'sourcePdfUrl': payload['sourcePdfUrl'], 'rows': rows[start:start + 100]}
+                  out = request_json('/api/import-official-rows?apply=true', data=json.dumps(chunk).encode(), method='POST')
+                  print(f"chunk {start}-{start + len(chunk['rows'])}: ok={out.get('ok')} upserted={out.get('upsertedCount')} "
+                        f"new={out.get('newlyAddedCount')} failed={out.get('failedCount')} invalid={out.get('invalidCount')}", flush=True)
+                  for ev in out.get('newlyAdded') or []:
                       print(f"  + wk{ev.get('week')} {ev.get('name')} ({ev.get('level')})", flush=True)
-              else:
-                  print(f'\nNo new {sync_year} tournaments this run.', flush=True)
+                  if not out.get('ok'):
+                      print(json.dumps({'failed': out.get('failed'), 'invalid': out.get('invalid')}, indent=1), flush=True)
+                      raise SystemExit(1)
+                  new_total += out.get('newlyAddedCount') or 0
+                  imported_any = True
+              print(f"season {payload['year']}: {new_total} newly added tournaments", flush=True)
 
-          # Fill cuts if official PDFs are already posted. This is bounded and idempotent.
+          if not parsed_any:
+              print('\nNo runner-parsed rows for any season; relying on the server-side backup sync below.', flush=True)
+
+          # Consolidate: fold duplicate rows created by differing name spellings
+          # and re-assert visibility, exactly like the manual diagnosis flow.
+          if imported_any:
+              for path in (
+                  '/api/dedupe-by-code?apply=true',
+                  '/api/merge-official-challenger-levels?apply=true',
+                  '/api/restore-historical-status',
+              ):
+                  print(f'\n=== GET {path}', flush=True)
+                  try:
+                      out = request_json(path, timeout=280)
+                      print(json.dumps(out)[:800], flush=True)
+                  except Exception as exc:
+                      print(f'non-fatal: {exc}', flush=True)
+
+          # Backup: the server-side sync (fetches + parses on Railway). Kept
+          # tolerant — it 403s from datacenter IPs often, and the runner path
+          # above is the source of truth now.
+          current_year = datetime.date.today().year
+          for sync_year in (current_year, current_year + 1):
+              try:
+                  data = request_json(f'/api/sync-official-calendar?year={sync_year}', timeout=240, retries=1)
+                  added = data.get('newlyAdded') or []
+                  print(f"\nserver-side sync {sync_year}: ok={data.get('ok')} new={len(added)}", flush=True)
+              except Exception as exc:
+                  print(f'\nserver-side sync {sync_year} failed (non-fatal): {exc}', flush=True)
+
+          # Fill cuts if official PDFs are already posted. Bounded and idempotent.
           for attempt in range(20):
-              data = request_json('/api/run-all', timeout=60, required=False)
+              try:
+                  data = request_json('/api/run-all', timeout=60, retries=1)
+              except Exception as exc:
+                  print(f'run-all attempt failed (non-fatal): {exc}', flush=True)
+                  break
               if not data.get('hasMore'):
                   break
               print(f'run-all has more work; attempt {attempt + 1}/20', flush=True)
