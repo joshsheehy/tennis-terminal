@@ -849,8 +849,14 @@ td {
   color: #fff;
 }
 .cut-trend__tab--on:hover { color: #fff; }
-.cut-trend__bar { fill: var(--chart-bar); transition: opacity 120ms ease; }
-.cut-trend__bar-group:hover .cut-trend__bar { opacity: 0.8; }
+.cut-trend__line { stroke: var(--chart-bar); }
+.cut-trend__area { fill: var(--brand-soft); }
+.cut-trend__dot {
+  fill: var(--chart-bar);
+  stroke: var(--surface);
+  transition: r 120ms ease;
+}
+.cut-trend__pt:hover .cut-trend__dot { r: 6; }
 .cut-trend svg a { cursor: pointer; }
 .cut-trend__baseline { stroke: var(--border-table-head); stroke-width: 1; }
 .cut-trend__value {
