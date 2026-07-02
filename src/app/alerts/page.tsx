@@ -28,11 +28,18 @@ const RULES: Array<{ category: string; rows: Array<[string, string]> }> = [
   },
   {
     category: 'ITF World Tennis Tour',
-    rows: [['Entry deadline', '18 days before (Thu), 14:00 GMT']],
+    rows: [
+      ['Entry deadline', '18 days before (Thu), 14:00 GMT'],
+      ['Alert style', 'one weekly summary (too many events to list individually)'],
+    ],
   },
   {
     category: 'Grand Slam',
-    rows: [['Main draw entry', '~6 weeks (42 days) before']],
+    rows: [
+      ['Singles main draw', '42 days before'],
+      ['Singles qualifying', '28 days before'],
+      ['Doubles main draw', '~14 days before (set by each event)'],
+    ],
   },
 ];
 

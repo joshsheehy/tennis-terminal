@@ -7,8 +7,10 @@
 //       Doubles main draw:  ATP = 14 days,   Challenger =  7 days
 //   ITF World Tennis Tour — 2026 WTT Regulations. Entry deadline is 14:00 GMT
 //     on the Thursday 18 days before the Monday of the tournament week.
-//   Grand Slam — entry deadline is ~6 weeks (42 days) before the event; run by
-//     the Grand Slam Board, not the ATP, so treat as approximate.
+//   Grand Slam — 2026 Official Grand Slam Rule Book §Z "Entry Procedures":
+//     singles main draw closes 42 days prior to the first Monday, singles
+//     qualifying 28 days prior. The doubles deadline is published per event in
+//     the official entry form (typically ~2 weeks out), so ours is approximate.
 //
 // A subscriber chooses which of these categories they want alerts for.
 
@@ -64,7 +66,9 @@ const CATEGORY_RULES: Record<Category, RuleDef[]> = {
     { kind: 'entry', label: 'Entry deadline', daysPrior: 18, timeNote: '14:00 GMT (Thu)' },
   ],
   grandslam: [
-    { kind: 'main', label: 'Main draw entry', daysPrior: 42, timeNote: '~6 weeks before (approx.)' },
+    { kind: 'main', label: 'Singles main draw', daysPrior: 42, timeNote: 'time per event' },
+    { kind: 'qualifying', label: 'Singles qualifying', daysPrior: 28, timeNote: 'time per event' },
+    { kind: 'doubles', label: 'Doubles main draw', daysPrior: 14, timeNote: 'approx.; set by each event' },
   ],
 };
 
@@ -115,6 +119,10 @@ export type Deadline = {
   daysPrior: number;
   deadlineDate: string; // YYYY-MM-DD the deadline falls on
   timeNote: string;
+  // Set on the synthetic ITF row that stands in for every ITF tournament
+  // sharing a week (there are dozens weekly, so we never list them all).
+  aggregate?: boolean;
+  tournamentCount?: number;
 };
 
 // All entry deadlines for a single tournament edition, or [] for levels with no
@@ -148,11 +156,50 @@ export function deadlinesForEdition(row: ScheduleRow): Deadline[] {
   });
 }
 
+// Collapse per-tournament ITF deadlines into one synthetic row per tournament
+// week. There are dozens of ITF events every week with the identical deadline,
+// so listing them individually would drown the email; one line ("47 ITF
+// tournaments, entries close Thursday") is the useful signal.
+function aggregateItf(deadlines: Deadline[]): Deadline[] {
+  const kept: Deadline[] = [];
+  const itfByWeek = new Map<string, Deadline[]>();
+  for (const d of deadlines) {
+    if (d.category !== 'itf') {
+      kept.push(d);
+      continue;
+    }
+    const group = itfByWeek.get(d.tournamentStart);
+    if (group) group.push(d);
+    else itfByWeek.set(d.tournamentStart, [d]);
+  }
+  for (const [weekMonday, group] of itfByWeek) {
+    const first = group[0];
+    kept.push({
+      ...first,
+      // Stable synthetic id: same week -> same dedupe key on every run, and
+      // an ITF event added later that week can't re-trigger the alert.
+      editionId: `itf-week-${weekMonday}`,
+      slug: '',
+      name: 'ITF World Tennis Tour',
+      city: '',
+      country: null,
+      level: 'ITF',
+      kindLabel: 'Entry deadline (all tournaments)',
+      aggregate: true,
+      tournamentCount: group.length,
+    });
+  }
+  return kept;
+}
+
 // Deadlines that fall due within the next `leadDays` days of `today` — i.e.
 // deadlineDate is in [today, today + leadDays]. With leadDays = 1 (the default)
 // this is the "~24 hours before" window: it fires the day before the deadline,
 // and also catches a same-day deadline if a cron run was missed. Filtered to the
-// caller's chosen categories; doubles is opt-in via includeDoubles.
+// caller's chosen categories. ATP/Challenger doubles are opt-in via
+// includeDoubles; Grand Slam doubles are always included (its main/qualifying/
+// doubles trio is exactly what subscribers picked the category for). ITF rows
+// come back as one aggregate line per tournament week, never per event.
 export function dueDeadlines(
   rows: ScheduleRow[],
   today: Date,
@@ -175,7 +222,7 @@ export function dueDeadlines(
   for (const row of rows) {
     for (const d of deadlinesForEdition(row)) {
       if (!wanted.has(d.category)) continue;
-      if (!includeDoubles && d.kind === 'doubles') continue;
+      if (!includeDoubles && d.kind === 'doubles' && d.category !== 'grandslam') continue;
       const when = parseUtcDateOnly(d.deadlineDate);
       if (!when) continue;
       if (when.getTime() >= start.getTime() && when.getTime() <= end.getTime()) {
@@ -183,12 +230,13 @@ export function dueDeadlines(
       }
     }
   }
-  out.sort((a, b) =>
+  const collapsed = aggregateItf(out);
+  collapsed.sort((a, b) =>
     a.deadlineDate === b.deadlineDate
       ? a.name.localeCompare(b.name)
       : a.deadlineDate.localeCompare(b.deadlineDate)
   );
-  return out;
+  return collapsed;
 }
 
 // Stable idempotency key for one deadline occurrence, so a subscriber is never

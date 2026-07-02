@@ -83,10 +83,13 @@ describe('deadlinesForEdition', () => {
     expect(ds[0].deadlineDate).toBe('2026-02-26'); // -18
   });
 
-  it('computes a Grand Slam main draw entry (42 days)', () => {
+  it('computes Grand Slam main / qualifying / doubles (42 / 28 / 14)', () => {
     const ds = deadlinesForEdition(row({ level: 'Grand Slam' }));
-    expect(ds).toHaveLength(1);
-    expect(ds[0].deadlineDate).toBe('2026-02-02'); // -42
+    const byKind = Object.fromEntries(ds.map((d) => [d.kind, d.deadlineDate]));
+    expect(ds).toHaveLength(3);
+    expect(byKind.main).toBe('2026-02-02'); // -42
+    expect(byKind.qualifying).toBe('2026-02-16'); // -28
+    expect(byKind.doubles).toBe('2026-03-02'); // -14
   });
 
   it('returns nothing for uncovered levels', () => {
@@ -123,7 +126,25 @@ describe('dueDeadlines', () => {
     expect(due[0].category).toBe('itf');
   });
 
-  it('excludes doubles unless includeDoubles is set', () => {
+  it('collapses ITF events sharing a week into one aggregate row', () => {
+    const manyItf = [
+      row({ edition_id: 'i1', slug: 'itf-a', name: 'ITF A', level: 'ITF M15' }),
+      row({ edition_id: 'i2', slug: 'itf-b', name: 'ITF B', level: 'ITF M25' }),
+      row({ edition_id: 'i3', slug: 'itf-c', name: 'ITF C', level: 'ITF M15' }),
+    ];
+    const due = dueDeadlines(manyItf, new Date('2026-02-25T09:00:00Z'), {
+      leadDays: 1,
+      categories: ['itf'],
+    });
+    expect(due).toHaveLength(1);
+    expect(due[0].aggregate).toBe(true);
+    expect(due[0].tournamentCount).toBe(3);
+    expect(due[0].name).toBe('ITF World Tennis Tour');
+    // Stable dedupe key derives from the week, not any single edition.
+    expect(due[0].editionId).toBe('itf-week-2026-03-16');
+  });
+
+  it('excludes ATP/Challenger doubles unless includeDoubles is set', () => {
     // ATP doubles deadline is 2026-03-02.
     const base = { leadDays: 1, categories: ['atp'] as Category[] };
     const without = dueDeadlines(rows, new Date('2026-03-01T09:00:00Z'), { ...base });
@@ -133,6 +154,16 @@ describe('dueDeadlines', () => {
       includeDoubles: true,
     });
     expect(withDbl.map((d) => d.kind)).toContain('doubles');
+  });
+
+  it('always includes Grand Slam doubles', () => {
+    const gs = [row({ edition_id: 'gs', slug: 'wimbledon', name: 'Wimbledon', level: 'Grand Slam' })];
+    // GS doubles deadline is 2026-03-02; run the day before, no includeDoubles.
+    const due = dueDeadlines(gs, new Date('2026-03-01T09:00:00Z'), {
+      leadDays: 1,
+      categories: ['grandslam'],
+    });
+    expect(due.map((d) => d.kind)).toContain('doubles');
   });
 });
 

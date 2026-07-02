@@ -19,6 +19,37 @@ function formatDate(iso: string): string {
 
 export type RenderedEmail = { subject: string; html: string; text: string };
 
+// The draw is folded into the displayed name: main draw is just the tournament
+// name, qualifying gets a "Qs" suffix, doubles gets "Doubles". The aggregate
+// ITF row keeps its generic name.
+export function displayName(d: Deadline): string {
+  if (d.aggregate) return d.name;
+  if (d.kind === 'qualifying') return `${d.name} Qs`;
+  if (d.kind === 'doubles') return `${d.name} Doubles`;
+  return d.name;
+}
+
+// Subtitle line under the name. Individual tournaments show level + place +
+// start; the ITF aggregate summarises the week instead of listing every event.
+function subtitle(d: Deadline): string {
+  if (d.aggregate) {
+    const n = d.tournamentCount ?? 0;
+    const events = n > 0 ? `${n} tournaments` : 'all tournaments';
+    return `${events} &middot; week of ${formatDate(d.tournamentStart)}`;
+  }
+  const place = d.country ? `${esc(d.city)}, ${esc(d.country)}` : esc(d.city);
+  return `${esc(d.level)} &middot; ${place} &middot; starts ${formatDate(d.tournamentStart)}`;
+}
+
+function textLine(d: Deadline): string {
+  if (d.aggregate) {
+    const n = d.tournamentCount ?? 0;
+    const events = n > 0 ? `${n} tournaments` : 'all tournaments';
+    return `- ITF World Tennis Tour (${events}, week of ${formatDate(d.tournamentStart)}) - entries close: ${formatDate(d.deadlineDate)} ${d.timeNote}.`;
+  }
+  return `- ${displayName(d)} (${d.level}) - ${formatDate(d.deadlineDate)} ${d.timeNote}. Tournament starts ${formatDate(d.tournamentStart)}.`;
+}
+
 // Build the subject + HTML + plain-text digest for a set of deadlines.
 // `origin` is the site origin (used for the tournament, unsubscribe and
 // preferences links); `unsubToken` is the subscriber's token.
@@ -31,23 +62,23 @@ export function renderDigest(
   const soonest = deadlines[0];
   const subject =
     count === 1
-      ? `Entry deadline tomorrow: ${soonest.name} (${soonest.kindLabel})`
+      ? `Entry deadline tomorrow: ${displayName(soonest)}`
       : `${count} entry deadlines coming up`;
 
   // HTML entities (&middot;) instead of a raw · so the copy renders correctly
   // in every client regardless of how it interprets the charset.
   const rows = deadlines
     .map((d) => {
-      const tournamentUrl = `${origin}/tournaments/${encodeURIComponent(d.slug)}`;
-      const place = d.country ? `${esc(d.city)}, ${esc(d.country)}` : esc(d.city);
+      // The ITF aggregate row has no single tournament page; link it to the
+      // schedule instead.
+      const url = d.aggregate
+        ? `${origin}/cuts`
+        : `${origin}/tournaments/${encodeURIComponent(d.slug)}`;
       return `
       <tr>
         <td style="padding:10px 12px;border-bottom:1px solid #eee">
-          <a href="${tournamentUrl}" style="color:#111;text-decoration:none;font-weight:600">${esc(d.name)}</a><br>
-          <span style="color:#666;font-size:13px">${esc(d.level)} &middot; ${place} &middot; starts ${formatDate(d.tournamentStart)}</span>
-        </td>
-        <td style="padding:10px 12px;border-bottom:1px solid #eee;white-space:nowrap">
-          ${esc(d.kindLabel)}
+          <a href="${url}" style="color:#111;text-decoration:none;font-weight:600">${esc(displayName(d))}</a><br>
+          <span style="color:#666;font-size:13px">${subtitle(d)}</span>
         </td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;white-space:nowrap">
           <strong>${formatDate(d.deadlineDate)}</strong><br>
@@ -61,7 +92,7 @@ export function renderDigest(
   const manageUrl = `${origin}/alerts/manage?token=${encodeURIComponent(unsubToken)}`;
   const preheader =
     count === 1
-      ? `${soonest.name}: ${soonest.kindLabel} deadline is due within ~24 hours.`
+      ? `${displayName(soonest)}: entry deadline is due within ~24 hours.`
       : `${count} entry deadlines are due within ~24 hours.`;
 
   const html = `<!doctype html>
@@ -86,7 +117,6 @@ export function renderDigest(
       <thead>
         <tr style="background:#fafafa;text-align:left">
           <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.04em">Tournament</th>
-          <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase">Draw</th>
           <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase">Deadline</th>
         </tr>
       </thead>
@@ -106,12 +136,7 @@ export function renderDigest(
   // Plain text uses ASCII hyphens so no client can render a "weird character".
   const text =
     `Entry deadlines due within ~24 hours:\n\n` +
-    deadlines
-      .map(
-        (d) =>
-          `- ${d.name} (${d.level}) - ${d.kindLabel}: ${formatDate(d.deadlineDate)} ${d.timeNote}. Tournament starts ${formatDate(d.tournamentStart)}.`
-      )
-      .join('\n') +
+    deadlines.map(textLine).join('\n') +
     `\n\nEdit preferences: ${manageUrl}\nUnsubscribe: ${unsubUrl}\n\nTennis Cuts`;
 
   return { subject, html, text };

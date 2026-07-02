@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
 
+# Rapid consecutive pushes previously ran (and could fail + email) once per
+# push. Cancel the superseded run so only the newest commit reports.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     runs-on: ubuntu-latest
