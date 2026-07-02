@@ -21,16 +21,24 @@
    the container so the map stays draggable between the glass cards. */
 .swings-float {
   position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 10px;
+  top: 8px;
+  left: 8px;
+  right: 8px;
   z-index: 1100;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   pointer-events: none;
 }
 .swings-float > * { pointer-events: auto; }
+
+@media (min-width: 900px) {
+  .swings-float {
+    top: 12px;
+    left: 12px;
+    gap: 8px;
+  }
+}
 
 /* Inline filter pills: the only filter UI (no gear/sheet). Year (single
    select), levels and surfaces (multi toggle). Horizontally scrollable so the
@@ -39,7 +47,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   overflow-x: auto;
   scrollbar-width: none;
   border: 1px solid var(--border);
@@ -50,6 +58,10 @@
   box-shadow: var(--shadow-2);
 }
 .swings-filters::-webkit-scrollbar { display: none; }
+
+@media (min-width: 900px) {
+  .swings-filters { padding: 8px 10px; }
+}
 .filter-sep {
   flex: 0 0 auto;
   width: 1px;
@@ -279,7 +291,7 @@
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 15px;
+  font-size: 16px; /* ≥16px stops iOS Safari from zooming the page on focus */
   outline: none;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
@@ -342,10 +354,10 @@
 .timeline {
   display: flex;
   align-items: flex-end;
-  gap: 14px;
+  gap: 12px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 8px 12px 6px;
+  padding: 6px 10px 5px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--nav-glass);
@@ -354,6 +366,10 @@
   box-shadow: var(--shadow-2);
 }
 .timeline::-webkit-scrollbar { display: none; }
+
+@media (min-width: 900px) {
+  .timeline { gap: 14px; padding: 8px 12px 6px; }
+}
 .timeline__month { flex: 0 0 auto; }
 .timeline__month-label {
   display: block;
@@ -422,7 +438,8 @@
    where pinch does the job); attribution rides just above the bottom sheet. */
 .leaflet-container { background: var(--surface-alt); font: inherit; }
 .leaflet-bottom.leaflet-left {
-  bottom: 94px; /* clear the collapsed mobile sheet */
+  /* clear the collapsed mobile sheet + home indicator */
+  bottom: calc(94px + env(safe-area-inset-bottom, 0px));
   transition: bottom 0.22s ease;
 }
 .leaflet-control-zoom { display: none; }
@@ -569,7 +586,7 @@
   display: flex;
   flex-direction: column;
 }
-.sheet--collapsed { height: 84px; }
+.sheet--collapsed { height: calc(84px + env(safe-area-inset-bottom, 0px)); }
 .sheet--half { height: 46dvh; }
 .sheet--full { height: 88dvh; }
 /* Grip row is the drag handle; touch-action:none lets a touch drag move the
@@ -594,7 +611,10 @@
   cursor: inherit;
   padding: 0;
 }
-.sheet-body { padding: 4px 16px 20px; overflow-y: auto; }
+.sheet-body {
+  padding: 4px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+}
 .sheet-summary { margin: 6px 0; font-size: 15px; color: var(--text-secondary); }
 .sheet-jump {
   background: none;
@@ -675,6 +695,8 @@
 .welcome-card {
   width: 100%;
   max-width: 350px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
   padding: 26px 24px 20px;
   border: 1px solid var(--border);
   border-radius: 18px;

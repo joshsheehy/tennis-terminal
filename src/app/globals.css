@@ -906,7 +906,7 @@ td {
 
 .field-input {
   padding: 11px 13px;
-  font-size: 15px;
+  font-size: 16px; /* ≥16px stops iOS Safari from zooming the page on focus */
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -948,11 +948,13 @@ td {
 }
 .rules-card li {
   display: flex;
+  flex-wrap: wrap; /* long timings drop to their own right-aligned line on narrow screens */
   justify-content: space-between;
-  gap: 12px;
+  gap: 2px 12px;
   font-size: 14px;
   line-height: 1.5;
 }
+.rules-card li .rules-when { margin-left: auto; }
 .rules-card li .rules-when {
   color: var(--text-secondary);
   font-weight: 550;

@@ -61,6 +61,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Extend under the home indicator on notched phones; safe-area env() insets
+  // in the CSS keep interactive elements clear of it.
+  viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)', color: '#0b1220' },
