@@ -59,6 +59,9 @@
   --status-out:          #dc2626;
   --status-unknown:      #64748b;
 
+  /* Chart series color (validated against both surfaces). */
+  --chart-bar:           #22863b;
+
   --shadow-1:            0 1px 2px rgba(13, 21, 34, 0.05);
   --shadow-2:            0 1px 3px rgba(13, 21, 34, 0.05), 0 6px 20px rgba(13, 21, 34, 0.06);
   --shadow-pop:          0 8px 30px rgba(13, 21, 34, 0.12);
@@ -119,6 +122,8 @@
   --status-out:          #f87171;
   --status-unknown:      #94a3b8;
 
+  --chart-bar:           #3CB043;
+
   --shadow-1:            0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-2:            0 1px 3px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
   --shadow-pop:          0 10px 34px rgba(0, 0, 0, 0.5);
@@ -172,6 +177,8 @@
     --status-q:            #fbbf24;
     --status-out:          #f87171;
     --status-unknown:      #94a3b8;
+
+    --chart-bar:           #3CB043;
 
     --shadow-1:            0 1px 2px rgba(0, 0, 0, 0.35);
     --shadow-2:            0 1px 3px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -799,6 +806,41 @@ td {
 }
 .pill-note strong { color: var(--text-secondary); }
 .pill-note .was { color: var(--text-faint); }
+
+/* Cut-history chart in the tournament hero */
+.cut-trend {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-inner);
+  overflow-x: auto;
+}
+.cut-trend__label {
+  margin: 0 0 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-faint);
+}
+.cut-trend__bar { fill: var(--chart-bar); }
+.cut-trend__baseline { stroke: var(--border-table-head); stroke-width: 1; }
+.cut-trend__value {
+  font-size: 11px;
+  font-weight: 650;
+  fill: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.cut-trend__year {
+  font-size: 10px;
+  fill: var(--text-faint);
+}
+.cut-trend__note {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  max-width: 460px;
+}
 
 .src-link {
   display: inline-block;

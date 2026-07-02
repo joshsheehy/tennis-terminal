@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import CutTrendChart, { type CutTrendPoint } from '@/components/CutTrendChart';
 import { getTournamentDetailRowsBySlug, getItfPriorYearCutEditions } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
@@ -463,6 +464,18 @@ export default async function TournamentDetailPage({
       ? await getItfPriorYearCutEditions(current.level, current.city, current.week, current.year)
       : [];
 
+  // Singles main-draw cut per year, oldest→newest, for the hero trend chart.
+  // Prefer the post-alternates ("real") cut when it was recorded.
+  const cutTrend: CutTrendPoint[] = rows
+    .map((row) => {
+      const c = findCutoff(row.cutoffs, 'singles', 'main');
+      if (!c || isTombstone(c)) return null;
+      const cut = c.last_alternate_rank ?? c.last_direct_acceptance_rank;
+      return cut != null ? { year: row.edition.year, cut } : null;
+    })
+    .filter((p): p is CutTrendPoint => p !== null)
+    .sort((a, b) => a.year - b.year);
+
   return (
     <main className="page">
       <Link href={year !== CURRENT_SEASON ? `/cuts?year=${year}` : '/cuts'} className="back-link">
@@ -488,6 +501,7 @@ export default async function TournamentDetailPage({
             </div>
           ))}
         </div>
+        {cutTrend.length >= 2 && <CutTrendChart points={cutTrend} />}
       </div>
 
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>

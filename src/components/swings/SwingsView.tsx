@@ -273,6 +273,24 @@ export default function SwingsView({
     return counts;
   }, [data.events, surfaceOk]);
 
+  // Nearest week at/after (or at/before) `from` that has matching events —
+  // the builder navigates between these so users never dead-end on an empty
+  // week with no obvious way forward.
+  const nextEventWeek = useCallback(
+    (from: number): number | null => {
+      for (let w = Math.max(1, from); w <= MAX_WEEK; w++) if (weekCounts[w] > 0) return w;
+      return null;
+    },
+    [weekCounts]
+  );
+  const prevEventWeek = useCallback(
+    (from: number): number | null => {
+      for (let w = Math.min(MAX_WEEK, from); w >= 1; w--) if (weekCounts[w] > 0) return w;
+      return null;
+    },
+    [weekCounts]
+  );
+
   // --- shared helpers -------------------------------------------------------
   const pushParams = (mut: (p: URLSearchParams) => void) => {
     const next = new URLSearchParams(params.toString());
@@ -321,12 +339,11 @@ export default function SwingsView({
     if (!ev) return;
     const next = [...chainIds, editionId];
     setChainIds(next);
-    // Advance to choosing the following week.
-    setSelectedWeek(Math.min(MAX_WEEK, ev.week + 1));
+    // Advance straight to the next week that has events (skipping empty
+    // weeks), so the user is never dropped onto a dead week.
+    setSelectedWeek(nextEventWeek(ev.week + 1) ?? Math.min(MAX_WEEK, ev.week + 1));
     syncBuildParam(next);
   };
-
-  const skipWeek = () => setSelectedWeek((w) => Math.min(MAX_WEEK, w + 1));
   const removeStop = (index: number) => {
     const next = chainIds.filter((_, i) => i !== index);
     setChainIds(next);
@@ -450,6 +467,10 @@ export default function SwingsView({
   const activeSwing = selectedSwing != null ? data.swings[selectedSwing] : null;
   const chainSummary = summarizeChain(chain);
 
+  // Weeks that hold one of your stops — marked with a ring in the timeline so
+  // the itinerary is visible in the season overview.
+  const chainWeeks = useMemo(() => new Set(chain.map((e) => e.week)), [chain]);
+
   // Inline filter controls (replaces the old gear/filter sheet).
   const setYear = (y: number) => pushParams((p) => p.set('year', String(y)));
   const toggleGroup = (g: LevelGroup) => {
@@ -529,6 +550,7 @@ export default function SwingsView({
           year={data.year}
           selectedWeek={selectedWeek}
           weekCounts={weekCounts}
+          markedWeeks={mode === 'build' ? chainWeeks : undefined}
           onSelect={(w) => {
             setSelectedWeek(w);
             setSelectedSwing(null);
@@ -584,10 +606,13 @@ export default function SwingsView({
           candidates={candidates}
           summary={chainSummary}
           selectedWeek={selectedWeek}
+          weekCounts={weekCounts}
+          nextWeek={nextEventWeek(selectedWeek + 1)}
+          prevWeek={prevEventWeek(selectedWeek - 1)}
+          onGoToWeek={setSelectedWeek}
           onAdd={addStop}
           onRemove={removeStop}
           onClear={clearChain}
-          onSkip={skipWeek}
           rankSingles={rankSingles}
           rankDoubles={rankDoubles}
           onRankSingles={updateRankSingles}
@@ -626,11 +651,14 @@ function Timeline({
   year,
   selectedWeek,
   weekCounts,
+  markedWeeks,
   onSelect,
 }: {
   year: number;
   selectedWeek: number;
   weekCounts: number[];
+  /** Weeks holding one of the user's swing stops — ringed in the strip. */
+  markedWeeks?: Set<number>;
   onSelect: (week: number) => void;
 }) {
   const selectedRef = useRef<HTMLButtonElement>(null);
@@ -665,15 +693,16 @@ function Timeline({
               // sqrt scale keeps busy ITF weeks from flattening everything else
               const h = count === 0 ? 2 : 3 + Math.round((Math.sqrt(count) / Math.sqrt(maxCount)) * 13);
               const on = week === selectedWeek;
+              const stop = markedWeeks?.has(week) ?? false;
               return (
                 <button
                   key={week}
                   ref={on ? selectedRef : undefined}
                   role="tab"
                   aria-selected={on}
-                  aria-label={`Week of ${weekDateLabel(year, week)} — ${count} tournament${count === 1 ? '' : 's'}`}
-                  title={`${weekDateLabel(year, week)} · ${count} tournament${count === 1 ? '' : 's'}`}
-                  className={`timeline__week${on ? ' timeline__week--on' : ''}`}
+                  aria-label={`Week of ${weekDateLabel(year, week)} — ${count} tournament${count === 1 ? '' : 's'}${stop ? ' (on your swing)' : ''}`}
+                  title={`${weekDateLabel(year, week)} · ${count} tournament${count === 1 ? '' : 's'}${stop ? ' · on your swing' : ''}`}
+                  className={`timeline__week${on ? ' timeline__week--on' : ''}${stop ? ' timeline__week--stop' : ''}`}
                   onClick={() => onSelect(week)}
                 >
                   <span className="timeline__bar" style={{ height: h }} aria-hidden="true" />
@@ -697,10 +726,13 @@ function BuilderPanel({
   candidates,
   summary,
   selectedWeek,
+  weekCounts,
+  nextWeek,
+  prevWeek,
+  onGoToWeek,
   onAdd,
   onRemove,
   onClear,
-  onSkip,
   rankSingles,
   rankDoubles,
   onRankSingles,
@@ -719,10 +751,14 @@ function BuilderPanel({
   candidates: RankedCandidate<SwingMapEvent>[];
   summary: ReturnType<typeof summarizeChain>;
   selectedWeek: number;
+  weekCounts: number[];
+  /** Nearest week after/before the selected one that has events (null = none). */
+  nextWeek: number | null;
+  prevWeek: number | null;
+  onGoToWeek: (week: number) => void;
   onAdd: (editionId: string) => void;
   onRemove: (index: number) => void;
   onClear: () => void;
-  onSkip: () => void;
   rankSingles: number | null;
   rankDoubles: number | null;
   onRankSingles: (rank: number | null) => void;
@@ -885,12 +921,68 @@ function BuilderPanel({
     </div>
   );
 
-  const skipButton = (
-    <button className="builder-skip" onClick={onSkip}>
-      Nothing the week of {weekDateLabel(year, selectedWeek)}? Skip to{' '}
-      {weekDateLabel(year, Math.min(selectedWeek + 1, MAX_WEEK))} →
-    </button>
+  // Week stepper: chevrons jump between weeks that actually have events, so
+  // stepping never lands on a dead week.
+  const weekNav = (title: string) => (
+    <div className="weeknav">
+      <button
+        className="weeknav__btn"
+        disabled={prevWeek == null}
+        onClick={() => prevWeek != null && onGoToWeek(prevWeek)}
+        aria-label={prevWeek != null ? `Back to ${weekDateLabel(year, prevWeek)}` : 'No earlier week with tournaments'}
+        title={prevWeek != null ? `Back to ${weekDateLabel(year, prevWeek)}` : undefined}
+      >
+        ‹
+      </button>
+      <h3 className="weeknav__title">{title}</h3>
+      <button
+        className="weeknav__btn"
+        disabled={nextWeek == null}
+        onClick={() => nextWeek != null && onGoToWeek(nextWeek)}
+        aria-label={nextWeek != null ? `Ahead to ${weekDateLabel(year, nextWeek)}` : 'No later week with tournaments'}
+        title={nextWeek != null ? `Ahead to ${weekDateLabel(year, nextWeek)}` : undefined}
+      >
+        ›
+      </button>
+    </div>
   );
+
+  // Rich empty state: explains why the week is empty and offers one-tap jumps
+  // to the nearest weeks that do have tournaments — no dead ends.
+  const emptyWeek = (
+    <div className="builder-empty">
+      <p className="builder-empty__title">
+        Nothing the week of {weekDateLabel(year, selectedWeek)}
+      </p>
+      <p className="builder-empty__hint">
+        No tournaments match your level &amp; surface filters this week — weeks with a
+        taller bar in the timeline above have events.
+      </p>
+      {nextWeek != null && (
+        <button className="builder-jump" onClick={() => onGoToWeek(nextWeek)}>
+          Jump to {weekDateLabel(year, nextWeek)} · {weekCounts[nextWeek]}{' '}
+          tournament{weekCounts[nextWeek] === 1 ? '' : 's'} →
+        </button>
+      )}
+      {prevWeek != null && (
+        <button className="builder-jump builder-jump--ghost" onClick={() => onGoToWeek(prevWeek)}>
+          ← Back to {weekDateLabel(year, prevWeek)}
+        </button>
+      )}
+      {nextWeek == null && prevWeek == null && (
+        <p className="builder-empty__hint">
+          Nothing matches these filters in {year} — try turning more levels or surfaces on above.
+        </p>
+      )}
+    </div>
+  );
+
+  const skipButton =
+    nextWeek != null ? (
+      <button className="builder-skip" onClick={() => onGoToWeek(nextWeek)}>
+        Nothing here for you? Skip to {weekDateLabel(year, nextWeek)} →
+      </button>
+    ) : null;
 
   return (
     <section className={`sheet sheet--${state}`} style={sheetStyle} aria-label="Swing builder">
@@ -911,7 +1003,6 @@ function BuilderPanel({
         {!hasAnchor ? (
           <>
             <h2 className="sheet-title">Build your own swing</h2>
-            <p className="sheet-summary">Pick a starting tournament the week of {weekDateLabel(year, selectedWeek)}.</p>
             {showRank ? (
               <div className="rank-check">{rankLegend}</div>
             ) : (
@@ -919,11 +1010,15 @@ function BuilderPanel({
                 Enter your ranking above to see entry status on each tournament below.
               </p>
             )}
-            <ul className="cand-list">{candidates.map(candidateRow)}</ul>
-            {candidates.length === 0 && (
-              <p className="sheet-summary">No tournaments the week of {weekDateLabel(year, selectedWeek)} for this filter.</p>
+            {weekNav(`Week of ${weekDateLabel(year, selectedWeek)} — pick your start`)}
+            {candidates.length === 0 ? (
+              emptyWeek
+            ) : (
+              <>
+                <ul className="cand-list">{candidates.map(candidateRow)}</ul>
+                {skipButton}
+              </>
             )}
-            {skipButton}
           </>
         ) : (
           <>
@@ -1004,18 +1099,20 @@ function BuilderPanel({
               })}
             </ul>
 
-            <h3 className="builder-subhead">Week of {weekDateLabel(year, selectedWeek)} — pick your next stop</h3>
+            {weekNav(`Week of ${weekDateLabel(year, selectedWeek)} — pick your next stop`)}
             {grouped.length === 0 ? (
-              <p className="sheet-summary">No tournaments the week of {weekDateLabel(year, selectedWeek)} for this filter.</p>
+              emptyWeek
             ) : (
-              grouped.map((g) => (
-                <div key={g.tier} className="cand-group">
-                  <p className={`cand-group-head cand-tier--${g.tier}`}>{TIER_LABELS[g.tier]}</p>
-                  <ul className="cand-list">{g.items.map(candidateRow)}</ul>
-                </div>
-              ))
+              <>
+                {grouped.map((g) => (
+                  <div key={g.tier} className="cand-group">
+                    <p className={`cand-group-head cand-tier--${g.tier}`}>{TIER_LABELS[g.tier]}</p>
+                    <ul className="cand-list">{g.items.map(candidateRow)}</ul>
+                  </div>
+                ))}
+                {skipButton}
+              </>
             )}
-            {skipButton}
           </>
         )}
       </div>
