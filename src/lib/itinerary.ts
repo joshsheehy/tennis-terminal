@@ -43,7 +43,9 @@ export function placeLabel(city: string, country: string | null): string {
 
 /**
  * Google Flights deep link. There's no documented query API, but the natural-
- * language `?q=` form reliably pre-fills origin, destination and date.
+ * language `?q=` form reliably pre-fills origin, destination and date. We lead
+ * with "One-way" so it doesn't default to a round trip — each leg of a swing is
+ * a separate hop to the next stop.
  */
 export function googleFlightsUrl(
   originLabel: string,
@@ -51,7 +53,7 @@ export function googleFlightsUrl(
   dateISO: string | null
 ): string {
   const q = dateISO
-    ? `Flights from ${originLabel} to ${destLabel} on ${dateISO}`
-    : `Flights from ${originLabel} to ${destLabel}`;
+    ? `One-way flights from ${originLabel} to ${destLabel} on ${dateISO}`
+    : `One-way flights from ${originLabel} to ${destLabel}`;
   return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
 }

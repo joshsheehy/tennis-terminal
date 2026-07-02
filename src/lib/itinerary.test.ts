@@ -38,17 +38,17 @@ describe('placeLabel', () => {
 });
 
 describe('googleFlightsUrl', () => {
-  it('encodes a dated natural-language query', () => {
+  it('encodes a dated one-way natural-language query', () => {
     const url = googleFlightsUrl('Cary, United States', 'Newport, United States', '2026-07-10');
     expect(url).toContain('https://www.google.com/travel/flights?q=');
     expect(decodeURIComponent(url)).toContain(
-      'Flights from Cary, United States to Newport, United States on 2026-07-10'
+      'One-way flights from Cary, United States to Newport, United States on 2026-07-10'
     );
   });
 
   it('omits the date when none is given', () => {
     const url = googleFlightsUrl('Cary', 'Newport', null);
-    expect(decodeURIComponent(url)).toContain('Flights from Cary to Newport');
+    expect(decodeURIComponent(url)).toContain('One-way flights from Cary to Newport');
     expect(url).not.toContain('%20on%20');
   });
 });
