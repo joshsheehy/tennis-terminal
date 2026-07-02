@@ -465,13 +465,21 @@ export default async function TournamentDetailPage({
       : [];
 
   // Singles main-draw cut per year, oldest→newest, for the hero trend chart.
-  // Prefer the post-alternates ("real") cut when it was recorded.
+  // Prefer the post-alternates ("real") cut when it was recorded. ALT/LL
+  // counts ride along for the bar tooltips.
   const cutTrend: CutTrendPoint[] = rows
-    .map((row) => {
+    .map((row): CutTrendPoint | null => {
       const c = findCutoff(row.cutoffs, 'singles', 'main');
       if (!c || isTombstone(c)) return null;
       const cut = c.last_alternate_rank ?? c.last_direct_acceptance_rank;
-      return cut != null ? { year: row.edition.year, cut } : null;
+      return cut != null
+        ? {
+            year: row.edition.year,
+            cut,
+            alt: c.alternate_entries_count ?? 0,
+            ll: c.lucky_loser_count ?? 0,
+          }
+        : null;
     })
     .filter((p): p is CutTrendPoint => p !== null)
     .sort((a, b) => a.year - b.year);
@@ -511,7 +519,12 @@ export default async function TournamentDetailPage({
             ? resolveProTennisLiveCode(row.edition.slug, row.edition.source_url)
             : null;
           return (
-          <div key={row.edition.edition_id} className="edition-card">
+          <div
+            key={row.edition.edition_id}
+            id={`y-${row.edition.year}`}
+            className="edition-card"
+            style={{ scrollMarginTop: 'calc(var(--nav-h) + 12px)' }}
+          >
             <div className="edition-card__head">
               <div>
                 <h3 className="edition-card__year">{row.edition.year}</h3>

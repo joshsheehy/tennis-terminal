@@ -822,7 +822,9 @@ td {
   letter-spacing: 0.09em;
   color: var(--text-faint);
 }
-.cut-trend__bar { fill: var(--chart-bar); }
+.cut-trend__bar { fill: var(--chart-bar); transition: opacity 120ms ease; }
+.cut-trend__bar-group:hover .cut-trend__bar { opacity: 0.8; }
+.cut-trend svg a { cursor: pointer; }
 .cut-trend__baseline { stroke: var(--border-table-head); stroke-width: 1; }
 .cut-trend__value {
   font-size: 11px;

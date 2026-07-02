@@ -144,7 +144,9 @@ describe('WeekTournamentPicker pill filtering', () => {
     expect(weekCountText(container, '3')).toBe('2 tournaments');
   });
 
-  it('keeps ITF out of text search results unless the ITF pill is on', () => {
+  it('finds ITF events via text search even without the ITF pill', () => {
+    // The browse view hides ITF behind its pill, but a typed query is explicit
+    // intent — newly imported ITF events must be findable or they look missing.
     const withItf = [
       ...tournaments,
       row({ slug: 'itf-m15-monastir-2026-01-12', name: 'M15 Monastir', week: 3, start_date: '2026-01-12', end_date: '2026-01-18', level: 'ITF M15', surface: 'Hard' }),
@@ -154,11 +156,18 @@ describe('WeekTournamentPicker pill filtering', () => {
 
     fireEvent.input(input, { target: { value: 'monastir' } });
     const flatItf = container.querySelector<HTMLElement>('[data-search*="monastir"]')!;
+    expect(isVisible(flatItf)).toBe(true);
+
+    // A non-ITF level chip still narrows search results as before.
+    fireEvent.click(screen.getByRole('button', { name: 'Challenger' }));
+    fireEvent.input(input, { target: { value: 'monastir' } });
     expect(isVisible(flatItf)).toBe(false);
 
-    fireEvent.click(screen.getByRole('button', { name: 'ITF' }));
-    fireEvent.input(input, { target: { value: 'monastir' } });
-    expect(isVisible(flatItf)).toBe(true);
+    // Clearing the search restores the ITF-hidden week-group baseline.
+    fireEvent.click(screen.getByRole('button', { name: 'Challenger' }));
+    fireEvent.input(input, { target: { value: '' } });
+    const weekItf = weekRows(container).filter(r => r.getAttribute('data-level-cat') === 'ITF');
+    expect(weekItf.every(r => !isVisible(r))).toBe(true);
   });
 
   it('does not auto-expand weeks when filtering', () => {

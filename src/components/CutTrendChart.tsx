@@ -1,9 +1,15 @@
 // Compact single-series bar chart of a tournament's singles main-draw cut by
 // year. Pure server-rendered SVG — no client JS; hover detail comes from
-// native <title> tooltips and the per-year tables below the chart act as the
-// data-table view.
+// native <title> tooltips and each bar deep-links to that year's full card
+// below (cut table, alternates / lucky losers, draw PDFs).
 
-export type CutTrendPoint = { year: number; cut: number };
+export type CutTrendPoint = {
+  year: number;
+  cut: number;
+  /** Alternates who got in and lucky losers, shown in the tooltip. */
+  alt?: number;
+  ll?: number;
+};
 
 const BAR_W = 26;
 const GAP = 12;
@@ -44,27 +50,41 @@ export default function CutTrendChart({ points }: { points: CutTrendPoint[] }) {
           const x = PAD_X + i * (BAR_W + GAP);
           const y = baselineY - h;
           const r = 4; // rounded data end, anchored to the baseline
+          const altLl =
+            p.alt != null || p.ll != null ? ` · ${p.alt ?? 0} ALT / ${p.ll ?? 0} LL` : '';
           return (
-            <g key={p.year}>
-              <title>{`${p.year} · cut #${p.cut}`}</title>
-              <path
-                d={`M${x},${baselineY} L${x},${y + r} Q${x},${y} ${x + r},${y} L${x + BAR_W - r},${y} Q${x + BAR_W},${y} ${x + BAR_W},${y + r} L${x + BAR_W},${baselineY} Z`}
-                className="cut-trend__bar"
-              />
-              {labeled.has(p.year) && (
-                <text x={x + BAR_W / 2} y={y - 4} textAnchor="middle" className="cut-trend__value">
-                  {p.cut}
+            // Each bar deep-links to that year's full card below the chart
+            // (cut table, alternates/lucky losers, draw PDF links).
+            <a key={p.year} href={`#y-${p.year}`} aria-label={`Jump to ${p.year} details`}>
+              <g className="cut-trend__bar-group">
+                <title>{`${p.year} · cut #${p.cut}${altLl} — tap for the full table & draw links`}</title>
+                {/* Invisible full-height hit target so short bars stay tappable */}
+                <rect
+                  x={x - GAP / 2}
+                  y={0}
+                  width={BAR_W + GAP}
+                  height={height}
+                  fill="transparent"
+                />
+                <path
+                  d={`M${x},${baselineY} L${x},${y + r} Q${x},${y} ${x + r},${y} L${x + BAR_W - r},${y} Q${x + BAR_W},${y} ${x + BAR_W},${y + r} L${x + BAR_W},${baselineY} Z`}
+                  className="cut-trend__bar"
+                />
+                {labeled.has(p.year) && (
+                  <text x={x + BAR_W / 2} y={y - 4} textAnchor="middle" className="cut-trend__value">
+                    {p.cut}
+                  </text>
+                )}
+                <text
+                  x={x + BAR_W / 2}
+                  y={baselineY + 12}
+                  textAnchor="middle"
+                  className="cut-trend__year"
+                >
+                  {String(p.year).slice(2)}
                 </text>
-              )}
-              <text
-                x={x + BAR_W / 2}
-                y={baselineY + 12}
-                textAnchor="middle"
-                className="cut-trend__year"
-              >
-                {String(p.year).slice(2)}
-              </text>
-            </g>
+              </g>
+            </a>
           );
         })}
         <line
@@ -77,7 +97,8 @@ export default function CutTrendChart({ points }: { points: CutTrendPoint[] }) {
       </svg>
       <p className="cut-trend__note">
         Last direct acceptance into the singles main draw (post-alternates cut where recorded).
-        Taller bar = softer cut — a higher rank got in.
+        Taller bar = softer cut. Tap a bar to jump to that year&rsquo;s full table — alternates,
+        lucky losers, and draw links included.
       </p>
     </div>
   );

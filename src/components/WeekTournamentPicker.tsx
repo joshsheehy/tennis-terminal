@@ -361,7 +361,9 @@ export default function WeekTournamentPicker({
     const levels   = activeLevelsRef.current;
 
     // Search text active → flat results list (chips, if any, also narrow it).
-    // ITF rows stay behind their pill even in search results.
+    // Unlike the browse view, search matches EVERYTHING including ITF — typing
+    // a query is explicit intent, and hiding newly imported ITF events behind
+    // the pill made them look missing from the site entirely.
     if (needle) {
       restoreWeekGroups();
       show(clearRef.current, true);
@@ -373,8 +375,7 @@ export default function WeekTournamentPicker({
         const searchMatch  = (el.getAttribute('data-search') ?? '').includes(needle);
         const surfaceMatch = surfaces.size === 0 || surfaces.has(el.getAttribute('data-surface') ?? '');
         const levelMatch   = levels.size === 0 || levels.has(cat);
-        const itfGate      = cat !== 'ITF' || levels.has('ITF');
-        const matches = searchMatch && surfaceMatch && levelMatch && itfGate;
+        const matches = searchMatch && surfaceMatch && levelMatch;
         el.style.display = matches ? '' : 'none';
         if (matches) count++;
       });
