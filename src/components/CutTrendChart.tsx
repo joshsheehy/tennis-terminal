@@ -1,7 +1,12 @@
-// Compact single-series bar chart of a tournament's singles main-draw cut by
-// year. Pure server-rendered SVG — no client JS; hover detail comes from
-// native <title> tooltips and each bar deep-links to that year's full card
-// below (cut table, alternates / lucky losers, draw PDFs).
+'use client';
+
+// Compact single-series bar chart of a tournament's entry cut by year, with a
+// draw picker (singles main / singles qualifying / doubles). Pure SVG — the
+// only client behavior is the tab state; hover detail comes from native
+// <title> tooltips and each bar deep-links to that year's full card below
+// (cut table, alternates / lucky losers, draw PDFs).
+
+import { useState } from 'react';
 
 export type CutTrendPoint = {
   year: number;
@@ -11,6 +16,18 @@ export type CutTrendPoint = {
   ll?: number;
 };
 
+export type CutTrendSeries = {
+  key: 'singles_main' | 'singles_qualifying' | 'doubles_main';
+  label: string;
+  points: CutTrendPoint[];
+};
+
+const DRAW_PHRASE: Record<CutTrendSeries['key'], string> = {
+  singles_main: 'singles main draw',
+  singles_qualifying: 'singles qualifying draw',
+  doubles_main: 'doubles main draw',
+};
+
 const BAR_W = 26;
 const GAP = 12;
 const PLOT_H = 72;
@@ -18,8 +35,13 @@ const LABEL_H = 16; // value labels above bars
 const AXIS_H = 16; // year labels below baseline
 const PAD_X = 4;
 
-export default function CutTrendChart({ points }: { points: CutTrendPoint[] }) {
-  if (points.length < 2) return null;
+export default function CutTrendChart({ series }: { series: CutTrendSeries[] }) {
+  // Only draws with enough history to show a trend get a tab.
+  const available = series.filter((s) => s.points.length >= 2);
+  const [activeKey, setActiveKey] = useState(available[0]?.key);
+  if (available.length === 0) return null;
+  const current = available.find((s) => s.key === activeKey) ?? available[0];
+  const points = current.points;
 
   const maxCut = Math.max(...points.map((p) => p.cut));
   const minCut = Math.min(...points.map((p) => p.cut));
@@ -36,14 +58,31 @@ export default function CutTrendChart({ points }: { points: CutTrendPoint[] }) {
 
   return (
     <div className="cut-trend">
-      <p className="cut-trend__label">Singles main-draw cut by year</p>
+      <div className="cut-trend__head">
+        <p className="cut-trend__label">Entry cut by year</p>
+        {available.length > 1 && (
+          <div className="cut-trend__tabs" role="tablist" aria-label="Draw">
+            {available.map((s) => (
+              <button
+                key={s.key}
+                role="tab"
+                aria-selected={s.key === current.key}
+                className={`cut-trend__tab${s.key === current.key ? ' cut-trend__tab--on' : ''}`}
+                onClick={() => setActiveKey(s.key)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <svg
         className="cut-trend__svg"
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={`Singles main-draw cut by year: ${points.map((p) => `${p.year} #${p.cut}`).join(', ')}`}
+        aria-label={`${current.label} cut by year: ${points.map((p) => `${p.year} #${p.cut}`).join(', ')}`}
       >
         {points.map((p, i) => {
           const h = Math.max(4, Math.round((p.cut / maxCut) * PLOT_H));
@@ -57,7 +96,7 @@ export default function CutTrendChart({ points }: { points: CutTrendPoint[] }) {
             // (cut table, alternates/lucky losers, draw PDF links).
             <a key={p.year} href={`#y-${p.year}`} aria-label={`Jump to ${p.year} details`}>
               <g className="cut-trend__bar-group">
-                <title>{`${p.year} · cut #${p.cut}${altLl} — tap for the full table & draw links`}</title>
+                <title>{`${p.year} · ${current.label} cut #${p.cut}${altLl} — tap for the full table & draw links`}</title>
                 {/* Invisible full-height hit target so short bars stay tappable */}
                 <rect
                   x={x - GAP / 2}
@@ -96,9 +135,10 @@ export default function CutTrendChart({ points }: { points: CutTrendPoint[] }) {
         />
       </svg>
       <p className="cut-trend__note">
-        Last direct acceptance into the singles main draw (post-alternates cut where recorded).
-        Taller bar = softer cut. Tap a bar to jump to that year&rsquo;s full table — alternates,
-        lucky losers, and draw links included.
+        Last direct acceptance into the {DRAW_PHRASE[current.key]}
+        {current.key === 'singles_main' ? ' (post-alternates cut where recorded)' : ''}. Taller
+        bar = softer cut — a higher rank got in. Tap a bar to jump to that year&rsquo;s full
+        table — alternates, lucky losers, and draw links included.
       </p>
     </div>
   );

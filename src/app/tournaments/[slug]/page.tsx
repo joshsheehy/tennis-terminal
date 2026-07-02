@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import CutTrendChart, { type CutTrendPoint } from '@/components/CutTrendChart';
+import CutTrendChart, { type CutTrendPoint, type CutTrendSeries } from '@/components/CutTrendChart';
 import { getTournamentDetailRowsBySlug, getItfPriorYearCutEditions } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
@@ -464,25 +464,37 @@ export default async function TournamentDetailPage({
       ? await getItfPriorYearCutEditions(current.level, current.city, current.week, current.year)
       : [];
 
-  // Singles main-draw cut per year, oldest→newest, for the hero trend chart.
-  // Prefer the post-alternates ("real") cut when it was recorded. ALT/LL
-  // counts ride along for the bar tooltips.
-  const cutTrend: CutTrendPoint[] = rows
-    .map((row): CutTrendPoint | null => {
-      const c = findCutoff(row.cutoffs, 'singles', 'main');
-      if (!c || isTombstone(c)) return null;
-      const cut = c.last_alternate_rank ?? c.last_direct_acceptance_rank;
-      return cut != null
-        ? {
-            year: row.edition.year,
-            cut,
-            alt: c.alternate_entries_count ?? 0,
-            ll: c.lucky_loser_count ?? 0,
-          }
-        : null;
-    })
-    .filter((p): p is CutTrendPoint => p !== null)
-    .sort((a, b) => a.year - b.year);
+  // Cut per year for each draw, oldest→newest, for the hero trend chart.
+  // Prefer the post-alternates ("real") cut when it was recorded; Challenger
+  // doubles uses the advanced-entry team cut. ALT/LL counts ride along for
+  // the bar tooltips.
+  const trendPoints = (event: 'singles' | 'doubles', draw: 'main' | 'qualifying'): CutTrendPoint[] =>
+    rows
+      .map((row): CutTrendPoint | null => {
+        const c = findCutoff(row.cutoffs, event, draw);
+        if (!c || isTombstone(c)) return null;
+        const cut =
+          event === 'doubles'
+            ? c.challenger_doubles_advanced_cut_rank ?? c.last_alternate_rank ?? c.last_direct_acceptance_rank
+            : c.last_alternate_rank ?? c.last_direct_acceptance_rank;
+        return cut != null
+          ? {
+              year: row.edition.year,
+              cut,
+              alt: c.alternate_entries_count ?? 0,
+              ll: c.lucky_loser_count ?? 0,
+            }
+          : null;
+      })
+      .filter((p): p is CutTrendPoint => p !== null)
+      .sort((a, b) => a.year - b.year);
+
+  const cutTrend: CutTrendSeries[] = [
+    { key: 'singles_main', label: 'Singles main', points: trendPoints('singles', 'main') },
+    { key: 'singles_qualifying', label: 'Singles Qs', points: trendPoints('singles', 'qualifying') },
+    { key: 'doubles_main', label: 'Doubles', points: trendPoints('doubles', 'main') },
+  ];
+  const hasTrend = cutTrend.some((s) => s.points.length >= 2);
 
   return (
     <main className="page">
@@ -509,7 +521,7 @@ export default async function TournamentDetailPage({
             </div>
           ))}
         </div>
-        {cutTrend.length >= 2 && <CutTrendChart points={cutTrend} />}
+        {hasTrend && <CutTrendChart series={cutTrend} />}
       </div>
 
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>

@@ -814,14 +814,47 @@ td {
   border-top: 1px solid var(--border-inner);
   overflow-x: auto;
 }
+.cut-trend__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
 .cut-trend__label {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: var(--text-faint);
 }
+.cut-trend__tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-alt);
+}
+.cut-trend__tab {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.cut-trend__tab:hover { color: var(--text-strong); }
+.cut-trend__tab--on {
+  background: var(--brand-ink);
+  color: #fff;
+}
+.cut-trend__tab--on:hover { color: #fff; }
 .cut-trend__bar { fill: var(--chart-bar); transition: opacity 120ms ease; }
 .cut-trend__bar-group:hover .cut-trend__bar { opacity: 0.8; }
 .cut-trend svg a { cursor: pointer; }
