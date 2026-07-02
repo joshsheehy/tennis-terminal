@@ -31,6 +31,8 @@ export function displayName(d: Deadline): string {
 
 // Subtitle line under the name. Individual tournaments show level + place +
 // start; the ITF aggregate summarises the week instead of listing every event.
+// Grand Slam main-draw rows also carry the qualifying deadline date so both
+// dates are visible at a glance.
 function subtitle(d: Deadline): string {
   if (d.aggregate) {
     const n = d.tournamentCount ?? 0;
@@ -38,7 +40,11 @@ function subtitle(d: Deadline): string {
     return `${events} &middot; week of ${formatDate(d.tournamentStart)}`;
   }
   const place = d.country ? `${esc(d.city)}, ${esc(d.country)}` : esc(d.city);
-  return `${esc(d.level)} &middot; ${place} &middot; starts ${formatDate(d.tournamentStart)}`;
+  let line = `${esc(d.level)} &middot; ${place} &middot; starts ${formatDate(d.tournamentStart)}`;
+  if (d.qualifyingDeadlineDate) {
+    line += ` &middot; Qs deadline ${formatDate(d.qualifyingDeadlineDate)}`;
+  }
+  return line;
 }
 
 function textLine(d: Deadline): string {
@@ -47,7 +53,10 @@ function textLine(d: Deadline): string {
     const events = n > 0 ? `${n} tournaments` : 'all tournaments';
     return `- ITF World Tennis Tour (${events}, week of ${formatDate(d.tournamentStart)}) - entries close: ${formatDate(d.deadlineDate)} ${d.timeNote}.`;
   }
-  return `- ${displayName(d)} (${d.level}) - ${formatDate(d.deadlineDate)} ${d.timeNote}. Tournament starts ${formatDate(d.tournamentStart)}.`;
+  const qs = d.qualifyingDeadlineDate
+    ? ` Qs deadline ${formatDate(d.qualifyingDeadlineDate)}.`
+    : '';
+  return `- ${displayName(d)} (${d.level}) - ${formatDate(d.deadlineDate)} ${d.timeNote}. Tournament starts ${formatDate(d.tournamentStart)}.${qs}`;
 }
 
 // Build the subject + HTML + plain-text digest for a set of deadlines.

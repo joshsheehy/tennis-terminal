@@ -123,6 +123,9 @@ export type Deadline = {
   // sharing a week (there are dozens weekly, so we never list them all).
   aggregate?: boolean;
   tournamentCount?: number;
+  // Set on the Grand Slam main-draw row: the qualifying deadline date for the
+  // same event, so the main-draw alert can mention when Qs entries close too.
+  qualifyingDeadlineDate?: string;
 };
 
 // All entry deadlines for a single tournament edition, or [] for levels with no
@@ -135,9 +138,12 @@ export function deadlinesForEdition(row: ScheduleRow): Deadline[] {
   if (!start) return [];
   const monday = mondayOfWeekUtc(start);
 
-  return CATEGORY_RULES[category].map((rule) => {
+  const rules = CATEGORY_RULES[category];
+  const qualifyingRule = rules.find((r) => r.kind === 'qualifying');
+
+  return rules.map((rule) => {
     const deadline = new Date(monday.getTime() - rule.daysPrior * MS_PER_DAY);
-    return {
+    const d: Deadline = {
       editionId: row.edition_id,
       slug: row.slug,
       name: row.name,
@@ -153,6 +159,14 @@ export function deadlinesForEdition(row: ScheduleRow): Deadline[] {
       deadlineDate: toDateOnlyString(deadline),
       timeNote: rule.timeNote,
     };
+    // Grand Slams are the events people plan around, so their main-draw alert
+    // also carries the (later) qualifying deadline date for the same event.
+    if (category === 'grandslam' && rule.kind === 'main' && qualifyingRule) {
+      d.qualifyingDeadlineDate = toDateOnlyString(
+        new Date(monday.getTime() - qualifyingRule.daysPrior * MS_PER_DAY)
+      );
+    }
+    return d;
   });
 }
 
@@ -231,11 +245,14 @@ export function dueDeadlines(
     }
   }
   const collapsed = aggregateItf(out);
-  collapsed.sort((a, b) =>
-    a.deadlineDate === b.deadlineDate
-      ? a.name.localeCompare(b.name)
-      : a.deadlineDate.localeCompare(b.deadlineDate)
-  );
+  // Grand Slams lead the list (they're the events subscribers care about
+  // most); everything else follows in soonest-deadline order.
+  const rank = (d: Deadline) => (d.category === 'grandslam' ? 0 : 1);
+  collapsed.sort((a, b) => {
+    if (rank(a) !== rank(b)) return rank(a) - rank(b);
+    if (a.deadlineDate !== b.deadlineDate) return a.deadlineDate.localeCompare(b.deadlineDate);
+    return a.name.localeCompare(b.name);
+  });
   return collapsed;
 }
 

@@ -92,6 +92,17 @@ describe('deadlinesForEdition', () => {
     expect(byKind.doubles).toBe('2026-03-02'); // -14
   });
 
+  it('puts the qualifying deadline date on the Grand Slam main-draw row only', () => {
+    const ds = deadlinesForEdition(row({ level: 'Grand Slam' }));
+    const main = ds.find((d) => d.kind === 'main');
+    const quali = ds.find((d) => d.kind === 'qualifying');
+    expect(main?.qualifyingDeadlineDate).toBe('2026-02-16');
+    expect(quali?.qualifyingDeadlineDate).toBeUndefined();
+    // Not a Grand Slam thing for other tours.
+    const atpMain = deadlinesForEdition(row({ level: 'ATP 250' })).find((d) => d.kind === 'main');
+    expect(atpMain?.qualifyingDeadlineDate).toBeUndefined();
+  });
+
   it('returns nothing for uncovered levels', () => {
     expect(deadlinesForEdition(row({ level: 'Exhibition' }))).toHaveLength(0);
   });
@@ -164,6 +175,45 @@ describe('dueDeadlines', () => {
       categories: ['grandslam'],
     });
     expect(due.map((d) => d.kind)).toContain('doubles');
+  });
+
+  it('fires separate alerts for Grand Slam main draw and qualifying', () => {
+    const gs = [row({ edition_id: 'gs', slug: 'wimbledon', name: 'Wimbledon', level: 'Grand Slam' })];
+    // Main deadline 2026-02-02: due when run on 2026-02-01.
+    const mainDue = dueDeadlines(gs, new Date('2026-02-01T09:00:00Z'), {
+      leadDays: 1,
+      categories: ['grandslam'],
+    });
+    expect(mainDue.map((d) => d.kind)).toEqual(['main']);
+    // Qualifying deadline 2026-02-16: due when run on 2026-02-15.
+    const qualiDue = dueDeadlines(gs, new Date('2026-02-15T09:00:00Z'), {
+      leadDays: 1,
+      categories: ['grandslam'],
+    });
+    expect(qualiDue.map((d) => d.kind)).toEqual(['qualifying']);
+  });
+
+  it('sorts Grand Slams to the top even when other deadlines are sooner', () => {
+    const mixed = [
+      // ATP qualifying deadline 2026-02-23 (sooner).
+      row({ edition_id: 'atp2', slug: 'acapulco', name: 'Acapulco', level: 'ATP 500' }),
+      // GS qualifying deadline 2026-02-16 base... use a GS whose deadline is
+      // LATER than the ATP one to prove category outranks date:
+      // start 2026-03-23 -> quali deadline = -28 = 2026-02-23 (same day).
+      row({
+        edition_id: 'gs2',
+        slug: 'roland-garros',
+        name: 'Roland Garros',
+        level: 'Grand Slam',
+        start_date: '2026-03-23',
+      }),
+    ];
+    const due = dueDeadlines(mixed, new Date('2026-02-22T09:00:00Z'), {
+      leadDays: 1,
+      categories: ['atp', 'grandslam'],
+    });
+    expect(due.length).toBeGreaterThanOrEqual(2);
+    expect(due[0].category).toBe('grandslam');
   });
 });
 

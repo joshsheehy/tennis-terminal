@@ -6,10 +6,10 @@ type Status = 'idle' | 'loading' | 'ok' | 'error';
 
 // Keep in sync with Category / CATEGORY_LABEL in src/lib/entry-deadlines.ts.
 const CATEGORY_OPTIONS: Array<{ key: string; label: string }> = [
+  { key: 'grandslam', label: 'Grand Slam' },
   { key: 'atp', label: 'ATP Tour (250 / 500 / 1000)' },
   { key: 'challenger', label: 'ATP Challenger Tour' },
   { key: 'itf', label: 'ITF World Tennis Tour' },
-  { key: 'grandslam', label: 'Grand Slam' },
 ];
 
 export default function ManagePreferences({

@@ -9,7 +9,17 @@ export const metadata: Metadata = {
     'Get an email 24 hours before ATP, Challenger, ITF and Grand Slam entry deadlines.',
 };
 
+// Grand Slams lead everywhere (signup form, emails, this list) — they're the
+// biggest events and the ones subscribers plan around.
 const RULES: Array<{ category: string; rows: Array<[string, string]> }> = [
+  {
+    category: 'Grand Slam',
+    rows: [
+      ['Singles main draw', '42 days before'],
+      ['Singles qualifying', '28 days before'],
+      ['Doubles main draw', '~14 days before (set by each event)'],
+    ],
+  },
   {
     category: 'ATP Tour (250 / 500 / 1000)',
     rows: [
@@ -31,14 +41,6 @@ const RULES: Array<{ category: string; rows: Array<[string, string]> }> = [
     rows: [
       ['Entry deadline', '18 days before (Thu), 14:00 GMT'],
       ['Alert style', 'one weekly summary (too many events to list individually)'],
-    ],
-  },
-  {
-    category: 'Grand Slam',
-    rows: [
-      ['Singles main draw', '42 days before'],
-      ['Singles qualifying', '28 days before'],
-      ['Doubles main draw', '~14 days before (set by each event)'],
     ],
   },
 ];
