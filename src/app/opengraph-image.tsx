@@ -4,6 +4,7 @@ import { ImageResponse } from 'next/og';
 import { SITE_URL, BRAND_GREEN } from '@/lib/brand';
 
 // The image shown when tenniscuts.com is shared (link previews, social cards).
+// Kept deliberately minimal: logo lockup, one description line, the domain.
 export const alt = 'Tennis Cuts — entry cutoffs, schedules & swing planner for the pro tennis tour';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
@@ -23,68 +24,52 @@ export default async function OpengraphImage() {
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: 72,
+          alignItems: 'center',
+          justifyContent: 'center',
           background: `linear-gradient(125deg, ${BG} 0%, #0f1830 60%, #0d1a12 100%)`,
           color: '#f8fafc',
           fontFamily: 'sans-serif',
           position: 'relative',
         }}
       >
-        {/* Soft green glow in the corner */}
+        {/* Brand lockup: real logo mark + wordmark */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <img src={logoSrc} width={148} height={148} alt="" />
+          <div style={{ display: 'flex', marginLeft: 30, fontSize: 96, fontWeight: 800, letterSpacing: -2.5 }}>
+            <span style={{ color: '#f8fafc' }}>Tennis</span>
+            {/* Negative margin closes the inter-span gap so it reads "TennisCuts" like the nav */}
+            <span style={{ color: BRAND_GREEN, marginLeft: -4 }}>Cuts</span>
+          </div>
+        </div>
+
+        {/* One-line pitch under the lockup */}
+        <div
+          style={{
+            display: 'flex',
+            marginTop: 46,
+            fontSize: 29,
+            lineHeight: 1.4,
+            color: '#9aa7b8',
+            textAlign: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          Entry cutoffs, live schedules &amp; a tournament planner for the men&rsquo;s pro tour.
+        </div>
+
+        {/* Domain, pinned bottom center */}
         <div
           style={{
             position: 'absolute',
-            top: -160,
-            right: -120,
-            width: 520,
-            height: 520,
-            borderRadius: 9999,
-            background: `radial-gradient(closest-side, ${BRAND_GREEN}40, transparent)`,
+            bottom: 52,
+            display: 'flex',
+            fontSize: 27,
+            fontWeight: 600,
+            color: BRAND_GREEN,
+            letterSpacing: 0.5,
           }}
-        />
-
-        {/* Brand lockup: real logo mark + wordmark */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <img src={logoSrc} width={120} height={120} alt="" />
-          <div style={{ display: 'flex', marginLeft: 24, fontSize: 64, fontWeight: 800, letterSpacing: -1.5 }}>
-            <span style={{ color: '#f8fafc' }}>Tennis</span>
-            <span style={{ color: BRAND_GREEN }}>Cuts</span>
-          </div>
-        </div>
-
-        {/* Headline */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', fontSize: 78, fontWeight: 800, lineHeight: 1.04, letterSpacing: -2 }}>
-            <span>Know the cut.</span>
-            <span>Build your swing.</span>
-          </div>
-          <div style={{ display: 'flex', marginTop: 24, fontSize: 30, lineHeight: 1.3, color: '#9aa7b8', maxWidth: 860 }}>
-            Entry cutoffs, live schedules & a tournament planner for the men’s pro tour.
-          </div>
-        </div>
-
-        {/* Footer: tour chips + domain */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: 14 }}>
-            {['ATP Tour', 'Challenger', 'ITF'].map((label) => (
-              <div
-                key={label}
-                style={{
-                  display: 'flex',
-                  padding: '10px 22px',
-                  fontSize: 24,
-                  color: '#cbd5e1',
-                  border: '1px solid rgba(255,255,255,0.16)',
-                  background: 'rgba(255,255,255,0.04)',
-                  borderRadius: 999,
-                }}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', fontSize: 28, fontWeight: 600, color: BRAND_GREEN }}>{domain}</div>
+        >
+          {domain}
         </div>
       </div>
     ),
