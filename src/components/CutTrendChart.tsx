@@ -58,24 +58,22 @@ export default function CutTrendChart({ series }: { series: CutTrendSeries[] }) 
 
   return (
     <div className="cut-trend">
-      <div className="cut-trend__head">
-        <p className="cut-trend__label">Entry cut by year</p>
-        {available.length > 1 && (
-          <div className="cut-trend__tabs" role="tablist" aria-label="Draw">
-            {available.map((s) => (
-              <button
-                key={s.key}
-                role="tab"
-                aria-selected={s.key === current.key}
-                className={`cut-trend__tab${s.key === current.key ? ' cut-trend__tab--on' : ''}`}
-                onClick={() => setActiveKey(s.key)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <p className="cut-trend__label">Entry cut by year</p>
+      {available.length > 1 && (
+        <div className="cut-trend__tabs" role="tablist" aria-label="Draw">
+          {available.map((s) => (
+            <button
+              key={s.key}
+              role="tab"
+              aria-selected={s.key === current.key}
+              className={`cut-trend__tab${s.key === current.key ? ' cut-trend__tab--on' : ''}`}
+              onClick={() => setActiveKey(s.key)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
       <svg
         className="cut-trend__svg"
         width={width}

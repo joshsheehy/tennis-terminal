@@ -814,22 +814,15 @@ td {
   border-top: 1px solid var(--border-inner);
   overflow-x: auto;
 }
-.cut-trend__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
 .cut-trend__label {
-  margin: 0;
+  margin: 0 0 10px;
   font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: var(--text-faint);
 }
+/* Draw picker sits directly above the bars, left-aligned with them. */
 .cut-trend__tabs {
   display: inline-flex;
   gap: 2px;
@@ -837,6 +830,7 @@ td {
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface-alt);
+  margin-bottom: 12px;
 }
 .cut-trend__tab {
   padding: 4px 12px;
