@@ -479,6 +479,69 @@ function mergeResults(stream: ParsedOfficialPdfCutoff, layout: ParsedOfficialPdf
   };
 }
 
+// Modern pdf.js fallback for PDFs the ~2017 pdf.js bundled inside pdf-parse
+// cannot open — 2022-season PTL postings fail there with "bad XRef entry".
+// Produces both a stream-order text and a layout-reconstructed text so the
+// same two-pass parse/merge applies.
+async function extractTextsWithPdfjs(buffer: Buffer): Promise<{ streamText: string; layoutText: string }> {
+  const pdfjsModule: unknown = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdfjs = pdfjsModule as {
+    getDocument: (opts: {
+      data: Uint8Array;
+      isEvalSupported?: boolean;
+      disableFontFace?: boolean;
+      useSystemFonts?: boolean;
+    }) => {
+      promise: Promise<{
+        numPages: number;
+        getPage: (n: number) => Promise<{
+          getTextContent: () => Promise<{ items: Array<{ str?: string; transform?: number[]; width?: number }> }>;
+        }>;
+        destroy: () => Promise<void>;
+      }>;
+    };
+  };
+
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    isEvalSupported: false,
+    disableFontFace: true,
+    useSystemFonts: true,
+  }).promise;
+
+  const streamParts: string[] = [];
+  const layoutParts: string[] = [];
+  try {
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const content = await page.getTextContent();
+      const items: PdfTextItem[] = content.items
+        .filter(
+          (it): it is { str: string; transform: number[]; width?: number } =>
+            typeof it.str === 'string' && Array.isArray(it.transform) && it.transform.length >= 6
+        )
+        .map((it) => ({ str: it.str, transform: it.transform, width: it.width }));
+
+      // Stream-order text: newline when the y coordinate moves, space otherwise
+      // (approximates pdf-parse's default renderer output).
+      let stream = '';
+      let lastY: number | null = null;
+      for (const it of items) {
+        const y = it.transform[5];
+        if (lastY !== null && Math.abs(y - lastY) > 2) stream += '\n';
+        else if (stream.length > 0) stream += ' ';
+        stream += it.str;
+        lastY = y;
+      }
+      streamParts.push(stream);
+      layoutParts.push(layoutItemsToText(items));
+    }
+  } finally {
+    await doc.destroy().catch(() => undefined);
+  }
+  return { streamText: streamParts.join('\n'), layoutText: layoutParts.join('\n') };
+}
+
 export async function fetchAndParseOfficialPdfCutoff(
   pdfUrl: string,
   archiveFirst = false,
@@ -486,14 +549,22 @@ export async function fetchAndParseOfficialPdfCutoff(
   const buffer = await fetchPdfBufferWithFallback(pdfUrl, archiveFirst);
   const pdfParse = getPdfParse();
 
-  // First pass: default stream-order extraction (proven for entry-list PDFs).
-  const streamText = (await pdfParse(buffer)).text;
-  const streamParsed = parseOfficialPdfCutoffText(streamText);
+  let streamText: string;
+  let layoutText: string;
+  try {
+    // First pass: default stream-order extraction (proven for entry-list PDFs).
+    streamText = (await pdfParse(buffer)).text;
+    // Always run layout pass too, so we can merge. Draw-sheet PDFs often have the
+    // stream order find the advanced cut but miss onsite (they appear close on page
+    // but far apart in content-stream order). Layout finds both; merging is safe.
+    layoutText = (await pdfParse(buffer, { pagerender: renderPageWithLayout })).text;
+  } catch {
+    // Older postings (2022 era) crash pdf-parse's bundled pdf.js ("bad XRef
+    // entry"); modern pdf.js opens them fine.
+    ({ streamText, layoutText } = await extractTextsWithPdfjs(buffer));
+  }
 
-  // Always run layout pass too, so we can merge. Draw-sheet PDFs often have the
-  // stream order find the advanced cut but miss onsite (they appear close on page
-  // but far apart in content-stream order). Layout finds both; merging is safe.
-  const layoutText = (await pdfParse(buffer, { pagerender: renderPageWithLayout })).text;
+  const streamParsed = parseOfficialPdfCutoffText(streamText);
   const layoutParsed = parseOfficialPdfCutoffText(layoutText);
 
   if (!hasAnyRank(streamParsed) && !hasAnyRank(layoutParsed)) return streamParsed;

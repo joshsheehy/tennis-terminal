@@ -1,3 +1,4 @@
+import { isAvailableSeason } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 
@@ -8,7 +9,7 @@ export async function GET(request: NextRequest) {
   const yearParam = request.nextUrl.searchParams.get('year');
   const year = yearParam ? Number(yearParam) : 2025;
 
-  if (![2024, 2025, 2026].includes(year)) {
+  if (!isAvailableSeason(year)) {
     return NextResponse.json({ ok: false, error: 'year must be 2024, 2025, or 2026' }, { status: 400 });
   }
 

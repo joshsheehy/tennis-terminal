@@ -1,3 +1,4 @@
+import { AVAILABLE_SEASONS, EARLIEST_SEASON } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
@@ -195,7 +196,7 @@ export async function GET(request: NextRequest) {
   // the Monday on or before; Thu/Fri/Sat/Sun Jan 1 rolls forward to the next Monday
   // (so 2026 Jan 5 is week 1, not week 2).
   await Promise.all(
-    [2024, 2025, 2026].map((year) =>
+    AVAILABLE_SEASONS.map((year) =>
       pool.query(
         `update tournament_editions te
          set week = greatest(
@@ -242,7 +243,7 @@ export async function GET(request: NextRequest) {
      left join cutoff_snapshots cs on cs.tournament_edition_id = te.id
      where te.status = 'held'
        and te.start_date is not null
-       and te.year >= 2024
+       and te.year >= ${EARLIEST_SEASON}
        -- ITF events have no cut PDFs (IPIN sign-in entries) — never sweep them.
        and te.level not ilike 'ITF%'
      group by te.id, t.slug, t.name, te.year, te.start_date, te.level, te.source_url

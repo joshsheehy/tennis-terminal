@@ -455,6 +455,9 @@ td {
 /* Year segmented control */
 .year-tabs {
   display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
   padding: 3px;
   gap: 2px;
   border-radius: 999px;
@@ -463,6 +466,8 @@ td {
   box-shadow: var(--shadow-1);
   margin-bottom: 22px;
 }
+.year-tabs::-webkit-scrollbar { display: none; }
+.year-tab { flex: 0 0 auto; }
 .year-tab {
   padding: 7px 18px;
   border-radius: 999px;

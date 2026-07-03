@@ -1,0 +1,143 @@
+name: Historical season backfill
+
+# One-time backfill of a full historical season (calendar + cuts), using the
+# exact same sources and endpoints the 2024/2025 backfills used:
+#   JeffSackmann CSV → challenger editions (+ their ProTennisLive codes)
+#   catalogue codes → ATP-level editions created from templates
+#   ProTennisLive postings → cut PDFs (modern-pdf.js fallback covers 2022-era
+#   files that crash pdf-parse with "bad XRef entry")
+# Then the standard cleanup / dedupe / geocode / swings chain.
+#
+# Run once per season from the Actions tab (2022, then 2023). Idempotent —
+# rerunning only fills gaps.
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: 'Season to backfill'
+        required: true
+        type: choice
+        options: ['2022', '2023']
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Backfill season
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          YEAR: ${{ inputs.year }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ]; then
+            echo "Missing APP_URL repository secret."
+            exit 1
+          fi
+          if [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "Missing ADMIN_SECRET repository secret."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.request
+
+          base = os.environ['APP_URL'].strip().rstrip('/')
+          if not base.startswith(('http://', 'https://')):
+              base = 'https://' + base
+          secret = os.environ['ADMIN_SECRET']
+          year = int(os.environ['YEAR'])
+
+          def request_json(path, *, timeout=180, retries=3, required=True):
+              url = base + path
+              last_error = None
+              for attempt in range(1, retries + 1):
+                  req = urllib.request.Request(
+                      url,
+                      headers={
+                          'Accept': 'application/json',
+                          'User-Agent': 'TennisCutsHistoricalBackfill/1.0',
+                          'X-Admin-Secret': secret,
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(req, timeout=timeout) as res:
+                          return json.loads(res.read().decode('utf-8', errors='replace'))
+                  except Exception as exc:
+                      last_error = exc
+                      print(f'GET {url} attempt {attempt}/{retries} failed: {exc}', flush=True)
+                      if attempt < retries:
+                          time.sleep(8 * attempt)
+              if required:
+                  raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
+              return {'ok': False, 'error': str(last_error)}
+
+          def run_paged(label, path_factory, *, max_pages=250, timeout=180, required=True):
+              print(f'\n=== {label} ===', flush=True)
+              offset = 0
+              for _ in range(max_pages):
+                  data = request_json(path_factory(offset), timeout=timeout, required=required)
+                  if not data.get('hasMore'):
+                      return data
+                  next_offset = data.get('nextOffset')
+                  if next_offset is None or next_offset == offset:
+                      raise RuntimeError(f'{label} did not return a valid nextOffset')
+                  offset = int(next_offset)
+                  time.sleep(2)
+              print(f'WARNING: {label} hit max_pages={max_pages}', flush=True)
+              return {'ok': True, 'hasMore': False}
+
+          # 1) Challenger editions from JeffSackmann (tourney_id carries the
+          #    ProTennisLive code, so cuts import directly afterwards).
+          run_paged(
+              f'Challenger season import {year}',
+              lambda offset: f'/api/import-challenger-season?year={year}&limit=50&offset={offset}',
+              max_pages=40,
+          )
+
+          # 2) Cut PDFs for every ATP/Challenger edition of the season. ATP
+          #    editions are created on the fly from catalogue templates.
+          run_paged(
+              f'Cutoff import {year}',
+              lambda offset: f'/api/import-cutoffs?year={year}&limit=40&offset={offset}',
+              max_pages=250,
+          )
+
+          # 3) Cleanups + consolidation (same as the nightly chain).
+          for path in (
+              '/api/cleanup-bad-cuts?apply=true',
+              '/api/cleanup-mismatched-cuts?apply=true',
+              '/api/dedupe-by-code?apply=true',
+              f'/api/merge-official-challenger-levels?apply=true&year={year}',
+              '/api/restore-historical-status',
+          ):
+              print(f'\n=== GET {path}', flush=True)
+              data = request_json(path, timeout=280, required=False)
+              print(json.dumps(data)[:600], flush=True)
+
+          # 4) Coordinates for any new tournaments, then swings for the season.
+          print('\n=== Geocode ===', flush=True)
+          for page in range(60):
+              out = request_json('/api/geocode-tournaments?year=all&limit=100&dryRun=false',
+                                 timeout=300, required=False)
+              remaining = int(out.get('remaining') or 0)
+              print(f"page {page + 1}: written={out.get('written')} remaining={remaining}", flush=True)
+              if remaining <= 0 or int(out.get('processed') or 0) == 0:
+                  break
+              time.sleep(2)
+
+          print('\n=== Recompute swings ===', flush=True)
+          out = request_json(f'/api/recompute-swings?dryRun=false&year={year}', timeout=280, required=False)
+          print(f"recompute ok={out.get('ok')}", flush=True)
+
+          # 5) Summary: how many editions + cuts the season now has.
+          counts = request_json(f'/api/debug-schedule-counts?year={year}', required=False)
+          print(f'\nSeason {year} summary: {json.dumps(counts)[:800]}', flush=True)
+          print('\nHistorical backfill complete.', flush=True)
+          PY

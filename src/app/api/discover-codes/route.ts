@@ -1,3 +1,4 @@
+import { EARLIEST_SEASON } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
@@ -94,8 +95,8 @@ function parseNumberParam(value: string | null, field: string) {
 
 function parseYearParam(value: string | null): number {
   const year = value ? Number(value) : new Date().getFullYear();
-  if (!Number.isInteger(year) || year < 2024 || year > 2030) {
-    throw new Error('year must be between 2024 and 2030');
+  if (!Number.isInteger(year) || year < EARLIEST_SEASON || year > 2030) {
+    throw new Error(`year must be between ${EARLIEST_SEASON} and 2030`);
   }
   return year;
 }

@@ -1,3 +1,4 @@
+import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
@@ -118,8 +119,8 @@ function getRequestedYear(request: NextRequest) {
   const yearParam = request.nextUrl.searchParams.get('year');
   const year = yearParam ? Number(yearParam) : 2026;
 
-  if (![2024, 2025, 2026].includes(year)) {
-    throw new Error('year must be 2024, 2025, or 2026');
+  if (!isAvailableSeason(year)) {
+    throw new Error(`year must be one of ${AVAILABLE_SEASONS.join(', ')}`);
   }
 
   return year;

@@ -1,5 +1,7 @@
 'use client';
 
+import { AVAILABLE_SEASONS } from '@/lib/seasons';
+
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import dynamic from 'next/dynamic';
@@ -34,7 +36,7 @@ const LOOKAHEAD = 3;
 const MAX_WEEK = 52;
 // Selectable surfaces. "Indoor Hard" is folded into "Hard" (see surfaceOk).
 const SURFACES = ['Clay', 'Hard', 'Grass'];
-const SEASONS = [2026, 2025, 2024];
+const SEASONS = AVAILABLE_SEASONS;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const GROUP_LABELS: Record<LevelGroup, string> = { atp: 'ATP', challenger: 'Challenger', itf: 'ITF' };
 

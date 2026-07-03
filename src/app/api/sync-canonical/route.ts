@@ -1,3 +1,4 @@
+import { AVAILABLE_SEASONS, CURRENT_SEASON } from '@/lib/seasons';
 import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { pool } from '@/lib/db';
@@ -74,7 +75,7 @@ export async function GET() {
 
   // Recompute week for 2024 and 2025 from their stored start_dates
   const weekFixResults = await Promise.all(
-    [2024, 2025].map((year) =>
+    AVAILABLE_SEASONS.filter((y) => y !== CURRENT_SEASON).map((year) =>
       pool.query<{ count: string }>(
         `update tournament_editions te
          set week = greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1),

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { runGeocodeBackfill } from '@/lib/geocode-backfill';
-import { isAvailableSeason } from '@/lib/seasons';
+import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const year = Number(yearParam);
     if (!isAvailableSeason(year)) {
       return NextResponse.json(
-        { ok: false, error: `Unknown season "${yearParam}". Use 2024, 2025, 2026 or all.` },
+        { ok: false, error: `Unknown season "${yearParam}". Use ${AVAILABLE_SEASONS.join(", ")} or all.` },
         { status: 400 }
       );
     }

@@ -1,3 +1,4 @@
+import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
@@ -201,8 +202,8 @@ export async function GET(request: NextRequest) {
   const yearParam = params.get('year');
   const year = yearParam ? Number(yearParam) : 2025;
 
-  if (![2024, 2025, 2026].includes(year)) {
-    return NextResponse.json({ ok: false, error: 'year must be 2024, 2025, or 2026' }, { status: 400 });
+  if (!isAvailableSeason(year)) {
+    return NextResponse.json({ ok: false, error: `year must be one of ${AVAILABLE_SEASONS.join(', ')}` }, { status: 400 });
   }
 
   const limit = Math.min(Number(params.get('limit') ?? '100'), 250);

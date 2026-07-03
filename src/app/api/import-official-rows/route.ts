@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
+import { EARLIEST_SEASON } from '@/lib/seasons';
 import {
   cleanName,
   deriveCity,
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'JSON body required' }, { status: 400 });
   }
   const { year, sourcePdfUrl, rows } = body as { year?: unknown; sourcePdfUrl?: unknown; rows?: unknown };
-  if (!Number.isInteger(year) || (year as number) < 2024 || (year as number) > 2030) {
+  if (!Number.isInteger(year) || (year as number) < EARLIEST_SEASON || (year as number) > 2030) {
     return NextResponse.json({ ok: false, error: 'year must be an integer 2024-2030' }, { status: 400 });
   }
   // Two official hosts publish the challenger calendar: atptour.com (laggy,

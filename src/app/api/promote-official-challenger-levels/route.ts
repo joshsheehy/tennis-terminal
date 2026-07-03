@@ -1,3 +1,4 @@
+import { EARLIEST_SEASON } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
   const slug = params.get('slug');
   const apply = params.get('apply') === 'true';
 
-  if (year !== null && (!Number.isInteger(year) || year < 2024 || year > 2030)) {
+  if (year !== null && (!Number.isInteger(year) || year < EARLIEST_SEASON || year > 2030)) {
     return NextResponse.json({ ok: false, error: 'year must be between 2024 and 2030' }, { status: 400 });
   }
 
