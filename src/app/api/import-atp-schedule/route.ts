@@ -4,6 +4,7 @@ import slugify from 'slugify';
 import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { getAtpEditionYearForStartDate, getAtpWeekForSeason } from '@/lib/atp-week';
+import { fetchSackmannCsv } from '@/lib/sackmann';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,10 +60,7 @@ type SackmannTournament = {
 };
 
 async function fetchSackmannAtpTourList(year: number): Promise<{ totalInCsv: number; atpTourCount: number; tournaments: SackmannTournament[] }> {
-  const url = `https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_matches_${year}.csv`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`JeffSackmann fetch failed: ${res.status} for year ${year}`);
-  const text = await res.text();
+  const text = await fetchSackmannCsv(`atp_matches_${year}.csv`);
   const lines = text.split('\n').map((l) => l.replace(/\r/g, ''));
   if (lines.length < 2) throw new Error('CSV appears empty');
 

@@ -5,6 +5,7 @@ import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { getAtpEditionYearForStartDate, getAtpWeekForSeason } from '@/lib/atp-week';
 import slugify from 'slugify';
+import { fetchSackmannCsv } from '@/lib/sackmann';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,11 +26,7 @@ type SackmannTournament = {
 };
 
 async function fetchSackmannChallengerList(year: number): Promise<SackmannTournament[]> {
-  const url = `https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_matches_qual_chall_${year}.csv`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`JeffSackmann fetch failed: ${res.status} for year ${year}`);
-
-  const text = await res.text();
+  const text = await fetchSackmannCsv(`atp_matches_qual_chall_${year}.csv`);
   const lines = text.split('\n');
   if (lines.length < 2) throw new Error('CSV appears empty');
 
@@ -213,9 +210,11 @@ export async function GET(request: NextRequest) {
   try {
     allTournaments = await fetchSackmannChallengerList(year);
   } catch (err) {
+    // 200 on purpose: edge proxies replace 5xx bodies, hiding the reason from
+    // the operator (the workflow log then shows only "HTTP Error 500").
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : 'Failed to fetch JeffSackmann data' },
-      { status: 500 }
+      { status: 200 }
     );
   }
 

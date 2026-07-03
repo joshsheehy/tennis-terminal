@@ -69,6 +69,18 @@ jobs:
                   try:
                       with urllib.request.urlopen(req, timeout=timeout) as res:
                           return json.loads(res.read().decode('utf-8', errors='replace'))
+                  except urllib.error.HTTPError as exc:
+                      # Read the error body — the server's JSON explains WHY,
+                      # which a bare "HTTP Error 500" hides.
+                      body = ''
+                      try:
+                          body = exc.read().decode('utf-8', errors='replace')[:800]
+                      except Exception:
+                          pass
+                      last_error = f'{exc} :: {body}'
+                      print(f'GET {url} attempt {attempt}/{retries} failed: {last_error}', flush=True)
+                      if attempt < retries:
+                          time.sleep(8 * attempt)
                   except Exception as exc:
                       last_error = exc
                       print(f'GET {url} attempt {attempt}/{retries} failed: {exc}', flush=True)
@@ -78,11 +90,20 @@ jobs:
                   raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
               return {'ok': False, 'error': str(last_error)}
 
+          def ensure_ok(label, data):
+              # Endpoints deliberately return 200 with ok:false for upstream
+              # failures (edge proxies replace 5xx bodies) — surface those.
+              if not data.get('ok'):
+                  raise RuntimeError(f"{label} reported failure: {data.get('error') or json.dumps(data)[:400]}")
+              return data
+
           def run_paged(label, path_factory, *, max_pages=250, timeout=180, required=True):
               print(f'\n=== {label} ===', flush=True)
               offset = 0
               for _ in range(max_pages):
                   data = request_json(path_factory(offset), timeout=timeout, required=required)
+                  if required:
+                      ensure_ok(label, data)
                   if not data.get('hasMore'):
                       return data
                   next_offset = data.get('nextOffset')
@@ -108,7 +129,7 @@ jobs:
           #     what keeps historical calendars complete. Without this step
           #     only catalogue survivors would get template editions.
           print(f'\n=== ATP tour-level import {year} ===', flush=True)
-          data = request_json(f'/api/import-atp-schedule?year={year}', timeout=280)
+          data = ensure_ok('ATP tour-level import', request_json(f'/api/import-atp-schedule?year={year}', timeout=280))
           print(f"imported={data.get('importedCount')} failed={data.get('failedCount')} "
                 f"(csv rows={data.get('totalInCsv')}, tour-level matches={data.get('atpTourCount')})", flush=True)
           for f in (data.get('failed') or [])[:10]:
