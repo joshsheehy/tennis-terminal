@@ -1,12 +1,15 @@
 name: Historical season backfill
 
-# One-time backfill of a full historical season (calendar + cuts), using the
-# exact same sources and endpoints the 2024/2025 backfills used:
-#   JeffSackmann CSV → challenger editions (+ their ProTennisLive codes)
-#   catalogue codes → ATP-level editions created from templates
-#   ProTennisLive postings → cut PDFs (modern-pdf.js fallback covers 2022-era
-#   files that crash pdf-parse with "bad XRef entry")
-# Then the standard cleanup / dedupe / geocode / swings chain.
+# One-time backfill of a full historical season (calendar + cuts).
+#
+# PRIMARY SOURCE: ProTennisLive — the ATP's own posting system. The runner
+# sweeps /posting/{year}/{code}/ for the whole code range, parses each
+# posting's header (name, city, dates, surface, era-correct category), and
+# POSTs the season to /api/import-ptl-postings. Everything that published an
+# entry list is captured — defunct tournaments included — and the code rides
+# along so the cut import that follows resolves every PDF directly.
+# (JeffSackmann's qual_chall CSVs don't exist before ~2024, so they're only a
+# tolerant enrichment pass here, not a dependency.)
 #
 # Run once per season from the Actions tab (2022, then 2023). Idempotent —
 # rerunning only fills gaps.
@@ -19,13 +22,41 @@ on:
         required: true
         type: choice
         options: ['2022', '2023']
+      code_start:
+        description: 'First ProTennisLive code to probe'
+        required: false
+        default: '1'
+      code_end:
+        description: 'Last ProTennisLive code to probe'
+        required: false
+        default: '9999'
 
 jobs:
   backfill:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
-      - name: Backfill season
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Scan ProTennisLive postings for the season
+        env:
+          YEAR: ${{ inputs.year }}
+          CODE_START: ${{ inputs.code_start }}
+          CODE_END: ${{ inputs.code_end }}
+        run: |
+          set -euo pipefail
+          node scripts/scan-ptl-season.mjs "$YEAR" \
+            --start "$CODE_START" --end "$CODE_END" \
+            --concurrency 12 \
+            --emit-rows /tmp/ptl-rows.json
+          test -s /tmp/ptl-rows.json || { echo "scan produced no rows"; exit 1; }
+
+      - name: Import season into production
         env:
           APP_URL: ${{ secrets.APP_URL }}
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
@@ -46,6 +77,7 @@ jobs:
           import json
           import os
           import time
+          import urllib.error
           import urllib.request
 
           base = os.environ['APP_URL'].strip().rstrip('/')
@@ -54,15 +86,18 @@ jobs:
           secret = os.environ['ADMIN_SECRET']
           year = int(os.environ['YEAR'])
 
-          def request_json(path, *, timeout=180, retries=3, required=True):
+          def request_json(path, *, data=None, method='GET', timeout=180, retries=3, required=True):
               url = base + path
               last_error = None
               for attempt in range(1, retries + 1):
                   req = urllib.request.Request(
                       url,
+                      data=data,
+                      method=method,
                       headers={
                           'Accept': 'application/json',
-                          'User-Agent': 'TennisCutsHistoricalBackfill/1.0',
+                          'Content-Type': 'application/json',
+                          'User-Agent': 'TennisCutsHistoricalBackfill/2.0',
                           'X-Admin-Secret': secret,
                       },
                   )
@@ -70,20 +105,18 @@ jobs:
                       with urllib.request.urlopen(req, timeout=timeout) as res:
                           return json.loads(res.read().decode('utf-8', errors='replace'))
                   except urllib.error.HTTPError as exc:
-                      # Read the error body — the server's JSON explains WHY,
-                      # which a bare "HTTP Error 500" hides.
                       body = ''
                       try:
                           body = exc.read().decode('utf-8', errors='replace')[:800]
                       except Exception:
                           pass
                       last_error = f'{exc} :: {body}'
-                      print(f'GET {url} attempt {attempt}/{retries} failed: {last_error}', flush=True)
+                      print(f'{method} {url} attempt {attempt}/{retries} failed: {last_error}', flush=True)
                       if attempt < retries:
                           time.sleep(8 * attempt)
                   except Exception as exc:
                       last_error = exc
-                      print(f'GET {url} attempt {attempt}/{retries} failed: {exc}', flush=True)
+                      print(f'{method} {url} attempt {attempt}/{retries} failed: {exc}', flush=True)
                       if attempt < retries:
                           time.sleep(8 * attempt)
               if required:
@@ -91,8 +124,6 @@ jobs:
               return {'ok': False, 'error': str(last_error)}
 
           def ensure_ok(label, data):
-              # Endpoints deliberately return 200 with ok:false for upstream
-              # failures (edge proxies replace 5xx bodies) — surface those.
               if not data.get('ok'):
                   raise RuntimeError(f"{label} reported failure: {data.get('error') or json.dumps(data)[:400]}")
               return data
@@ -114,36 +145,43 @@ jobs:
               print(f'WARNING: {label} hit max_pages={max_pages}', flush=True)
               return {'ok': True, 'hasMore': False}
 
-          # 1) Challenger editions from JeffSackmann (tourney_id carries the
-          #    ProTennisLive code, so cuts import directly afterwards).
+          # 1) Season calendar straight from the ProTennisLive scan.
+          payload = json.load(open('/tmp/ptl-rows.json'))
+          rows = payload['rows']
+          print(f"=== PTL season import: {len(rows)} postings for {payload['year']} ===", flush=True)
+          new_total = 0
+          for start in range(0, len(rows), 200):
+              chunk = {'year': payload['year'], 'rows': rows[start:start + 200]}
+              out = ensure_ok('PTL import', request_json('/api/import-ptl-postings?apply=true',
+                                                         data=json.dumps(chunk).encode(), method='POST'))
+              print(f"chunk {start}-{start + len(chunk['rows'])}: upserted={out.get('upsertedCount')} "
+                    f"new={out.get('newlyAddedCount')}", flush=True)
+              for ev in out.get('newlyAdded') or []:
+                  print(f"  + wk{ev.get('week')} {ev.get('name')} ({ev.get('level')})", flush=True)
+              new_total += out.get('newlyAddedCount') or 0
+          print(f'season {year}: {new_total} newly added tournaments', flush=True)
+
+          # 2) Optional enrichment: JeffSackmann (surfaces / cross-check).
+          #    His qual_chall CSVs don't exist for 2022/2023, so these are
+          #    tolerant — a 404 just skips the pass.
           run_paged(
-              f'Challenger season import {year}',
+              f'Challenger season enrichment {year} (optional)',
               lambda offset: f'/api/import-challenger-season?year={year}&limit=50&offset={offset}',
               max_pages=40,
+              required=False,
           )
+          data = request_json(f'/api/import-atp-schedule?year={year}', timeout=280, required=False)
+          print(f"\nATP tour-level enrichment (optional): ok={data.get('ok')} "
+                f"imported={data.get('importedCount')}", flush=True)
 
-          # 1b) ATP tour-level editions from JeffSackmann's atp_matches CSV.
-          #     Built from matches actually played, so DEFUNCT events (Pune,
-          #     Tel Aviv, Florence, ...) are included — tournaments missing
-          #     from the 2026 catalogue are created fresh, which is exactly
-          #     what keeps historical calendars complete. Without this step
-          #     only catalogue survivors would get template editions.
-          print(f'\n=== ATP tour-level import {year} ===', flush=True)
-          data = ensure_ok('ATP tour-level import', request_json(f'/api/import-atp-schedule?year={year}', timeout=280))
-          print(f"imported={data.get('importedCount')} failed={data.get('failedCount')} "
-                f"(csv rows={data.get('totalInCsv')}, tour-level matches={data.get('atpTourCount')})", flush=True)
-          for f in (data.get('failed') or [])[:10]:
-              print(f'  ! {json.dumps(f)}', flush=True)
-
-          # 2) Cut PDFs for every ATP/Challenger edition of the season. ATP
-          #    editions are created on the fly from catalogue templates.
+          # 3) Cut PDFs for every ATP/Challenger edition of the season.
           run_paged(
               f'Cutoff import {year}',
               lambda offset: f'/api/import-cutoffs?year={year}&limit=40&offset={offset}',
               max_pages=250,
           )
 
-          # 3) Cleanups + consolidation (same as the nightly chain).
+          # 4) Cleanups + consolidation (same as the nightly chain).
           for path in (
               '/api/cleanup-bad-cuts?apply=true',
               '/api/cleanup-mismatched-cuts?apply=true',
@@ -155,7 +193,7 @@ jobs:
               data = request_json(path, timeout=280, required=False)
               print(json.dumps(data)[:600], flush=True)
 
-          # 4) Coordinates for any new tournaments, then swings for the season.
+          # 5) Coordinates for any new tournaments, then swings for the season.
           print('\n=== Geocode ===', flush=True)
           for page in range(60):
               out = request_json('/api/geocode-tournaments?year=all&limit=100&dryRun=false',
@@ -170,7 +208,7 @@ jobs:
           out = request_json(f'/api/recompute-swings?dryRun=false&year={year}', timeout=280, required=False)
           print(f"recompute ok={out.get('ok')}", flush=True)
 
-          # 5) Summary: how many editions + cuts the season now has.
+          # 6) Summary: how many editions + cuts the season now has.
           counts = request_json(f'/api/debug-schedule-counts?year={year}', required=False)
           print(f'\nSeason {year} summary: {json.dumps(counts)[:800]}', flush=True)
           print('\nHistorical backfill complete.', flush=True)
