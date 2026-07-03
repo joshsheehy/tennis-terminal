@@ -101,6 +101,19 @@ jobs:
               max_pages=40,
           )
 
+          # 1b) ATP tour-level editions from JeffSackmann's atp_matches CSV.
+          #     Built from matches actually played, so DEFUNCT events (Pune,
+          #     Tel Aviv, Florence, ...) are included — tournaments missing
+          #     from the 2026 catalogue are created fresh, which is exactly
+          #     what keeps historical calendars complete. Without this step
+          #     only catalogue survivors would get template editions.
+          print(f'\n=== ATP tour-level import {year} ===', flush=True)
+          data = request_json(f'/api/import-atp-schedule?year={year}', timeout=280)
+          print(f"imported={data.get('importedCount')} failed={data.get('failedCount')} "
+                f"(csv rows={data.get('totalInCsv')}, tour-level matches={data.get('atpTourCount')})", flush=True)
+          for f in (data.get('failed') or [])[:10]:
+              print(f'  ! {json.dumps(f)}', flush=True)
+
           # 2) Cut PDFs for every ATP/Challenger edition of the season. ATP
           #    editions are created on the fly from catalogue templates.
           run_paged(

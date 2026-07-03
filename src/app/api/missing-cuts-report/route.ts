@@ -1,3 +1,4 @@
+import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
@@ -129,9 +130,9 @@ export async function GET(request: NextRequest) {
   const offset = Number(params.get('offset') ?? '0');
   const compact = params.get('compact') === 'true';
 
-  if (![2024, 2025, 2026].includes(year)) {
+  if (!isAvailableSeason(year)) {
     return NextResponse.json(
-      { ok: false, error: 'year must be 2024, 2025, or 2026' },
+      { ok: false, error: `year must be one of ${AVAILABLE_SEASONS.join(', ')}` },
       { status: 400 }
     );
   }
