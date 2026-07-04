@@ -209,6 +209,17 @@ jobs:
           except Exception as exc:
               print(f'slam cut import failed (non-fatal): {exc}', flush=True)
 
+          # Beta cut projections: refresh predictions for events inside the
+          # 4-week window and score any stored prediction whose real cut has
+          # now been imported. Fill-only tracking table; cheap.
+          print('\n=== Cut projections (beta) ===', flush=True)
+          try:
+              out = request_json('/api/predict-cuts?apply=true', timeout=280, retries=2)
+              print(f"projections: written={out.get('written')} scored={out.get('scored')} "
+                    f"upcoming={out.get('upcomingEditions')} noModel={out.get('skippedNoModel')}", flush=True)
+          except Exception as exc:
+              print(f'cut projection failed (non-fatal): {exc}', flush=True)
+
           # Recompute swings right away so the Builder reflects tonight's
           # imports + coordinates immediately (the 09:45 swings workflow
           # remains as a second pass).

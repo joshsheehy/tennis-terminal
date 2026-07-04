@@ -1,0 +1,84 @@
+name: Cut predictions (beta)
+
+# On-demand run of the beta cut-projection pipeline: prints the walk-forward
+# backtest report (model vs the same-cut-as-last-year baseline — the number
+# the model has to beat), then writes fresh predictions for events inside the
+# horizon window and scores any stored prediction whose actual cut has landed.
+# The nightly official-calendar-sync also refreshes predictions; this
+# workflow exists for the full backtest report and for kicking the first run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'true = write predictions + score actuals, false = backtest report only'
+        required: false
+        default: 'true'
+      weeks_ahead:
+        description: 'Prediction window in weeks'
+        required: false
+        default: '4'
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Backtest + predict
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          APPLY: ${{ inputs.apply }}
+          WEEKS_AHEAD: ${{ inputs.weeks_ahead }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          base = os.environ['APP_URL'].strip().rstrip('/')
+          if not base.startswith(('http://', 'https://')):
+              base = 'https://' + base
+          secret = os.environ['ADMIN_SECRET']
+          apply = os.environ.get('APPLY', 'true').strip().lower() == 'true'
+          weeks = int(os.environ.get('WEEKS_AHEAD', '4') or 4)
+
+          def get(path, timeout=280):
+              req = urllib.request.Request(
+                  base + path,
+                  headers={
+                      'Accept': 'application/json',
+                      'User-Agent': 'TennisCutsPredictions/1.0',
+                      'X-Admin-Secret': secret,
+                  },
+              )
+              with urllib.request.urlopen(req, timeout=timeout) as res:
+                  return json.loads(res.read().decode('utf-8', errors='replace'))
+
+          print('=== Walk-forward backtest (model vs last-year baseline) ===', flush=True)
+          bt = get('/api/backtest-cuts')
+          if not bt.get('ok'):
+              raise RuntimeError(f'backtest failed: {json.dumps(bt)[:400]}')
+          for draw, rep in (bt.get('report') or {}).items():
+              o = rep.get('overall') or {}
+              print(f"\n{rep.get('label')} ({rep.get('observations')} observations, {o.get('n')} predictions):", flush=True)
+              print(f"  overall: model MAE {o.get('modelMAE')} vs baseline {o.get('baselineMAE')} "
+                    f"| win rate {o.get('winRate')} | relErr p50/p75/p90 "
+                    f"{o.get('relAbsErrP50')}/{o.get('relAbsErrP75')}/{o.get('relAbsErrP90')}", flush=True)
+              for group, g in (rep.get('byGroup') or {}).items():
+                  print(f"  {group:<11} n={g.get('n'):>4} model {g.get('modelMAE')} vs baseline {g.get('baselineMAE')} "
+                        f"| win {g.get('winRate')}", flush=True)
+              for year, g in (rep.get('byYear') or {}).items():
+                  print(f"  {year}: n={g.get('n')} model {g.get('modelMAE')} vs baseline {g.get('baselineMAE')}", flush=True)
+
+          print(f"\n=== Predictions ({'apply' if apply else 'dry run'}) ===", flush=True)
+          out = get(f"/api/predict-cuts?apply={'true' if apply else 'false'}&weeksAhead={weeks}")
+          if not out.get('ok'):
+              raise RuntimeError(f'predict failed: {json.dumps(out)[:400]}')
+          print(f"upcoming editions: {out.get('upcomingEditions')} | predictions: {out.get('predictionCount')} "
+                f"| written: {out.get('written')} | scored: {out.get('scored')} | no model: {out.get('skippedNoModel')}", flush=True)
+          for p in (out.get('predictions') or [])[:40]:
+              print(f"  {p['slug']} {p['year']} {p['draw']} h{p['horizon']}: ~#{p['cut']} ({p['low']}-{p['high']}) [{p['method']}]", flush=True)
+          print('\nCut predictions workflow complete.', flush=True)
+          PY

@@ -6,7 +6,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw } from '@/lib/swings-page-data';
+import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw, CutProjectionsByDraw } from '@/lib/swings-page-data';
 import { LevelGroup, levelRank } from '@/lib/swings';
 import {
   CandidateTier,
@@ -617,6 +617,7 @@ export default function SwingsView({
           event={infoEvent.event}
           series={data.cutSeries[infoEvent.event.slug]}
           refs={data.cutRefs[infoEvent.event.slug]}
+          projections={data.cutProjections[infoEvent.event.slug]}
           year={data.year}
           onAdd={
             infoEvent.canAdd
@@ -1411,6 +1412,7 @@ function TournamentInfoCard({
   event,
   series,
   refs,
+  projections,
   year,
   onAdd,
   onClose,
@@ -1418,6 +1420,7 @@ function TournamentInfoCard({
   event: SwingMapEvent;
   series: CutSeriesByDraw | undefined;
   refs: SwingsPageData['cutRefs'][string] | undefined;
+  projections: CutProjectionsByDraw | undefined;
   year: number;
   /** When set (candidate rows), the card shows an explicit add action. */
   onAdd?: () => void;
@@ -1435,6 +1438,7 @@ function TournamentInfoCard({
   const [drawKey, setDrawKey] = useState<keyof CutSeriesByDraw>(drawChoices[0].key);
   const draw = drawChoices.find((d) => d.key === drawKey) ?? drawChoices[0];
   const points = series?.[draw.key] ?? [];
+  const projection = projections?.[draw.key];
 
   // Latest reference cut for the active draw (2026 stops reference last year).
   const singlesRef = refs?.singles;
@@ -1494,9 +1498,18 @@ function TournamentInfoCard({
         ) : (
           <p className="tinfo-line tinfo-line--muted">No {draw.label.toLowerCase()} cut history on record yet.</p>
         )}
-        <p className="tinfo-beta">
-          Projected cut · <span>beta — coming soon</span>
-        </p>
+        {projection ? (
+          <p className="tinfo-beta tinfo-beta--live">
+            Projected cut · <strong>~#{projection.cut}</strong>{' '}
+            <span>
+              range {projection.low}–{projection.high} · beta
+            </span>
+          </p>
+        ) : (
+          <p className="tinfo-beta">
+            Projected cut · <span>beta — coming soon</span>
+          </p>
+        )}
         {onAdd && (
           <button type="button" className="tinfo-open tinfo-add" onClick={onAdd}>
             ＋ Add to schedule

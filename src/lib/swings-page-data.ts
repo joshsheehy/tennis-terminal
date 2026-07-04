@@ -72,12 +72,22 @@ export type SwingsPageData = {
    * draw keys (m = singles main, q = singles qualifying, d = doubles main)
    * to keep the RSC payload small. */
   cutSeries: Record<string, CutSeriesByDraw>;
+  /** Beta cut projections for the viewed season's upcoming events, keyed by
+   * slug then draw key — freshest horizon per draw. */
+  cutProjections: Record<string, CutProjectionsByDraw>;
 };
 
 export type CutSeriesByDraw = {
   m?: Array<[number, number]>;
   q?: Array<[number, number]>;
   d?: Array<[number, number]>;
+};
+
+export type CutProjection = { cut: number; low: number; high: number };
+export type CutProjectionsByDraw = {
+  m?: CutProjection;
+  q?: CutProjection;
+  d?: CutProjection;
 };
 
 const getCachedEvents = unstable_cache(
@@ -216,12 +226,61 @@ const getCachedCutSeries = unstable_cache(
   { revalidate: 300 }
 );
 
+// Beta projections for the viewed season: freshest (smallest-horizon,
+// latest-predicted) row per edition + draw, for events that haven't started.
+// The table is created by /api/predict-cuts; before its first run this query
+// simply errors and the popover shows the "coming soon" copy instead.
+async function loadCutProjections(year: number): Promise<Record<string, CutProjectionsByDraw>> {
+  try {
+    const result = await pool.query<{
+      slug: string;
+      event_type: 'singles' | 'doubles';
+      draw_type: 'main' | 'qualifying';
+      predicted_cut: number;
+      predicted_low: number;
+      predicted_high: number;
+    }>(
+      `
+      select distinct on (t.slug, cp.event_type, cp.draw_type)
+        t.slug, cp.event_type, cp.draw_type,
+        cp.predicted_cut, cp.predicted_low, cp.predicted_high
+      from cut_predictions cp
+      join tournament_editions te on te.id = cp.tournament_edition_id
+      join tournaments t on t.id = te.tournament_id
+      where te.year = $1
+        and te.start_date >= current_date
+      order by t.slug, cp.event_type, cp.draw_type, cp.horizon_weeks asc, cp.predicted_at desc
+      `,
+      [year]
+    );
+    const projections: Record<string, CutProjectionsByDraw> = {};
+    for (const row of result.rows) {
+      const drawKey: keyof CutProjectionsByDraw =
+        row.event_type === 'doubles' ? 'd' : row.draw_type === 'qualifying' ? 'q' : 'm';
+      (projections[row.slug] ??= {})[drawKey] = {
+        cut: row.predicted_cut,
+        low: row.predicted_low,
+        high: row.predicted_high,
+      };
+    }
+    return projections;
+  } catch {
+    return {}; // cut_predictions not created yet
+  }
+}
+
+const getCachedCutProjections = unstable_cache(
+  async (year: number) => loadCutProjections(year),
+  ['swings-cutprojections'],
+  { revalidate: 300 }
+);
+
 export async function getSwingsPageData(
   year: number,
   groups: LevelGroup[] = DEFAULT_LEVEL_SCOPE,
   config: SwingConfig = DEFAULT_SWING_CONFIG
 ): Promise<SwingsPageData> {
-  const [all, cutRefs, cutSeries] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year)]);
+  const [all, cutRefs, cutSeries, cutProjections] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year), getCachedCutProjections(year)]);
   const groupSet = new Set(groups);
   const scoped = all.filter((e) => {
     const g = levelGroup(e.level);
@@ -292,5 +351,5 @@ export async function getSwingsPageData(
   const currentWeek =
     year === CURRENT_SEASON ? getAtpWeekForSeason(new Date(), year) ?? 1 : 1;
 
-  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries };
+  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries, cutProjections };
 }
