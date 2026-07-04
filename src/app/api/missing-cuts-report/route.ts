@@ -60,6 +60,12 @@ function extractCodeFromTextSources(sources: Array<string | null | undefined>): 
 
 function expectedDraws(row: EditionCoverageRow): DrawKey[] {
   const level = row.level.toLowerCase();
+  // Slams split across two tournament entries: the main event carries
+  // singles + doubles only, "<Slam> Qualifying" just the singles-qualifying
+  // line — mirror expectedDrawsForLevel on the tournament page so the report
+  // stops flagging draws a slam entry can never have.
+  if (level === 'grand slam qualifying') return ['singles_qualifying'];
+  if (level === 'grand slam') return ['singles_main', 'doubles_main'];
   const isChallenger = level.includes('challenger');
   const isAtp500 = level.includes('500') && !isChallenger;
 
