@@ -199,6 +199,16 @@ jobs:
           except Exception as exc:
               print(f'geocoding failed (non-fatal): {exc}', flush=True)
 
+          # Grand Slam cuts come from the checked-in, source-attributed
+          # dataset (src/lib/slam-cuts.ts) — slams publish no PTL acceptance
+          # lists. Fill-only and cheap, so it just runs every night.
+          print('\n=== Slam cuts ===', flush=True)
+          try:
+              out = request_json('/api/import-slam-cuts?apply=true', timeout=120, retries=2)
+              print(f"slam cuts: written={out.get('written')} of {out.get('totalEntries')} entries", flush=True)
+          except Exception as exc:
+              print(f'slam cut import failed (non-fatal): {exc}', flush=True)
+
           # Recompute swings right away so the Builder reflects tonight's
           # imports + coordinates immediately (the 09:45 swings workflow
           # remains as a second pass).
