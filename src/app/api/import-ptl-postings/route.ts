@@ -112,12 +112,18 @@ export async function POST(request: NextRequest) {
 
     // Catalogue-by-code upgrade: surviving events take their canonical
     // identity + level (the scanner's ATP 250/500 money heuristic can't tell
-    // those apart; the code can).
+    // those apart; the code can). The level swap only applies when the
+    // catalogue entry is itself a tour tier: codes are permanent across tier
+    // changes, so a code whose latest edition is a Challenger (Newport after
+    // its ATP years) must not stamp that level onto an era when the posting
+    // header said TOTAL FINANCIAL COMMITMENT — i.e. it was on Tour.
     const catalogue = CATALOGUE_BY_CODE.get(row.code);
     const name = catalogue?.tournament.name ?? row.name;
     const city = catalogue?.tournament.city ?? row.city;
     const country = catalogue?.tournament.country ?? row.country;
-    const level = row.tourLevelHeuristic && catalogue ? catalogue.edition.level : row.level;
+    const catalogueTourLevel =
+      catalogue && /^ATP \d+/.test(catalogue.edition.level) ? catalogue.edition.level : null;
+    const level = row.tourLevelHeuristic && catalogueTourLevel ? catalogueTourLevel : row.level;
 
     const official: OfficialCalendarRow = {
       name,

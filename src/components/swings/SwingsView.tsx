@@ -6,7 +6,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { SwingsPageData, SwingMapEvent } from '@/lib/swings-page-data';
+import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw } from '@/lib/swings-page-data';
 import { LevelGroup, levelRank } from '@/lib/swings';
 import {
   CandidateTier,
@@ -1327,7 +1327,7 @@ function BottomSheet({
 // reference cuts, a reserved slot for the beta cut projection, and an explicit
 // link to the full tournament page (tapping a candidate row adds it to the
 // swing, so the page link needs its own affordance).
-function MiniCutLine({ points }: { points: Array<[number, number]> }) {
+function MiniCutLine({ points, label }: { points: Array<[number, number]>; label: string }) {
   const n = points.length;
   const PAD = 16;
   const STEP = n <= 4 ? 58 : 44;
@@ -1356,7 +1356,7 @@ function MiniCutLine({ points }: { points: Array<[number, number]> }) {
       viewBox={`0 0 ${w} ${h}`}
       className="tinfo-chart"
       role="img"
-      aria-label={`Singles main-draw cut by year: ${points.map((p) => `${p[0]} #${p[1]}`).join(', ')}`}
+      aria-label={`${label} cut by year: ${points.map((p) => `${p[0]} #${p[1]}`).join(', ')}`}
     >
       <line x1={0} y1={base + 0.5} x2={w} y2={base + 0.5} className="cut-trend__baseline" />
       <path d={area} className="cut-trend__area" />
@@ -1376,6 +1376,12 @@ function MiniCutLine({ points }: { points: Array<[number, number]> }) {
   );
 }
 
+const INFO_DRAWS: Array<{ key: keyof CutSeriesByDraw; tab: string; label: string }> = [
+  { key: 'm', tab: 'Singles', label: 'Singles main-draw' },
+  { key: 'q', tab: 'Singles Q', label: 'Singles qualifying' },
+  { key: 'd', tab: 'Doubles', label: 'Doubles main-draw' },
+];
+
 function TournamentInfoCard({
   event,
   series,
@@ -1384,20 +1390,29 @@ function TournamentInfoCard({
   onClose,
 }: {
   event: SwingMapEvent;
-  series: Array<[number, number]> | undefined;
+  series: CutSeriesByDraw | undefined;
   refs: SwingsPageData['cutRefs'][string] | undefined;
   year: number;
   onClose: () => void;
 }) {
-  const points = series ?? [];
-  const ref = refs?.singles;
-  const refLine =
-    ref?.fromYear != null && (ref.mainCut != null || ref.mainAlt != null || ref.qualCut != null) ? (
-      <p className="tinfo-line">
-        {ref.fromYear} cut — MD #{ref.mainAlt ?? ref.mainCut ?? '–'}
-        {ref.qualCut != null ? ` · Q #${ref.qualCut}` : ''}
-      </p>
-    ) : null;
+  const [drawKey, setDrawKey] = useState<keyof CutSeriesByDraw>('m');
+  const draw = INFO_DRAWS.find((d) => d.key === drawKey) ?? INFO_DRAWS[0];
+  const points = series?.[drawKey] ?? [];
+
+  // Latest reference cut for the active draw (2026 stops reference last year).
+  const singlesRef = refs?.singles;
+  const doublesRef = refs?.doubles;
+  let refText: string | null = null;
+  if (drawKey === 'm' && singlesRef?.fromYear != null && (singlesRef.mainAlt ?? singlesRef.mainCut) != null) {
+    refText = `${singlesRef.fromYear} cut — MD #${singlesRef.mainAlt ?? singlesRef.mainCut}`;
+    if (singlesRef.qualCut != null) refText += ` · Q #${singlesRef.qualCut}`;
+  } else if (drawKey === 'q' && singlesRef?.fromYear != null && singlesRef.qualCut != null) {
+    refText = `${singlesRef.fromYear} cut — Q #${singlesRef.qualCut}`;
+  } else if (drawKey === 'd' && doublesRef?.fromYear != null && (doublesRef.mainAlt ?? doublesRef.mainCut) != null) {
+    refText = `${doublesRef.fromYear} cut — MD #${doublesRef.mainAlt ?? doublesRef.mainCut}`;
+  }
+  const refLine = refText ? <p className="tinfo-line">{refText}</p> : null;
+
   return (
     <div className="tinfo-backdrop" onClick={onClose}>
       <div className="tinfo-card" role="dialog" aria-label={event.name} onClick={(e) => e.stopPropagation()}>
@@ -1409,16 +1424,37 @@ function TournamentInfoCard({
           {event.city}
           {event.country ? `, ${event.country}` : ''} · {event.level} · {event.surface}
         </p>
+        <div className="cut-trend__tabs tinfo-tabs" role="tablist" aria-label="Draw">
+          {INFO_DRAWS.map((d) => (
+            <button
+              key={d.key}
+              type="button"
+              role="tab"
+              aria-selected={d.key === drawKey}
+              className={`cut-trend__tab${d.key === drawKey ? ' cut-trend__tab--on' : ''}`}
+              onClick={() => setDrawKey(d.key)}
+            >
+              {d.tab}
+            </button>
+          ))}
+        </div>
         {points.length >= 2 ? (
           <>
-            <p className="tinfo-label">Singles main-draw cut by year</p>
-            <MiniCutLine points={points} />
+            <p className="tinfo-label">{draw.label} cut by year</p>
+            <MiniCutLine points={points} label={draw.label} />
+            {refLine}
+          </>
+        ) : points.length === 1 ? (
+          <>
+            <p className="tinfo-line">
+              {points[0][0]} {draw.label.toLowerCase()} cut — #{points[0][1]}
+            </p>
             {refLine}
           </>
         ) : refLine ? (
           refLine
         ) : (
-          <p className="tinfo-line tinfo-line--muted">No cut history on record yet.</p>
+          <p className="tinfo-line tinfo-line--muted">No {draw.label.toLowerCase()} cut history on record yet.</p>
         )}
         <p className="tinfo-beta">
           Projected cut · <span>beta — coming soon</span>

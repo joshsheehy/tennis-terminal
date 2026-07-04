@@ -95,7 +95,7 @@ export type ParsedOfficialPdfCutoff = {
 };
 
 type ParsedNameRank = {
-  name: string;
+  name: string | null;
   rank: number;
   raw: string;
 };
@@ -237,6 +237,47 @@ function parseInlineLastDirectAcceptance(labelLine: string): ParsedNameRank | nu
   return isSpuriousNameRank(candidate.name, candidate.rank, candidate.raw) ? null : candidate;
 }
 
+// ATP tour draw sheets print the entry cut as a bare number in the footer box,
+// with no player name attached:
+//   layout:  "LAST DIRECT ACCEPTANCE AT DEADLINE" / "246" / "LAST DIRECT ACCEPTANCE IN DRAW" / "246"
+//   stream:  "LAST DIRECT ACCEPTANCE AT DEADLINE246LAST DIRECT ACCEPTANCE IN DRAW246"
+// (Newport 2023 mds is the reference case.) A bare number is only accepted when
+// it is sandwiched between the AT DEADLINE label and the IN DRAW label or a
+// footer heading — a stray digit elsewhere near a blank footer (the Tokyo 2024 /
+// Paris 2025 seed-number bug) never sits in that position.
+const BARE_RANK_FOLLOWER = /^(last direct acceptance|atp supervisor|tournament director)/i;
+
+function isPlausibleBareRank(rank: number): boolean {
+  return rank >= 3 && rank <= 5000 && !(rank >= 1900 && rank <= 2100);
+}
+
+function parseBareDeadlineRank(lines: string[], index: number): ParsedNameRank | null {
+  const label = lines[index];
+  if (!/last direct acceptance at deadline/i.test(label)) return null;
+
+  // Stream form: the value (and often the next label) glued onto the label line.
+  const glued = label
+    .replace(/\s+/g, ' ')
+    .match(/last direct acceptance at deadline\s*:?\s*P?(\d{1,5})\s*(?=last direct acceptance in draw|$)/i);
+  if (glued) {
+    const rank = Number(glued[1]);
+    if (isPlausibleBareRank(rank)) return { name: null, rank, raw: label.trim() };
+  }
+
+  // Layout form: value on its own line, immediately followed by the IN DRAW
+  // label (or a footer heading).
+  const valueLine = lines[index + 1];
+  const followerLine = lines[index + 2];
+  if (valueLine && followerLine && BARE_RANK_FOLLOWER.test(followerLine)) {
+    const rank = parseStandaloneRank(valueLine);
+    if (rank !== null && isPlausibleBareRank(rank)) {
+      return { name: null, rank, raw: `${label.trim()} ${valueLine.trim()}` };
+    }
+  }
+
+  return null;
+}
+
 function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
   const index = lines.findIndex((line) => /last direct acceptance/i.test(line));
 
@@ -245,6 +286,10 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
   // Prefer an inline value on the label line itself, before scanning following rows.
   const inline = parseInlineLastDirectAcceptance(lines[index]);
   if (inline) return inline;
+
+  // ATP tour draw-sheet footers: bare rank with no player name.
+  const bare = parseBareDeadlineRank(lines, index);
+  if (bare) return bare;
 
   // Real LDA values land within the first few rows after the label — either on
   // the very next line, or after a single blank/punctuation row. Scanning 12
@@ -259,7 +304,7 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
     if (isFooterHeading(line)) continue;
 
     const parsed = parseNameAndRank(line);
-    if (parsed && !isSpuriousNameRank(parsed.name, parsed.rank, parsed.raw)) {
+    if (parsed && !isSpuriousNameRank(parsed.name ?? '', parsed.rank, parsed.raw)) {
       return parsed;
     }
 

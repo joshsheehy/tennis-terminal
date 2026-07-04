@@ -93,9 +93,10 @@ const MONTHS = {
 };
 
 // "22-28 August 2022" | "2 - 7 January 2023" | "31 January - 6 February 2022"
-// | "26 December 2022 - 1 January 2023" → { start, end } ISO dates.
+// | "26 December 2022 - 1 January 2023" | "7 July — 13 July 2025" (Challenger
+// headers use an em-dash) → { start, end } ISO dates.
 function parseDates(text) {
-  const halves = text.split(/[-–]/).map((s) => s.trim());
+  const halves = text.split(/[-–—]/).map((s) => s.trim());
   if (halves.length < 2) return null;
   const parse = (part, fallback) => {
     const m = part.match(/^(\d{1,2})(?:\s+([A-Za-z]+))?(?:\s+(\d{4}))?$/);
@@ -126,7 +127,7 @@ function moneyToNumber(line) {
 //   Challenger: has a "Challenger NN" CATEGORY value
 //   ATP tour:   has TOTAL FINANCIAL COMMITMENT and no Challenger category
 //   ITF:        "ITF World Tennis Tour" anywhere → skip
-const DATE_RE = /(\d{1,2}(?:\s+[A-Za-z]+)?(?:\s+\d{4})?\s*[-–]\s*\d{1,2}\s+[A-Za-z]+\s+\d{4})/;
+const DATE_RE = /(\d{1,2}(?:\s+[A-Za-z]+)?(?:\s+\d{4})?\s*[-–—]\s*\d{1,2}\s+[A-Za-z]+\s+\d{4})/;
 
 function parseHeader(lines, code) {
   const head = lines.filter(Boolean).slice(0, 18);

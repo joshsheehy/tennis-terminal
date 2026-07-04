@@ -148,6 +148,34 @@ describe('parseOfficialPdfCutoffText', () => {
     const parsed = parseOfficialPdfCutoffText(text);
     expect(parsed.last_direct_acceptance_rank).toBeNull();
   });
+
+  it('reads a bare rank glued between AT DEADLINE / IN DRAW labels (Newport 2023 stream order)', () => {
+    const text = 'LAST DIRECT ACCEPTANCE AT DEADLINE246LAST DIRECT ACCEPTANCE IN DRAW246';
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBe(246);
+    expect(parsed.last_direct_acceptance_name).toBeNull();
+  });
+
+  it('reads a bare rank on its own line inside the ATP footer box (Newport 2023 layout order)', () => {
+    const text = [
+      'LAST DIRECT ACCEPTANCE AT DEADLINE',
+      '246',
+      'LAST DIRECT ACCEPTANCE IN DRAW',
+      '246',
+      'ATP SUPERVISOR(S)',
+    ].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBe(246);
+    expect(parsed.last_direct_acceptance_name).toBeNull();
+  });
+
+  it('still rejects stray digits after a blank AT DEADLINE footer (Tokyo/Paris seed-number bug)', () => {
+    // Blank value: the digits that follow are seed-table ranks, not sandwiched
+    // by the IN DRAW label, so they must not be picked up as a cut.
+    const text = ['LAST DIRECT ACCEPTANCE AT DEADLINE', '15', 'SEEDED PLAYERS', '35'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+  });
 });
 
 describe('parseChallengerDoublesCuts', () => {

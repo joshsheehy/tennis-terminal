@@ -67,9 +67,17 @@ export type SwingsPageData = {
   /** Most recent historical singles + doubles cuts per tournament slug, for
    * the rank check (2026 stops reference the prior year's cut). */
   cutRefs: Record<string, TournamentCutRefs>;
-  /** Singles main-draw cut per year (post-alternates where recorded), keyed by
-   * slug — compact [year, cut] tuples for the builder's info popover. */
-  cutSeries: Record<string, Array<[number, number]>>;
+  /** Cut per year (post-alternates where recorded) for each draw the info
+   * popover can show, keyed by slug — compact [year, cut] tuples with short
+   * draw keys (m = singles main, q = singles qualifying, d = doubles main)
+   * to keep the RSC payload small. */
+  cutSeries: Record<string, CutSeriesByDraw>;
+};
+
+export type CutSeriesByDraw = {
+  m?: Array<[number, number]>;
+  q?: Array<[number, number]>;
+  d?: Array<[number, number]>;
 };
 
 const getCachedEvents = unstable_cache(
@@ -152,11 +160,18 @@ const getCachedCutRefs = unstable_cache(
   { revalidate: 300 }
 );
 
-// Singles main-draw cut per year for every tournament holding an edition in
-// `year` — the builder's info popover draws its mini cut line from this.
-// Compact tuples keep the RSC payload small (~hundreds of slugs x few years).
-async function loadCutSeries(year: number): Promise<Record<string, Array<[number, number]>>> {
-  const result = await pool.query<{ slug: string; year: number; cut: number }>(
+// Cut per year and draw for every tournament holding an edition in `year` —
+// the builder's info popover draws its mini cut lines from this. Three draws:
+// singles main, singles qualifying, doubles main (same rank precedence as the
+// tournament page's trend chart). Compact tuples keep the RSC payload small.
+async function loadCutSeries(year: number): Promise<Record<string, CutSeriesByDraw>> {
+  const result = await pool.query<{
+    slug: string;
+    year: number;
+    event_type: 'singles' | 'doubles';
+    draw_type: 'main' | 'qualifying';
+    cut: number | null;
+  }>(
     `
     with relevant as (
       select distinct t.id, t.slug
@@ -164,26 +179,40 @@ async function loadCutSeries(year: number): Promise<Record<string, Array<[number
       join tournament_editions te on te.tournament_id = t.id
       where te.status = 'held' and te.year = $1
     )
-    select r.slug, te.year, coalesce(cs.last_alternate_rank, cs.last_direct_acceptance_rank) as cut
+    select
+      r.slug,
+      te.year,
+      cs.event_type,
+      cs.draw_type,
+      case
+        when cs.event_type = 'doubles'
+          then coalesce(cs.challenger_doubles_advanced_cut_rank, cs.last_alternate_rank, cs.last_direct_acceptance_rank)
+        else coalesce(cs.last_alternate_rank, cs.last_direct_acceptance_rank)
+      end as cut
     from relevant r
     join tournament_editions te on te.tournament_id = r.id
     join cutoff_snapshots cs on cs.tournament_edition_id = te.id
-    where cs.event_type = 'singles' and cs.draw_type = 'main'
-      and coalesce(cs.last_alternate_rank, cs.last_direct_acceptance_rank) is not null
+    where cs.draw_type = 'main' or cs.event_type = 'singles'
     order by r.slug, te.year
     `,
     [year]
   );
-  const series: Record<string, Array<[number, number]>> = {};
+  const series: Record<string, CutSeriesByDraw> = {};
   for (const row of result.rows) {
-    (series[row.slug] ??= []).push([row.year, row.cut]);
+    if (row.cut == null) continue;
+    const drawKey: keyof CutSeriesByDraw =
+      row.event_type === 'doubles' ? 'd' : row.draw_type === 'qualifying' ? 'q' : 'm';
+    const entry = (series[row.slug] ??= {});
+    (entry[drawKey] ??= []).push([row.year, row.cut]);
   }
   return series;
 }
 
+// Key versioned: the disk-persisted fetch cache survives deploys, and the
+// entry shape changed from a bare tuple array to per-draw keys.
 const getCachedCutSeries = unstable_cache(
   async (year: number) => loadCutSeries(year),
-  ['swings-cutseries'],
+  ['swings-cutseries-v2'],
   { revalidate: 300 }
 );
 

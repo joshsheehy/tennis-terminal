@@ -1,0 +1,167 @@
+name: PTL level audit + cut refill
+
+# Audits a season's edition levels against ProTennisLive posting headers (the
+# ATP's own era-correct record) and fixes cross-tier mistakes — the Newport
+# problem, where a tournament that changed tier between seasons ends up with
+# one era's level stamped onto another. Then re-runs the cut import for the
+# season so draws that previously failed to parse (ATP draw-sheet footers with
+# a bare number and no player name, e.g. Newport 2023 MD = 246) get filled in.
+#
+# Run from the Actions tab once per season after a backfill, or whenever
+# levels/cuts look wrong. Idempotent: confirmed-correct editions are left
+# untouched and existing cuts are never overwritten with blanks.
+#
+# NOTE: the cut-refill step only benefits from parser fixes once the app has
+# been redeployed from main — the parsing happens server-side.
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: 'Season to audit'
+        required: true
+        type: choice
+        options: ['2022', '2023', '2024', '2025', '2026']
+      apply:
+        description: 'true = fix mismatched levels, false = report only'
+        required: false
+        default: 'true'
+      reimport_cuts:
+        description: 'true = re-run the season cut import after the audit'
+        required: false
+        default: 'true'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Audit levels against PTL headers
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          YEAR: ${{ inputs.year }}
+          APPLY: ${{ inputs.apply }}
+          REIMPORT_CUTS: ${{ inputs.reimport_cuts }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ]; then
+            echo "Missing APP_URL repository secret."
+            exit 1
+          fi
+          if [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "Missing ADMIN_SECRET repository secret."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          base = os.environ['APP_URL'].strip().rstrip('/')
+          if not base.startswith(('http://', 'https://')):
+              base = 'https://' + base
+          secret = os.environ['ADMIN_SECRET']
+          year = int(os.environ['YEAR'])
+          apply = os.environ.get('APPLY', 'true').strip().lower() != 'false'
+          reimport = os.environ.get('REIMPORT_CUTS', 'true').strip().lower() != 'false'
+
+          def request_json(path, *, timeout=180, retries=3, required=True):
+              url = base + path
+              last_error = None
+              for attempt in range(1, retries + 1):
+                  req = urllib.request.Request(
+                      url,
+                      headers={
+                          'Accept': 'application/json',
+                          'User-Agent': 'TennisCutsLevelAudit/1.0',
+                          'X-Admin-Secret': secret,
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(req, timeout=timeout) as res:
+                          return json.loads(res.read().decode('utf-8', errors='replace'))
+                  except urllib.error.HTTPError as exc:
+                      body = ''
+                      try:
+                          body = exc.read().decode('utf-8', errors='replace')[:800]
+                      except Exception:
+                          pass
+                      last_error = f'{exc} :: {body}'
+                  except Exception as exc:
+                      last_error = exc
+                  print(f'GET {url} attempt {attempt}/{retries} failed: {last_error}', flush=True)
+                  if attempt < retries:
+                      time.sleep(8 * attempt)
+              if required:
+                  raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
+              return {'ok': False, 'error': str(last_error)}
+
+          # 1) Level audit, paged until the season is covered.
+          mode = 'apply' if apply else 'dry-run'
+          print(f'=== PTL level audit {year} ({mode}) ===', flush=True)
+          offset = 0
+          all_mismatches = []
+          unverifiable_total = 0
+          for _ in range(200):
+              data = request_json(
+                  f'/api/audit-ptl-levels?year={year}&apply={"true" if apply else "false"}'
+                  f'&limit=40&offset={offset}',
+                  timeout=300,
+              )
+              if not data.get('ok'):
+                  raise RuntimeError(f'audit page failed: {json.dumps(data)[:400]}')
+              all_mismatches.extend(data.get('mismatches') or [])
+              unverifiable_total += int(data.get('unverifiableCount') or 0)
+              for u in data.get('unverifiable') or []:
+                  print(f"  ? unverifiable: {json.dumps(u)}", flush=True)
+              print(
+                  f"offset {offset}: processed={data.get('processedCount')} "
+                  f"confirmed={data.get('confirmedCount')} mismatches={data.get('mismatchCount')} "
+                  f"of {data.get('totalTargets')} targets",
+                  flush=True,
+              )
+              if not data.get('hasMore'):
+                  if data.get('missingCodeCount'):
+                      print(f"editions with no PTL code (unauditable): {data.get('missingCode')}", flush=True)
+                  break
+              offset = int(data['nextOffset'])
+              time.sleep(1)
+
+          print(f'\nAudit complete: {len(all_mismatches)} level fixes ({mode}), '
+                f'{unverifiable_total} unverifiable', flush=True)
+          for m in all_mismatches:
+              mark = 'fixed' if m.get('applied') else 'would fix'
+              print(f"  ! {mark}: {m['slug']} {m['year']} {m['dbLevel']} -> {m['ptlLevel']} (code {m['code']})", flush=True)
+
+          # 2) Re-run the season's cut import to fill missing draws.
+          if reimport:
+              print(f'\n=== Cut refill {year} ===', flush=True)
+              offset = 0
+              filled = 0
+              for _ in range(250):
+                  data = request_json(f'/api/import-cutoffs?year={year}&limit=40&offset={offset}', timeout=300)
+                  if not data.get('ok'):
+                      raise RuntimeError(f'import-cutoffs page failed: {json.dumps(data)[:400]}')
+                  filled += int(data.get('importedWithCutsCount') or 0)
+                  if not data.get('hasMore'):
+                      break
+                  offset = int(data['nextOffset'])
+                  time.sleep(2)
+              print(f'cut refill done: {filled} draws imported/refreshed', flush=True)
+
+          # 3) What still has gaps, for the log.
+          report = request_json(f'/api/missing-cuts-report?year={year}&compact=true', timeout=280, required=False)
+          print(f"\nMissing-cuts report {year}: editions missing draws = "
+                f"{report.get('missingEditionCount')} (draws: {report.get('missingDrawCount')})", flush=True)
+          for row in (report.get('missing') or [])[:40]:
+              print(f"  - {json.dumps(row)[:200]}", flush=True)
+
+          out = request_json(f'/api/recompute-swings?dryRun=false&year={year}', timeout=280, required=False)
+          print(f"\nrecompute swings ok={out.get('ok')}", flush=True)
+          print('\nLevel audit workflow complete.', flush=True)
+          PY
