@@ -402,7 +402,9 @@ export async function generateMetadata({
   const year = yearParam && isAvailableSeason(Number(yearParam)) ? Number(yearParam) : CURRENT_SEASON;
 
   try {
-    const rows = await getCachedDetail(slug, 1, year);
+    // Newest edition regardless of the viewed year — a ?year=2022 link to a
+    // tournament that only has later data should still resolve metadata.
+    const rows = await getCachedDetail(slug, 1, CURRENT_SEASON);
     if (rows.length === 0) return { title: 'Tournament not found' };
 
     const e = rows[0].edition;
@@ -443,20 +445,24 @@ export default async function TournamentDetailPage({
   const { year: yearParam } = await searchParams;
   const year = yearParam && isAvailableSeason(Number(yearParam)) ? Number(yearParam) : CURRENT_SEASON;
 
-  // Show the viewed year plus everything back to the earliest imported season.
-  const editionLimit = Math.max(1, year - (EARLIEST_SEASON - 1));
-  const rows = await getCachedDetail(slug, editionLimit, year);
+  // Show EVERY season on record for this tournament, no matter which year's
+  // calendar the visitor arrived from — landing on Indian Wells via the 2022
+  // schedule should still show 2023-2026 cuts. The viewed year only anchors
+  // the hero and highlights its card below.
+  const editionLimit = CURRENT_SEASON - EARLIEST_SEASON + 1;
+  const rows = await getCachedDetail(slug, editionLimit, CURRENT_SEASON);
 
   if (rows.length === 0) notFound();
 
-  const current = rows[0].edition;
+  const viewedRow = rows.find((r) => r.edition.year === year) ?? rows[0];
+  const current = viewedRow.edition;
 
   // ITF events have no fixed code and each week is its own slug, so a current
   // ITF edition with no cut data (e.g. 2026, before that season's strength
   // sheet exists) can't show its own history. Pull the nearest prior-year
   // edition of the same tier + city by week as a "last year's cut" reference,
   // so you can gauge entry chances from 2025 data.
-  const currentHasItfCut = rows[0].cutoffs.some(
+  const currentHasItfCut = viewedRow.cutoffs.some(
     (c) => c.event_type === 'singles' && c.draw_type === 'main' && c.last_direct_acceptance_rank != null
   );
   const itfReference =
@@ -534,12 +540,19 @@ export default async function TournamentDetailPage({
           <div
             key={row.edition.edition_id}
             id={`y-${row.edition.year}`}
-            className="edition-card"
+            className={`edition-card${row.edition.year === year ? ' edition-card--viewing' : ''}`}
             style={{ scrollMarginTop: 'calc(var(--nav-h) + 12px)' }}
           >
             <div className="edition-card__head">
               <div>
-                <h3 className="edition-card__year">{row.edition.year}</h3>
+                <h3 className="edition-card__year">
+                  {row.edition.year}
+                  {row.edition.year === year && rows.length > 1 && (
+                    <span className="tag-soft tag-soft--brand" style={{ marginLeft: 8, verticalAlign: 'middle' }}>
+                      Viewing
+                    </span>
+                  )}
+                </h3>
                 <p className="edition-card__meta">{editionSummary(row.edition)}</p>
                 {detailCode && (
                   <a

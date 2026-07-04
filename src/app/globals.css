@@ -777,6 +777,11 @@ td {
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
+/* The year the visitor arrived from (e.g. via the 2022 calendar) */
+.edition-card--viewing {
+  border-color: var(--brand-ink);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
 .edition-card__head {
   background: var(--surface-raised);
   padding: 14px 16px;
