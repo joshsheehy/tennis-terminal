@@ -376,8 +376,35 @@
   transition: background 140ms ease;
 }
 .tinfo-open:hover { background: var(--brand-ink-hover); }
+.tinfo-add {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+}
+.tinfo-open--secondary {
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.tinfo-open--secondary:hover { background: var(--surface-subtle); color: var(--text-strong); }
 .cand-meta { font-size: 11px; color: var(--text-muted); }
-.cand-add { font-size: 20px; color: var(--text-muted); padding: 0 4px; }
+.cand-add {
+  font-size: 20px;
+  color: var(--text-muted);
+  padding: 0 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  border-radius: 8px;
+  transition: color 120ms ease, background 120ms ease;
+}
+.cand-add:hover { color: var(--brand-ink); background: var(--brand-soft); }
 .chain-remove {
   background: none;
   border: none;

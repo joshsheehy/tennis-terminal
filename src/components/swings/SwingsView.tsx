@@ -195,7 +195,10 @@ export default function SwingsView({
 
   // Tournament info popover (ⓘ dot on builder rows): mini cut line + link to
   // the full tournament page.
-  const [infoEvent, setInfoEvent] = useState<SwingMapEvent | null>(null);
+  // Tournament info popover. canAdd marks popovers opened from a candidate
+  // row: tapping a row no longer adds instantly (too easy to trigger by
+  // accident) — it opens this card with an explicit "Add to schedule" button.
+  const [infoEvent, setInfoEvent] = useState<{ event: SwingMapEvent; canAdd: boolean } | null>(null);
 
   // First-visit welcome card (build mode only). Shown once, then remembered;
   // returning users — anyone with a stored rank or a chain in the URL — never
@@ -611,10 +614,18 @@ export default function SwingsView({
 
       {infoEvent && (
         <TournamentInfoCard
-          event={infoEvent}
-          series={data.cutSeries[infoEvent.slug]}
-          refs={data.cutRefs[infoEvent.slug]}
+          event={infoEvent.event}
+          series={data.cutSeries[infoEvent.event.slug]}
+          refs={data.cutRefs[infoEvent.event.slug]}
           year={data.year}
+          onAdd={
+            infoEvent.canAdd
+              ? () => {
+                  addStop(infoEvent.event.editionId);
+                  setInfoEvent(null);
+                }
+              : undefined
+          }
           onClose={() => setInfoEvent(null)}
         />
       )}
@@ -637,7 +648,7 @@ export default function SwingsView({
           onAdd={addStop}
           onRemove={removeStop}
           onClear={clearChain}
-          onInfo={setInfoEvent}
+          onInfo={(event, canAdd) => setInfoEvent({ event, canAdd: Boolean(canAdd) })}
           rankSingles={rankSingles}
           rankDoubles={rankDoubles}
           onRankSingles={updateRankSingles}
@@ -791,7 +802,8 @@ function BuilderPanel({
   onRemove: (index: number) => void;
   onClear: () => void;
   /** Opens the tournament info popover (cut line + link to the full page). */
-  onInfo: (event: SwingMapEvent) => void;
+  /** Open the info popover; canAdd shows its "Add to schedule" action. */
+  onInfo: (event: SwingMapEvent, canAdd?: boolean) => void;
   rankSingles: number | null;
   rankDoubles: number | null;
   onRankSingles: (rank: number | null) => void;
@@ -829,16 +841,19 @@ function BuilderPanel({
     const showDoubles = rankDoubles != null && !singlesOnly;
     return (
       <li key={c.event.editionId}>
-        {/* div-with-role instead of <button> so the nested info dot stays valid HTML */}
+        {/* div-with-role instead of <button> so the nested buttons stay valid HTML.
+            Tapping the row opens the info card with an explicit "Add to schedule"
+            action — instant add on a full-row tap was too easy to hit by accident.
+            The + button on the right remains the deliberate one-tap add. */}
         <div
           className="cand-row"
           role="button"
           tabIndex={0}
-          onClick={() => onAdd(c.event.editionId)}
+          onClick={() => onInfo(c.event, true)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              onAdd(c.event.editionId);
+              onInfo(c.event, true);
             }
           }}
         >
@@ -852,7 +867,7 @@ function BuilderPanel({
                 aria-label={`Cut history for ${c.event.name}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onInfo(c.event);
+                  onInfo(c.event, true);
                 }}
               >
                 i
@@ -878,7 +893,17 @@ function BuilderPanel({
               )}
             </span>
           )}
-          <span className="cand-add">+</span>
+          <button
+            type="button"
+            className="cand-add"
+            aria-label={`Add ${c.event.name} to schedule`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd(c.event.editionId);
+            }}
+          >
+            +
+          </button>
         </div>
       </li>
     );
@@ -1387,12 +1412,15 @@ function TournamentInfoCard({
   series,
   refs,
   year,
+  onAdd,
   onClose,
 }: {
   event: SwingMapEvent;
   series: CutSeriesByDraw | undefined;
   refs: SwingsPageData['cutRefs'][string] | undefined;
   year: number;
+  /** When set (candidate rows), the card shows an explicit add action. */
+  onAdd?: () => void;
   onClose: () => void;
 }) {
   // Slams split draws across two events: the main slam has no qualifying tab
@@ -1469,7 +1497,15 @@ function TournamentInfoCard({
         <p className="tinfo-beta">
           Projected cut · <span>beta — coming soon</span>
         </p>
-        <a className="tinfo-open" href={`/tournaments/${event.slug}?year=${year}`}>
+        {onAdd && (
+          <button type="button" className="tinfo-open tinfo-add" onClick={onAdd}>
+            ＋ Add to schedule
+          </button>
+        )}
+        <a
+          className={`tinfo-open${onAdd ? ' tinfo-open--secondary' : ''}`}
+          href={`/tournaments/${event.slug}?year=${year}`}
+        >
           View full tournament page →
         </a>
       </div>
