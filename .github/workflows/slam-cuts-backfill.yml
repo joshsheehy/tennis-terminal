@@ -1,0 +1,119 @@
+name: Slam cuts backfill
+
+# Scrapes Grand Slam entry cuts from published entry lists (mirrored verbatim
+# on menstennisforums.com — a source that blocks datacenter traffic but is
+# reachable from GitHub runners with a real browser) and imports them via
+# POST /api/import-slam-cuts. Fill-only: cuts already in the DB are never
+# overwritten.
+#
+# Run once with apply=false (default) and read the log — every extracted
+# number is printed with the evidence lines it came from. Then run with
+# apply=true to import the high-confidence rows. 'review' rows are never
+# imported automatically; add them to src/lib/slam-cuts.ts by hand after
+# eyeballing the evidence.
+
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: 'Comma-separated seasons to scrape'
+        required: false
+        default: '2022,2023'
+      draws:
+        description: 'Draws: ms (singles main), qs (singles qualifying), md (doubles)'
+        required: false
+        default: 'ms,qs,md'
+      apply:
+        description: 'true = import high-confidence rows, false = report only'
+        required: false
+        default: 'false'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium for challenged pages
+        run: npx playwright install --with-deps chromium
+
+      - name: Scrape entry-list cuts
+        env:
+          YEARS: ${{ inputs.years }}
+          DRAWS: ${{ inputs.draws }}
+        run: |
+          set -euo pipefail
+          node scripts/scrape-slam-cuts.mjs --years "$YEARS" --draws "$DRAWS" --emit /tmp/slam-cuts.json
+          test -s /tmp/slam-cuts.json || { echo "scraper emitted nothing"; exit 1; }
+
+      - name: Import high-confidence rows
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          data = json.load(open('/tmp/slam-cuts.json'))
+          found = data.get('found', [])
+          gaps = data.get('gaps', [])
+          high = [r for r in found if r.get('confidence') == 'high']
+          review = [r for r in found if r.get('confidence') != 'high']
+          apply = os.environ.get('APPLY', 'false').strip().lower() == 'true'
+
+          print(f"scraped: {len(found)} cuts ({len(high)} high-confidence, {len(review)} for review), {len(gaps)} gaps\n")
+          for r in review:
+              print(f"REVIEW  {r['slug']} {r['year']} {r['eventType']}/{r['drawType']} cut={r['cut']}")
+              for e in r.get('evidence', []):
+                  print(f"        {e}")
+              print(f"        source: {r['source']}")
+          for g in gaps:
+              print(f"GAP     {g['label']}: {g['reason'][:160]}")
+
+          if not high:
+              print('\nNo high-confidence rows to import.')
+              raise SystemExit(0)
+
+          rows = [
+              {
+                  'slug': r['slug'], 'year': r['year'],
+                  'eventType': r['eventType'], 'drawType': r['drawType'],
+                  'cut': r['cut'], 'source': r['source'],
+                  'note': ' | '.join(r.get('evidence', []))[:380],
+              }
+              for r in high
+          ]
+          base = os.environ['APP_URL'].strip().rstrip('/')
+          if not base.startswith(('http://', 'https://')):
+              base = 'https://' + base
+          url = f"{base}/api/import-slam-cuts?apply={'true' if apply else 'false'}"
+          req = urllib.request.Request(
+              url,
+              data=json.dumps({'rows': rows}).encode(),
+              method='POST',
+              headers={
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                  'User-Agent': 'TennisCutsSlamBackfill/1.0',
+                  'X-Admin-Secret': os.environ['ADMIN_SECRET'],
+              },
+          )
+          with urllib.request.urlopen(req, timeout=180) as res:
+              out = json.loads(res.read().decode('utf-8', errors='replace'))
+          mode = 'imported' if apply else 'WOULD import (dry run)'
+          print(f"\n{mode}: written={out.get('written')} of {out.get('totalEntries')}")
+          for r in out.get('results', []):
+              print(f"  {r['action']:>10}  {r['slug']} {r['year']} {r['event']}/{r['draw']} = {r['cut']}"
+                    + (f" (existing {r['existingCut']})" if r.get('existingCut') else ''))
+          if not out.get('ok'):
+              raise SystemExit(1)
+          PY

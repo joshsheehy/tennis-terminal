@@ -1,0 +1,16 @@
+{
+  "_comment": "Known entry-list thread URLs per slam, tried after search discovery. Wrong-year threads are harmless — the scraper verifies slam + year from page content before extracting anything. Add URLs here when a good thread is found by hand.",
+  "Australian Open": [],
+  "Roland Garros": [
+    "https://www.menstennisforums.com/threads/roland-garros-entry-list.1016323/",
+    "https://www.menstennisforums.com/threads/roland-garros-qualifying-entry-list.943502/"
+  ],
+  "Wimbledon": [],
+  "US Open": [
+    "https://www.menstennisforums.com/threads/u-s-open-entry-list.1020131/",
+    "https://www.menstennisforums.com/threads/us-open-entry-list.1028759/",
+    "https://www.menstennisforums.com/threads/usopen-entry-list-2023.1020678/",
+    "https://www.menstennisforums.com/threads/us-open-qualies-entry-list-2023.1020978/",
+    "https://www.menstennisforums.com/threads/us-open-qualifying-entry-list.967972/"
+  ]
+}
