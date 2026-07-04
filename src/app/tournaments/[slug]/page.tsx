@@ -193,6 +193,11 @@ function isInvitationOnlyLevel(level: string): boolean {
 type DrawKey = 'singles_main' | 'singles_qualifying' | 'doubles_main' | 'doubles_qualifying';
 
 function expectedDrawsForLevel(level: string): DrawKey[] {
+  // Slams split across two tournament entries: the main event runs singles +
+  // doubles only, and "<Slam> Qualifying" (the week before) is just the
+  // singles-qualifying line.
+  if (level === 'Grand Slam Qualifying') return ['singles_qualifying'];
+  if (level === 'Grand Slam') return ['singles_main', 'doubles_main'];
   const draws: DrawKey[] = ['singles_main', 'singles_qualifying', 'doubles_main'];
   if (level === 'ATP 500') draws.push('doubles_qualifying');
   return draws;
@@ -494,11 +499,22 @@ export default async function TournamentDetailPage({
       .filter((p): p is CutTrendPoint => p !== null)
       .sort((a, b) => a.year - b.year);
 
-  const cutTrend: CutTrendSeries[] = [
-    { key: 'singles_main', label: 'Singles main', points: trendPoints('singles', 'main') },
-    { key: 'singles_qualifying', label: 'Singles Qs', points: trendPoints('singles', 'qualifying') },
-    { key: 'doubles_main', label: 'Doubles', points: trendPoints('doubles', 'main') },
-  ];
+  // Slams split their draws across two tournament entries: the main event only
+  // carries singles + doubles, the "<Slam> Qualifying" entry only the singles
+  // qualifying line — the chart tabs mirror the same split.
+  const expectedTrend = expectedDrawsForLevel(current.level).filter(
+    (d): d is 'singles_main' | 'singles_qualifying' | 'doubles_main' => d !== 'doubles_qualifying'
+  );
+  const trendMeta = {
+    singles_main: { label: 'Singles main', event: 'singles', draw: 'main' },
+    singles_qualifying: { label: 'Singles Qs', event: 'singles', draw: 'qualifying' },
+    doubles_main: { label: 'Doubles', event: 'doubles', draw: 'main' },
+  } as const;
+  const cutTrend: CutTrendSeries[] = expectedTrend.map((key) => ({
+    key,
+    label: trendMeta[key].label,
+    points: trendPoints(trendMeta[key].event, trendMeta[key].draw),
+  }));
   const hasTrend = cutTrend.some((s) => s.points.length >= 2);
 
   return (

@@ -1395,19 +1395,28 @@ function TournamentInfoCard({
   year: number;
   onClose: () => void;
 }) {
-  const [drawKey, setDrawKey] = useState<keyof CutSeriesByDraw>('m');
-  const draw = INFO_DRAWS.find((d) => d.key === drawKey) ?? INFO_DRAWS[0];
-  const points = series?.[drawKey] ?? [];
+  // Slams split draws across two events: the main slam has no qualifying tab
+  // (quali is its own event the week before) and the quali event is only the
+  // singles-qualifying line.
+  const drawChoices =
+    event.level === 'Grand Slam Qualifying'
+      ? INFO_DRAWS.filter((d) => d.key === 'q')
+      : event.level === 'Grand Slam'
+        ? INFO_DRAWS.filter((d) => d.key !== 'q')
+        : INFO_DRAWS;
+  const [drawKey, setDrawKey] = useState<keyof CutSeriesByDraw>(drawChoices[0].key);
+  const draw = drawChoices.find((d) => d.key === drawKey) ?? drawChoices[0];
+  const points = series?.[draw.key] ?? [];
 
   // Latest reference cut for the active draw (2026 stops reference last year).
   const singlesRef = refs?.singles;
   const doublesRef = refs?.doubles;
   let refText: string | null = null;
-  if (drawKey === 'm' && singlesRef?.fromYear != null && (singlesRef.mainAlt ?? singlesRef.mainCut) != null) {
+  if (draw.key === 'm' && singlesRef?.fromYear != null && (singlesRef.mainAlt ?? singlesRef.mainCut) != null) {
     refText = `${singlesRef.fromYear} cut — MD #${singlesRef.mainAlt ?? singlesRef.mainCut}`;
-  } else if (drawKey === 'q' && singlesRef?.fromYear != null && singlesRef.qualCut != null) {
+  } else if (draw.key === 'q' && singlesRef?.fromYear != null && singlesRef.qualCut != null) {
     refText = `${singlesRef.fromYear} cut — Q #${singlesRef.qualCut}`;
-  } else if (drawKey === 'd' && doublesRef?.fromYear != null && (doublesRef.mainAlt ?? doublesRef.mainCut) != null) {
+  } else if (draw.key === 'd' && doublesRef?.fromYear != null && (doublesRef.mainAlt ?? doublesRef.mainCut) != null) {
     refText = `${doublesRef.fromYear} cut — MD #${doublesRef.mainAlt ?? doublesRef.mainCut}`;
   }
   const refLine = refText ? <p className="tinfo-line">{refText}</p> : null;
@@ -1423,8 +1432,9 @@ function TournamentInfoCard({
           {event.city}
           {event.country ? `, ${event.country}` : ''} · {event.level} · {event.surface}
         </p>
+        {drawChoices.length > 1 && (
         <div className="cut-trend__tabs tinfo-tabs" role="tablist" aria-label="Draw">
-          {INFO_DRAWS.map((d) => (
+          {drawChoices.map((d) => (
             <button
               key={d.key}
               type="button"
@@ -1437,6 +1447,7 @@ function TournamentInfoCard({
             </button>
           ))}
         </div>
+        )}
         {points.length >= 2 ? (
           <>
             <p className="tinfo-label">{draw.label} cut by year</p>
