@@ -104,6 +104,13 @@ jobs:
               if dry_run:
                   # Dry runs never shrink `remaining`; one page is the preview.
                   break
+              if int(data.get('written', 0)) == 0:
+                  # A page that processed rows but wrote nothing means every
+                  # remaining tournament is a permanent geocode failure —
+                  # repeating the page would just re-ask Nominatim the same
+                  # unanswerable questions.
+                  print('no progress on this page; stopping (see failures below)', flush=True)
+                  break
               time.sleep(2)
           else:
               raise RuntimeError('Backfill still had work after 100 pages')

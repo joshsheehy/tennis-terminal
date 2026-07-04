@@ -202,7 +202,14 @@ jobs:
               print(f"page {page + 1}: written={out.get('written')} remaining={remaining}", flush=True)
               if remaining <= 0 or int(out.get('processed') or 0) == 0:
                   break
+              if int(out.get('written') or 0) == 0:
+                  # Rows processed but nothing written = the rest are permanent
+                  # geocode failures; another page would just repeat them.
+                  print('no progress on this page; stopping (failures below)', flush=True)
+                  break
               time.sleep(2)
+          for f in (out.get('failures') or [])[:15]:
+              print(f'  ! could not geocode: {json.dumps(f)}', flush=True)
 
           print('\n=== Recompute swings ===', flush=True)
           out = request_json(f'/api/recompute-swings?dryRun=false&year={year}', timeout=280, required=False)
