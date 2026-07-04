@@ -193,6 +193,10 @@ export default function SwingsView({
   const [imperial, setImperial] = useState(false);
   useEffect(() => setImperial(detectImperial()), []);
 
+  // Tournament info popover (ⓘ dot on builder rows): mini cut line + link to
+  // the full tournament page.
+  const [infoEvent, setInfoEvent] = useState<SwingMapEvent | null>(null);
+
   // First-visit welcome card (build mode only). Shown once, then remembered;
   // returning users — anyone with a stored rank or a chain in the URL — never
   // see it.
@@ -605,6 +609,16 @@ export default function SwingsView({
         </div>
       )}
 
+      {infoEvent && (
+        <TournamentInfoCard
+          event={infoEvent}
+          series={data.cutSeries[infoEvent.slug]}
+          refs={data.cutRefs[infoEvent.slug]}
+          year={data.year}
+          onClose={() => setInfoEvent(null)}
+        />
+      )}
+
       {mode === 'build' ? (
         <BuilderPanel
           state={sheet}
@@ -623,6 +637,7 @@ export default function SwingsView({
           onAdd={addStop}
           onRemove={removeStop}
           onClear={clearChain}
+          onInfo={setInfoEvent}
           rankSingles={rankSingles}
           rankDoubles={rankDoubles}
           onRankSingles={updateRankSingles}
@@ -745,6 +760,7 @@ function BuilderPanel({
   onAdd,
   onRemove,
   onClear,
+  onInfo,
   rankSingles,
   rankDoubles,
   onRankSingles,
@@ -774,6 +790,8 @@ function BuilderPanel({
   onAdd: (editionId: string) => void;
   onRemove: (index: number) => void;
   onClear: () => void;
+  /** Opens the tournament info popover (cut line + link to the full page). */
+  onInfo: (event: SwingMapEvent) => void;
   rankSingles: number | null;
   rankDoubles: number | null;
   onRankSingles: (rank: number | null) => void;
@@ -811,10 +829,35 @@ function BuilderPanel({
     const showDoubles = rankDoubles != null && !singlesOnly;
     return (
       <li key={c.event.editionId}>
-        <button className="cand-row" onClick={() => onAdd(c.event.editionId)}>
+        {/* div-with-role instead of <button> so the nested info dot stays valid HTML */}
+        <div
+          className="cand-row"
+          role="button"
+          tabIndex={0}
+          onClick={() => onAdd(c.event.editionId)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onAdd(c.event.editionId);
+            }
+          }}
+        >
           <span className="cand-week">{weekDateLabel(year, c.event.week)}</span>
           <span className="cand-main">
-            <span className="cand-name">{c.event.name}</span>
+            <span className="cand-name">
+              {c.event.name}
+              <button
+                type="button"
+                className="info-dot"
+                aria-label={`Cut history for ${c.event.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onInfo(c.event);
+                }}
+              >
+                i
+              </button>
+            </span>
             <span className="cand-meta">
               {c.event.city} · {c.event.level} · {c.event.surface}
               {c.distanceKm != null && ` · ${formatDistance(c.distanceKm, imperial)}`}
@@ -836,7 +879,7 @@ function BuilderPanel({
             </span>
           )}
           <span className="cand-add">+</span>
-        </button>
+        </div>
       </li>
     );
   };
@@ -1112,7 +1155,17 @@ function BuilderPanel({
                 return (
                   <li key={e.editionId} className="itinerary-row">
                     <span className="itinerary-week">{i + 1}. {weekDateLabel(year, e.week)}</span>
-                    <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
+                    <span className="itinerary-main">
+                      <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
+                      <button
+                        type="button"
+                        className="info-dot"
+                        aria-label={`Cut history for ${e.name}`}
+                        onClick={() => onInfo(e)}
+                      >
+                        i
+                      </button>
+                    </span>
                     <span className="entry-pills">
                       {rankSingles != null && (
                         <span
@@ -1269,3 +1322,111 @@ function BottomSheet({
   );
 }
 
+// --- Tournament info popover -------------------------------------------------
+// Opened from the ⓘ dot on builder rows: the tournament's cut line, the latest
+// reference cuts, a reserved slot for the beta cut projection, and an explicit
+// link to the full tournament page (tapping a candidate row adds it to the
+// swing, so the page link needs its own affordance).
+function MiniCutLine({ points }: { points: Array<[number, number]> }) {
+  const n = points.length;
+  const PAD = 16;
+  const STEP = n <= 4 ? 58 : 44;
+  const LABEL = 16;
+  const PLOT = 52;
+  const AXIS = 14;
+  const values = points.map((p) => p[1]);
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const pad = Math.max((max - min) * 0.35, max * 0.06, 8);
+  const lo = min - pad;
+  const hi = max + pad;
+  const w = PAD * 2 + (n - 1) * STEP;
+  const h = LABEL + PLOT + AXIS;
+  const base = LABEL + PLOT;
+  const X = (i: number) => PAD + i * STEP;
+  const Y = (c: number) => LABEL + (1 - (c - lo) / (hi - lo)) * PLOT;
+  const path = points.map((p, i) => `${i ? 'L' : 'M'}${X(i)},${Y(p[1]).toFixed(1)}`).join(' ');
+  const area = `${path} L${X(n - 1)},${base} L${X(0)},${base} Z`;
+  const below = (i: number) =>
+    points[i][1] <= (points[i - 1]?.[1] ?? Infinity) && points[i][1] <= (points[i + 1]?.[1] ?? Infinity);
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      className="tinfo-chart"
+      role="img"
+      aria-label={`Singles main-draw cut by year: ${points.map((p) => `${p[0]} #${p[1]}`).join(', ')}`}
+    >
+      <line x1={0} y1={base + 0.5} x2={w} y2={base + 0.5} className="cut-trend__baseline" />
+      <path d={area} className="cut-trend__area" />
+      <path d={path} className="cut-trend__line" fill="none" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      {points.map(([yr, c], i) => (
+        <g key={yr}>
+          <circle cx={X(i)} cy={Y(c)} r={4} strokeWidth={2} className="cut-trend__dot" />
+          <text x={X(i)} y={below(i) ? Y(c) + 15 : Y(c) - 8} textAnchor="middle" className="cut-trend__value">
+            {c}
+          </text>
+          <text x={X(i)} y={base + 11} textAnchor="middle" className="cut-trend__year">
+            {String(yr).slice(2)}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function TournamentInfoCard({
+  event,
+  series,
+  refs,
+  year,
+  onClose,
+}: {
+  event: SwingMapEvent;
+  series: Array<[number, number]> | undefined;
+  refs: SwingsPageData['cutRefs'][string] | undefined;
+  year: number;
+  onClose: () => void;
+}) {
+  const points = series ?? [];
+  const ref = refs?.singles;
+  const refLine =
+    ref?.fromYear != null && (ref.mainCut != null || ref.mainAlt != null || ref.qualCut != null) ? (
+      <p className="tinfo-line">
+        {ref.fromYear} cut — MD #{ref.mainAlt ?? ref.mainCut ?? '–'}
+        {ref.qualCut != null ? ` · Q #${ref.qualCut}` : ''}
+      </p>
+    ) : null;
+  return (
+    <div className="tinfo-backdrop" onClick={onClose}>
+      <div className="tinfo-card" role="dialog" aria-label={event.name} onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="tinfo-close" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+        <h3 className="tinfo-name">{event.name}</h3>
+        <p className="tinfo-meta">
+          {event.city}
+          {event.country ? `, ${event.country}` : ''} · {event.level} · {event.surface}
+        </p>
+        {points.length >= 2 ? (
+          <>
+            <p className="tinfo-label">Singles main-draw cut by year</p>
+            <MiniCutLine points={points} />
+            {refLine}
+          </>
+        ) : refLine ? (
+          refLine
+        ) : (
+          <p className="tinfo-line tinfo-line--muted">No cut history on record yet.</p>
+        )}
+        <p className="tinfo-beta">
+          Projected cut · <span>beta — coming soon</span>
+        </p>
+        <a className="tinfo-open" href={`/tournaments/${event.slug}?year=${year}`}>
+          View full tournament page →
+        </a>
+      </div>
+    </div>
+  );
+}

@@ -398,8 +398,7 @@ export async function generateMetadata({
   searchParams: Promise<{ year?: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const { year: yearParam } = await searchParams;
-  const year = yearParam && isAvailableSeason(Number(yearParam)) ? Number(yearParam) : CURRENT_SEASON;
+  await searchParams; // year no longer affects metadata (newest edition always wins)
 
   try {
     // Newest edition regardless of the viewed year — a ?year=2022 link to a

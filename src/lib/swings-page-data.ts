@@ -67,6 +67,9 @@ export type SwingsPageData = {
   /** Most recent historical singles + doubles cuts per tournament slug, for
    * the rank check (2026 stops reference the prior year's cut). */
   cutRefs: Record<string, TournamentCutRefs>;
+  /** Singles main-draw cut per year (post-alternates where recorded), keyed by
+   * slug — compact [year, cut] tuples for the builder's info popover. */
+  cutSeries: Record<string, Array<[number, number]>>;
 };
 
 const getCachedEvents = unstable_cache(
@@ -149,12 +152,47 @@ const getCachedCutRefs = unstable_cache(
   { revalidate: 300 }
 );
 
+// Singles main-draw cut per year for every tournament holding an edition in
+// `year` — the builder's info popover draws its mini cut line from this.
+// Compact tuples keep the RSC payload small (~hundreds of slugs x few years).
+async function loadCutSeries(year: number): Promise<Record<string, Array<[number, number]>>> {
+  const result = await pool.query<{ slug: string; year: number; cut: number }>(
+    `
+    with relevant as (
+      select distinct t.id, t.slug
+      from tournaments t
+      join tournament_editions te on te.tournament_id = t.id
+      where te.status = 'held' and te.year = $1
+    )
+    select r.slug, te.year, coalesce(cs.last_alternate_rank, cs.last_direct_acceptance_rank) as cut
+    from relevant r
+    join tournament_editions te on te.tournament_id = r.id
+    join cutoff_snapshots cs on cs.tournament_edition_id = te.id
+    where cs.event_type = 'singles' and cs.draw_type = 'main'
+      and coalesce(cs.last_alternate_rank, cs.last_direct_acceptance_rank) is not null
+    order by r.slug, te.year
+    `,
+    [year]
+  );
+  const series: Record<string, Array<[number, number]>> = {};
+  for (const row of result.rows) {
+    (series[row.slug] ??= []).push([row.year, row.cut]);
+  }
+  return series;
+}
+
+const getCachedCutSeries = unstable_cache(
+  async (year: number) => loadCutSeries(year),
+  ['swings-cutseries'],
+  { revalidate: 300 }
+);
+
 export async function getSwingsPageData(
   year: number,
   groups: LevelGroup[] = DEFAULT_LEVEL_SCOPE,
   config: SwingConfig = DEFAULT_SWING_CONFIG
 ): Promise<SwingsPageData> {
-  const [all, cutRefs] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year)]);
+  const [all, cutRefs, cutSeries] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year)]);
   const groupSet = new Set(groups);
   const scoped = all.filter((e) => {
     const g = levelGroup(e.level);
@@ -225,5 +263,5 @@ export async function getSwingsPageData(
   const currentWeek =
     year === CURRENT_SEASON ? getAtpWeekForSeason(new Date(), year) ?? 1 : 1;
 
-  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs };
+  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries };
 }
