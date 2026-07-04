@@ -1405,7 +1405,6 @@ function TournamentInfoCard({
   let refText: string | null = null;
   if (drawKey === 'm' && singlesRef?.fromYear != null && (singlesRef.mainAlt ?? singlesRef.mainCut) != null) {
     refText = `${singlesRef.fromYear} cut — MD #${singlesRef.mainAlt ?? singlesRef.mainCut}`;
-    if (singlesRef.qualCut != null) refText += ` · Q #${singlesRef.qualCut}`;
   } else if (drawKey === 'q' && singlesRef?.fromYear != null && singlesRef.qualCut != null) {
     refText = `${singlesRef.fromYear} cut — Q #${singlesRef.qualCut}`;
   } else if (drawKey === 'd' && doublesRef?.fromYear != null && (doublesRef.mainAlt ?? doublesRef.mainCut) != null) {
