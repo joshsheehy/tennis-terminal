@@ -14,7 +14,7 @@ import {
 import {
   DRAW_META,
   loadCutObservations,
-  loadSupplyCounts,
+  loadSupplyEvents,
   supplySignalsFor,
   type DrawKey,
 } from '@/lib/cut-prediction-data';
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
   const draws = drawsParam.split(',').filter((d): d is DrawKey => d in DRAW_META);
   const tune = request.nextUrl.searchParams.get('tune') === 'true';
 
-  const supplyCounts = await loadSupplyCounts(pool);
+  const supplyEvents = await loadSupplyEvents(pool);
   const report: Record<string, unknown> = {};
 
   for (const draw of draws) {
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
         base,
         baseline: lastYearCut,
         method,
-        supply: supplySignalsFor(supplyCounts, o.group, o.year, o.week),
+        supply: supplySignalsFor(supplyEvents, o.year, o.week, o.latitude, o.longitude),
       });
     }
 

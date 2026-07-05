@@ -8,7 +8,7 @@ import {
   drawsForLevel,
   ensurePredictionsTable,
   loadCutObservations,
-  loadSupplyCounts,
+  loadSupplyEvents,
   supplySignalsFor,
   type DrawKey,
 } from '@/lib/cut-prediction-data';
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
   for (const draw of Object.keys(DRAW_META) as DrawKey[]) {
     observationsByDraw.set(draw, await loadCutObservations(pool, draw));
   }
-  const supplyCounts = await loadSupplyCounts(pool);
+  const supplyEvents = await loadSupplyEvents(pool);
 
   const predictions: Array<{
     slug: string;
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
         latitude: row.latitude,
         longitude: row.longitude,
       };
-      const supply = supplySignalsFor(supplyCounts, group, row.year, week);
+      const supply = supplySignalsFor(supplyEvents, row.year, week, row.latitude, row.longitude);
       const prediction = predictCut(
         target,
         {

@@ -148,6 +148,25 @@ describe('supplyAdjustment (fitted to zero, kept measurable)', () => {
   });
 });
 
+describe('regional waterfall signals', () => {
+  it('measures year-over-year committed-player mass around a venue', async () => {
+    const { supplySignalsFor } = await import('./cut-prediction-data');
+    const ev = (year: number, week: number, lat: number, lon: number, weight: number) => ({ year, week, lat, lon, weight });
+    const events = [
+      // last year: one nearby challenger; this year: same + a new ATP next week
+      ev(2024, 10, 47, 7, 1),
+      ev(2025, 10, 47, 7, 1),
+      ev(2025, 11, 47.5, 7.5, 2),
+      // far away, must not count
+      ev(2025, 10, -30, -60, 3),
+    ];
+    const s = supplySignalsFor(events, 2025, 10, 47, 7);
+    expect(s.sameWeekRatio).toBeCloseTo((1 + 2 + 1) / (1 + 1), 5);
+    const none = supplySignalsFor(events, 2025, 10, null, null);
+    expect(none.sameWeekRatio).toBeNull();
+  });
+});
+
 describe('helpers', () => {
   it('median of even/odd sets', () => {
     expect(median([3, 1, 2])).toBe(2);

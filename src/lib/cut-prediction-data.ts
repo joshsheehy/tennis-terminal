@@ -4,7 +4,7 @@
 // predicts from.
 
 import type { Pool } from 'pg';
-import { tierGroup, type CutObservation, type SupplySignals, type TierGroup } from './cut-prediction';
+import { haversineKm, tierGroup, type CutObservation, type SupplySignals, type TierGroup } from './cut-prediction';
 
 export type DrawKey = 'ms' | 'qs' | 'md';
 
@@ -92,44 +92,71 @@ export async function loadCutObservations(
   return rows;
 }
 
-// --- Calendar supply --------------------------------------------------------
-// Held-edition counts per (tier group, year, week) across the WHOLE calendar
-// (no cut required — supply is about what's scheduled, and future weeks are
-// already known). Feeds the model's same-week and run-up density signals.
+// --- Regional "waterfall" supply --------------------------------------------
+// The hypothesis this measures: events of ALL levels clustered in a region
+// across a week commit players and weaken the smaller events' cuts. On the
+// 2022-2026 backtest the year-over-year change in this mass showed no
+// residual signal (corr ~ -0.03; the clustering repeats yearly, so it is
+// already priced into each tournament's own history) and its fitted exponents
+// are 0 — but it is kept fully wired so every backtest run re-measures it as
+// seasons accumulate. Tier-weighted (a Slam commits more players than a
+// Challenger 50), ITF included, geocoded editions only.
 
-export type SupplyCounts = Map<string, number>;
+export type SupplyEvent = { year: number; week: number; lat: number; lon: number; weight: number };
 
-export async function loadSupplyCounts(pool: Pool): Promise<SupplyCounts> {
-  const result = await pool.query<{ year: number; week: number; level: string }>(
-    `select te.year, te.week, te.level
-     from tournament_editions te
-     where te.status = 'held' and te.week is not null`
-  );
-  const counts: SupplyCounts = new Map();
-  for (const r of result.rows) {
-    const group = tierGroup(r.level);
-    if (!group) continue;
-    const key = `${group}:${r.year}:${r.week}`;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return counts;
+const SUPPLY_RADIUS_KM = 3000;
+const SUPPLY_WEEK_SPREAD = 1;
+
+function supplyWeight(level: string): number {
+  const l = level.toLowerCase();
+  if (l.includes('grand slam')) return 3;
+  if (l.startsWith('atp')) return 2;
+  if (l.includes('challenger')) return 1;
+  return 0.5; // ITF
 }
 
+export async function loadSupplyEvents(pool: Pool): Promise<SupplyEvent[]> {
+  const result = await pool.query<{ year: number; week: number; level: string; latitude: number | null; longitude: number | null }>(
+    `select te.year, te.week, te.level, t.latitude, t.longitude
+     from tournament_editions te
+     join tournaments t on t.id = te.tournament_id
+     where te.status = 'held' and te.week is not null`
+  );
+  const events: SupplyEvent[] = [];
+  for (const r of result.rows) {
+    if (r.latitude == null || r.longitude == null) continue;
+    events.push({ year: r.year, week: r.week, lat: r.latitude, lon: r.longitude, weight: supplyWeight(r.level) });
+  }
+  return events;
+}
+
+function regionalMass(events: SupplyEvent[], year: number, week: number, lat: number, lon: number): number {
+  let mass = 0;
+  for (const e of events) {
+    if (e.year !== year || Math.abs(e.week - week) > SUPPLY_WEEK_SPREAD) continue;
+    if (haversineKm(lat, lon, e.lat, e.lon) > SUPPLY_RADIUS_KM) continue;
+    mass += e.weight;
+  }
+  return mass;
+}
+
+/** Year-over-year regional supply signals for a target. sameWeekRatio is the
+ * committed-player mass around the target (week ±1, 3000km, all levels) this
+ * year vs last, +1-smoothed; runupRatio the same for the 3 preceding weeks. */
 export function supplySignalsFor(
-  counts: SupplyCounts,
-  group: TierGroup,
+  events: SupplyEvent[],
   year: number,
-  week: number
+  week: number,
+  lat: number | null,
+  lon: number | null
 ): SupplySignals {
-  const at = (y: number, w: number) => counts.get(`${group}:${y}:${w}`) ?? 0;
-  const sameThis = at(year, week);
-  const sameLast = at(year - 1, week);
-  const runup = (y: number) => at(y, week - 1) + at(y, week - 2) + at(y, week - 3);
-  const runupThis = runup(year);
-  const runupLast = runup(year - 1);
+  if (lat == null || lon == null) return { sameWeekRatio: null, runupRatio: null };
+  const same = (y: number) => regionalMass(events, y, week, lat, lon);
+  const runup = (y: number) =>
+    regionalMass(events, y, week - 2, lat, lon) + regionalMass(events, y, week - 3, lat, lon);
   return {
-    sameWeekRatio: sameThis > 0 && sameLast > 0 ? sameThis / sameLast : null,
-    runupRatio: runupThis > 0 && runupLast > 0 ? runupThis / runupLast : null,
+    sameWeekRatio: (same(year) + 1) / (same(year - 1) + 1),
+    runupRatio: (runup(year) + 1) / (runup(year - 1) + 1),
   };
 }
 
