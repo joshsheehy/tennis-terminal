@@ -4,8 +4,10 @@ import {
   driftFactor,
   cohortBase,
   predictCut,
+  supplyAdjustment,
   median,
   haversineKm,
+  DEFAULT_BETAS,
   type CutObservation,
 } from './cut-prediction';
 
@@ -124,6 +126,35 @@ describe('predictCut', () => {
 
   it('returns null with neither history nor cohort', () => {
     expect(predictCut(target, null, [], 10)).toBeNull();
+  });
+});
+
+describe('supplyAdjustment', () => {
+  it('is neutral without signals or with zero betas', () => {
+    expect(supplyAdjustment(undefined, DEFAULT_BETAS)).toBe(1);
+    expect(supplyAdjustment({ sameWeekRatio: null, runupRatio: null }, DEFAULT_BETAS)).toBe(1);
+    expect(supplyAdjustment({ sameWeekRatio: 1.5, runupRatio: 1.5 }, { supply: 0, runup: 0 })).toBe(1);
+  });
+
+  it('deepens the cut when the calendar packs more same-tier events', () => {
+    const adj = supplyAdjustment({ sameWeekRatio: 1.5, runupRatio: 1.2 }, DEFAULT_BETAS);
+    expect(adj).toBeGreaterThan(1);
+    // Damped: a 50% supply increase must not imply a 50% deeper cut.
+    expect(adj).toBeLessThan(1.5);
+  });
+
+  it('softens the cut when supply shrinks, with extreme ratios clamped', () => {
+    const shrink = supplyAdjustment({ sameWeekRatio: 0.5, runupRatio: null }, DEFAULT_BETAS);
+    expect(shrink).toBeLessThan(1);
+    const clamped = supplyAdjustment({ sameWeekRatio: 10, runupRatio: null }, DEFAULT_BETAS);
+    expect(clamped).toBe(supplyAdjustment({ sameWeekRatio: 2, runupRatio: null }, DEFAULT_BETAS));
+  });
+
+  it('feeds through predictCut multiplicatively', () => {
+    const target = { slug: 'target', year: 2025, week: 10, group: 'challenger' as const, latitude: 47, longitude: 7 };
+    const withSupply = predictCut(target, 250, driftingMarket(), 10, { sameWeekRatio: 2, runupRatio: null });
+    const without = predictCut(target, 250, driftingMarket(), 10);
+    expect(withSupply!.cut).toBeGreaterThan(without!.cut);
   });
 });
 

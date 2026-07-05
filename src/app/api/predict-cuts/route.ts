@@ -8,6 +8,8 @@ import {
   drawsForLevel,
   ensurePredictionsTable,
   loadCutObservations,
+  loadSupplyCounts,
+  supplySignalsFor,
   type DrawKey,
 } from '@/lib/cut-prediction-data';
 
@@ -17,22 +19,24 @@ export const dynamic = 'force-dynamic';
 // The beta cut-projection job. Two passes, both idempotent:
 //
 //   1. PREDICT — for every ATP/Challenger/Slam edition starting within the
-//      next `weeksAhead` weeks, project each of its draws and upsert one row
-//      per (edition, draw, horizon bucket). Running nightly, an event
-//      naturally accumulates snapshots at 4, 3, 2, 1 weeks out, so accuracy
-//      per lead time is measurable.
+//      next `weeksAhead` weeks (default 8 — long enough to plan a schedule
+//      around; entry deadlines sit 4-6 weeks out, so an 8-week projection is
+//      only reaching a few weeks past the deadline), project each draw and
+//      upsert one row per (edition, draw, horizon bucket). Running nightly,
+//      an event accumulates snapshots at 8…1 weeks out, so accuracy per lead
+//      time is measurable.
 //   2. SCORE — fill actual_cut on any stored prediction whose real cut has
 //      since been imported.
 //
 //   GET /api/predict-cuts                → dry run (report, no writes)
 //   GET /api/predict-cuts?apply=true     → write predictions + scores
 
-const DEFAULT_WEEKS_AHEAD = 4;
+const DEFAULT_WEEKS_AHEAD = 8;
 
 export async function GET(request: NextRequest) {
   const apply = request.nextUrl.searchParams.get('apply') === 'true';
   const weeksAhead = Math.min(
-    8,
+    12,
     Math.max(1, Number(request.nextUrl.searchParams.get('weeksAhead')) || DEFAULT_WEEKS_AHEAD)
   );
 
@@ -70,6 +74,7 @@ export async function GET(request: NextRequest) {
   for (const draw of Object.keys(DRAW_META) as DrawKey[]) {
     observationsByDraw.set(draw, await loadCutObservations(pool, draw));
   }
+  const supplyCounts = await loadSupplyCounts(pool);
 
   const predictions: Array<{
     slug: string;
@@ -108,7 +113,8 @@ export async function GET(request: NextRequest) {
         latitude: row.latitude,
         longitude: row.longitude,
       };
-      const prediction = predictCut(target, lastYearCut, observations, asofWeek);
+      const supply = supplySignalsFor(supplyCounts, group, row.year, week);
+      const prediction = predictCut(target, lastYearCut, observations, asofWeek, supply);
       if (!prediction) {
         skippedNoModel += 1;
         continue;

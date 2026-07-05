@@ -4,7 +4,7 @@
 // predicts from.
 
 import type { Pool } from 'pg';
-import { tierGroup, type CutObservation, type TierGroup } from './cut-prediction';
+import { tierGroup, type CutObservation, type SupplySignals, type TierGroup } from './cut-prediction';
 
 export type DrawKey = 'ms' | 'qs' | 'md';
 
@@ -89,6 +89,47 @@ export async function loadCutObservations(
     });
   }
   return rows;
+}
+
+// --- Calendar supply --------------------------------------------------------
+// Held-edition counts per (tier group, year, week) across the WHOLE calendar
+// (no cut required — supply is about what's scheduled, and future weeks are
+// already known). Feeds the model's same-week and run-up density signals.
+
+export type SupplyCounts = Map<string, number>;
+
+export async function loadSupplyCounts(pool: Pool): Promise<SupplyCounts> {
+  const result = await pool.query<{ year: number; week: number; level: string }>(
+    `select te.year, te.week, te.level
+     from tournament_editions te
+     where te.status = 'held' and te.week is not null`
+  );
+  const counts: SupplyCounts = new Map();
+  for (const r of result.rows) {
+    const group = tierGroup(r.level);
+    if (!group) continue;
+    const key = `${group}:${r.year}:${r.week}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export function supplySignalsFor(
+  counts: SupplyCounts,
+  group: TierGroup,
+  year: number,
+  week: number
+): SupplySignals {
+  const at = (y: number, w: number) => counts.get(`${group}:${y}:${w}`) ?? 0;
+  const sameThis = at(year, week);
+  const sameLast = at(year - 1, week);
+  const runup = (y: number) => at(y, week - 1) + at(y, week - 2) + at(y, week - 3);
+  const runupThis = runup(year);
+  const runupLast = runup(year - 1);
+  return {
+    sameWeekRatio: sameThis > 0 && sameLast > 0 ? sameThis / sameLast : null,
+    runupRatio: runupThis > 0 && runupLast > 0 ? runupThis / runupLast : null,
+  };
 }
 
 /** Idempotent DDL from sql/012_create_cut_predictions.sql, mirroring the

@@ -17,7 +17,7 @@ on:
       weeks_ahead:
         description: 'Prediction window in weeks'
         required: false
-        default: '4'
+        default: '8'
 
 jobs:
   predict:
@@ -57,7 +57,7 @@ jobs:
                   return json.loads(res.read().decode('utf-8', errors='replace'))
 
           print('=== Walk-forward backtest (model vs last-year baseline) ===', flush=True)
-          bt = get('/api/backtest-cuts')
+          bt = get('/api/backtest-cuts?tune=true')
           if not bt.get('ok'):
               raise RuntimeError(f'backtest failed: {json.dumps(bt)[:400]}')
           for draw, rep in (bt.get('report') or {}).items():
@@ -67,8 +67,9 @@ jobs:
                     f"| win rate {o.get('winRate')} | relErr p50/p75/p90 "
                     f"{o.get('relAbsErrP50')}/{o.get('relAbsErrP75')}/{o.get('relAbsErrP90')}", flush=True)
               for group, g in (rep.get('byGroup') or {}).items():
+                  tuned = f" | tuned betas {g.get('bestBetas')} -> MAE {g.get('bestMAE')}" if g.get('bestBetas') else ''
                   print(f"  {group:<11} n={g.get('n'):>4} model {g.get('modelMAE')} vs baseline {g.get('baselineMAE')} "
-                        f"| win {g.get('winRate')}", flush=True)
+                        f"| win {g.get('winRate')}{tuned}", flush=True)
               for year, g in (rep.get('byYear') or {}).items():
                   print(f"  {year}: n={g.get('n')} model {g.get('modelMAE')} vs baseline {g.get('baselineMAE')}", flush=True)
 

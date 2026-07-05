@@ -147,14 +147,52 @@ export function cohortBase(target: Target, observations: CutObservation[]): numb
   return median(pool.map((o) => o.cut));
 }
 
+// --- Calendar-supply signals -----------------------------------------------
+// Player-level "how many weeks in a row has the field been playing" isn't in
+// our data, but its aggregate IS the calendar: when more same-tier events
+// share the target week, entries spread thinner; when the preceding weeks
+// are packed, fields arrive tired and more players skip — both weaken the
+// cut (a numerically deeper rank). Expressed as this-year/last-year count
+// ratios, damped by small exponents so a doubled calendar doesn't imply a
+// doubled cut. The exponents are calibrated by /api/backtest-cuts?tune=true.
+
+export type SupplySignals = {
+  /** Same-tier events in the target week, this year / last year. */
+  sameWeekRatio: number | null;
+  /** Same-tier events across the 3 preceding weeks, this year / last year. */
+  runupRatio: number | null;
+};
+
+export type ModelBetas = { supply: number; runup: number };
+export const DEFAULT_BETAS: ModelBetas = { supply: 0.25, runup: 0.1 };
+
+const SUPPLY_CLAMP: [number, number] = [0.5, 2];
+
+export function supplyAdjustment(signals: SupplySignals | undefined, betas: ModelBetas): number {
+  if (!signals) return 1;
+  let adj = 1;
+  if (signals.sameWeekRatio != null && signals.sameWeekRatio > 0) {
+    const r = Math.min(SUPPLY_CLAMP[1], Math.max(SUPPLY_CLAMP[0], signals.sameWeekRatio));
+    adj *= r ** betas.supply;
+  }
+  if (signals.runupRatio != null && signals.runupRatio > 0) {
+    const r = Math.min(SUPPLY_CLAMP[1], Math.max(SUPPLY_CLAMP[0], signals.runupRatio));
+    adj *= r ** betas.runup;
+  }
+  return adj;
+}
+
 /** Predict the cut for `target`, using only cuts published before `asofWeek`
  * of the target season (plus all prior seasons). `lastYearCut` is the
- * target's own cut last season, when it has one. */
+ * target's own cut last season, when it has one. `supply` carries the
+ * calendar-structure signals (known ahead of time for the whole season). */
 export function predictCut(
   target: Target,
   lastYearCut: number | null,
   observations: CutObservation[],
-  asofWeek: number
+  asofWeek: number,
+  supply?: SupplySignals,
+  betas: ModelBetas = DEFAULT_BETAS
 ): CutPrediction | null {
   const { drift, comparators } = driftFactor(target, observations, asofWeek);
 
@@ -166,7 +204,8 @@ export function predictCut(
   }
   if (base == null) return null;
 
-  const cut = Math.max(3, Math.round(base * drift));
+  const adjustment = supplyAdjustment(supply, betas);
+  const cut = Math.max(3, Math.round(base * drift * adjustment));
   const spread = RANGE_BY_GROUP[target.group];
   // Cohort predictions are inherently fuzzier than own-history ones.
   const width = method === 'cohort' ? spread * 1.5 : spread;

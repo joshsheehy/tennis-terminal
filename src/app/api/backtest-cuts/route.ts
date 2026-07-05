@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { predictCut, MODEL_VERSION, median, type TierGroup } from '@/lib/cut-prediction';
-import { DRAW_META, loadCutObservations, type DrawKey } from '@/lib/cut-prediction-data';
+import {
+  driftFactor,
+  cohortBase,
+  supplyAdjustment,
+  median,
+  DEFAULT_BETAS,
+  MODEL_VERSION,
+  type ModelBetas,
+  type SupplySignals,
+  type TierGroup,
+} from '@/lib/cut-prediction';
+import {
+  DRAW_META,
+  loadCutObservations,
+  loadSupplyCounts,
+  supplySignalsFor,
+  type DrawKey,
+} from '@/lib/cut-prediction-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,36 +28,48 @@ export const dynamic = 'force-dynamic';
 // it using only cuts published BEFORE that edition's week — exactly the
 // information the live nightly job would have had.
 //
-//   GET /api/backtest-cuts            → all three draws
-//   GET /api/backtest-cuts?draws=ms   → singles main only
+//   GET /api/backtest-cuts             → all three draws, default betas
+//   GET /api/backtest-cuts?draws=ms    → singles main only
+//   GET /api/backtest-cuts?tune=true   → also grid-search the calendar-supply
+//                                        exponents and report the best pair
 //
-// Read the report per tier group: modelMAE < baselineMAE (and winRate > 0.5)
-// means the drift correction is earning its keep.
+// The expensive parts (drift, cohort base) don't depend on the supply betas,
+// so each sample stores its base once and the tuner just re-applies betas.
 
 type Sample = {
   group: TierGroup;
   year: number;
   actual: number;
-  model: number;
+  /** lastYearCut (or cohort base) × drift — everything except supply. */
+  base: number;
   baseline: number | null;
-  method: string;
+  method: 'trend' | 'cohort';
+  supply: SupplySignals;
 };
 
-function summarize(samples: Sample[]) {
+function modelPrediction(sample: Sample, betas: ModelBetas): number {
+  return Math.max(3, Math.round(sample.base * supplyAdjustment(sample.supply, betas)));
+}
+
+function summarize(samples: Sample[], betas: ModelBetas) {
   const withBaseline = samples.filter((s) => s.baseline != null);
   const mae = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
   const round = (v: number | null) => (v == null ? null : Math.round(v * 100) / 100);
-  const modelErr = withBaseline.map((s) => Math.abs(s.model - s.actual));
+  const modelErr = withBaseline.map((s) => Math.abs(modelPrediction(s, betas) - s.actual));
   const baseErr = withBaseline.map((s) => Math.abs((s.baseline as number) - s.actual));
   const wins = withBaseline.filter(
-    (s) => Math.abs(s.model - s.actual) < Math.abs((s.baseline as number) - s.actual)
+    (s) => Math.abs(modelPrediction(s, betas) - s.actual) < Math.abs((s.baseline as number) - s.actual)
   ).length;
   const ties = withBaseline.filter(
-    (s) => Math.abs(s.model - s.actual) === Math.abs((s.baseline as number) - s.actual)
+    (s) => Math.abs(modelPrediction(s, betas) - s.actual) === Math.abs((s.baseline as number) - s.actual)
   ).length;
-  const relErrs = samples.map((s) => Math.abs(s.model - s.actual) / s.actual).sort((a, b) => a - b);
+  const relErrs = samples
+    .map((s) => Math.abs(modelPrediction(s, betas) - s.actual) / s.actual)
+    .sort((a, b) => a - b);
   const q = (p: number) =>
-    relErrs.length ? Math.round(relErrs[Math.min(relErrs.length - 1, Math.floor(p * relErrs.length))] * 1000) / 1000 : null;
+    relErrs.length
+      ? Math.round(relErrs[Math.min(relErrs.length - 1, Math.floor(p * relErrs.length))] * 1000) / 1000
+      : null;
   return {
     n: samples.length,
     nWithBaseline: withBaseline.length,
@@ -59,10 +87,28 @@ function summarize(samples: Sample[]) {
   };
 }
 
+function tuneBetas(samples: Sample[]) {
+  const grid = { supply: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], runup: [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3] };
+  let best: { betas: ModelBetas; mae: number } | null = null;
+  for (const supply of grid.supply) {
+    for (const runup of grid.runup) {
+      const betas = { supply, runup };
+      const errs = samples.map((s) => Math.abs(modelPrediction(s, betas) - s.actual));
+      const mae = errs.reduce((a, b) => a + b, 0) / Math.max(1, errs.length);
+      if (!best || mae < best.mae) best = { betas, mae };
+    }
+  }
+  return best
+    ? { bestBetas: best.betas, bestMAE: Math.round(best.mae * 100) / 100 }
+    : null;
+}
+
 export async function GET(request: NextRequest) {
   const drawsParam = request.nextUrl.searchParams.get('draws') ?? 'ms,qs,md';
   const draws = drawsParam.split(',').filter((d): d is DrawKey => d in DRAW_META);
+  const tune = request.nextUrl.searchParams.get('tune') === 'true';
 
+  const supplyCounts = await loadSupplyCounts(pool);
   const report: Record<string, unknown> = {};
 
   for (const draw of draws) {
@@ -75,15 +121,22 @@ export async function GET(request: NextRequest) {
     for (const o of observations) {
       if (o.year <= years[0]) continue; // nothing before the first season
       const lastYearCut = byslugYear.get(`${o.slug}:${o.year - 1}`) ?? null;
-      const prediction = predictCut(o, lastYearCut, observations, o.week);
-      if (!prediction) continue;
+      const { drift } = driftFactor(o, observations, o.week);
+      let base: number | null = lastYearCut;
+      let method: Sample['method'] = 'trend';
+      if (base == null) {
+        base = cohortBase(o, observations);
+        method = 'cohort';
+      }
+      if (base == null) continue;
       samples.push({
         group: o.group,
         year: o.year,
         actual: o.cut,
-        model: prediction.cut,
+        base: base * drift,
         baseline: lastYearCut,
-        method: prediction.method,
+        method,
+        supply: supplySignalsFor(supplyCounts, o.group, o.year, o.week),
       });
     }
 
@@ -91,19 +144,25 @@ export async function GET(request: NextRequest) {
     for (const group of ['gs', 'tour', 'challenger'] as TierGroup[]) {
       const groupSamples = samples.filter((s) => s.group === group);
       if (groupSamples.length === 0) continue;
-      byGroup[group] = summarize(groupSamples);
+      byGroup[group] = {
+        ...summarize(groupSamples, DEFAULT_BETAS),
+        ...(tune ? tuneBetas(groupSamples) : {}),
+      };
     }
     const byYear: Record<string, unknown> = {};
     for (const year of years.slice(1)) {
       const yearSamples = samples.filter((s) => s.year === year);
       if (yearSamples.length === 0) continue;
-      byYear[year] = summarize(yearSamples);
+      byYear[year] = summarize(yearSamples, DEFAULT_BETAS);
     }
 
     report[draw] = {
       label: DRAW_META[draw].label,
       observations: observations.length,
-      overall: summarize(samples),
+      overall: {
+        ...summarize(samples, DEFAULT_BETAS),
+        ...(tune ? tuneBetas(samples) : {}),
+      },
       byGroup,
       byYear,
     };
@@ -112,6 +171,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     modelVersion: MODEL_VERSION,
+    betas: DEFAULT_BETAS,
+    tuned: tune,
     note: 'Walk-forward: each prediction only saw cuts from weeks before its own. baseline = same cut as last year.',
     report,
   });
