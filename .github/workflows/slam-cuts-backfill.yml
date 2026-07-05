@@ -1,55 +1,56 @@
 name: Slam cuts backfill
 
-# Scrapes Grand Slam entry cuts from published entry lists (mirrored verbatim
-# on menstennisforums.com — a source that blocks datacenter traffic but is
-# reachable from GitHub runners with a real browser) and imports them via
-# POST /api/import-slam-cuts. Fill-only: cuts already in the DB are never
-# overwritten.
+# Computes Grand Slam entry cuts from public structured data — Wikipedia's
+# draw pages (every entrant marked WC/Q/LL/PR vs direct acceptance) crossed
+# with Jeff Sackmann's weekly ATP ranking files at the entry deadline — and
+# imports them via POST /api/import-slam-cuts. Fill-only: cuts already in the
+# DB are never overwritten.
 #
-# Run once with apply=false (default) and read the log — every extracted
-# number is printed with the evidence lines it came from. Then run with
-# apply=true to import the high-confidence rows. 'review' rows are never
-# imported automatically; add them to src/lib/slam-cuts.ts by hand after
-# eyeballing the evidence.
+# This replaced a scraper of forum-mirrored entry lists: the sources behind
+# bot walls (menstennisforums, wimbledon.com) defeat even a real browser on
+# runners, while these two sources are open, structured, and verifiable.
+#
+# Run once with apply=false (default) to read every computed number with the
+# evidence it came from, then again with apply=true to import the
+# high-confidence rows. A row where any direct acceptance failed to match a
+# ranked player is 'review' (the unmatched player could BE the cut) and is
+# never imported automatically. Doubles isn't computable (no public doubles
+# ranking history) — those stay with the hand-verified slam-cuts.ts path.
 
 on:
   workflow_dispatch:
     inputs:
       years:
-        description: 'Comma-separated seasons to scrape'
+        description: 'Comma-separated seasons to compute'
         required: false
-        default: '2022,2023'
+        default: '2022,2023,2024,2025,2026'
       draws:
-        description: 'Draws: ms (singles main), qs (singles qualifying), md (doubles)'
+        description: 'Draws: ms (singles main), qs (singles qualifying)'
         required: false
-        default: 'ms,qs,md'
+        default: 'ms,qs'
       apply:
         description: 'true = import high-confidence rows, false = report only'
         required: false
         default: 'false'
 
 jobs:
-  scrape:
+  compute:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Install Chromium for challenged pages
-        run: npx playwright install --with-deps chromium
 
-      - name: Scrape entry-list cuts
+      - name: Compute cuts from draws + deadline rankings
         env:
           YEARS: ${{ inputs.years }}
           DRAWS: ${{ inputs.draws }}
         run: |
           set -euo pipefail
-          node scripts/scrape-slam-cuts.mjs --years "$YEARS" --draws "$DRAWS" --emit /tmp/slam-cuts.json
-          test -s /tmp/slam-cuts.json || { echo "scraper emitted nothing"; exit 1; }
+          node scripts/compute-slam-cuts.mjs --years "$YEARS" --draws "$DRAWS" --emit /tmp/slam-cuts.json
+          test -s /tmp/slam-cuts.json || { echo "compute emitted nothing"; exit 1; }
 
       - name: Import high-confidence rows
         env:
@@ -70,7 +71,7 @@ jobs:
           review = [r for r in found if r.get('confidence') != 'high']
           apply = os.environ.get('APPLY', 'false').strip().lower() == 'true'
 
-          print(f"scraped: {len(found)} cuts ({len(high)} high-confidence, {len(review)} for review), {len(gaps)} gaps\n")
+          print(f"computed: {len(found)} cuts ({len(high)} high-confidence, {len(review)} for review), {len(gaps)} gaps\n")
           for r in review:
               print(f"REVIEW  {r['slug']} {r['year']} {r['eventType']}/{r['drawType']} cut={r['cut']}")
               for e in r.get('evidence', []):
@@ -103,7 +104,7 @@ jobs:
               headers={
                   'Content-Type': 'application/json',
                   'Accept': 'application/json',
-                  'User-Agent': 'TennisCutsSlamBackfill/1.0',
+                  'User-Agent': 'TennisCutsSlamBackfill/2.0',
                   'X-Admin-Secret': os.environ['ADMIN_SECRET'],
               },
           )
