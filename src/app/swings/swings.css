@@ -397,17 +397,47 @@
 .tinfo-open--secondary:hover { background: var(--surface-subtle); color: var(--text-strong); }
 .cand-meta { font-size: 11px; color: var(--text-muted); }
 .cand-add {
-  font-size: 20px;
-  color: var(--text-muted);
-  padding: 0 8px;
-  background: none;
-  border: none;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-ink);
+  padding: 6px 10px;
+  background: var(--brand-soft);
+  border: 1px solid transparent;
   cursor: pointer;
   line-height: 1;
-  border-radius: 8px;
-  transition: color 120ms ease, background 120ms ease;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
 }
-.cand-add:hover { color: var(--brand-ink); background: var(--brand-soft); }
+.cand-add:hover { background: var(--brand-ink); color: #fff; }
+
+/* One-time coach hint above the candidate list */
+.add-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 4px;
+  padding: 9px 12px;
+  border: 1px dashed var(--brand-ink);
+  border-radius: 10px;
+  background: var(--brand-soft);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.add-hint strong { color: var(--brand-ink); }
+.add-hint__close {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.add-hint__close:hover { color: var(--text-strong); }
 .chain-remove {
   background: none;
   border: none;
@@ -951,6 +981,8 @@
   letter-spacing: -0.03em;
   color: var(--text-strong);
 }
+.welcome-copy--how { font-size: 13px; }
+.welcome-copy--how strong { color: var(--brand-ink); }
 .welcome-copy {
   margin: 0;
   font-size: 14px;

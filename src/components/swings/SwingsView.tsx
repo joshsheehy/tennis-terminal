@@ -179,12 +179,29 @@ export default function SwingsView({
   // Mode is driven by the route (Builder = / , Swings = /swings) via the
   // global nav; a shared ?build= link also opens in build. No in-page toggle.
   const mode: Mode = params.get('build') ? 'build' : defaultMode;
-  const [chainIds, setChainIds] = useState<string[]>(() =>
-    (params.get('build')?.split(',') ?? []).filter((id) => id.length > 0)
-  );
-  const [selectedWeek, setSelectedWeek] = useState(() =>
-    Math.min(MAX_WEEK, Math.max(1, data.currentWeek))
-  );
+  // The schedule being built survives every navigation: the URL ?build= param
+  // is the shareable source of truth, with a per-year sessionStorage mirror so
+  // hitting Back (or the nav's bare "/" link) never wipes the user's work.
+  const [chainIds, setChainIds] = useState<string[]>(() => {
+    const fromUrl = (params.get('build')?.split(',') ?? []).filter((id) => id.length > 0);
+    if (fromUrl.length) return fromUrl;
+    try {
+      const saved = sessionStorage.getItem(`swings.chain:${data.year}`);
+      if (saved) return JSON.parse(saved).filter((id: unknown) => typeof id === 'string');
+    } catch {
+      // storage blocked/malformed — start empty
+    }
+    return [];
+  });
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    try {
+      const saved = Number(sessionStorage.getItem(`swings.week:${data.year}`));
+      if (Number.isInteger(saved) && saved >= 1 && saved <= MAX_WEEK) return saved;
+    } catch {
+      // fall through to current week
+    }
+    return Math.min(MAX_WEEK, Math.max(1, data.currentWeek));
+  });
   const [selectedSwing, setSelectedSwing] = useState<number | null>(null);
   const [sheet, setSheet] = useState<SheetState>(mode === 'build' ? 'half' : 'collapsed');
   const [fitNonce, setFitNonce] = useState(1);
@@ -307,13 +324,45 @@ export default function SwingsView({
     router.push(`${pathname}?${next.toString()}`);
   };
 
-  // Keep the ?build= param in sync without a server round-trip.
+  // Keep the ?build= param in sync without a server round-trip, and mirror it
+  // per year so back-navigation and bare nav links can't lose the schedule.
   const syncBuildParam = (ids: string[]) => {
     const next = new URLSearchParams(params.toString());
     if (ids.length) next.set('build', ids.join(','));
     else next.delete('build');
     window.history.replaceState(null, '', `${pathname}?${next.toString()}`);
+    try {
+      if (ids.length) sessionStorage.setItem(`swings.chain:${data.year}`, JSON.stringify(ids));
+      else sessionStorage.removeItem(`swings.chain:${data.year}`);
+    } catch {
+      // persistence is a nice-to-have
+    }
   };
+
+  // Back/forward moves to history entries whose ?build= snapshot may be older
+  // than the schedule the user just built. Never let a navigation destroy
+  // work: adopt the param only when it carries MORE state; otherwise re-stamp
+  // the current chain onto the entry we landed on.
+  const chainRef = useRef(chainIds);
+  chainRef.current = chainIds;
+  useEffect(() => {
+    const fromUrl = (params.get('build')?.split(',') ?? []).filter((id) => id.length > 0);
+    const current = chainRef.current;
+    if (fromUrl.join(',') === current.join(',')) return;
+    if (fromUrl.length > current.length) setChainIds(fromUrl);
+    else if (current.length) syncBuildParam(current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
+  // Remember which week the builder is on (per year) so returning from a
+  // tournament page reopens the same week, not "today".
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(`swings.week:${data.year}`, String(selectedWeek));
+    } catch {
+      // ignore
+    }
+  }, [selectedWeek, data.year]);
 
   const inWindow = (week: number) => week >= selectedWeek && week <= selectedWeek + LOOKAHEAD;
 
@@ -487,7 +536,13 @@ export default function SwingsView({
   const resumeWeek = lastStopWeek != null ? nextEventWeek(lastStopWeek + 1) : null;
 
   // Inline filter controls (replaces the old gear/filter sheet).
-  const setYear = (y: number) => pushParams((p) => p.set('year', String(y)));
+  const setYear = (y: number) =>
+    pushParams((p) => {
+      p.set('year', String(y));
+      // Chains are per-year (edition ids). The target year's own chain is
+      // restored from its sessionStorage mirror on mount.
+      p.delete('build');
+    });
   const toggleGroup = (g: LevelGroup) => {
     const next = new Set(data.groups);
     if (next.has(g)) next.delete(g);
@@ -586,6 +641,10 @@ export default function SwingsView({
             <p className="welcome-copy">
               Build a week-by-week swing across ATP, Challenger and ITF events — and see
               where your ranking would have gotten in.
+            </p>
+            <p className="welcome-copy welcome-copy--how">
+              Tap any tournament to preview its cuts, then hit <strong>＋ Add</strong> to
+              put it on your schedule.
             </p>
             <label className="rank-field">
               <span>Your singles rank (optional)</span>
@@ -822,6 +881,48 @@ function BuilderPanel({
   // All candidates are for one week; group by relationship tier (same country
   // first). Before an anchor exists there's no relationship, so show a flat list.
   const hasAnchor = chain.length > 0;
+
+  // One-time coach hint for the add flow — new users don't guess that rows
+  // preview and the pill adds. Remembered once dismissed or once the first
+  // stop lands on the schedule.
+  const [showAddHint, setShowAddHint] = useState(false);
+  useEffect(() => {
+    try {
+      setShowAddHint(!localStorage.getItem('swings.hint.add') && chain.length === 0);
+    } catch {
+      setShowAddHint(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (chain.length > 0 && showAddHint) {
+      setShowAddHint(false);
+      try {
+        localStorage.setItem('swings.hint.add', '1');
+      } catch {
+        // ignore
+      }
+    }
+  }, [chain.length, showAddHint]);
+  const dismissAddHint = () => {
+    setShowAddHint(false);
+    try {
+      localStorage.setItem('swings.hint.add', '1');
+    } catch {
+      // ignore
+    }
+  };
+  const addHint = showAddHint ? (
+    <div className="add-hint" role="note">
+      <span>
+        Tap a tournament to <strong>preview its cuts</strong> · hit <strong>＋ Add</strong> to
+        put it on your schedule
+      </span>
+      <button type="button" className="add-hint__close" onClick={dismissAddHint} aria-label="Dismiss hint">
+        ✕
+      </button>
+    </div>
+  ) : null;
   const grouped = useMemo(() => {
     const byTier = new Map<CandidateTier, RankedCandidate<SwingMapEvent>[]>();
     for (const c of candidates) {
@@ -903,7 +1004,7 @@ function BuilderPanel({
               onAdd(c.event.editionId);
             }}
           >
-            +
+            ＋ Add
           </button>
         </div>
       </li>
@@ -1133,6 +1234,7 @@ function BuilderPanel({
               emptyWeek
             ) : (
               <>
+                {addHint}
                 <ul className="cand-list">{candidates.map(candidateRow)}</ul>
                 {skipButton}
               </>

@@ -282,7 +282,14 @@ export default function WeekTournamentPicker({
   // sessionStorage is the reliable fallback for back navigation because
   // history.replaceState can be lost when Next.js's router pushes a new entry.
   useLayoutEffect(() => {
-    const stored = sessionStorage.getItem('openWeek');
+    // Keyed per year: a remembered week from 2023 must never yank the 2026
+    // schedule to the wrong place ("back button takes me where I wasn't").
+    let stored: string | null = null;
+    try {
+      stored = sessionStorage.getItem(`openWeek:${year}`);
+    } catch {
+      // storage blocked; fall through to the computed current week
+    }
     const keyToOpen = defaultWeekKey ?? stored ?? currentWeekKey;
     if (!keyToOpen || !weekRef.current) return;
     const el = weekRef.current.querySelector<HTMLDetailsElement>(`[data-week-key="${keyToOpen}"]`);
@@ -295,7 +302,7 @@ export default function WeekTournamentPicker({
     const t1 = window.setTimeout(scroll, 100);
     const t2 = window.setTimeout(scroll, 400);
     return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
-  }, [defaultWeekKey, currentWeekKey]);
+  }, [defaultWeekKey, currentWeekKey, year]);
 
   const show = (el: HTMLElement | null, visible: boolean) => {
     if (el) el.style.display = visible ? '' : 'none';
@@ -612,7 +619,7 @@ export default function WeekTournamentPicker({
               // Safari/Chrome rate limit and crash the page.
               if (Date.now() < bulkToggleUntilRef.current) return;
               try {
-                sessionStorage.setItem('openWeek', group.key);
+                sessionStorage.setItem(`openWeek:${year}`, group.key);
                 const params = new URLSearchParams(window.location.search);
                 params.set('week', group.key);
                 history.replaceState(null, '', `?${params.toString()}`);
