@@ -140,31 +140,39 @@ jobs:
           # the season; paged via nextStartCode; runs every night (the route
           # short-circuits for free when nothing is missing a code).
           print('\n=== ProTennisLive code discovery ===', flush=True)
-          try:
-              path = f'/api/discover-codes?year={current_year}&auto=true&apply=true&applyMinConfidence=high'
-              end_code = None
-              applied_total = 0
-              for page in range(30):
-                  out = request_json(path, timeout=120, retries=2)
-                  if out.get('skipped'):
-                      print('all Challenger/ATP editions already have codes — skipped', flush=True)
-                      break
-                  applied = out.get('applied') or []
-                  applied_total += len(applied)
-                  for a in applied:
-                      print(f"  + code {a.get('code')} -> {a.get('slug')} ({a.get('confidence')})", flush=True)
-                  for amb in out.get('ambiguousCodes') or []:
-                      print(f"  ? code {amb.get('code')} matched multiple events "
-                            f"({', '.join(amb.get('slugs') or [])}) — skipped, needs manual review", flush=True)
-                  if end_code is None:
-                      end_code = (out.get('range') or {}).get('endCode')
-                  if not out.get('hasMore') or out.get('nextStartCode') is None or end_code is None:
-                      break
+          # Two passes: one anchored at the global max code, one at the top of
+          # the challenger band (codes < 4000) — PTL allocates in several
+          # bands and new events appear near the top of THEIR band, which is
+          # how Dublin-class challengers went codeless under the old
+          # single-anchor scan.
+          applied_total = 0
+          for band_suffix in ('', '&bandBelow=4000'):
+              try:
                   path = (f'/api/discover-codes?year={current_year}&auto=true&apply=true'
-                          f"&applyMinConfidence=high&startCode={out['nextStartCode']}&endCode={end_code}")
-              print(f'code discovery done: {applied_total} codes written', flush=True)
-          except Exception as exc:
-              print(f'code discovery failed (non-fatal): {exc}', flush=True)
+                          f'&applyMinConfidence=high{band_suffix}')
+                  end_code = None
+                  for page in range(30):
+                      out = request_json(path, timeout=120, retries=2)
+                      if out.get('skipped'):
+                          print('all Challenger/ATP editions already have codes — skipped', flush=True)
+                          break
+                      applied = out.get('applied') or []
+                      applied_total += len(applied)
+                      for a in applied:
+                          print(f"  + code {a.get('code')} -> {a.get('slug')} ({a.get('confidence')})", flush=True)
+                      for amb in out.get('ambiguousCodes') or []:
+                          print(f"  ? code {amb.get('code')} matched multiple events "
+                                f"({', '.join(amb.get('slugs') or [])}) — skipped, needs manual review", flush=True)
+                      if end_code is None:
+                          end_code = (out.get('range') or {}).get('endCode')
+                      if not out.get('hasMore') or out.get('nextStartCode') is None or end_code is None:
+                          break
+                      path = (f'/api/discover-codes?year={current_year}&auto=true&apply=true'
+                              f"&applyMinConfidence=high{band_suffix}"
+                              f"&startCode={out['nextStartCode']}&endCode={end_code}")
+              except Exception as exc:
+                  print(f'code discovery pass failed (non-fatal): {exc}', flush=True)
+          print(f'code discovery done: {applied_total} codes written', flush=True)
 
           # Geocode any tournaments still missing coordinates. Without this,
           # newly imported tournaments never appear on the Builder map/timeline

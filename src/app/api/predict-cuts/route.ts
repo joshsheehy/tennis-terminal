@@ -99,22 +99,29 @@ export async function GET(request: NextRequest) {
         row.week ?? getAtpWeekForSeason(row.start_date instanceof Date ? row.start_date : String(row.start_date), row.year) ?? null;
       if (week == null) continue;
 
-      const lastYearCut =
-        observations.find((o) => o.slug === row.slug && o.year === row.year - 1)?.cut ?? null;
-      // Live as-of week: everything already published this season is fair game.
-      const today = new Date();
-      const asofWeek =
-        getAtpWeekForSeason(today.toISOString().slice(0, 10), row.year) ?? week;
+      const lastYear = observations.find((o) => o.slug === row.slug && o.year === row.year - 1);
+      const yearBefore = observations.find((o) => o.slug === row.slug && o.year === row.year - 2);
       const target = {
         slug: row.slug,
         year: row.year,
         week,
         group,
+        level: row.level,
         latitude: row.latitude,
         longitude: row.longitude,
       };
       const supply = supplySignalsFor(supplyCounts, group, row.year, week);
-      const prediction = predictCut(target, lastYearCut, observations, asofWeek, supply);
+      const prediction = predictCut(
+        target,
+        {
+          lastYearCut: lastYear?.cut ?? null,
+          yearBeforeCut: yearBefore?.cut ?? null,
+          lastYearLevel: lastYear?.level ?? null,
+        },
+        observations,
+        draw,
+        supply
+      );
       if (!prediction) {
         skippedNoModel += 1;
         continue;

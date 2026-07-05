@@ -83,6 +83,7 @@ export async function loadCutObservations(
       year: r.year,
       week: r.week,
       group,
+      level: r.level,
       latitude: r.latitude,
       longitude: r.longitude,
       cut: r.cut,

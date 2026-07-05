@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import {
-  driftFactor,
   cohortBase,
+  tierChangeFactor,
   supplyAdjustment,
   median,
   DEFAULT_BETAS,
@@ -40,7 +40,7 @@ type Sample = {
   group: TierGroup;
   year: number;
   actual: number;
-  /** lastYearCut (or cohort base) × drift — everything except supply. */
+  /** Blended own history × tier factor (or cohort base) — everything except supply. */
   base: number;
   baseline: number | null;
   method: 'trend' | 'cohort';
@@ -117,14 +117,31 @@ export async function GET(request: NextRequest) {
     for (const o of observations) byslugYear.set(`${o.slug}:${o.year}`, o.cut);
     const years = [...new Set(observations.map((o) => o.year))].sort();
 
+    const levelByslugYear = new Map<string, string>();
+    for (const o of observations) levelByslugYear.set(`${o.slug}:${o.year}`, o.level);
+    const BLEND_W1 = { ms: 0.7, qs: 0.65, md: 0.8 }[draw];
+
     const samples: Sample[] = [];
     for (const o of observations) {
       if (o.year <= years[0]) continue; // nothing before the first season
       const lastYearCut = byslugYear.get(`${o.slug}:${o.year - 1}`) ?? null;
-      const { drift } = driftFactor(o, observations, o.week);
-      let base: number | null = lastYearCut;
+      const yearBeforeCut = byslugYear.get(`${o.slug}:${o.year - 2}`) ?? null;
+      // Walk-forward: only prior-season observations feed the tier medians.
+      const prior = observations.filter((p) => p.year < o.year);
+      let base: number | null;
       let method: Sample['method'] = 'trend';
-      if (base == null) {
+      if (lastYearCut != null) {
+        base =
+          yearBeforeCut != null
+            ? BLEND_W1 * lastYearCut + (1 - BLEND_W1) * yearBeforeCut
+            : lastYearCut;
+        base *= tierChangeFactor(
+          prior,
+          o.level,
+          levelByslugYear.get(`${o.slug}:${o.year - 1}`) ?? null,
+          o.year
+        );
+      } else {
         base = cohortBase(o, observations);
         method = 'cohort';
       }
@@ -133,7 +150,7 @@ export async function GET(request: NextRequest) {
         group: o.group,
         year: o.year,
         actual: o.cut,
-        base: base * drift,
+        base,
         baseline: lastYearCut,
         method,
         supply: supplySignalsFor(supplyCounts, o.group, o.year, o.week),

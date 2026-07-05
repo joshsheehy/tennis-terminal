@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   tierGroup,
-  driftFactor,
+  tierChangeFactor,
   cohortBase,
   predictCut,
   supplyAdjustment,
@@ -16,28 +16,28 @@ const obs = (
   year: number,
   week: number,
   cut: number,
-  coords: [number, number] | null = null
+  coords: [number, number] | null = null,
+  level = 'Challenger 75'
 ): CutObservation => ({
   slug,
   year,
   week,
   group: 'challenger',
+  level,
   latitude: coords?.[0] ?? null,
   longitude: coords?.[1] ?? null,
   cut,
 });
 
-// Six European challengers whose cuts all deepened ~20% from 2024 to 2025,
-// published in weeks 1-5 of 2025.
-function driftingMarket(): CutObservation[] {
-  const rows: CutObservation[] = [];
-  for (let i = 0; i < 6; i++) {
-    const coords: [number, number] = [45 + i, 5 + i];
-    rows.push(obs(`eu-${i}`, 2024, i + 1, 250, coords));
-    rows.push(obs(`eu-${i}`, 2025, i + 1, 300, coords));
-  }
-  return rows;
-}
+const target = {
+  slug: 'target',
+  year: 2025,
+  week: 10,
+  group: 'challenger' as const,
+  level: 'Challenger 75',
+  latitude: 47,
+  longitude: 7,
+};
 
 describe('tierGroup', () => {
   it('classifies levels and excludes ITF', () => {
@@ -48,36 +48,74 @@ describe('tierGroup', () => {
   });
 });
 
-describe('driftFactor', () => {
-  const target = { slug: 'target', year: 2025, week: 10, group: 'challenger' as const, latitude: 47, longitude: 7 };
+describe('tierChangeFactor', () => {
+  // Prior seasons: Challenger 75 cuts around 400, Challenger 125 around 200.
+  const history: CutObservation[] = [];
+  for (let i = 0; i < 10; i++) {
+    history.push(obs(`c75-${i}`, 2023, i + 1, 390 + i * 2, null, 'Challenger 75'));
+    history.push(obs(`c125-${i}`, 2023, i + 1, 195 + i * 2, null, 'Challenger 125'));
+  }
 
-  it('finds the market-wide ratio from year-over-year pairs', () => {
-    const { drift, comparators } = driftFactor(target, driftingMarket(), 10);
-    expect(drift).toBeCloseTo(1.2, 5);
-    expect(comparators).toBe(6);
+  it('rescales when the tournament changed tier', () => {
+    const up = tierChangeFactor(history, 'Challenger 125', 'Challenger 75', 2025);
+    expect(up).toBeLessThan(0.7); // promoted → stronger field → shallower cut
+    const down = tierChangeFactor(history, 'Challenger 75', 'Challenger 125', 2025);
+    expect(down).toBeGreaterThan(1.5);
   });
 
-  it('is strictly walk-forward: cuts at or after the as-of week are unseen', () => {
-    const { comparators } = driftFactor(target, driftingMarket(), 2);
-    // Only the week-1 pair precedes as-of week 2 — below the minimum, so no drift.
-    expect(comparators).toBe(0);
+  it('is neutral without a change or with thin data', () => {
+    expect(tierChangeFactor(history, 'Challenger 75', 'Challenger 75', 2025)).toBe(1);
+    expect(tierChangeFactor(history, 'Challenger 75', null, 2025)).toBe(1);
+    expect(tierChangeFactor(history.slice(0, 4), 'Challenger 125', 'Challenger 75', 2025)).toBe(1);
   });
 
-  it('prefers geographic neighbours when enough exist', () => {
-    const rows = driftingMarket();
-    // Five far-away events that CRASHED — a regional pool of 6 nearby should win.
-    for (let i = 0; i < 5; i++) {
-      rows.push(obs(`far-${i}`, 2024, i + 1, 300, [-30, -60]));
-      rows.push(obs(`far-${i}`, 2025, i + 1, 150, [-30, -60]));
+  it('only looks at prior seasons', () => {
+    const futureOnly = history.map((o) => ({ ...o, year: 2026 }));
+    expect(tierChangeFactor(futureOnly, 'Challenger 125', 'Challenger 75', 2025)).toBe(1);
+  });
+});
+
+describe('predictCut', () => {
+  it('blends the last two own cuts (singles main: 0.7/0.3)', () => {
+    const p = predictCut(target, { lastYearCut: 300, yearBeforeCut: 200, lastYearLevel: 'Challenger 75' }, [], 'ms');
+    expect(p?.method).toBe('trend');
+    expect(p?.cut).toBe(Math.round(0.7 * 300 + 0.3 * 200));
+    expect(p!.low).toBeLessThan(p!.cut);
+    expect(p!.high).toBeGreaterThan(p!.cut);
+  });
+
+  it('uses last year alone when the year before is missing', () => {
+    const p = predictCut(target, { lastYearCut: 300, yearBeforeCut: null, lastYearLevel: 'Challenger 75' }, [], 'ms');
+    expect(p?.cut).toBe(300);
+  });
+
+  it('applies the tier-change factor to the blended base', () => {
+    const history: CutObservation[] = [];
+    for (let i = 0; i < 10; i++) {
+      history.push(obs(`c75-${i}`, 2023, i + 1, 400, null, 'Challenger 75'));
+      history.push(obs(`c125-${i}`, 2023, i + 1, 200, null, 'Challenger 125'));
     }
-    const { drift } = driftFactor(target, rows, 10);
-    expect(drift).toBeCloseTo(1.2, 5);
+    const promoted = { ...target, level: 'Challenger 125' };
+    const p = predictCut(promoted, { lastYearCut: 400, yearBeforeCut: null, lastYearLevel: 'Challenger 75' }, history, 'ms');
+    expect(p?.tierFactor).toBeCloseTo(0.55, 2); // clamped floor of 200/400
+    expect(p?.cut).toBe(Math.round(400 * p!.tierFactor));
   });
 
-  it('returns neutral drift with too few comparators', () => {
-    const { drift, comparators } = driftFactor(target, driftingMarket().slice(0, 4), 10);
-    expect(drift).toBe(1);
-    expect(comparators).toBe(0);
+  it('falls back to a wider cohort prediction without own history', () => {
+    const rows = [
+      obs('a', 2024, 9, 200, [46, 6]),
+      obs('b', 2024, 10, 260, [47, 8]),
+      obs('c', 2024, 11, 320, [48, 9]),
+    ];
+    const p = predictCut(target, { lastYearCut: null, yearBeforeCut: null, lastYearLevel: null }, rows, 'ms');
+    expect(p?.method).toBe('cohort');
+    expect(p?.cut).toBe(260);
+    const trend = predictCut(target, { lastYearCut: 260, yearBeforeCut: null, lastYearLevel: 'Challenger 75' }, rows, 'ms')!;
+    expect((p!.high - p!.low) / p!.cut).toBeGreaterThan((trend.high - trend.low) / trend.cut);
+  });
+
+  it('returns null with neither history nor cohort', () => {
+    expect(predictCut(target, { lastYearCut: null, yearBeforeCut: null, lastYearLevel: null }, [], 'ms')).toBeNull();
   });
 });
 
@@ -88,73 +126,25 @@ describe('cohortBase', () => {
       obs('b', 2024, 10, 260, [47, 8]),
       obs('c', 2024, 11, 320, [48, 9]),
     ];
-    const base = cohortBase(
-      { slug: 'new-event', year: 2025, week: 10, group: 'challenger', latitude: 47, longitude: 7 },
-      rows
-    );
-    expect(base).toBe(260);
+    expect(cohortBase(target, rows)).toBe(260);
   });
 
   it('returns null when the cohort is too thin', () => {
-    const base = cohortBase(
-      { slug: 'new-event', year: 2025, week: 10, group: 'challenger', latitude: null, longitude: null },
-      [obs('a', 2024, 10, 200)]
+    expect(cohortBase({ ...target, latitude: null, longitude: null }, [obs('a', 2024, 10, 200)])).toBeNull();
+  });
+});
+
+describe('supplyAdjustment (fitted to zero, kept measurable)', () => {
+  it('is neutral at the fitted default betas', () => {
+    expect(supplyAdjustment({ sameWeekRatio: 1.8, runupRatio: 1.5 }, DEFAULT_BETAS)).toBe(1);
+  });
+
+  it('responds when given non-zero betas, with clamping', () => {
+    const betas = { supply: 0.3, runup: 0.1 };
+    expect(supplyAdjustment({ sameWeekRatio: 1.5, runupRatio: null }, betas)).toBeGreaterThan(1);
+    expect(supplyAdjustment({ sameWeekRatio: 10, runupRatio: null }, betas)).toBe(
+      supplyAdjustment({ sameWeekRatio: 2, runupRatio: null }, betas)
     );
-    expect(base).toBeNull();
-  });
-});
-
-describe('predictCut', () => {
-  const target = { slug: 'target', year: 2025, week: 10, group: 'challenger' as const, latitude: 47, longitude: 7 };
-
-  it('scales the own last-year cut by market drift', () => {
-    const p = predictCut(target, 250, driftingMarket(), 10);
-    expect(p?.method).toBe('trend');
-    expect(p?.cut).toBe(300); // 250 × 1.2
-    expect(p!.low).toBeLessThan(300);
-    expect(p!.high).toBeGreaterThan(300);
-  });
-
-  it('falls back to a wider cohort prediction without own history', () => {
-    const rows = driftingMarket();
-    const p = predictCut({ ...target, week: 3 }, null, rows, 10);
-    expect(p?.method).toBe('cohort');
-    // Cohort band is wider than trend band.
-    const trend = predictCut(target, p!.cut, rows, 10)!;
-    expect((p!.high - p!.low) / p!.cut).toBeGreaterThan((trend.high - trend.low) / trend.cut);
-  });
-
-  it('returns null with neither history nor cohort', () => {
-    expect(predictCut(target, null, [], 10)).toBeNull();
-  });
-});
-
-describe('supplyAdjustment', () => {
-  it('is neutral without signals or with zero betas', () => {
-    expect(supplyAdjustment(undefined, DEFAULT_BETAS)).toBe(1);
-    expect(supplyAdjustment({ sameWeekRatio: null, runupRatio: null }, DEFAULT_BETAS)).toBe(1);
-    expect(supplyAdjustment({ sameWeekRatio: 1.5, runupRatio: 1.5 }, { supply: 0, runup: 0 })).toBe(1);
-  });
-
-  it('deepens the cut when the calendar packs more same-tier events', () => {
-    const adj = supplyAdjustment({ sameWeekRatio: 1.5, runupRatio: 1.2 }, DEFAULT_BETAS);
-    expect(adj).toBeGreaterThan(1);
-    // Damped: a 50% supply increase must not imply a 50% deeper cut.
-    expect(adj).toBeLessThan(1.5);
-  });
-
-  it('softens the cut when supply shrinks, with extreme ratios clamped', () => {
-    const shrink = supplyAdjustment({ sameWeekRatio: 0.5, runupRatio: null }, DEFAULT_BETAS);
-    expect(shrink).toBeLessThan(1);
-    const clamped = supplyAdjustment({ sameWeekRatio: 10, runupRatio: null }, DEFAULT_BETAS);
-    expect(clamped).toBe(supplyAdjustment({ sameWeekRatio: 2, runupRatio: null }, DEFAULT_BETAS));
-  });
-
-  it('feeds through predictCut multiplicatively', () => {
-    const target = { slug: 'target', year: 2025, week: 10, group: 'challenger' as const, latitude: 47, longitude: 7 };
-    const withSupply = predictCut(target, 250, driftingMarket(), 10, { sameWeekRatio: 2, runupRatio: null });
-    const without = predictCut(target, 250, driftingMarket(), 10);
-    expect(withSupply!.cut).toBeGreaterThan(without!.cut);
   });
 });
 

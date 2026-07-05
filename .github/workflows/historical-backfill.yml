@@ -18,10 +18,10 @@ on:
   workflow_dispatch:
     inputs:
       year:
-        description: 'Season to backfill'
+        description: 'Season to backfill (idempotent — rerunning any season only fills gaps)'
         required: true
         type: choice
-        options: ['2022', '2023']
+        options: ['2022', '2023', '2024', '2025', '2026']
       code_start:
         description: 'First ProTennisLive code to probe'
         required: false

@@ -375,7 +375,18 @@ export async function GET(request: NextRequest) {
       if (known.length === 0) {
         throw new Error(`auto range requested but no known ProTennisLive codes exist for ${year}`);
       }
-      const maxKnown = Math.max(...known);
+      // PTL allocates codes in several bands (2xxx-3xxx challengers, 7xxx,
+      // 9xxx...), and new events appear near the top of THEIR band, not the
+      // global max. bandBelow anchors the scan on the highest known code
+      // under a ceiling so callers can sweep each growing band — e.g. the
+      // nightly runs one pass at the global max and one at bandBelow=4000.
+      const bandBelowRaw = searchParams.get('bandBelow');
+      const bandBelow = bandBelowRaw ? parseNumberParam(bandBelowRaw, 'bandBelow') : null;
+      const anchorPool = bandBelow != null ? known.filter((c) => c < bandBelow) : known;
+      if (anchorPool.length === 0) {
+        throw new Error(`no known codes below bandBelow=${bandBelow} for ${year}`);
+      }
+      const maxKnown = Math.max(...anchorPool);
       const back = Number(searchParams.get('back') ?? 120);
       const ahead = Number(searchParams.get('ahead') ?? 160);
       startCode = searchParams.get('startCode')
