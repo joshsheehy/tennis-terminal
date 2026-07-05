@@ -1,4 +1,4 @@
-// Beta cut-projection model, v2 ("blend-v2"). Pure functions only — the
+// Beta cut-projection model, v2.1 ("blend-v2.1"). Pure functions only — the
 // routes feed it rows and store what it returns.
 //
 // Every structural choice here was fitted on a walk-forward backtest over
@@ -35,7 +35,7 @@
 // Output is a range, not a point: bands are the fitted 75th percentile of
 // relative absolute error per draw × tier.
 
-export const MODEL_VERSION = 'blend-v2';
+export const MODEL_VERSION = 'blend-v2.1';
 
 export type TierGroup = 'gs' | 'tour' | 'challenger';
 export type PredictDraw = 'ms' | 'qs' | 'md';
@@ -56,6 +56,11 @@ export type OwnHistory = {
   lastYearCut: number | null;
   yearBeforeCut: number | null;
   lastYearLevel: string | null;
+  /** All of the tournament's own cuts from seasons before last year — used to
+   * winsorize a freak last-year value (the Newport 2025 case: one year of
+   * regional field-splitting spiked its quali cut to 1314 against a 286-616
+   * history; trusting it raw made the 2026 projection badly weak). */
+  priorCuts?: number[];
 };
 
 export type CutPrediction = {
@@ -85,6 +90,12 @@ const RANGE: Record<PredictDraw, Record<TierGroup, number>> = {
   qs: { gs: 0.15, tour: 0.5, challenger: 0.47 },
   md: { gs: 0.15, tour: 0.37, challenger: 0.48 },
 };
+
+// A last-year cut further than this factor from the tournament's own prior
+// median is treated as an outlier year and clamped before blending. Fitted on
+// the backtest: improves every draw overall and cuts error on the outlier
+// subset by 10-28%.
+const WINSOR_FACTOR = 1.75;
 
 const MIN_COHORT = 3;
 const MIN_LEVEL_MEDIAN = 8;
@@ -206,11 +217,17 @@ export function predictCut(
   let tierFactor = 1;
 
   if (own.lastYearCut != null) {
+    // Winsorize a freak last year against the tournament's own longer history.
+    let last = own.lastYearCut;
+    const prior = own.priorCuts ?? [];
+    if (prior.length >= 2) {
+      const priorMed = median(prior);
+      if (priorMed != null && priorMed > 0) {
+        last = Math.min(priorMed * WINSOR_FACTOR, Math.max(priorMed / WINSOR_FACTOR, last));
+      }
+    }
     const w1 = BLEND_W1[draw];
-    base =
-      own.yearBeforeCut != null
-        ? w1 * own.lastYearCut + (1 - w1) * own.yearBeforeCut
-        : own.lastYearCut;
+    base = own.yearBeforeCut != null ? w1 * last + (1 - w1) * own.yearBeforeCut : last;
     tierFactor = tierChangeFactor(observations, target.level, own.lastYearLevel, target.year);
     base *= tierFactor;
     method = 'trend';

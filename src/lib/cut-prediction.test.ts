@@ -101,6 +101,27 @@ describe('predictCut', () => {
     expect(p?.cut).toBe(Math.round(400 * p!.tierFactor));
   });
 
+  it('winsorizes a freak last year against own prior history (Newport 2025 case)', () => {
+    // Own history 486/616/286 (median 486), then a 1314 outlier year caused
+    // by regional field-splitting. The blend must not trust 1314 raw.
+    const p = predictCut(
+      { ...target, year: 2026 },
+      { lastYearCut: 1314, yearBeforeCut: 286, lastYearLevel: 'Challenger 75', priorCuts: [486, 616, 286] },
+      [],
+      'qs'
+    );
+    const clampedLast = 486 * 1.75; // 850.5
+    expect(p?.cut).toBe(Math.round(0.65 * clampedLast + 0.35 * 286));
+    // and a normal last year is untouched
+    const normal = predictCut(
+      { ...target, year: 2026 },
+      { lastYearCut: 500, yearBeforeCut: 480, lastYearLevel: 'Challenger 75', priorCuts: [486, 616, 286] },
+      [],
+      'qs'
+    );
+    expect(normal?.cut).toBe(Math.round(0.65 * 500 + 0.35 * 480));
+  });
+
   it('falls back to a wider cohort prediction without own history', () => {
     const rows = [
       obs('a', 2024, 9, 200, [46, 6]),

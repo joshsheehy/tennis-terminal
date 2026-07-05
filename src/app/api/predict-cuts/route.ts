@@ -101,6 +101,9 @@ export async function GET(request: NextRequest) {
 
       const lastYear = observations.find((o) => o.slug === row.slug && o.year === row.year - 1);
       const yearBefore = observations.find((o) => o.slug === row.slug && o.year === row.year - 2);
+      const priorCuts = observations
+        .filter((o) => o.slug === row.slug && o.year < row.year - 1)
+        .map((o) => o.cut);
       const target = {
         slug: row.slug,
         year: row.year,
@@ -117,6 +120,7 @@ export async function GET(request: NextRequest) {
           lastYearCut: lastYear?.cut ?? null,
           yearBeforeCut: yearBefore?.cut ?? null,
           lastYearLevel: lastYear?.level ?? null,
+          priorCuts,
         },
         observations,
         draw,

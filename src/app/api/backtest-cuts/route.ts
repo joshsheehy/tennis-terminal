@@ -131,10 +131,23 @@ export async function GET(request: NextRequest) {
       let base: number | null;
       let method: Sample['method'] = 'trend';
       if (lastYearCut != null) {
+        // Winsorize a freak last year against own prior history (blend-v2.1).
+        let last = lastYearCut;
+        const priorCuts: number[] = [];
+        for (let y = years[0]; y < o.year - 1; y++) {
+          const c = byslugYear.get(`${o.slug}:${y}`);
+          if (c != null) priorCuts.push(c);
+        }
+        if (priorCuts.length >= 2) {
+          const priorMed = median(priorCuts);
+          if (priorMed != null && priorMed > 0) {
+            last = Math.min(priorMed * 1.75, Math.max(priorMed / 1.75, last));
+          }
+        }
         base =
           yearBeforeCut != null
-            ? BLEND_W1 * lastYearCut + (1 - BLEND_W1) * yearBeforeCut
-            : lastYearCut;
+            ? BLEND_W1 * last + (1 - BLEND_W1) * yearBeforeCut
+            : last;
         base *= tierChangeFactor(
           prior,
           o.level,
