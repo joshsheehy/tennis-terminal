@@ -16,12 +16,15 @@ export default function ManagePreferences({
   token,
   email,
   initialCategories,
+  initialIncludeDoubles,
 }: {
   token: string;
   email: string;
   initialCategories: string[];
+  initialIncludeDoubles: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialCategories));
+  const [doubles, setDoubles] = useState(initialIncludeDoubles);
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
 
@@ -46,7 +49,7 @@ export default function ManagePreferences({
       const res = await fetch('/api/preferences', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ token, categories: Array.from(selected) }),
+        body: JSON.stringify({ token, categories: Array.from(selected), doubles }),
       });
       const data = (await res.json()) as { ok: boolean; message?: string; error?: string };
       if (res.ok && data.ok) {
@@ -85,6 +88,16 @@ export default function ManagePreferences({
           </label>
         ))}
       </fieldset>
+      <div style={{ borderTop: '1px solid var(--border, #e5e7eb)', paddingTop: 12 }}>
+        <label className={`check-option${doubles ? ' check-option--on' : ''}`}>
+          <input type="checkbox" checked={doubles} onChange={() => setDoubles((v) => !v)} />
+          Also send doubles (advance entry)
+        </label>
+        <p style={{ margin: '6px 0 0 28px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+          Adds the doubles advance-entry deadline for the tours you picked. On-site
+          doubles sign-ins aren&apos;t tracked.
+        </p>
+      </div>
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
         <button type="button" onClick={save} disabled={status === 'loading'} className="btn btn--primary">
           {status === 'loading' ? 'Saving…' : 'Save preferences'}

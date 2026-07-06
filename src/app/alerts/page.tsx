@@ -17,7 +17,7 @@ const RULES: Array<{ category: string; rows: Array<[string, string]> }> = [
     rows: [
       ['Singles main draw', '42 days before'],
       ['Singles qualifying', '28 days before'],
-      ['Doubles main draw', '~14 days before (set by each event)'],
+      ['Doubles (advance entry) — optional', '~14 days before (set by each event)'],
     ],
   },
   {
@@ -25,7 +25,7 @@ const RULES: Array<{ category: string; rows: Array<[string, string]> }> = [
     rows: [
       ['Singles main draw', '28 days before, 12:00 noon ET'],
       ['Singles qualifying', '21 days before, 12:00 noon ET'],
-      ['Doubles main draw', '14 days before, 12:00 noon ET'],
+      ['Doubles (advance entry) — optional', '14 days before, 12:00 noon ET'],
     ],
   },
   {
@@ -33,7 +33,7 @@ const RULES: Array<{ category: string; rows: Array<[string, string]> }> = [
     rows: [
       ['Singles main draw', '21 days before, 12:00 noon ET'],
       ['Singles qualifying', '19 days before (Wed), 12:00 noon ET'],
-      ['Doubles main draw', '7 days before, 12:00 noon ET'],
+      ['Doubles (advance entry) — optional', '7 days before, 12:00 noon ET'],
     ],
   },
   {
@@ -63,8 +63,11 @@ export default function AlertsPage() {
         The deadlines we track
       </h2>
       <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
-        All counted back from the Monday of the tournament week. Sources: 2026 ATP Official
-        Rulebook §7.03, 2026 ITF World Tennis Tour Regulations, and the Grand Slam entry standard.
+        All counted back from the Monday of the tournament week. Singles main draw and qualifying
+        are always included; doubles (advance entry) is optional — tick the box when you sign up.
+        On-site doubles sign-ins are too fluid to schedule, so they aren&apos;t tracked. Sources:
+        2026 ATP Official Rulebook §7.03, 2026 ITF World Tennis Tour Regulations, and the 2026
+        Grand Slam Rule Book.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {RULES.map((group) => (

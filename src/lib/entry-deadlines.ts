@@ -55,12 +55,12 @@ const CATEGORY_RULES: Record<Category, RuleDef[]> = {
   atp: [
     { kind: 'main', label: 'Singles main draw', daysPrior: 28, timeNote: '12:00 noon ET' },
     { kind: 'qualifying', label: 'Singles qualifying', daysPrior: 21, timeNote: '12:00 noon ET' },
-    { kind: 'doubles', label: 'Doubles main draw', daysPrior: 14, timeNote: '12:00 noon ET' },
+    { kind: 'doubles', label: 'Doubles (advance entry)', daysPrior: 14, timeNote: '12:00 noon ET' },
   ],
   challenger: [
     { kind: 'main', label: 'Singles main draw', daysPrior: 21, timeNote: '12:00 noon ET' },
     { kind: 'qualifying', label: 'Singles qualifying', daysPrior: 19, timeNote: '12:00 noon ET (Wed)' },
-    { kind: 'doubles', label: 'Doubles main draw', daysPrior: 7, timeNote: '12:00 noon ET' },
+    { kind: 'doubles', label: 'Doubles (advance entry)', daysPrior: 7, timeNote: '12:00 noon ET' },
   ],
   itf: [
     { kind: 'entry', label: 'Entry deadline', daysPrior: 18, timeNote: '14:00 GMT (Thu)' },
@@ -68,7 +68,7 @@ const CATEGORY_RULES: Record<Category, RuleDef[]> = {
   grandslam: [
     { kind: 'main', label: 'Singles main draw', daysPrior: 42, timeNote: 'time per event' },
     { kind: 'qualifying', label: 'Singles qualifying', daysPrior: 28, timeNote: 'time per event' },
-    { kind: 'doubles', label: 'Doubles main draw', daysPrior: 14, timeNote: 'approx.; set by each event' },
+    { kind: 'doubles', label: 'Doubles (advance entry)', daysPrior: 14, timeNote: 'approx.; set by each event' },
   ],
 };
 
@@ -210,10 +210,9 @@ function aggregateItf(deadlines: Deadline[]): Deadline[] {
 // deadlineDate is in [today, today + leadDays]. With leadDays = 1 (the default)
 // this is the "~24 hours before" window: it fires the day before the deadline,
 // and also catches a same-day deadline if a cron run was missed. Filtered to the
-// caller's chosen categories. ATP/Challenger doubles are opt-in via
-// includeDoubles; Grand Slam doubles are always included (its main/qualifying/
-// doubles trio is exactly what subscribers picked the category for). ITF rows
-// come back as one aggregate line per tournament week, never per event.
+// caller's chosen categories. Doubles (advance-entry) deadlines are opt-in via
+// includeDoubles for every tour. ITF rows come back as one aggregate line per
+// tournament week, never per event.
 export function dueDeadlines(
   rows: ScheduleRow[],
   today: Date,
@@ -236,7 +235,7 @@ export function dueDeadlines(
   for (const row of rows) {
     for (const d of deadlinesForEdition(row)) {
       if (!wanted.has(d.category)) continue;
-      if (!includeDoubles && d.kind === 'doubles' && d.category !== 'grandslam') continue;
+      if (!includeDoubles && d.kind === 'doubles') continue;
       const when = parseUtcDateOnly(d.deadlineDate);
       if (!when) continue;
       if (when.getTime() >= start.getTime() && when.getTime() <= end.getTime()) {

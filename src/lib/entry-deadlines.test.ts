@@ -168,14 +168,18 @@ describe('dueDeadlines', () => {
     expect(withDbl.map((d) => d.kind)).toContain('doubles');
   });
 
-  it('always includes Grand Slam doubles', () => {
+  it('excludes Grand Slam doubles unless includeDoubles is set (opt-in)', () => {
     const gs = [row({ edition_id: 'gs', slug: 'wimbledon', name: 'Wimbledon', level: 'Grand Slam' })];
-    // GS doubles deadline is 2026-03-02; run the day before, no includeDoubles.
-    const due = dueDeadlines(gs, new Date('2026-03-01T09:00:00Z'), {
+    // GS doubles deadline is 2026-03-02; run the day before.
+    const when = new Date('2026-03-01T09:00:00Z');
+    const without = dueDeadlines(gs, when, { leadDays: 1, categories: ['grandslam'] });
+    expect(without.map((d) => d.kind)).not.toContain('doubles');
+    const withDbl = dueDeadlines(gs, when, {
       leadDays: 1,
       categories: ['grandslam'],
+      includeDoubles: true,
     });
-    expect(due.map((d) => d.kind)).toContain('doubles');
+    expect(withDbl.map((d) => d.kind)).toContain('doubles');
   });
 
   it('fires separate alerts for Grand Slam main draw and qualifying', () => {

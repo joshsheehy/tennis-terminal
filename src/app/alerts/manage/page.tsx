@@ -39,6 +39,7 @@ export default async function ManageAlertsPage({
           token={subscriber.unsubscribe_token}
           email={subscriber.email}
           initialCategories={subscriber.categories}
+          initialIncludeDoubles={subscriber.include_doubles}
         />
       </section>
     </main>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isValidEmail, normalizeCategories, upsertSubscriber } from '@/lib/subscribers';
+import { isValidEmail, parseSelection, upsertSubscriber } from '@/lib/subscribers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,16 +10,23 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   let email = '';
   let categoriesInput: unknown = [];
+  let doublesFlag: unknown = undefined;
   const contentType = request.headers.get('content-type') || '';
   try {
     if (contentType.includes('application/json')) {
-      const body = (await request.json()) as { email?: string; categories?: unknown };
+      const body = (await request.json()) as {
+        email?: string;
+        categories?: unknown;
+        doubles?: unknown;
+      };
       email = (body.email ?? '').toString();
       categoriesInput = body.categories ?? [];
+      doublesFlag = body.doubles;
     } else {
       const form = await request.formData();
       email = (form.get('email') ?? '').toString();
       categoriesInput = form.getAll('categories');
+      doublesFlag = form.get('doubles') === 'on' || undefined;
     }
   } catch {
     return NextResponse.json({ ok: false, error: 'Invalid request body' }, { status: 400 });
@@ -33,13 +40,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const categories = normalizeCategories(categoriesInput);
+  const { categories, includeDoubles } = parseSelection(categoriesInput, doublesFlag);
 
   try {
-    await upsertSubscriber(email, categories);
+    await upsertSubscriber(email, categories, includeDoubles);
     return NextResponse.json({
       ok: true,
       categories,
+      includeDoubles,
       message: "You're signed up. We'll email you 24 hours before each entry deadline.",
     });
   } catch (err) {

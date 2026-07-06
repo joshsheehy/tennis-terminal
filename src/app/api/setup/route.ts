@@ -89,6 +89,7 @@ export async function GET() {
         email text not null unique,
         active boolean not null default true,
         categories text[] not null default array['atp','challenger'],
+        include_doubles boolean not null default false,
         unsubscribe_token text not null default encode(gen_random_bytes(16), 'hex'),
         created_at timestamptz not null default now(),
         unsubscribed_at timestamptz
@@ -97,6 +98,10 @@ export async function GET() {
     await client.query(
       `alter table alert_subscribers
          add column if not exists categories text[] not null default array['atp','challenger'];`
+    );
+    await client.query(
+      `alter table alert_subscribers
+         add column if not exists include_doubles boolean not null default false;`
     );
     await client.query(`
       create table if not exists alert_sends (

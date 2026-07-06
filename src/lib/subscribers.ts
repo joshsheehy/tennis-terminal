@@ -19,15 +19,22 @@ export async function ensureSubscriberTables(): Promise<void> {
       -- Which tour categories this subscriber wants alerts for
       -- (subset of 'atp','challenger','itf','grandslam').
       categories text[] not null default array['atp','challenger'],
+      -- Also send doubles advance-entry deadlines (opt-in; singles main draw +
+      -- qualifying are always included for the chosen tours).
+      include_doubles boolean not null default false,
       unsubscribe_token text not null default encode(gen_random_bytes(16), 'hex'),
       created_at timestamptz not null default now(),
       unsubscribed_at timestamptz
     );
   `);
-  // Additive migration for tables created before the categories column existed.
+  // Additive migrations for tables created before these columns existed.
   await pool.query(
     `alter table alert_subscribers
        add column if not exists categories text[] not null default array['atp','challenger'];`
+  );
+  await pool.query(
+    `alter table alert_subscribers
+       add column if not exists include_doubles boolean not null default false;`
   );
   await pool.query(`
     create table if not exists alert_sends (
@@ -46,6 +53,7 @@ export type Subscriber = {
   email: string;
   active: boolean;
   categories: Category[];
+  include_doubles: boolean;
   unsubscribe_token: string;
 };
 
@@ -66,23 +74,39 @@ export function normalizeCategories(input: unknown): Category[] {
   return deduped.length ? deduped : (['atp', 'challenger'] as Category[]);
 }
 
+// The signup/preferences forms send a single list of checked options that may
+// include the pseudo-value 'doubles' alongside the tour categories. Split it
+// into the real tour categories + the doubles opt-in flag. An explicit boolean
+// `doublesFlag` (from a JSON `doubles` field) also turns it on.
+export function parseSelection(
+  input: unknown,
+  doublesFlag?: unknown
+): { categories: Category[]; includeDoubles: boolean } {
+  const arr = Array.isArray(input) ? input.map((c) => String(c).trim().toLowerCase()) : [];
+  const includeDoubles = doublesFlag === true || arr.includes('doubles');
+  return { categories: normalizeCategories(arr), includeDoubles };
+}
+
 // Add (or update) a subscriber. Idempotent on email; re-subscribing also
-// refreshes the chosen categories and reactivates.
+// refreshes the chosen categories / doubles preference and reactivates.
 export async function upsertSubscriber(
   rawEmail: string,
-  categories: Category[]
+  categories: Category[],
+  includeDoubles: boolean
 ): Promise<Subscriber> {
   await ensureSubscriberTables();
   const email = rawEmail.trim().toLowerCase();
   const result = await pool.query<Subscriber>(
     `
-    insert into alert_subscribers (email, categories)
-    values ($1, $2)
+    insert into alert_subscribers (email, categories, include_doubles)
+    values ($1, $2, $3)
     on conflict (email) do update
-      set active = true, unsubscribed_at = null, categories = excluded.categories
-    returning id, email, active, categories, unsubscribe_token
+      set active = true, unsubscribed_at = null,
+          categories = excluded.categories,
+          include_doubles = excluded.include_doubles
+    returning id, email, active, categories, include_doubles, unsubscribe_token
     `,
-    [email, categories]
+    [email, categories, includeDoubles]
   );
   return result.rows[0];
 }
@@ -90,7 +114,7 @@ export async function upsertSubscriber(
 export async function listActiveSubscribers(): Promise<Subscriber[]> {
   await ensureSubscriberTables();
   const result = await pool.query<Subscriber>(
-    `select id, email, active, categories, unsubscribe_token
+    `select id, email, active, categories, include_doubles, unsubscribe_token
        from alert_subscribers
       where active = true
       order by created_at asc`
@@ -104,7 +128,7 @@ export async function getSubscriberByToken(token: string): Promise<Subscriber | 
   await ensureSubscriberTables();
   if (!token) return null;
   const result = await pool.query<Subscriber>(
-    `select id, email, active, categories, unsubscribe_token
+    `select id, email, active, categories, include_doubles, unsubscribe_token
        from alert_subscribers
       where unsubscribe_token = $1`,
     [token]
@@ -112,20 +136,21 @@ export async function getSubscriberByToken(token: string): Promise<Subscriber | 
   return result.rows[0] ?? null;
 }
 
-// Update a subscriber's chosen categories via their token. Editing preferences
-// also re-activates a previously-unsubscribed address. Returns the updated
-// subscriber, or null if the token is unknown.
+// Update a subscriber's chosen categories / doubles preference via their token.
+// Editing preferences also re-activates a previously-unsubscribed address.
+// Returns the updated subscriber, or null if the token is unknown.
 export async function updateCategoriesByToken(
   token: string,
-  categories: Category[]
+  categories: Category[],
+  includeDoubles: boolean
 ): Promise<Subscriber | null> {
   await ensureSubscriberTables();
   const result = await pool.query<Subscriber>(
     `update alert_subscribers
-        set categories = $2, active = true, unsubscribed_at = null
+        set categories = $2, include_doubles = $3, active = true, unsubscribed_at = null
       where unsubscribe_token = $1
-      returning id, email, active, categories, unsubscribe_token`,
-    [token, categories]
+      returning id, email, active, categories, include_doubles, unsubscribe_token`,
+    [token, categories, includeDoubles]
   );
   return result.rows[0] ?? null;
 }

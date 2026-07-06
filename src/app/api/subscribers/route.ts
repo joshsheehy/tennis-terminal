@@ -15,6 +15,7 @@ export async function GET() {
     email: string;
     active: boolean;
     categories: string[];
+    include_doubles: boolean;
     created_at: string;
     unsubscribed_at: string | null;
     emails_sent: string;
@@ -25,6 +26,7 @@ export async function GET() {
       s.email,
       s.active,
       s.categories,
+      s.include_doubles,
       s.created_at,
       s.unsubscribed_at,
       count(a.id) as emails_sent,

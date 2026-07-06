@@ -13,14 +13,18 @@ create table if not exists alert_subscribers (
   active boolean not null default true,
   -- Subset of 'atp','challenger','itf','grandslam'.
   categories text[] not null default array['atp','challenger'],
+  -- Opt-in for doubles advance-entry deadlines (singles always included).
+  include_doubles boolean not null default false,
   unsubscribe_token text not null default encode(gen_random_bytes(16), 'hex'),
   created_at timestamptz not null default now(),
   unsubscribed_at timestamptz
 );
 
--- Additive migration for databases where the table predates the column.
+-- Additive migrations for databases where the table predates these columns.
 alter table alert_subscribers
   add column if not exists categories text[] not null default array['atp','challenger'];
+alter table alert_subscribers
+  add column if not exists include_doubles boolean not null default false;
 
 create table if not exists alert_sends (
   id uuid primary key default gen_random_uuid(),

@@ -20,6 +20,8 @@ export default function AlertSignup() {
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
 
+  const [doubles, setDoubles] = useState(false);
+
   function toggle(key: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -42,7 +44,7 @@ export default function AlertSignup() {
       const res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, categories: Array.from(selected) }),
+        body: JSON.stringify({ email, categories: Array.from(selected), doubles }),
       });
       const data = (await res.json()) as { ok: boolean; message?: string; error?: string };
       if (res.ok && data.ok) {
@@ -79,6 +81,17 @@ export default function AlertSignup() {
           </label>
         ))}
       </fieldset>
+
+      <div style={{ borderTop: '1px solid var(--border, #e5e7eb)', paddingTop: 12 }}>
+        <label className={`check-option${doubles ? ' check-option--on' : ''}`}>
+          <input type="checkbox" checked={doubles} onChange={() => setDoubles((v) => !v)} />
+          Also send doubles (advance entry)
+        </label>
+        <p style={{ margin: '6px 0 0 28px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+          Adds the doubles advance-entry deadline for the tours you picked. On-site
+          doubles sign-ins aren&apos;t tracked.
+        </p>
+      </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input

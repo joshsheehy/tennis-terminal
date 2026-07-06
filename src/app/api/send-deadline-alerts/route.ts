@@ -58,10 +58,15 @@ export async function GET(request: NextRequest) {
   }
 
   // Test mode: send the current window to a single address for the chosen
-  // categories (default: all).
+  // categories (default: all). Add &dbl=1 to include doubles advance entry.
   if (testEmail) {
     const cats = normalizeCategoriesFromParam(params.get('cats'));
-    const deadlines = dueDeadlines(schedule, today, { leadDays: lead, categories: cats });
+    const includeDoubles = params.get('dbl') === '1';
+    const deadlines = dueDeadlines(schedule, today, {
+      leadDays: lead,
+      categories: cats,
+      includeDoubles,
+    });
     if (deadlines.length === 0) {
       return NextResponse.json({
         ok: true,
@@ -102,6 +107,7 @@ export async function GET(request: NextRequest) {
     const deadlines = dueDeadlines(schedule, today, {
       leadDays: lead,
       categories: sub.categories,
+      includeDoubles: sub.include_doubles,
     });
     totalDeadlineHits += deadlines.length;
 
