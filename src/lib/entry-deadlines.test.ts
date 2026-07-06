@@ -4,6 +4,7 @@ import {
   categoryForLevel,
   deadlinesForEdition,
   dueDeadlines,
+  eventRank,
   mondayOfWeekUtc,
   normalizeCategoriesFromParam,
 } from './entry-deadlines';
@@ -191,6 +192,39 @@ describe('dueDeadlines', () => {
       categories: ['grandslam'],
     });
     expect(qualiDue.map((d) => d.kind)).toEqual(['qualifying']);
+  });
+
+  it('orders the digest by prestige: GS, Masters 1000, other ATP, Challenger, ITF', () => {
+    const rows = [
+      row({ edition_id: 'itf', slug: 'itf1', name: 'ITF One', level: 'ITF M25', start_date: '2026-07-27' }),
+      row({ edition_id: 'ch', slug: 'ch1', name: 'Challenger One', level: 'Challenger 100', start_date: '2026-07-27' }),
+      row({ edition_id: 'a250', slug: 'a250', name: 'ATP 250 One', level: 'ATP 250', start_date: '2026-07-27' }),
+      row({ edition_id: 'm1000', slug: 'm1000', name: 'Masters One', level: 'ATP 1000', start_date: '2026-07-27' }),
+      row({ edition_id: 'gs', slug: 'gs1', name: 'Slam One', level: 'Grand Slam', start_date: '2026-07-27' }),
+    ];
+    // Wide window so every tier's deadline is in-range, isolating the ordering.
+    const due = dueDeadlines(rows, new Date('2026-05-01T09:00:00Z'), {
+      leadDays: 90,
+      categories: ['grandslam', 'atp', 'challenger', 'itf'],
+    });
+    const ranks = due.map(eventRank);
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b)); // non-decreasing
+    expect(due[0].category).toBe('grandslam');
+    expect(due[due.length - 1].category).toBe('itf');
+    // Masters 1000 (rank 1) precedes other ATP (rank 2).
+    expect(due.findIndex((d) => eventRank(d) === 1)).toBeLessThan(
+      due.findIndex((d) => eventRank(d) === 2)
+    );
+  });
+
+  it('ranks levels: GS < Masters 1000 < ATP 500/250 < Challenger < ITF', () => {
+    const mk = (level: string) => deadlinesForEdition(row({ level }))[0];
+    expect(eventRank(mk('Grand Slam'))).toBe(0);
+    expect(eventRank(mk('ATP 1000'))).toBe(1);
+    expect(eventRank(mk('ATP 500'))).toBe(2);
+    expect(eventRank(mk('ATP 250'))).toBe(2);
+    expect(eventRank(mk('Challenger 100'))).toBe(3);
+    expect(eventRank(mk('ITF M25'))).toBe(4);
   });
 
   it('sorts Grand Slams to the top even when other deadlines are sooner', () => {

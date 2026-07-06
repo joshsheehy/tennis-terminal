@@ -245,15 +245,23 @@ export function dueDeadlines(
     }
   }
   const collapsed = aggregateItf(out);
-  // Grand Slams lead the list (they're the events subscribers care about
-  // most); everything else follows in soonest-deadline order.
-  const rank = (d: Deadline) => (d.category === 'grandslam' ? 0 : 1);
+  // Order by event prestige (Grand Slam -> Masters 1000 -> other ATP ->
+  // Challenger -> ITF); within a tier, soonest deadline first, then name.
   collapsed.sort((a, b) => {
-    if (rank(a) !== rank(b)) return rank(a) - rank(b);
+    if (eventRank(a) !== eventRank(b)) return eventRank(a) - eventRank(b);
     if (a.deadlineDate !== b.deadlineDate) return a.deadlineDate.localeCompare(b.deadlineDate);
     return a.name.localeCompare(b.name);
   });
   return collapsed;
+}
+
+// Prestige rank used to order the alert email:
+//   0 Grand Slam · 1 ATP Masters 1000 · 2 other ATP (500/250) · 3 Challenger · 4 ITF
+export function eventRank(d: Deadline): number {
+  if (d.category === 'grandslam') return 0;
+  if (d.category === 'atp') return /1000/.test(d.level) ? 1 : 2;
+  if (d.category === 'challenger') return 3;
+  return 4; // itf
 }
 
 // Stable idempotency key for one deadline occurrence, so a subscriber is never
