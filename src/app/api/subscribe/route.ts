@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isValidEmail, parseSelection, upsertSubscriber } from '@/lib/subscribers';
 import { renderWelcome, unsubscribeUrl } from '@/lib/alert-email';
 import { listUnsubscribeHeaders, sendEmail } from '@/lib/email';
+import { SITE_URL } from '@/lib/brand';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,7 +52,8 @@ export async function POST(request: NextRequest) {
     // (not on re-submits). Fire-and-forget — a mail hiccup must not fail the
     // signup itself, which is already saved.
     if (sub.created) {
-      const origin = request.nextUrl.origin;
+      // Always use the canonical public URL in emails, never the Railway host.
+      const origin = SITE_URL;
       const welcome = renderWelcome({
         origin,
         token: sub.unsubscribe_token,

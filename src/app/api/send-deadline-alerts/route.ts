@@ -10,6 +10,7 @@ import {
 } from '@/lib/entry-deadlines';
 import { renderDigest, unsubscribeUrl } from '@/lib/alert-email';
 import { emailConfigured, listUnsubscribeHeaders, sendEmail } from '@/lib/email';
+import { SITE_URL } from '@/lib/brand';
 import {
   claimSend,
   listActiveSubscribers,
@@ -33,7 +34,8 @@ export async function GET(request: NextRequest) {
   const lead = Math.max(0, Math.min(30, Number(params.get('lead') ?? '1') || 1));
   const dry = params.get('dry') === '1';
   const testEmail = params.get('test');
-  const origin = request.nextUrl.origin;
+  // Always use the canonical public URL in emails, never the Railway host.
+  const origin = SITE_URL;
   const today = new Date();
 
   // Deadlines for tournaments in early next season fall in the prior calendar
