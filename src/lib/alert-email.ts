@@ -15,6 +15,17 @@ export function managePrefsUrl(origin: string, token: string): string {
   return `${origin}/alerts/manage?token=${encodeURIComponent(token)}`;
 }
 
+// Branded header shared by every email: the app logo next to the wordmark.
+// The logo is a hosted PNG (email clients can't render local/data-URI images
+// reliably); it loads once the recipient shows images. width/height are set so
+// it reserves space and can't blow up if the client scales oddly.
+function brandHeaderHtml(origin: string): string {
+  return `<div style="margin:0 0 16px;line-height:1">
+      <img src="${origin}/logo-mark.png" width="28" height="28" alt="Tennis Cuts" style="vertical-align:middle;margin-right:8px;border:0" />
+      <span style="font-size:20px;font-weight:700;color:#111;vertical-align:middle">Tennis<span style="color:#3CB043">Cuts</span></span>
+    </div>`;
+}
+
 function formatDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00Z`);
   return d.toLocaleDateString('en-US', {
@@ -123,9 +134,7 @@ export function renderDigest(
 <body style="margin:0;background:#f6f7f8;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#111">
   <span style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</span>
   <div style="max-width:640px;margin:0 auto;padding:24px 16px">
-    <div style="margin:0 0 16px">
-      <span style="font-size:20px;font-weight:700;color:#111">Tennis<span style="color:#3CB043">Cuts</span></span>
-    </div>
+    ${brandHeaderHtml(origin)}
     <h1 style="font-size:18px;margin:0 0 4px">Entry deadlines</h1>
     <p style="color:#555;font-size:14px;margin:0 0 16px">
       ${count === 1 ? 'A deadline is' : count + ' deadlines are'} due within about 24 hours. Times are shown as set by the governing body.
@@ -194,9 +203,7 @@ export function renderWelcome(opts: {
 <body style="margin:0;background:#f6f7f8;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#111">
   <span style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</span>
   <div style="max-width:640px;margin:0 auto;padding:24px 16px">
-    <div style="margin:0 0 16px">
-      <span style="font-size:20px;font-weight:700;color:#111">Tennis<span style="color:#3CB043">Cuts</span></span>
-    </div>
+    ${brandHeaderHtml(origin)}
     <h1 style="font-size:18px;margin:0 0 8px">You're subscribed &#9989;</h1>
     <p style="color:#333;font-size:14px;margin:0 0 12px;line-height:1.5">
       You'll get an email <strong>about 24 hours before</strong> each entry deadline for:
