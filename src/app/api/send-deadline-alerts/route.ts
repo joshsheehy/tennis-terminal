@@ -8,8 +8,8 @@ import {
   dueDeadlines,
   normalizeCategoriesFromParam,
 } from '@/lib/entry-deadlines';
-import { renderDigest } from '@/lib/alert-email';
-import { emailConfigured, sendEmail } from '@/lib/email';
+import { renderDigest, unsubscribeUrl } from '@/lib/alert-email';
+import { emailConfigured, listUnsubscribeHeaders, sendEmail } from '@/lib/email';
 import {
   claimSend,
   listActiveSubscribers,
@@ -140,7 +140,13 @@ export async function GET(request: NextRequest) {
     }
 
     const { subject, html, text } = renderDigest(won, origin, sub.unsubscribe_token);
-    const result = await sendEmail({ to: sub.email, subject, html, text });
+    const result = await sendEmail({
+      to: sub.email,
+      subject,
+      html,
+      text,
+      headers: listUnsubscribeHeaders(unsubscribeUrl(origin, sub.unsubscribe_token)),
+    });
     if (!result.ok) {
       // Release claims so the next run retries instead of silently skipping.
       await Promise.all(won.map((d) => releaseSend(sub.id, deadlineKey(d))));

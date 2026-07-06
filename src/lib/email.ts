@@ -20,11 +20,22 @@ export function fromAddress(): string {
   return process.env.ALERT_FROM_EMAIL || 'Tennis Cuts <onboarding@resend.dev>';
 }
 
+// One-click unsubscribe headers (RFC 8058). Gmail/Yahoo bulk-sender rules
+// expect these, and they materially improve inbox placement (fewer spam
+// classifications). The URL must accept a POST for true one-click.
+export function listUnsubscribeHeaders(unsubUrl: string): Record<string, string> {
+  return {
+    'List-Unsubscribe': `<${unsubUrl}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+}
+
 export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  headers?: Record<string, string>;
 }): Promise<SendResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -44,6 +55,7 @@ export async function sendEmail(opts: {
         subject: opts.subject,
         html: opts.html,
         ...(opts.text ? { text: opts.text } : {}),
+        ...(opts.headers ? { headers: opts.headers } : {}),
       }),
     });
 

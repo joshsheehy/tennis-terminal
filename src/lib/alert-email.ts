@@ -1,10 +1,18 @@
-import { Deadline } from './entry-deadlines';
+import { Category, CATEGORY_LABEL, Deadline } from './entry-deadlines';
 
-// Rendering for the entry-deadline alert email. Kept separate from the API
-// route so it can be unit-tested and previewed without spinning up the server.
+// Rendering for the alert + welcome emails. Kept separate from the API route so
+// it can be unit-tested and previewed without spinning up the server.
 
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+export function unsubscribeUrl(origin: string, token: string): string {
+  return `${origin}/api/unsubscribe?token=${encodeURIComponent(token)}`;
+}
+
+export function managePrefsUrl(origin: string, token: string): string {
+  return `${origin}/alerts/manage?token=${encodeURIComponent(token)}`;
 }
 
 function formatDate(iso: string): string {
@@ -97,8 +105,8 @@ export function renderDigest(
     })
     .join('');
 
-  const unsubUrl = `${origin}/api/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
-  const manageUrl = `${origin}/alerts/manage?token=${encodeURIComponent(unsubToken)}`;
+  const unsubUrl = unsubscribeUrl(origin, unsubToken);
+  const manageUrl = managePrefsUrl(origin, unsubToken);
   const preheader =
     count === 1
       ? `${displayName(soonest)}: entry deadline is due within ~24 hours.`
@@ -147,6 +155,77 @@ export function renderDigest(
     `Entry deadlines due within ~24 hours:\n\n` +
     deadlines.map(textLine).join('\n') +
     `\n\nEdit preferences: ${manageUrl}\nUnsubscribe: ${unsubUrl}\n\nTennis Cuts`;
+
+  return { subject, html, text };
+}
+
+// One-time confirmation email sent the moment someone signs up. No action is
+// required from them (single opt-in) — it just tells them they're subscribed,
+// what they'll get, and how to change or stop it.
+export function renderWelcome(opts: {
+  origin: string;
+  token: string;
+  categories: Category[];
+  includeDoubles: boolean;
+}): RenderedEmail {
+  const { origin, token, categories, includeDoubles } = opts;
+  const unsubUrl = unsubscribeUrl(origin, token);
+  const manageUrl = managePrefsUrl(origin, token);
+
+  const catNames = categories.map((c) => CATEGORY_LABEL[c]);
+  const listItems = catNames
+    .map((n) => `<li style="margin:2px 0">${esc(n)}</li>`)
+    .join('');
+  const doublesLine = includeDoubles
+    ? `<li style="margin:2px 0">Doubles (advance entry)</li>`
+    : '';
+
+  const subject = "You're subscribed to Tennis Cuts entry-deadline alerts";
+  const preheader = "You're all set — we'll email you ~24 hours before each entry deadline.";
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>You're subscribed</title>
+</head>
+<body style="margin:0;background:#f6f7f8;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#111">
+  <span style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</span>
+  <div style="max-width:640px;margin:0 auto;padding:24px 16px">
+    <div style="margin:0 0 16px">
+      <span style="font-size:20px;font-weight:700;color:#111">Tennis<span style="color:#3CB043">Cuts</span></span>
+    </div>
+    <h1 style="font-size:18px;margin:0 0 8px">You're subscribed &#9989;</h1>
+    <p style="color:#333;font-size:14px;margin:0 0 12px;line-height:1.5">
+      You'll get an email <strong>about 24 hours before</strong> each entry deadline for:
+    </p>
+    <ul style="color:#333;font-size:14px;margin:0 0 16px;padding-left:20px;line-height:1.5">
+      ${listItems}${doublesLine}
+    </ul>
+    <p style="color:#555;font-size:13px;margin:0 0 20px;line-height:1.5">
+      Singles main draw and qualifying are always included. Nothing else to do — no
+      confirmation needed. Want to change tours or add doubles? Use the button below.
+    </p>
+    <div style="margin:0 0 20px">
+      <a href="${manageUrl}" style="display:inline-block;padding:9px 16px;border:1px solid #3CB043;border-radius:6px;color:#3CB043;text-decoration:none;font-size:14px;font-weight:600">Edit preferences</a>
+    </div>
+    <p style="color:#999;font-size:12px;margin:0;line-height:1.5">
+      You're receiving this because you signed up at ${esc(origin.replace(/^https?:\/\//, ''))}.
+      <a href="${unsubUrl}" style="color:#999">Unsubscribe</a> anytime.
+    </p>
+  </div>
+</body>
+</html>`;
+
+  const text =
+    `You're subscribed to Tennis Cuts entry-deadline alerts.\n\n` +
+    `You'll get an email about 24 hours before each entry deadline for:\n` +
+    catNames.map((n) => `- ${n}`).join('\n') +
+    (includeDoubles ? `\n- Doubles (advance entry)` : '') +
+    `\n\nSingles main draw and qualifying are always included. No confirmation needed.\n\n` +
+    `Edit preferences: ${manageUrl}\nUnsubscribe: ${unsubUrl}\n\nTennis Cuts`;
 
   return { subject, html, text };
 }

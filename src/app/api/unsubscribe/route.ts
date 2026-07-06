@@ -27,3 +27,12 @@ export async function GET(request: NextRequest) {
     headers: { 'content-type': 'text/html; charset=utf-8' },
   });
 }
+
+// One-click unsubscribe (RFC 8058). Mail clients POST to the List-Unsubscribe
+// URL with body "List-Unsubscribe=One-Click"; the token stays in the query
+// string. Just unsubscribe and return 200 — no page is rendered.
+export async function POST(request: NextRequest) {
+  const token = request.nextUrl.searchParams.get('token') ?? '';
+  if (token) await unsubscribeByToken(token);
+  return new NextResponse(null, { status: 200 });
+}

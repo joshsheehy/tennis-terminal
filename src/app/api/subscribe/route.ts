@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isValidEmail, parseSelection, upsertSubscriber } from '@/lib/subscribers';
+import { renderWelcome, unsubscribeUrl } from '@/lib/alert-email';
+import { listUnsubscribeHeaders, sendEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,7 +45,28 @@ export async function POST(request: NextRequest) {
   const { categories, includeDoubles } = parseSelection(categoriesInput, doublesFlag);
 
   try {
-    await upsertSubscriber(email, categories, includeDoubles);
+    const sub = await upsertSubscriber(email, categories, includeDoubles);
+
+    // Single opt-in: send a welcome/confirmation immediately on first signup
+    // (not on re-submits). Fire-and-forget — a mail hiccup must not fail the
+    // signup itself, which is already saved.
+    if (sub.created) {
+      const origin = request.nextUrl.origin;
+      const welcome = renderWelcome({
+        origin,
+        token: sub.unsubscribe_token,
+        categories,
+        includeDoubles,
+      });
+      sendEmail({
+        to: sub.email,
+        subject: welcome.subject,
+        html: welcome.html,
+        text: welcome.text,
+        headers: listUnsubscribeHeaders(unsubscribeUrl(origin, sub.unsubscribe_token)),
+      }).catch((err) => console.error('welcome email failed', err));
+    }
+
     return NextResponse.json({
       ok: true,
       categories,

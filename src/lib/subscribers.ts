@@ -89,14 +89,16 @@ export function parseSelection(
 
 // Add (or update) a subscriber. Idempotent on email; re-subscribing also
 // refreshes the chosen categories / doubles preference and reactivates.
+// `created` is true only when this call inserted a brand-new row (Postgres
+// xmax = 0 on an INSERT), which lets callers send a welcome email exactly once.
 export async function upsertSubscriber(
   rawEmail: string,
   categories: Category[],
   includeDoubles: boolean
-): Promise<Subscriber> {
+): Promise<Subscriber & { created: boolean }> {
   await ensureSubscriberTables();
   const email = rawEmail.trim().toLowerCase();
-  const result = await pool.query<Subscriber>(
+  const result = await pool.query<Subscriber & { created: boolean }>(
     `
     insert into alert_subscribers (email, categories, include_doubles)
     values ($1, $2, $3)
@@ -104,7 +106,8 @@ export async function upsertSubscriber(
       set active = true, unsubscribed_at = null,
           categories = excluded.categories,
           include_doubles = excluded.include_doubles
-    returning id, email, active, categories, include_doubles, unsubscribe_token
+    returning id, email, active, categories, include_doubles, unsubscribe_token,
+              (xmax = 0) as created
     `,
     [email, categories, includeDoubles]
   );
