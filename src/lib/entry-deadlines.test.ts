@@ -215,20 +215,45 @@ describe('dueDeadlines', () => {
     expect(ranks).toEqual([...ranks].sort((a, b) => a - b)); // non-decreasing
     expect(due[0].category).toBe('grandslam');
     expect(due[due.length - 1].category).toBe('itf');
-    // Masters 1000 (rank 1) precedes other ATP (rank 2).
-    expect(due.findIndex((d) => eventRank(d) === 1)).toBeLessThan(
-      due.findIndex((d) => eventRank(d) === 2)
-    );
+    // Masters 1000 precedes other ATP.
+    const idx = (name: string) => due.findIndex((d) => d.name === name);
+    expect(idx('Masters One')).toBeLessThan(idx('ATP 250 One'));
   });
 
-  it('ranks levels: GS < Masters 1000 < ATP 500/250 < Challenger < ITF', () => {
+  it('ranks by category then numeric level (higher level first)', () => {
     const mk = (level: string) => deadlinesForEdition(row({ level }))[0];
-    expect(eventRank(mk('Grand Slam'))).toBe(0);
-    expect(eventRank(mk('ATP 1000'))).toBe(1);
-    expect(eventRank(mk('ATP 500'))).toBe(2);
-    expect(eventRank(mk('ATP 250'))).toBe(2);
-    expect(eventRank(mk('Challenger 100'))).toBe(3);
-    expect(eventRank(mk('ITF M25'))).toBe(4);
+    const order = [
+      'Grand Slam',
+      'ATP 1000',
+      'ATP 500',
+      'ATP 250',
+      'Challenger 175',
+      'Challenger 125',
+      'Challenger 100',
+      'Challenger 75',
+      'Challenger 50',
+      'ITF M25',
+      'ITF M15',
+    ].map((lvl) => eventRank(mk(lvl)));
+    // Strictly increasing rank across the whole prestige ladder.
+    for (let i = 1; i < order.length; i++) {
+      expect(order[i]).toBeGreaterThan(order[i - 1]);
+    }
+    // The specific example from the request: Challenger 125 outranks 75.
+    expect(eventRank(mk('Challenger 125'))).toBeLessThan(eventRank(mk('Challenger 75')));
+  });
+
+  it('sorts same-tour events by level within the digest (Ch 125 above Ch 75)', () => {
+    const rows = [
+      row({ edition_id: 'c75', slug: 'c75', name: 'Small Challenger', level: 'Challenger 75', start_date: '2026-07-27' }),
+      row({ edition_id: 'c125', slug: 'c125', name: 'Big Challenger', level: 'Challenger 125', start_date: '2026-07-27' }),
+    ];
+    const due = dueDeadlines(rows, new Date('2026-05-01T09:00:00Z'), {
+      leadDays: 90,
+      categories: ['challenger'],
+    });
+    const names = due.map((d) => d.name);
+    expect(names.indexOf('Big Challenger')).toBeLessThan(names.indexOf('Small Challenger'));
   });
 
   it('sorts Grand Slams to the top even when other deadlines are sooner', () => {

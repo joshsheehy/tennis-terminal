@@ -254,13 +254,19 @@ export function dueDeadlines(
   return collapsed;
 }
 
-// Prestige rank used to order the alert email:
-//   0 Grand Slam · 1 ATP Masters 1000 · 2 other ATP (500/250) · 3 Challenger · 4 ITF
+// Category bands for ordering the alert email, most prestigious first.
+const CATEGORY_BAND: Record<Category, number> = { grandslam: 1, atp: 2, challenger: 3, itf: 4 };
+
+// Prestige rank used to order the alert email (lower = higher up). Categories
+// band first — Grand Slam, then ATP, Challenger, ITF — and WITHIN a category the
+// numeric level breaks the tie so the bigger event leads:
+//   ATP 1000 > 500 > 250 · Challenger 175 > 125 > 100 > 75 > 50 · ITF M25 > M15.
+// The number is subtracted so a higher level yields a lower (earlier) rank; the
+// 100000 band gap is far larger than any level number, so bands never overlap.
 export function eventRank(d: Deadline): number {
-  if (d.category === 'grandslam') return 0;
-  if (d.category === 'atp') return /1000/.test(d.level) ? 1 : 2;
-  if (d.category === 'challenger') return 3;
-  return 4; // itf
+  const m = d.level.match(/(\d+)/); // first number in the level string, if any
+  const levelNum = m ? parseInt(m[1], 10) : 0;
+  return CATEGORY_BAND[d.category] * 100000 - levelNum;
 }
 
 // Stable idempotency key for one deadline occurrence, so a subscriber is never
