@@ -223,6 +223,28 @@
   transition: background 140ms ease;
 }
 .builder-jump:hover { background: var(--brand-ink-hover); }
+
+/* Finish-schedule CTA: prominent green, sits under the itinerary once the user
+   has picked stops — the exit from the builder to the schedule summary. */
+.builder-finish {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #3CB043;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 140ms ease;
+}
+.builder-finish:hover { filter: brightness(1.06); }
+
 .builder-jump--ghost {
   margin-top: 8px;
   background: none;

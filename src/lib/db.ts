@@ -293,6 +293,59 @@ export async function getCutoffSnapshotsForEditionIds(
   return result.rows;
 }
 
+// Fetch a specific set of editions (by id) with their cutoffs, returned in the
+// same order as `editionIds`. Powers the "finish schedule" summary page, where
+// the builder hands over the exact tournaments the user picked.
+export async function getEditionsWithCutoffsByIds(
+  editionIds: string[]
+): Promise<TournamentDetailRow[]> {
+  if (editionIds.length === 0) return [];
+
+  const editionsResult = await pool.query<ScheduleRow>(
+    `
+    select
+      te.id as edition_id,
+      t.id as tournament_id,
+      t.slug,
+      t.name,
+      t.city,
+      t.country,
+      te.year,
+      te.week,
+      te.start_date,
+      te.end_date,
+      te.level,
+      te.surface,
+      te.indoor,
+      te.source,
+      te.source_url,
+      te.status
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    where te.id = any($1::uuid[])
+    `,
+    [editionIds]
+  );
+
+  const byId = new Map(editionsResult.rows.map((row) => [row.edition_id, row]));
+  const ordered = editionIds
+    .map((id) => byId.get(id))
+    .filter((row): row is ScheduleRow => Boolean(row))
+    .map((row) => ({
+      ...row,
+      week: getAtpWeekForSeason(row.start_date, row.year) ?? row.week,
+    }));
+
+  const cutoffs = await getCutoffSnapshotsForEditionIds(ordered.map((e) => e.edition_id));
+
+  return ordered.map((edition) => ({
+    edition,
+    cutoffs: cutoffs.filter((c) => c.tournament_edition_id === edition.edition_id),
+    same_level_as_previous_year: null,
+    same_week_as_previous_year: null,
+  }));
+}
+
 export async function getTournamentDetailRowsBySlug(
   slug: string,
   limit = 4,

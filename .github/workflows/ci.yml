@@ -69,6 +69,7 @@ jobs:
                    sql/007_create_swings.sql \
                    sql/008_add_swing_level_scope.sql \
                    sql/009_add_swing_kind.sql \
+                   sql/010_add_itf_qualifying_byes.sql \
                    scripts/seed-dev-db.sql; do
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
           done
