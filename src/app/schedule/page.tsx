@@ -5,6 +5,7 @@ import type { TournamentDetailRow } from '@/lib/db';
 import { CutoffSnapshot, ScheduleRow } from '@/lib/types';
 import { CURRENT_SEASON, EARLIEST_SEASON } from '@/lib/seasons';
 import { detailSheetUrlForEdition, googleFlightsUrl } from '@/lib/tournament-links';
+import ScheduleShareButton from '@/components/ScheduleShareButton';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -88,31 +89,16 @@ async function resolveStop(row: TournamentDetailRow): Promise<Stop> {
     : { edition, refCutoffs: [], refYear: null, detailSheet };
 }
 
-function CutText({ value }: { value: number | null }) {
-  return value != null ? (
-    <span style={{ fontWeight: 600, color: 'var(--text-strong, inherit)' }}>#{value}</span>
-  ) : (
-    <span style={{ color: 'var(--text-muted)' }}>—</span>
+function CutChip({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="sched-cut">
+      <div className="sched-cut__label">{label}</div>
+      <div className={`sched-cut__val${value == null ? ' sched-cut__val--na' : ''}`}>
+        {value == null ? '—' : `#${value}`}
+      </div>
+    </div>
   );
 }
-
-const th: React.CSSProperties = {
-  textAlign: 'left',
-  padding: '10px 12px',
-  fontSize: 11,
-  fontWeight: 600,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  color: 'var(--text-muted)',
-  whiteSpace: 'nowrap',
-  borderBottom: '1px solid var(--border, #e5e7eb)',
-};
-const td: React.CSSProperties = {
-  padding: '12px',
-  fontSize: 14,
-  verticalAlign: 'top',
-  borderBottom: '1px solid var(--border, #e5e7eb)',
-};
 
 export default async function SchedulePage({
   searchParams,
@@ -137,96 +123,81 @@ export default async function SchedulePage({
   const dateRange = fmtRange(first.start_date, last.end_date ?? last.start_date);
 
   return (
-    <main className="page">
+    <main className="page page--slim">
       <a href={backHref} className="back-link">← Back to builder</a>
 
-      <p className="eyebrow">Schedule</p>
-      <h1 className="page-title" style={{ marginBottom: 8 }}>Your schedule</h1>
-      <p className="page-lede" style={{ marginBottom: 20 }}>
+      <div className="sched-head" style={{ margin: '8px 0 8px' }}>
+        <div>
+          <p className="eyebrow" style={{ marginBottom: 6 }}>Schedule</p>
+          <h1 className="page-title" style={{ marginBottom: 6 }}>Your schedule</h1>
+        </div>
+        <ScheduleShareButton />
+      </div>
+      <p className="page-lede" style={{ marginBottom: 18 }}>
         {stops.length} stop{stops.length === 1 ? '' : 's'}
         {surfaces.length ? ` · ${surfaces.join(' / ')}` : ''}
-        {dateRange ? ` · ${dateRange}` : ''}. Cuts are the most recent on record — a
-        guide to entry, not a guarantee.
+        {dateRange ? ` · ${dateRange}` : ''}. Cuts are the most recent on record.
       </p>
 
-      <div style={{ overflowX: 'auto', border: '1px solid var(--border, #e5e7eb)', borderRadius: 12 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720, background: 'var(--card, transparent)' }}>
-          <thead>
-            <tr>
-              <th style={th}>#</th>
-              <th style={th}>Dates</th>
-              <th style={th}>Tournament</th>
-              <th style={th}>Level · Surface</th>
-              <th style={{ ...th, textAlign: 'right' }}>Singles MD</th>
-              <th style={{ ...th, textAlign: 'right' }}>Singles Q</th>
-              <th style={{ ...th, textAlign: 'right' }}>Doubles</th>
-              <th style={th}>Detail sheet</th>
-              <th style={th}>Travel</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stops.map((stop, i) => {
-              const e = stop.edition;
-              const prev = i > 0 ? stops[i - 1].edition : null;
-              const ch = isChallenger(e.level);
-              const sm = singlesNum(findCut(stop.refCutoffs, 'singles', 'main'));
-              const sq = singlesNum(findCut(stop.refCutoffs, 'singles', 'qualifying'));
-              const dd = doublesNum(findCut(stop.refCutoffs, 'doubles', 'main'), ch);
-              const flights = prev ? googleFlightsUrl(prev.city, e.city) : null;
-              return (
-                <tr key={e.edition_id}>
-                  <td style={{ ...td, color: 'var(--text-muted)', fontWeight: 600 }}>{i + 1}</td>
-                  <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                    {fmtRange(e.start_date, e.end_date)}
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Week {e.week ?? '—'}</div>
-                  </td>
-                  <td style={td}>
-                    <a href={`/tournaments/${e.slug}`} style={{ fontWeight: 600, color: 'var(--brand-ink, inherit)', textDecoration: 'none' }}>
-                      {displayName(e.name)}
-                    </a>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                      {e.city}{e.country ? `, ${e.country}` : ''}
-                    </div>
-                  </td>
-                  <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                    {e.level}
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{e.surface}</div>
-                  </td>
-                  <td style={{ ...td, textAlign: 'right' }}><CutText value={sm} /></td>
-                  <td style={{ ...td, textAlign: 'right' }}><CutText value={sq} /></td>
-                  <td style={{ ...td, textAlign: 'right' }}><CutText value={dd} /></td>
-                  <td style={td}>
-                    {stop.detailSheet ? (
-                      <a href={stop.detailSheet} target="_blank" rel="noreferrer" className="src-link">
-                        Detail sheet ↗
-                      </a>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>
-                    )}
-                    {stop.refYear != null && stop.refYear !== e.year && (
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>cuts from {stop.refYear}</div>
-                    )}
-                  </td>
-                  <td style={td}>
-                    {flights ? (
-                      <a href={flights} target="_blank" rel="noreferrer" className="src-link">
-                        {prev!.city} → {e.city} ↗
-                      </a>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Start</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="sched-list">
+        {stops.map((stop, i) => {
+          const e = stop.edition;
+          const prev = i > 0 ? stops[i - 1].edition : null;
+          const ch = isChallenger(e.level);
+          const sm = singlesNum(findCut(stop.refCutoffs, 'singles', 'main'));
+          const sq = singlesNum(findCut(stop.refCutoffs, 'singles', 'qualifying'));
+          const dd = doublesNum(findCut(stop.refCutoffs, 'doubles', 'main'), ch);
+          const flights = prev ? googleFlightsUrl(prev.city, e.city) : null;
+          return (
+            <div key={e.edition_id} className="sched-card">
+              <div className="sched-card__top">
+                <div className="sched-card__title">
+                  <span className="sched-card__num">{i + 1}</span>
+                  <a href={`/tournaments/${e.slug}`} className="sched-card__name">
+                    {displayName(e.name)}
+                  </a>
+                </div>
+                <div className="sched-card__dates">
+                  {fmtRange(e.start_date, e.end_date)}
+                  <div>Week {e.week ?? '—'}</div>
+                </div>
+              </div>
+              <p className="sched-card__meta">
+                {e.city}{e.country ? `, ${e.country}` : ''} · {e.level} · {e.surface}
+              </p>
+
+              <div className="sched-cuts">
+                <CutChip label="Singles MD" value={sm} />
+                <CutChip label="Singles Q" value={sq} />
+                <CutChip label="Doubles" value={dd} />
+              </div>
+
+              <div className="sched-actions">
+                {flights && (
+                  <a href={flights} target="_blank" rel="noreferrer" className="sched-btn" title={`Flights ${prev!.city} → ${e.city}`}>
+                    ✈︎ Flights
+                  </a>
+                )}
+                {stop.detailSheet ? (
+                  <a href={stop.detailSheet} target="_blank" rel="noreferrer" className="sched-btn">
+                    📄 Detail sheet
+                  </a>
+                ) : (
+                  <span className="sched-btn sched-btn--ghost" aria-disabled="true">📄 No sheet</span>
+                )}
+                {stop.refYear != null && stop.refYear !== e.year && (
+                  <span className="sched-ref">cuts from {stop.refYear}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 12, lineHeight: 1.5 }}>
-        MD = singles main draw cut · Q = singles qualifying cut · Doubles = advance-entry cut.
-        Detail sheets and flight links open in a new tab. Cut numbers are the last direct
-        acceptance (or post-withdrawal cut where known) from the most recent edition on record.
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 16, lineHeight: 1.5 }}>
+        MD = singles main draw · Q = singles qualifying · Doubles = advance entry. Cut numbers are
+        the last direct acceptance (or post-withdrawal cut where known) from the most recent
+        edition on record.
       </p>
     </main>
   );

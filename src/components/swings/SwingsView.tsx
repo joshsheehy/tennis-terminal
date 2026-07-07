@@ -1332,7 +1332,7 @@ function BuilderPanel({
               className="builder-finish"
               href={`/schedule?build=${chain.map((e) => e.editionId).join(',')}&year=${year}`}
             >
-              Finish schedule — cuts, detail sheets &amp; flights →
+              Complete schedule — see summary →
             </a>
 
             {weekNav(`Week of ${weekDateLabel(year, selectedWeek)} — pick your next stop`)}
