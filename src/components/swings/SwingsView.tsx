@@ -646,21 +646,38 @@ export default function SwingsView({
               Tap any tournament to preview its cuts, then hit <strong>＋ Add</strong> to
               put it on your schedule.
             </p>
-            <label className="rank-field">
-              <span>Your singles rank (optional)</span>
-              <input
-                className="rank-input"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                placeholder="e.g. 250"
-                value={rankSingles ?? ''}
-                onChange={(ev) => {
-                  const v = Number(ev.target.value);
-                  updateRankSingles(Number.isFinite(v) && v > 0 ? v : null);
-                }}
-              />
-            </label>
+            <div className="rank-inputs">
+              <label className="rank-field">
+                <span>Singles rank (optional)</span>
+                <input
+                  className="rank-input"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  placeholder="e.g. 250"
+                  value={rankSingles ?? ''}
+                  onChange={(ev) => {
+                    const v = Number(ev.target.value);
+                    updateRankSingles(Number.isFinite(v) && v > 0 ? v : null);
+                  }}
+                />
+              </label>
+              <label className="rank-field">
+                <span>Combined doubles rank (optional)</span>
+                <input
+                  className="rank-input"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  placeholder="e.g. 180"
+                  value={rankDoubles ?? ''}
+                  onChange={(ev) => {
+                    const v = Number(ev.target.value);
+                    updateRankDoubles(Number.isFinite(v) && v > 0 ? v : null);
+                  }}
+                />
+              </label>
+            </div>
             <button className="welcome-start" onClick={dismissWelcome}>
               Start building →
             </button>
