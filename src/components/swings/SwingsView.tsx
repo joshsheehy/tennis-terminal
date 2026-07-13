@@ -1610,15 +1610,11 @@ function TournamentInfoCard({
           <>
             <p className="tinfo-label">{draw.label} cut by year</p>
             <MiniCutLine points={points} label={draw.label} />
-            {refLine}
           </>
         ) : points.length === 1 ? (
-          <>
-            <p className="tinfo-line">
-              {points[0][0]} {draw.label.toLowerCase()} cut — #{points[0][1]}
-            </p>
-            {refLine}
-          </>
+          <p className="tinfo-line">
+            {points[0][0]} {draw.label.toLowerCase()} cut — #{points[0][1]}
+          </p>
         ) : refLine ? (
           refLine
         ) : (
