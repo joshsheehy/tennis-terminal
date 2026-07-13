@@ -38,6 +38,20 @@ function formatDate(iso: string): string {
 
 export type RenderedEmail = { subject: string; html: string; text: string };
 
+// "in ~24 hours" / "in ~12 hours" / "in ~1 hour" — rounded to how a person
+// would say it. Deadlines rendered without an hoursLeft (older callers, tests)
+// fall back to the historical "~24 hours" copy.
+export function timeLeftLabel(hoursLeft: number | undefined): string {
+  if (hoursLeft == null) return '~24 hours';
+  const h = Math.max(1, Math.round(hoursLeft));
+  return h === 1 ? '~1 hour' : `~${h} hours`;
+}
+
+function soonestHours(deadlines: Deadline[]): number | undefined {
+  const hours = deadlines.map((d) => d.hoursLeft).filter((h): h is number => h != null);
+  return hours.length ? Math.min(...hours) : undefined;
+}
+
 // The draw is folded into the displayed name: main draw is just the tournament
 // name, qualifying gets a "Qs" suffix, doubles gets "Doubles". The aggregate
 // ITF row keeps its generic name.
@@ -67,15 +81,16 @@ function subtitle(d: Deadline): string {
 }
 
 function textLine(d: Deadline): string {
+  const closing = d.hoursLeft != null ? ` (in ${timeLeftLabel(d.hoursLeft)})` : '';
   if (d.aggregate) {
     const n = d.tournamentCount ?? 0;
     const events = n > 0 ? `${n} tournaments` : 'all tournaments';
-    return `- ITF World Tennis Tour (${events}, week of ${formatDate(d.tournamentStart)}) - entries close: ${formatDate(d.deadlineDate)} ${d.timeNote}.`;
+    return `- ITF World Tennis Tour (${events}, week of ${formatDate(d.tournamentStart)}) - entries close: ${formatDate(d.deadlineDate)} ${d.timeNote}${closing}.`;
   }
   const qs = d.qualifyingDeadlineDate
     ? ` Qs deadline ${formatDate(d.qualifyingDeadlineDate)}.`
     : '';
-  return `- ${displayName(d)} (${d.level}) - ${formatDate(d.deadlineDate)} ${d.timeNote}. Tournament starts ${formatDate(d.tournamentStart)}.${qs}`;
+  return `- ${displayName(d)} (${d.level}) - ${formatDate(d.deadlineDate)} ${d.timeNote}${closing}. Tournament starts ${formatDate(d.tournamentStart)}.${qs}`;
 }
 
 // Build the subject + HTML + plain-text digest for a set of deadlines.
@@ -88,9 +103,10 @@ export function renderDigest(
 ): RenderedEmail {
   const count = deadlines.length;
   const soonest = deadlines[0];
+  const soonestLabel = timeLeftLabel(soonestHours(deadlines));
   const subject =
     count === 1
-      ? `Entry deadline tomorrow: ${displayName(soonest)}`
+      ? `Entry deadline in ${soonestLabel}: ${displayName(soonest)}`
       : `${count} entry deadlines coming up`;
 
   // HTML entities (&middot;) instead of a raw · so the copy renders correctly
@@ -102,6 +118,10 @@ export function renderDigest(
       const url = d.aggregate
         ? `${origin}/cuts`
         : `${origin}/tournaments/${encodeURIComponent(d.slug)}`;
+      const closing =
+        d.hoursLeft != null
+          ? `<br><span style="color:#b45309;font-size:13px;font-weight:600">closes in ${esc(timeLeftLabel(d.hoursLeft))}</span>`
+          : '';
       return `
       <tr>
         <td style="padding:10px 12px;border-bottom:1px solid #eee">
@@ -110,7 +130,7 @@ export function renderDigest(
         </td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;white-space:nowrap">
           <strong>${formatDate(d.deadlineDate)}</strong><br>
-          <span style="color:#666;font-size:13px">${esc(d.timeNote)}</span>
+          <span style="color:#666;font-size:13px">${esc(d.timeNote)}</span>${closing}
         </td>
       </tr>`;
     })
@@ -120,8 +140,8 @@ export function renderDigest(
   const manageUrl = managePrefsUrl(origin, unsubToken);
   const preheader =
     count === 1
-      ? `${displayName(soonest)}: entry deadline is due within ~24 hours.`
-      : `${count} entry deadlines are due within ~24 hours.`;
+      ? `${displayName(soonest)}: entry deadline is due in ${soonestLabel}.`
+      : `${count} entry deadlines are due soon (closest in ${soonestLabel}).`;
 
   const html = `<!doctype html>
 <html lang="en">
@@ -137,7 +157,7 @@ export function renderDigest(
     ${brandHeaderHtml(origin)}
     <h1 style="font-size:18px;margin:0 0 4px">Entry deadlines</h1>
     <p style="color:#555;font-size:14px;margin:0 0 16px">
-      ${count === 1 ? 'A deadline is' : count + ' deadlines are'} due within about 24 hours. Times are shown as set by the governing body.
+      ${count === 1 ? `A deadline is due in ${esc(soonestLabel)}` : count + ` deadlines are due soon (closest in ${esc(soonestLabel)})`}. Times are shown as set by the governing body.
     </p>
     <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #eee;border-radius:8px;overflow:hidden;font-size:14px">
       <thead>
@@ -161,7 +181,7 @@ export function renderDigest(
 
   // Plain text uses ASCII hyphens so no client can render a "weird character".
   const text =
-    `Entry deadlines due within ~24 hours:\n\n` +
+    `Entry deadlines due soon (closest in ${soonestLabel}):\n\n` +
     deadlines.map(textLine).join('\n') +
     `\n\nEdit preferences: ${manageUrl}\nUnsubscribe: ${unsubUrl}\n\nTennis Cuts`;
 

@@ -4,9 +4,12 @@ import {
   categoryForLevel,
   deadlinesForEdition,
   dueDeadlines,
+  dueReminderDeadlines,
   eventRank,
   mondayOfWeekUtc,
   normalizeCategoriesFromParam,
+  normalizeReminderHours,
+  reminderKey,
 } from './entry-deadlines';
 import { ScheduleRow } from './types';
 
@@ -286,5 +289,106 @@ describe('normalizeCategoriesFromParam', () => {
   });
   it('falls back to all categories when empty', () => {
     expect(normalizeCategoriesFromParam(null)).toEqual(['atp', 'challenger', 'itf', 'grandslam']);
+  });
+});
+
+describe('deadline moments (deadlineAtIso)', () => {
+  it('ATP/Challenger deadlines are noon US Eastern, DST-aware', () => {
+    // 2026-02-16 is before US DST starts -> EST (UTC-5) -> 17:00 UTC.
+    const winter = deadlinesForEdition(row({ level: 'ATP 250' })).find((d) => d.kind === 'main');
+    expect(winter?.deadlineAtIso).toBe('2026-02-16T17:00:00.000Z');
+    // A July tournament: Challenger doubles deadline 2026-07-06 is inside DST
+    // (EDT, UTC-4) -> 16:00 UTC.
+    const summer = deadlinesForEdition(
+      row({ level: 'Challenger 100', start_date: '2026-07-13' })
+    ).find((d) => d.kind === 'doubles');
+    expect(summer?.deadlineDate).toBe('2026-07-06');
+    expect(summer?.deadlineAtIso).toBe('2026-07-06T16:00:00.000Z');
+  });
+
+  it('ITF deadlines are 14:00 GMT', () => {
+    const itf = deadlinesForEdition(row({ level: 'ITF M25' }))[0];
+    expect(itf.deadlineAtIso).toBe(`${itf.deadlineDate}T14:00:00.000Z`);
+  });
+});
+
+describe('dueReminderDeadlines', () => {
+  const rows = [row({ edition_id: 'atp', level: 'ATP 250', start_date: '2026-03-16' })];
+  // ATP main deadline: 2026-02-16 noon EST = 17:00 UTC.
+
+  it('fires the 24h window inside 24 hours of the deadline moment', () => {
+    const due = dueReminderDeadlines(rows, new Date('2026-02-15T18:00:00Z'), {
+      windows: [24],
+      categories: ['atp'],
+    });
+    const main = due.find((d) => d.kind === 'main');
+    expect(main).toBeDefined();
+    expect(main?.dueWindows).toEqual([24]);
+    expect(main?.hoursLeft).toBe(23);
+  });
+
+  it('does not fire more than 24 hours out or after the deadline', () => {
+    const early = dueReminderDeadlines(rows, new Date('2026-02-15T10:00:00Z'), {
+      windows: [24],
+      categories: ['atp'],
+    });
+    expect(early.map((d) => d.kind)).not.toContain('main');
+    const late = dueReminderDeadlines(rows, new Date('2026-02-16T17:30:00Z'), {
+      windows: [24, 12, 1],
+      categories: ['atp'],
+    });
+    expect(late.map((d) => d.kind)).not.toContain('main');
+  });
+
+  it('a deadline inside several chosen windows reports them all', () => {
+    // 40 minutes before the deadline: inside 24h, 12h and 1h.
+    const due = dueReminderDeadlines(rows, new Date('2026-02-16T16:20:00Z'), {
+      windows: [24, 12, 1],
+      categories: ['atp'],
+    });
+    const main = due.find((d) => d.kind === 'main');
+    expect(main?.dueWindows).toEqual([24, 12, 1]);
+  });
+
+  it('respects the subscriber windows: 12h-only fires only inside 12 hours', () => {
+    const at23h = dueReminderDeadlines(rows, new Date('2026-02-15T18:00:00Z'), {
+      windows: [12],
+      categories: ['atp'],
+    });
+    expect(at23h.map((d) => d.kind)).not.toContain('main');
+    const at11h = dueReminderDeadlines(rows, new Date('2026-02-16T06:00:00Z'), {
+      windows: [12],
+      categories: ['atp'],
+    });
+    expect(at11h.find((d) => d.kind === 'main')?.dueWindows).toEqual([12]);
+  });
+
+  it('keeps doubles opt-in, exactly like dueDeadlines', () => {
+    // ATP doubles deadline 2026-03-02 noon EST = 17:00 UTC; run 2h before.
+    const at = new Date('2026-03-02T15:00:00Z');
+    const without = dueReminderDeadlines(rows, at, { windows: [24], categories: ['atp'] });
+    expect(without.map((d) => d.kind)).not.toContain('doubles');
+    const withDbl = dueReminderDeadlines(rows, at, {
+      windows: [24],
+      categories: ['atp'],
+      includeDoubles: true,
+    });
+    expect(withDbl.map((d) => d.kind)).toContain('doubles');
+  });
+});
+
+describe('reminderKey / normalizeReminderHours', () => {
+  it('keeps the legacy key for the 24h window, suffixes the others', () => {
+    const d = deadlinesForEdition(row({ level: 'ATP 250' })).find((x) => x.kind === 'main')!;
+    expect(reminderKey(d, 24)).toBe('e1:main');
+    expect(reminderKey(d, 12)).toBe('e1:main:12h');
+    expect(reminderKey(d, 1)).toBe('e1:main:1h');
+  });
+
+  it('normalizes reminder hours to the allowed set, sorted, defaulting to [24]', () => {
+    expect(normalizeReminderHours([1, 24, 12])).toEqual([24, 12, 1]);
+    expect(normalizeReminderHours(['12', 12, 99])).toEqual([12]);
+    expect(normalizeReminderHours([])).toEqual([24]);
+    expect(normalizeReminderHours(undefined)).toEqual([24]);
   });
 });

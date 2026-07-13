@@ -3,10 +3,11 @@ import { getScheduleForYear } from '@/lib/db';
 import { CURRENT_SEASON } from '@/lib/seasons';
 import {
   Category,
-  Deadline,
-  deadlineKey,
-  dueDeadlines,
+  DueReminder,
+  dueReminderDeadlines,
   normalizeCategoriesFromParam,
+  normalizeReminderHours,
+  reminderKey,
 } from '@/lib/entry-deadlines';
 import { renderDigest, unsubscribeUrl } from '@/lib/alert-email';
 import { emailConfigured, listUnsubscribeHeaders, sendEmail } from '@/lib/email';
@@ -20,23 +21,24 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Admin/cron endpoint (behind the middleware admin-secret gate). Emails each
-// active subscriber ~24 hours before every entry deadline in the categories
-// they chose. Idempotent: alert_sends dedupes per (subscriber, deadline), so
-// running it every night never double-emails.
+// Admin/cron endpoint (behind the middleware admin-secret gate). Runs hourly:
+// each active subscriber picked reminder windows (24 / 12 / 1 hours before a
+// deadline), and each window fires once per (subscriber, deadline) — the
+// alert_sends log dedupes per window, so hourly runs never double-email.
+// Deadline moments are real timestamps: 12:00 noon ET for ATP/Challenger/
+// Grand Slam, 14:00 GMT for ITF.
 //
-//   ?lead=N     lead time in days (default 1 = "24 hours before")
-//   ?dry=1      compute + report, but send nothing and record nothing
-//   ?test=EMAIL send the current window to one address (ignores subscriber list
-//               and dedupe log). Combine with ?cats=atp,itf to pick categories.
+//   ?dry=1        compute + report, but send nothing and record nothing
+//   ?test=EMAIL   send the current window to one address (ignores subscriber
+//                 list and dedupe log). Combine with ?cats=atp,itf, ?dbl=1 for
+//                 doubles, and ?windows=24,12,1 to pick reminder windows.
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const lead = Math.max(0, Math.min(30, Number(params.get('lead') ?? '1') || 1));
   const dry = params.get('dry') === '1';
   const testEmail = params.get('test');
   // Always use the canonical public URL in emails, never the Railway host.
   const origin = SITE_URL;
-  const today = new Date();
+  const now = new Date();
 
   // Deadlines for tournaments in early next season fall in the prior calendar
   // year (a 42-day GS deadline can be ~6 weeks before a January event), so pull
@@ -53,19 +55,22 @@ export async function GET(request: NextRequest) {
         ok: false,
         error:
           'RESEND_API_KEY is not set — cannot send. Set it on the server, or call with ?dry=1 to preview.',
-        leadDays: lead,
       },
       { status: 503 }
     );
   }
 
-  // Test mode: send the current window to a single address for the chosen
-  // categories (default: all). Add &dbl=1 to include doubles advance entry.
+  // Test mode: send whatever is currently inside the chosen windows to a single
+  // address for the chosen categories (defaults: all categories, all windows).
+  // Add &dbl=1 to include doubles advance entry.
   if (testEmail) {
     const cats = normalizeCategoriesFromParam(params.get('cats'));
     const includeDoubles = params.get('dbl') === '1';
-    const deadlines = dueDeadlines(schedule, today, {
-      leadDays: lead,
+    const windows = normalizeReminderHours(
+      (params.get('windows') ?? '24,12,1').split(',').map(Number)
+    );
+    const deadlines = dueReminderDeadlines(schedule, now, {
+      windows,
       categories: cats,
       includeDoubles,
     });
@@ -74,9 +79,9 @@ export async function GET(request: NextRequest) {
         ok: true,
         test: testEmail,
         sent: false,
-        leadDays: lead,
+        windows,
         categories: cats,
-        reason: `No deadlines due within ${lead} day(s) for [${cats.join(', ')}].`,
+        reason: `No deadlines inside the ${windows.join('/')}h window(s) for [${cats.join(', ')}].`,
       });
     }
     const { subject, html, text } = renderDigest(deadlines, origin, 'preview-token');
@@ -87,7 +92,7 @@ export async function GET(request: NextRequest) {
       ok: result.ok,
       test: testEmail,
       dry,
-      leadDays: lead,
+      windows,
       categories: cats,
       deadlinesFound: deadlines.length,
       deadlines: deadlines.map(summarize),
@@ -99,6 +104,7 @@ export async function GET(request: NextRequest) {
   const perSubscriber: Array<{
     email: string;
     categories: Category[];
+    reminderHours: number[];
     newDeadlines: number;
     sent: boolean;
     error?: string;
@@ -106,25 +112,39 @@ export async function GET(request: NextRequest) {
   let totalDeadlineHits = 0;
 
   for (const sub of subscribers) {
-    const deadlines = dueDeadlines(schedule, today, {
-      leadDays: lead,
+    const windows = normalizeReminderHours(sub.reminder_hours);
+    const deadlines = dueReminderDeadlines(schedule, now, {
+      windows,
       categories: sub.categories,
       includeDoubles: sub.include_doubles,
     });
     totalDeadlineHits += deadlines.length;
 
-    // Claim each deadline for this subscriber; we "win" only the ones not yet
-    // sent. Claiming before the send keeps concurrent runs from double-sending.
-    const won: Deadline[] = [];
+    // Claim every due (deadline, window) pair for this subscriber; a deadline
+    // goes in the email if it won at least one previously-unsent window.
+    // Claiming all currently-due windows at once means a subscriber who signs
+    // up 3 hours out gets one email, not one per window. Claiming before the
+    // send keeps concurrent runs from double-sending.
+    const won: DueReminder[] = [];
+    const wonKeys: string[] = [];
     for (const d of deadlines) {
-      const claimed = dry ? true : await claimSend(sub.id, deadlineKey(d));
-      if (claimed) won.push(d);
+      let winner = false;
+      for (const w of d.dueWindows) {
+        const key = reminderKey(d, w);
+        const claimed = dry ? true : await claimSend(sub.id, key);
+        if (claimed) {
+          winner = true;
+          wonKeys.push(key);
+        }
+      }
+      if (winner) won.push(d);
     }
 
     if (won.length === 0) {
       perSubscriber.push({
         email: sub.email,
         categories: sub.categories,
+        reminderHours: windows,
         newDeadlines: 0,
         sent: false,
       });
@@ -135,6 +155,7 @@ export async function GET(request: NextRequest) {
       perSubscriber.push({
         email: sub.email,
         categories: sub.categories,
+        reminderHours: windows,
         newDeadlines: won.length,
         sent: false,
       });
@@ -151,11 +172,12 @@ export async function GET(request: NextRequest) {
     });
     if (!result.ok) {
       // Release claims so the next run retries instead of silently skipping.
-      await Promise.all(won.map((d) => releaseSend(sub.id, deadlineKey(d))));
+      await Promise.all(wonKeys.map((key) => releaseSend(sub.id, key)));
     }
     perSubscriber.push({
       email: sub.email,
       categories: sub.categories,
+      reminderHours: windows,
       newDeadlines: won.length,
       sent: result.ok,
       error: result.ok ? undefined : result.error,
@@ -165,8 +187,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     dry,
-    ranAt: new Date().toISOString(),
-    leadDays: lead,
+    ranAt: now.toISOString(),
     subscribers: subscribers.length,
     deadlineHits: totalDeadlineHits,
     emailsSent: perSubscriber.filter((s) => s.sent).length,
@@ -174,13 +195,14 @@ export async function GET(request: NextRequest) {
   });
 }
 
-function summarize(d: Deadline) {
+function summarize(d: DueReminder) {
   return {
     tournament: d.name,
     level: d.level,
     kind: d.kind,
-    deadlineDate: d.deadlineDate,
+    deadlineAt: d.deadlineAtIso,
+    hoursLeft: d.hoursLeft,
+    dueWindows: d.dueWindows,
     tournamentStart: d.tournamentStart,
   };
 }
-

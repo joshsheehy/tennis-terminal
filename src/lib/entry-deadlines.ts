@@ -33,6 +33,18 @@ export function isCategory(value: string): value is Category {
   return (CATEGORIES as string[]).includes(value);
 }
 
+// Reminder lead times a subscriber can pick, in hours before the deadline
+// moment. The hourly cron fires each window once per (subscriber, deadline).
+export const REMINDER_WINDOWS = [24, 12, 1] as const;
+
+export function normalizeReminderHours(input: unknown): number[] {
+  const arr = Array.isArray(input) ? input : [];
+  const allowed = new Set<number>(REMINDER_WINDOWS);
+  const valid = arr.map((v) => Number(v)).filter((v) => allowed.has(v));
+  const deduped = Array.from(new Set(valid)).sort((a, b) => b - a);
+  return deduped.length ? deduped : [24];
+}
+
 // Parse a "?cats=atp,itf" query param into a category list; empty/invalid input
 // falls back to all categories (useful for the admin test endpoint).
 export function normalizeCategoriesFromParam(raw: string | null): Category[] {
@@ -104,6 +116,32 @@ function toDateOnlyString(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+// --- Deadline moments -------------------------------------------------------
+// ATP/Challenger deadlines are 12:00 noon US Eastern; ITF is 14:00 GMT. Grand
+// Slam times are published per event, so noon ET stands in as the approximation
+// (the timeNote already says so). US DST: second Sunday of March to first
+// Sunday of November, so noon ET = 16:00 UTC in summer, 17:00 UTC in winter.
+
+function nthSundayUtc(year: number, monthIdx: number, n: number): Date {
+  const first = new Date(Date.UTC(year, monthIdx, 1));
+  const firstSundayDay = 1 + ((7 - first.getUTCDay()) % 7);
+  return new Date(Date.UTC(year, monthIdx, firstSundayDay + (n - 1) * 7));
+}
+
+function noonEasternIso(dateIso: string): string {
+  const day = new Date(`${dateIso}T00:00:00Z`);
+  const year = day.getUTCFullYear();
+  const dstStart = nthSundayUtc(year, 2, 2); // second Sunday of March
+  const dstEnd = nthSundayUtc(year, 10, 1); // first Sunday of November
+  const offset = day >= dstStart && day < dstEnd ? 4 : 5;
+  return new Date(day.getTime() + (12 + offset) * 60 * 60 * 1000).toISOString();
+}
+
+function deadlineMomentIso(category: Category, deadlineDate: string): string {
+  if (category === 'itf') return new Date(`${deadlineDate}T14:00:00Z`).toISOString();
+  return noonEasternIso(deadlineDate);
+}
+
 export type Deadline = {
   editionId: string;
   slug: string;
@@ -118,7 +156,11 @@ export type Deadline = {
   tournamentStart: string; // YYYY-MM-DD, Monday of the tournament week
   daysPrior: number;
   deadlineDate: string; // YYYY-MM-DD the deadline falls on
+  deadlineAtIso: string; // the actual deadline moment (noon ET / 14:00 GMT)
   timeNote: string;
+  // Hours between "now" and deadlineAtIso; set by dueReminderDeadlines so the
+  // email can say how close each deadline is.
+  hoursLeft?: number;
   // Set on the synthetic ITF row that stands in for every ITF tournament
   // sharing a week (there are dozens weekly, so we never list them all).
   aggregate?: boolean;
@@ -143,6 +185,7 @@ export function deadlinesForEdition(row: ScheduleRow): Deadline[] {
 
   return rules.map((rule) => {
     const deadline = new Date(monday.getTime() - rule.daysPrior * MS_PER_DAY);
+    const deadlineDate = toDateOnlyString(deadline);
     const d: Deadline = {
       editionId: row.edition_id,
       slug: row.slug,
@@ -156,7 +199,8 @@ export function deadlinesForEdition(row: ScheduleRow): Deadline[] {
       kindLabel: rule.label,
       tournamentStart: toDateOnlyString(monday),
       daysPrior: rule.daysPrior,
-      deadlineDate: toDateOnlyString(deadline),
+      deadlineDate,
+      deadlineAtIso: deadlineMomentIso(category, deadlineDate),
       timeNote: rule.timeNote,
     };
     // Grand Slams are the events people plan around, so their main-draw alert
@@ -269,8 +313,73 @@ export function eventRank(d: Deadline): number {
   return CATEGORY_BAND[d.category] * 100000 - levelNum;
 }
 
+export type DueReminder = Deadline & {
+  hoursLeft: number;
+  /** The subscriber's reminder windows this deadline is currently inside. */
+  dueWindows: number[];
+};
+
+// The hourly-cron variant of dueDeadlines: instead of a whole-day window, each
+// deadline is compared to its actual moment (noon ET / 14:00 GMT), and a
+// reminder window `w` is due when 0 < hoursLeft <= w. Per-window dedupe keys
+// (reminderKey) make each window fire exactly once per (subscriber, deadline):
+// a subscriber on 24+12+1 gets three emails, at ~24h, ~12h and ~1h out. A
+// deadline already past (hoursLeft <= 0) is never worth an email. Doubles stay
+// opt-in via includeDoubles, exactly as in dueDeadlines.
+export function dueReminderDeadlines(
+  rows: ScheduleRow[],
+  now: Date,
+  opts: {
+    windows: number[];
+    categories?: Category[];
+    includeDoubles?: boolean;
+  }
+): DueReminder[] {
+  const categories = opts.categories ?? CATEGORIES;
+  const includeDoubles = opts.includeDoubles ?? false;
+  const windows = normalizeReminderHours(opts.windows);
+  const wanted = new Set(categories);
+  const maxWindow = Math.max(...windows);
+
+  const out: Deadline[] = [];
+  for (const row of rows) {
+    for (const d of deadlinesForEdition(row)) {
+      if (!wanted.has(d.category)) continue;
+      if (!includeDoubles && d.kind === 'doubles') continue;
+      const hoursLeft = (new Date(d.deadlineAtIso).getTime() - now.getTime()) / (60 * 60 * 1000);
+      if (hoursLeft <= 0 || hoursLeft > maxWindow) continue;
+      out.push(d);
+    }
+  }
+  // Aggregate ITF first so the week row carries a single set of windows, then
+  // order by prestige exactly like the daily digest.
+  const collapsed = aggregateItf(out)
+    .map((d) => {
+      const hoursLeft = (new Date(d.deadlineAtIso).getTime() - now.getTime()) / (60 * 60 * 1000);
+      return {
+        ...d,
+        hoursLeft: Math.round(hoursLeft * 10) / 10,
+        dueWindows: windows.filter((w) => hoursLeft <= w),
+      };
+    })
+    .filter((d) => d.dueWindows.length > 0);
+  collapsed.sort((a, b) => {
+    if (eventRank(a) !== eventRank(b)) return eventRank(a) - eventRank(b);
+    if (a.deadlineDate !== b.deadlineDate) return a.deadlineDate.localeCompare(b.deadlineDate);
+    return a.name.localeCompare(b.name);
+  });
+  return collapsed;
+}
+
 // Stable idempotency key for one deadline occurrence, so a subscriber is never
 // emailed about the same deadline twice.
 export function deadlineKey(d: Deadline): string {
   return `${d.editionId}:${d.kind}`;
+}
+
+// Per-window idempotency key. The 24h window keeps the legacy key format so
+// subscribers already alerted about a deadline by the old daily cron aren't
+// re-emailed when the hourly windows take over.
+export function reminderKey(d: Deadline, windowHours: number): string {
+  return windowHours === 24 ? deadlineKey(d) : `${deadlineKey(d)}:${windowHours}h`;
 }

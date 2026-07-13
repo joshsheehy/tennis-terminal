@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { normalizeReminderHours } from '@/lib/entry-deadlines';
 import { isValidEmail, parseSelection, upsertSubscriber } from '@/lib/subscribers';
 import { renderWelcome, unsubscribeUrl } from '@/lib/alert-email';
 import { listUnsubscribeHeaders, sendEmail } from '@/lib/email';
@@ -14,6 +15,7 @@ export async function POST(request: NextRequest) {
   let email = '';
   let categoriesInput: unknown = [];
   let doublesFlag: unknown = undefined;
+  let reminderInput: unknown = [];
   const contentType = request.headers.get('content-type') || '';
   try {
     if (contentType.includes('application/json')) {
@@ -21,15 +23,18 @@ export async function POST(request: NextRequest) {
         email?: string;
         categories?: unknown;
         doubles?: unknown;
+        reminderHours?: unknown;
       };
       email = (body.email ?? '').toString();
       categoriesInput = body.categories ?? [];
       doublesFlag = body.doubles;
+      reminderInput = body.reminderHours ?? [];
     } else {
       const form = await request.formData();
       email = (form.get('email') ?? '').toString();
       categoriesInput = form.getAll('categories');
       doublesFlag = form.get('doubles') === 'on' || undefined;
+      reminderInput = form.getAll('reminderHours');
     }
   } catch {
     return NextResponse.json({ ok: false, error: 'Invalid request body' }, { status: 400 });
@@ -44,9 +49,10 @@ export async function POST(request: NextRequest) {
   }
 
   const { categories, includeDoubles } = parseSelection(categoriesInput, doublesFlag);
+  const reminderHours = normalizeReminderHours(reminderInput);
 
   try {
-    const sub = await upsertSubscriber(email, categories, includeDoubles);
+    const sub = await upsertSubscriber(email, categories, includeDoubles, reminderHours);
 
     // Single opt-in: send a welcome/confirmation immediately on first signup
     // (not on re-submits). Fire-and-forget — a mail hiccup must not fail the
@@ -69,11 +75,13 @@ export async function POST(request: NextRequest) {
       }).catch((err) => console.error('welcome email failed', err));
     }
 
+    const windows = reminderHours.map((h) => (h === 1 ? '1 hour' : `${h} hours`)).join(', ');
     return NextResponse.json({
       ok: true,
       categories,
       includeDoubles,
-      message: "You're signed up. We'll email you 24 hours before each entry deadline.",
+      reminderHours,
+      message: `You're signed up. We'll email you ${windows} before each entry deadline.`,
     });
   } catch (err) {
     console.error('subscribe failed', err);

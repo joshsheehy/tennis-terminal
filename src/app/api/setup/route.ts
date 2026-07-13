@@ -90,6 +90,7 @@ export async function GET() {
         active boolean not null default true,
         categories text[] not null default array['atp','challenger'],
         include_doubles boolean not null default false,
+        reminder_hours integer[] not null default array[24],
         unsubscribe_token text not null default encode(gen_random_bytes(16), 'hex'),
         created_at timestamptz not null default now(),
         unsubscribed_at timestamptz
@@ -102,6 +103,10 @@ export async function GET() {
     await client.query(
       `alter table alert_subscribers
          add column if not exists include_doubles boolean not null default false;`
+    );
+    await client.query(
+      `alter table alert_subscribers
+         add column if not exists reminder_hours integer[] not null default array[24];`
     );
     await client.query(`
       create table if not exists alert_sends (

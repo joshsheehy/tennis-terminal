@@ -15,6 +15,8 @@ create table if not exists alert_subscribers (
   categories text[] not null default array['atp','challenger'],
   -- Opt-in for doubles advance-entry deadlines (singles always included).
   include_doubles boolean not null default false,
+  -- How many hours before each deadline to email (subset of 24/12/1).
+  reminder_hours integer[] not null default array[24],
   unsubscribe_token text not null default encode(gen_random_bytes(16), 'hex'),
   created_at timestamptz not null default now(),
   unsubscribed_at timestamptz
@@ -25,6 +27,8 @@ alter table alert_subscribers
   add column if not exists categories text[] not null default array['atp','challenger'];
 alter table alert_subscribers
   add column if not exists include_doubles boolean not null default false;
+alter table alert_subscribers
+  add column if not exists reminder_hours integer[] not null default array[24];
 
 create table if not exists alert_sends (
   id uuid primary key default gen_random_uuid(),

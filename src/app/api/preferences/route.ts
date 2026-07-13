@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { normalizeReminderHours } from '@/lib/entry-deadlines';
 import {
   getSubscriberByToken,
   parseSelection,
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     email: sub.email,
     categories: sub.categories,
     includeDoubles: sub.include_doubles,
+    reminderHours: sub.reminder_hours,
   });
 }
 
@@ -32,6 +34,7 @@ export async function POST(request: NextRequest) {
   let token = '';
   let categoriesInput: unknown = [];
   let doublesFlag: unknown = undefined;
+  let reminderInput: unknown = null;
   const contentType = request.headers.get('content-type') || '';
   try {
     if (contentType.includes('application/json')) {
@@ -39,22 +42,27 @@ export async function POST(request: NextRequest) {
         token?: string;
         categories?: unknown;
         doubles?: unknown;
+        reminderHours?: unknown;
       };
       token = (body.token ?? '').toString();
       categoriesInput = body.categories ?? [];
       doublesFlag = body.doubles;
+      reminderInput = body.reminderHours ?? null;
     } else {
       const form = await request.formData();
       token = (form.get('token') ?? '').toString();
       categoriesInput = form.getAll('categories');
       doublesFlag = form.get('doubles') === 'on' || undefined;
+      reminderInput = form.has('reminderHours') ? form.getAll('reminderHours') : null;
     }
   } catch {
     return NextResponse.json({ ok: false, error: 'Invalid request body' }, { status: 400 });
   }
 
   const { categories, includeDoubles } = parseSelection(categoriesInput, doublesFlag);
-  const updated = await updateCategoriesByToken(token.trim(), categories, includeDoubles);
+  // A body without reminderHours leaves the stored windows unchanged.
+  const reminderHours = reminderInput == null ? null : normalizeReminderHours(reminderInput);
+  const updated = await updateCategoriesByToken(token.trim(), categories, includeDoubles, reminderHours);
   if (!updated) {
     return NextResponse.json({ ok: false, error: 'Unknown or expired link.' }, { status: 404 });
   }
@@ -63,6 +71,7 @@ export async function POST(request: NextRequest) {
     email: updated.email,
     categories: updated.categories,
     includeDoubles: updated.include_doubles,
+    reminderHours: updated.reminder_hours,
     message: 'Your alert preferences have been updated.',
   });
 }

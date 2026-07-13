@@ -1,5 +1,5 @@
 import { pool } from './db';
-import { Category, CATEGORIES, isCategory } from './entry-deadlines';
+import { Category, CATEGORIES, isCategory, normalizeReminderHours } from './entry-deadlines';
 
 // Email alert subscribers + a per-(subscriber, deadline) send log so the daily
 // alert cron is idempotent and never double-emails. Tables are created lazily
@@ -22,6 +22,8 @@ export async function ensureSubscriberTables(): Promise<void> {
       -- Also send doubles advance-entry deadlines (opt-in; singles main draw +
       -- qualifying are always included for the chosen tours).
       include_doubles boolean not null default false,
+      -- How many hours before each deadline to email (subset of 24/12/1).
+      reminder_hours integer[] not null default array[24],
       unsubscribe_token text not null default encode(gen_random_bytes(16), 'hex'),
       created_at timestamptz not null default now(),
       unsubscribed_at timestamptz
@@ -35,6 +37,10 @@ export async function ensureSubscriberTables(): Promise<void> {
   await pool.query(
     `alter table alert_subscribers
        add column if not exists include_doubles boolean not null default false;`
+  );
+  await pool.query(
+    `alter table alert_subscribers
+       add column if not exists reminder_hours integer[] not null default array[24];`
   );
   await pool.query(`
     create table if not exists alert_sends (
@@ -54,6 +60,7 @@ export type Subscriber = {
   active: boolean;
   categories: Category[];
   include_doubles: boolean;
+  reminder_hours: number[];
   unsubscribe_token: string;
 };
 
@@ -94,22 +101,24 @@ export function parseSelection(
 export async function upsertSubscriber(
   rawEmail: string,
   categories: Category[],
-  includeDoubles: boolean
+  includeDoubles: boolean,
+  reminderHours: number[] = [24]
 ): Promise<Subscriber & { created: boolean }> {
   await ensureSubscriberTables();
   const email = rawEmail.trim().toLowerCase();
   const result = await pool.query<Subscriber & { created: boolean }>(
     `
-    insert into alert_subscribers (email, categories, include_doubles)
-    values ($1, $2, $3)
+    insert into alert_subscribers (email, categories, include_doubles, reminder_hours)
+    values ($1, $2, $3, $4)
     on conflict (email) do update
       set active = true, unsubscribed_at = null,
           categories = excluded.categories,
-          include_doubles = excluded.include_doubles
-    returning id, email, active, categories, include_doubles, unsubscribe_token,
-              (xmax = 0) as created
+          include_doubles = excluded.include_doubles,
+          reminder_hours = excluded.reminder_hours
+    returning id, email, active, categories, include_doubles, reminder_hours,
+              unsubscribe_token, (xmax = 0) as created
     `,
-    [email, categories, includeDoubles]
+    [email, categories, includeDoubles, normalizeReminderHours(reminderHours)]
   );
   return result.rows[0];
 }
@@ -117,7 +126,7 @@ export async function upsertSubscriber(
 export async function listActiveSubscribers(): Promise<Subscriber[]> {
   await ensureSubscriberTables();
   const result = await pool.query<Subscriber>(
-    `select id, email, active, categories, include_doubles, unsubscribe_token
+    `select id, email, active, categories, include_doubles, reminder_hours, unsubscribe_token
        from alert_subscribers
       where active = true
       order by created_at asc`
@@ -131,7 +140,7 @@ export async function getSubscriberByToken(token: string): Promise<Subscriber | 
   await ensureSubscriberTables();
   if (!token) return null;
   const result = await pool.query<Subscriber>(
-    `select id, email, active, categories, include_doubles, unsubscribe_token
+    `select id, email, active, categories, include_doubles, reminder_hours, unsubscribe_token
        from alert_subscribers
       where unsubscribe_token = $1`,
     [token]
@@ -139,21 +148,27 @@ export async function getSubscriberByToken(token: string): Promise<Subscriber | 
   return result.rows[0] ?? null;
 }
 
-// Update a subscriber's chosen categories / doubles preference via their token.
-// Editing preferences also re-activates a previously-unsubscribed address.
-// Returns the updated subscriber, or null if the token is unknown.
+// Update a subscriber's chosen categories / doubles / reminder-window
+// preferences via their token. Editing preferences also re-activates a
+// previously-unsubscribed address. Returns the updated subscriber, or null if
+// the token is unknown. A null reminderHours leaves the stored windows
+// unchanged (a client that predates the field must not silently reset them).
 export async function updateCategoriesByToken(
   token: string,
   categories: Category[],
-  includeDoubles: boolean
+  includeDoubles: boolean,
+  reminderHours?: number[] | null
 ): Promise<Subscriber | null> {
   await ensureSubscriberTables();
+  const hours = reminderHours == null ? null : normalizeReminderHours(reminderHours);
   const result = await pool.query<Subscriber>(
     `update alert_subscribers
-        set categories = $2, include_doubles = $3, active = true, unsubscribed_at = null
+        set categories = $2, include_doubles = $3,
+            reminder_hours = coalesce($4::integer[], reminder_hours),
+            active = true, unsubscribed_at = null
       where unsubscribe_token = $1
-      returning id, email, active, categories, include_doubles, unsubscribe_token`,
-    [token, categories, includeDoubles]
+      returning id, email, active, categories, include_doubles, reminder_hours, unsubscribe_token`,
+    [token, categories, includeDoubles, hours]
   );
   return result.rows[0] ?? null;
 }

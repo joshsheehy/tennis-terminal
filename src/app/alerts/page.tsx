@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Entry deadline alerts',
   description:
-    'Get an email 24 hours before ATP, Challenger, ITF and Grand Slam entry deadlines.',
+    'Get an email 24, 12 or 1 hour(s) before ATP, Challenger, ITF and Grand Slam entry deadlines.',
 };
 
 // Grand Slams lead everywhere (signup form, emails, this list) — they're the
@@ -51,8 +51,9 @@ export default function AlertsPage() {
       <p className="eyebrow">Alerts</p>
       <h1 className="page-title" style={{ marginBottom: 8 }}>Entry deadline alerts</h1>
       <p className="page-lede" style={{ marginBottom: 24, fontSize: 16 }}>
-        Get an email <strong>24 hours before</strong> each entry deadline. Choose the tours you
-        care about — we&apos;ll only send you what you pick.
+        Get an email <strong>24 hours, 12 hours and/or 1 hour before</strong> each entry
+        deadline. Choose the tours you care about and when to be reminded — we&apos;ll only
+        send you what you pick.
       </p>
 
       <section className="card" style={{ marginBottom: 32 }}>

@@ -12,10 +12,20 @@ const CATEGORY_OPTIONS: Array<{ key: string; label: string; defaultOn: boolean }
   { key: 'itf', label: 'ITF World Tennis Tour', defaultOn: false },
 ];
 
+// Keep in sync with REMINDER_WINDOWS in src/lib/entry-deadlines.ts.
+const REMINDER_OPTIONS: Array<{ hours: number; label: string; defaultOn: boolean }> = [
+  { hours: 24, label: '24 hours before', defaultOn: true },
+  { hours: 12, label: '12 hours before', defaultOn: false },
+  { hours: 1, label: '1 hour before', defaultOn: false },
+];
+
 export default function AlertSignup() {
   const [email, setEmail] = useState('');
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(CATEGORY_OPTIONS.filter((c) => c.defaultOn).map((c) => c.key))
+  );
+  const [reminders, setReminders] = useState<Set<number>>(
+    () => new Set(REMINDER_OPTIONS.filter((r) => r.defaultOn).map((r) => r.hours))
   );
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
@@ -31,11 +41,25 @@ export default function AlertSignup() {
     });
   }
 
+  function toggleReminder(hours: number) {
+    setReminders((prev) => {
+      const next = new Set(prev);
+      if (next.has(hours)) next.delete(hours);
+      else next.add(hours);
+      return next;
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (selected.size === 0) {
       setStatus('error');
       setMessage('Pick at least one category.');
+      return;
+    }
+    if (reminders.size === 0) {
+      setStatus('error');
+      setMessage('Pick at least one reminder time.');
       return;
     }
     setStatus('loading');
@@ -44,7 +68,12 @@ export default function AlertSignup() {
       const res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, categories: Array.from(selected), doubles }),
+        body: JSON.stringify({
+          email,
+          categories: Array.from(selected),
+          doubles,
+          reminderHours: Array.from(reminders),
+        }),
       });
       const data = (await res.json()) as { ok: boolean; message?: string; error?: string };
       if (res.ok && data.ok) {
@@ -92,6 +121,27 @@ export default function AlertSignup() {
           doubles sign-ins aren&apos;t tracked.
         </p>
       </div>
+
+      <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <legend style={{ padding: 0, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
+          When should we email you?
+        </legend>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {REMINDER_OPTIONS.map((opt) => (
+            <label
+              key={opt.hours}
+              className={`check-option${reminders.has(opt.hours) ? ' check-option--on' : ''}`}
+            >
+              <input
+                type="checkbox"
+                checked={reminders.has(opt.hours)}
+                onChange={() => toggleReminder(opt.hours)}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input

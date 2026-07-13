@@ -40,6 +40,7 @@ export default async function ManageAlertsPage({
           email={subscriber.email}
           initialCategories={subscriber.categories}
           initialIncludeDoubles={subscriber.include_doubles}
+          initialReminderHours={subscriber.reminder_hours}
         />
       </section>
     </main>
