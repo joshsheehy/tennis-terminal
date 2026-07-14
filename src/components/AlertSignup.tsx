@@ -16,7 +16,7 @@ const CATEGORY_OPTIONS: Array<{ key: string; label: string; defaultOn: boolean }
 const REMINDER_OPTIONS: Array<{ hours: number; label: string; defaultOn: boolean }> = [
   { hours: 24, label: '24 hours before', defaultOn: true },
   { hours: 12, label: '12 hours before', defaultOn: false },
-  { hours: 1, label: '1 hour before', defaultOn: false },
+  { hours: 2, label: '2 hours before', defaultOn: false },
 ];
 
 export default function AlertSignup() {

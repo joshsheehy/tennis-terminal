@@ -35,12 +35,20 @@ export function isCategory(value: string): value is Category {
 
 // Reminder lead times a subscriber can pick, in hours before the deadline
 // moment. The hourly cron fires each window once per (subscriber, deadline).
-export const REMINDER_WINDOWS = [24, 12, 1] as const;
+// The shortest window is 2 hours, not 1: GitHub's hourly cron can start many
+// minutes late (or occasionally skip a slot), and a 1-hour window would leave
+// no slack — with 2 hours there are always two cron slots before the deadline,
+// so the last-call email reliably lands before entries close.
+export const REMINDER_WINDOWS = [24, 12, 2] as const;
 
 export function normalizeReminderHours(input: unknown): number[] {
   const arr = Array.isArray(input) ? input : [];
   const allowed = new Set<number>(REMINDER_WINDOWS);
-  const valid = arr.map((v) => Number(v)).filter((v) => allowed.has(v));
+  const valid = arr
+    .map((v) => Number(v))
+    // Migrate the retired 1-hour option (briefly offered) to its replacement.
+    .map((v) => (v === 1 ? 2 : v))
+    .filter((v) => allowed.has(v));
   const deduped = Array.from(new Set(valid)).sort((a, b) => b - a);
   return deduped.length ? deduped : [24];
 }

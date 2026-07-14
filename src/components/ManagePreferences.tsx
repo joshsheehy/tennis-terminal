@@ -16,7 +16,7 @@ const CATEGORY_OPTIONS: Array<{ key: string; label: string }> = [
 const REMINDER_OPTIONS: Array<{ hours: number; label: string }> = [
   { hours: 24, label: '24 hours before' },
   { hours: 12, label: '12 hours before' },
-  { hours: 1, label: '1 hour before' },
+  { hours: 2, label: '2 hours before' },
 ];
 
 export default function ManagePreferences({

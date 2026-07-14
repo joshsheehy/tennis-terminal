@@ -334,20 +334,20 @@ describe('dueReminderDeadlines', () => {
     });
     expect(early.map((d) => d.kind)).not.toContain('main');
     const late = dueReminderDeadlines(rows, new Date('2026-02-16T17:30:00Z'), {
-      windows: [24, 12, 1],
+      windows: [24, 12, 2],
       categories: ['atp'],
     });
     expect(late.map((d) => d.kind)).not.toContain('main');
   });
 
   it('a deadline inside several chosen windows reports them all', () => {
-    // 40 minutes before the deadline: inside 24h, 12h and 1h.
-    const due = dueReminderDeadlines(rows, new Date('2026-02-16T16:20:00Z'), {
-      windows: [24, 12, 1],
+    // 100 minutes before the deadline: inside 24h, 12h and 2h.
+    const due = dueReminderDeadlines(rows, new Date('2026-02-16T15:20:00Z'), {
+      windows: [24, 12, 2],
       categories: ['atp'],
     });
     const main = due.find((d) => d.kind === 'main');
-    expect(main?.dueWindows).toEqual([24, 12, 1]);
+    expect(main?.dueWindows).toEqual([24, 12, 2]);
   });
 
   it('respects the subscriber windows: 12h-only fires only inside 12 hours', () => {
@@ -382,13 +382,16 @@ describe('reminderKey / normalizeReminderHours', () => {
     const d = deadlinesForEdition(row({ level: 'ATP 250' })).find((x) => x.kind === 'main')!;
     expect(reminderKey(d, 24)).toBe('e1:main');
     expect(reminderKey(d, 12)).toBe('e1:main:12h');
-    expect(reminderKey(d, 1)).toBe('e1:main:1h');
+    expect(reminderKey(d, 2)).toBe('e1:main:2h');
   });
 
   it('normalizes reminder hours to the allowed set, sorted, defaulting to [24]', () => {
-    expect(normalizeReminderHours([1, 24, 12])).toEqual([24, 12, 1]);
+    expect(normalizeReminderHours([2, 24, 12])).toEqual([24, 12, 2]);
     expect(normalizeReminderHours(['12', 12, 99])).toEqual([12]);
     expect(normalizeReminderHours([])).toEqual([24]);
     expect(normalizeReminderHours(undefined)).toEqual([24]);
+    // The retired 1-hour option migrates to its 2-hour replacement.
+    expect(normalizeReminderHours([1])).toEqual([2]);
+    expect(normalizeReminderHours([24, 1])).toEqual([24, 2]);
   });
 });

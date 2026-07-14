@@ -1,13 +1,23 @@
 name: Entry deadline alerts
 
 # Emails subscribers before each ATP/Challenger/ITF/Grand Slam entry deadline,
-# at the reminder times each subscriber picked (24 / 12 / 1 hours before the
+# at the reminder times each subscriber picked (24 / 12 / 2 hours before the
 # deadline moment — noon ET for ATP/Challenger/GS, 14:00 GMT for ITF). Runs
 # hourly; the endpoint is idempotent (alert_sends dedupes per subscriber +
 # deadline + window), so an extra run or a retry never double-emails.
 #
-# GitHub cron can fire several minutes late in busy periods — irrelevant for
-# the 24h/12h reminders, and the 1h reminder still lands ~45-55 min out.
+# GitHub throttles scheduled workflows hard at minute 0 (observed gaps of up
+# to 4 hours on the previous '0 * * * *' schedule), so two defenses:
+#   1. The hourly base runs at an off-peak minute (:23), which GitHub honors
+#      far more reliably than the top of the hour.
+#   2. Extra passes every 20 minutes through 12:00-18:59 UTC — the stretch
+#      where tennis deadlines actually fall (ATP/Challenger/GS close at noon
+#      ET = 16:00/17:00 UTC; ITF at 14:00 GMT) — so the 12h and 2h reminders
+#      get several shots even when GitHub skips slots.
+# The shortest reminder window is 2 hours (not 1) for the same reason: with
+# runs every 20 minutes in the critical stretch, a 2-hour window survives
+# multiple skipped slots and still lands before entries close. Extra runs are
+# free: the dedupe makes the endpoint idempotent.
 
 on:
   workflow_dispatch:
@@ -17,7 +27,8 @@ on:
         required: false
         default: '0'
   schedule:
-    - cron: '0 * * * *'
+    - cron: '23 * * * *'
+    - cron: '3,43 12-18 * * *'
 
 jobs:
   send:

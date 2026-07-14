@@ -1,4 +1,4 @@
-import { Category, CATEGORY_LABEL, Deadline } from './entry-deadlines';
+import { Category, CATEGORY_LABEL, Deadline, eventRank } from './entry-deadlines';
 
 // Rendering for the alert + welcome emails. Kept separate from the API route so
 // it can be unit-tested and previewed without spinning up the server.
@@ -62,6 +62,31 @@ export function displayName(d: Deadline): string {
   return d.name;
 }
 
+// Inside a sectioned digest the "Doubles" heading already says what the row
+// is, so doubles rows drop the redundant name suffix there.
+function sectionDisplayName(d: Deadline): string {
+  return d.kind === 'doubles' ? d.name : displayName(d);
+}
+
+// The digest is split into a Singles section (main draw, qualifying, the ITF
+// aggregate) and a Doubles section, each ordered by descending event level
+// (Grand Slam -> ATP 1000 -> ... -> ITF); ties go to the soonest deadline.
+export function splitDigestSections(
+  deadlines: Deadline[]
+): Array<{ title: string; deadlines: Deadline[] }> {
+  const byLevel = (a: Deadline, b: Deadline) => {
+    if (eventRank(a) !== eventRank(b)) return eventRank(a) - eventRank(b);
+    if (a.deadlineDate !== b.deadlineDate) return a.deadlineDate.localeCompare(b.deadlineDate);
+    return a.name.localeCompare(b.name);
+  };
+  const singles = deadlines.filter((d) => d.kind !== 'doubles').sort(byLevel);
+  const doubles = deadlines.filter((d) => d.kind === 'doubles').sort(byLevel);
+  const sections: Array<{ title: string; deadlines: Deadline[] }> = [];
+  if (singles.length) sections.push({ title: 'Singles', deadlines: singles });
+  if (doubles.length) sections.push({ title: 'Doubles', deadlines: doubles });
+  return sections;
+}
+
 // Subtitle line under the name. Individual tournaments show level + place +
 // start; the ITF aggregate summarises the week instead of listing every event.
 // Grand Slam main-draw rows also carry the qualifying deadline date so both
@@ -90,7 +115,7 @@ function textLine(d: Deadline): string {
   const qs = d.qualifyingDeadlineDate
     ? ` Qs deadline ${formatDate(d.qualifyingDeadlineDate)}.`
     : '';
-  return `- ${displayName(d)} (${d.level}) - ${formatDate(d.deadlineDate)} ${d.timeNote}${closing}. Tournament starts ${formatDate(d.tournamentStart)}.${qs}`;
+  return `- ${sectionDisplayName(d)} (${d.level}) - ${formatDate(d.deadlineDate)} ${d.timeNote}${closing}. Tournament starts ${formatDate(d.tournamentStart)}.${qs}`;
 }
 
 // Build the subject + HTML + plain-text digest for a set of deadlines.
@@ -111,21 +136,20 @@ export function renderDigest(
 
   // HTML entities (&middot;) instead of a raw · so the copy renders correctly
   // in every client regardless of how it interprets the charset.
-  const rows = deadlines
-    .map((d) => {
-      // The ITF aggregate row has no single tournament page; link it to the
-      // schedule instead.
-      const url = d.aggregate
-        ? `${origin}/cuts`
-        : `${origin}/tournaments/${encodeURIComponent(d.slug)}`;
-      const closing =
-        d.hoursLeft != null
-          ? `<br><span style="color:#b45309;font-size:13px;font-weight:600">closes in ${esc(timeLeftLabel(d.hoursLeft))}</span>`
-          : '';
-      return `
+  const rowHtml = (d: Deadline) => {
+    // The ITF aggregate row has no single tournament page; link it to the
+    // schedule instead.
+    const url = d.aggregate
+      ? `${origin}/cuts`
+      : `${origin}/tournaments/${encodeURIComponent(d.slug)}`;
+    const closing =
+      d.hoursLeft != null
+        ? `<br><span style="color:#b45309;font-size:13px;font-weight:600">closes in ${esc(timeLeftLabel(d.hoursLeft))}</span>`
+        : '';
+    return `
       <tr>
         <td style="padding:10px 12px;border-bottom:1px solid #eee">
-          <a href="${url}" style="color:#111;text-decoration:none;font-weight:600">${esc(displayName(d))}</a><br>
+          <a href="${url}" style="color:#111;text-decoration:none;font-weight:600">${esc(sectionDisplayName(d))}</a><br>
           <span style="color:#666;font-size:13px">${subtitle(d)}</span>
         </td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;white-space:nowrap">
@@ -133,7 +157,23 @@ export function renderDigest(
           <span style="color:#666;font-size:13px">${esc(d.timeNote)}</span>${closing}
         </td>
       </tr>`;
-    })
+  };
+
+  const sections = splitDigestSections(deadlines);
+  const sectionsHtml = sections
+    .map(
+      (s) => `
+    <h2 style="font-size:14px;margin:20px 0 8px;color:#111;text-transform:uppercase;letter-spacing:.05em">${esc(s.title)}</h2>
+    <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #eee;border-radius:8px;overflow:hidden;font-size:14px">
+      <thead>
+        <tr style="background:#fafafa;text-align:left">
+          <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.04em">Tournament</th>
+          <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase">Deadline</th>
+        </tr>
+      </thead>
+      <tbody>${s.deadlines.map(rowHtml).join('')}</tbody>
+    </table>`
+    )
     .join('');
 
   const unsubUrl = unsubscribeUrl(origin, unsubToken);
@@ -158,16 +198,7 @@ export function renderDigest(
     <h1 style="font-size:18px;margin:0 0 4px">Entry deadlines</h1>
     <p style="color:#555;font-size:14px;margin:0 0 16px">
       ${count === 1 ? `A deadline is due in ${esc(soonestLabel)}` : count + ` deadlines are due soon (closest in ${esc(soonestLabel)})`}. Times are shown as set by the governing body.
-    </p>
-    <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #eee;border-radius:8px;overflow:hidden;font-size:14px">
-      <thead>
-        <tr style="background:#fafafa;text-align:left">
-          <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.04em">Tournament</th>
-          <th style="padding:8px 12px;font-size:12px;color:#888;text-transform:uppercase">Deadline</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
+    </p>${sectionsHtml}
     <div style="margin:20px 0 0">
       <a href="${manageUrl}" style="display:inline-block;padding:8px 14px;border:1px solid #3CB043;border-radius:6px;color:#3CB043;text-decoration:none;font-size:13px;font-weight:600">Edit preferences</a>
       <a href="${unsubUrl}" style="display:inline-block;padding:8px 14px;border:1px solid #ddd;border-radius:6px;color:#888;text-decoration:none;font-size:13px;margin-left:6px">Unsubscribe</a>
@@ -182,7 +213,9 @@ export function renderDigest(
   // Plain text uses ASCII hyphens so no client can render a "weird character".
   const text =
     `Entry deadlines due soon (closest in ${soonestLabel}):\n\n` +
-    deadlines.map(textLine).join('\n') +
+    sections
+      .map((s) => `${s.title.toUpperCase()}\n` + s.deadlines.map(textLine).join('\n'))
+      .join('\n\n') +
     `\n\nEdit preferences: ${manageUrl}\nUnsubscribe: ${unsubUrl}\n\nTennis Cuts`;
 
   return { subject, html, text };
