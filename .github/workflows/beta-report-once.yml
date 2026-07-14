@@ -1,6 +1,6 @@
 name: Beta cuts tracking report (one-off)
 
-# Temporary push-triggered twin of cut-predictions.yml (workflow_dispatch is
+# Run 2: verify blend-v3 live. Temporary push-triggered twin of cut-predictions.yml (workflow_dispatch is
 # not available to the current automation token). Runs the score pass first so
 # the tracking report reflects every cut that has landed, then prints the
 # report and the walk-forward backtest. Delete after use.
