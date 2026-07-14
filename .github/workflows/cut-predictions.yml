@@ -56,7 +56,24 @@ jobs:
               with urllib.request.urlopen(req, timeout=timeout) as res:
                   return json.loads(res.read().decode('utf-8', errors='replace'))
 
-          print('=== Walk-forward backtest (model vs last-year baseline) ===', flush=True)
+          print('=== Live tracking: stored predictions vs actual cuts ===', flush=True)
+          rep = get('/api/cut-prediction-report?rows=all')
+          if not rep.get('ok'):
+              raise RuntimeError(f'report failed: {json.dumps(rep)[:400]}')
+          print(f"scored: {rep.get('scored')} | pending: {rep.get('pending')}", flush=True)
+          print(f"overall: {json.dumps(rep.get('overall'))}", flush=True)
+          for name in ('byDraw', 'byHorizon', 'byMethod', 'byVersion', 'byTier'):
+              print(f"\n{name}:", flush=True)
+              for k, v in (rep.get(name) or {}).items():
+                  print(f"  {k}: {json.dumps(v)}", flush=True)
+          print('\nworst misses:', flush=True)
+          for r in rep.get('worstMisses') or []:
+              print(f"  {json.dumps(r)}", flush=True)
+          print('\nall scored rows:', flush=True)
+          for r in rep.get('rows') or []:
+              print(f"  {json.dumps(r)}", flush=True)
+
+          print('\n=== Walk-forward backtest (model vs last-year baseline) ===', flush=True)
           bt = get('/api/backtest-cuts?tune=true')
           if not bt.get('ok'):
               raise RuntimeError(f'backtest failed: {json.dumps(bt)[:400]}')
