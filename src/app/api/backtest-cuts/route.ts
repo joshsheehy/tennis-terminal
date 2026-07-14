@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import {
   cohortBase,
+  liveSeasonDrift,
   tierChangeFactor,
   supplyAdjustment,
   median,
   DEFAULT_BETAS,
+  DRIFT_BETA,
   MODEL_VERSION,
+  SHRINK_ALPHA,
   type ModelBetas,
   type SupplySignals,
   type TierGroup,
@@ -154,6 +157,15 @@ export async function GET(request: NextRequest) {
           levelByslugYear.get(`${o.slug}:${o.year - 1}`) ?? null,
           o.year
         );
+        // v3: live season drift + cohort shrinkage, same as predictCut.
+        // liveSeasonDrift only reads same-season cuts from weeks before o's,
+        // so passing the full observation set stays walk-forward.
+        base *= liveSeasonDrift(observations, o) ** DRIFT_BETA;
+        const cohort = cohortBase(o, prior);
+        if (cohort != null) {
+          const alpha = SHRINK_ALPHA[draw];
+          base = alpha * base + (1 - alpha) * cohort;
+        }
       } else {
         base = cohortBase(o, observations);
         method = 'cohort';

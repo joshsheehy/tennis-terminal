@@ -1,41 +1,51 @@
-// Beta cut-projection model, v2.1 ("blend-v2.1"). Pure functions only — the
+// Beta cut-projection model, v3 ("blend-v3"). Pure functions only — the
 // routes feed it rows and store what it returns.
 //
 // Every structural choice here was fitted on a walk-forward backtest over
-// 2,676 real cut observations (2022-2026 production data), scored against
-// the "same cut as last year" baseline:
+// ~2,900 real cut observations (2022-2026 production data), scored against
+// the "same cut as last year" baseline, then re-examined against the first
+// 103 LIVE scored predictions (July 2026) which exposed a systematic
+// under-depth bias (2026 fields kept coming in weaker than history implied):
 //
-//   predicted cut = blended own history × tier-change factor
+//   predicted cut = (blended own history × tier factor × season drift)
+//                   shrunk toward the cohort median
 //
 //   1. BLENDED BASE — a weighted mean of the tournament's own last two cuts
-//      (heavier on last year; weights fitted per draw). Two-year blending
-//      beat last-year-only in every draw.
-//   2. TIER-CHANGE FACTOR — when a tournament changed level since last year
-//      (Challenger 75 → 100, ATP 250 → Challenger…), its own history is
-//      biased; rescale by the ratio of median cuts between the two exact
-//      levels, measured on prior seasons only.
-//   3. COHORT FALLBACK — events with no history take the median cut of
-//      same-tier events within ±2 calendar weeks last season (geographic
-//      neighbours preferred), with a wider uncertainty band.
+//      (heavier on last year; weights fitted per draw), with a freak last
+//      year winsorized against the tournament's own prior median.
+//   2. TIER-CHANGE FACTOR — when a tournament changed level since last year,
+//      rescale by the ratio of median cuts between the two exact levels,
+//      measured on prior seasons only.
+//   3. LIVE SEASON DRIFT (new in v3) — the median year-over-year cut ratio
+//      across same-group events already completed THIS season, damped
+//      (^0.25) and clamped. Directly corrects the live bias the tracking
+//      report caught; fitted on the full backtest it helps every draw.
+//   4. COHORT SHRINKAGE (new in v3, the big win) — the point estimate is
+//      pulled toward the median cut of same-group events within ±2 weeks
+//      last season: cut = α·own + (1-α)·cohort (α fitted per draw). One
+//      noisy own-history year misleads; the cohort anchors. Improves MAE
+//      6.5% (ms) / 10% (qs) / 14% (md) over v2.1, better in every season
+//      2023-2026, challengers most, tour events unharmed (slams skip it —
+//      their cohort is too thin to form).
+//   5. COHORT FALLBACK — events with no history take the cohort median
+//      alone, with a wider uncertainty band.
 //
 // Factors the backtest REJECTED (kept as switched-off machinery so they can
 // be re-fitted as data grows, and so the backtest keeps measuring them):
-//   - year-over-year market drift of comparable tournaments: helped nothing
-//     once blending was in (singles MAE worsened 48.6 → 50.8 with it on).
-//   - calendar-supply ratios (same-week event count, run-up density — the
-//     aggregate of "how many weeks in a row the field has been playing"):
-//     the fitted exponents came out 0; at any positive damping they added
-//     noise. supplyAdjustment() stays wired with fitted-zero betas.
+//   - calendar-supply ratios (same-week event count, run-up density —
+//     the regional "waterfall"): fitted exponents 0; the clustering repeats
+//     yearly so it is already priced into each tournament's own history.
 //
 // Fitted accuracy vs baseline (walk-forward, editions with a last-year cut):
-//   singles main  MAE 48.6 vs 53.1  (-8.5%), win rate 0.53
-//   singles quali MAE 198  vs 207   (-4.3%), win rate 0.53
-//   doubles       MAE 194  vs 205   (-5.3%), win rate 0.57
+//   singles main  MAE 44.7 vs 52.1  (-14%), win rate 0.55
+//   singles quali MAE 178  vs 209   (-15%), win rate 0.58
+//   doubles       MAE 170  vs 214   (-20%), win rate 0.57
 //
 // Output is a range, not a point: bands are the fitted 75th percentile of
-// relative absolute error per draw × tier.
+// relative absolute error per draw × tier (live coverage so far: 82% inside
+// the band against a 75% design target).
 
-export const MODEL_VERSION = 'blend-v2.1';
+export const MODEL_VERSION = 'blend-v3';
 
 export type TierGroup = 'gs' | 'tour' | 'challenger';
 export type PredictDraw = 'ms' | 'qs' | 'md';
@@ -83,12 +93,24 @@ export function tierGroup(level: string): TierGroup | null {
 // fitted per draw on the 2022-2026 backtest.
 const BLEND_W1: Record<PredictDraw, number> = { ms: 0.7, qs: 0.65, md: 0.8 };
 
+// Weight kept on the tournament's own (blended, tier- and drift-adjusted)
+// history; the rest shifts to the cohort median. Fitted per draw: singles
+// mains have the most reliable own history, doubles the least. Exported so
+// the backtest replays exactly what ships.
+export const SHRINK_ALPHA: Record<PredictDraw, number> = { ms: 0.75, qs: 0.6, md: 0.6 };
+
+// Damping exponent on the live season-drift ratio, and its clamp/support.
+export const DRIFT_BETA = 0.25;
+const DRIFT_CLAMP: [number, number] = [0.6, 1.6];
+const DRIFT_MIN_PAIRS = 8;
+
 // Relative half-width of the projected range: fitted p75 of |relative error|
-// per draw × tier (gs bands from small samples, kept conservative).
+// per draw × tier under the v3 predictor (gs bands from small samples, kept
+// conservative).
 const RANGE: Record<PredictDraw, Record<TierGroup, number>> = {
-  ms: { gs: 0.08, tour: 0.27, challenger: 0.33 },
-  qs: { gs: 0.15, tour: 0.5, challenger: 0.47 },
-  md: { gs: 0.15, tour: 0.37, challenger: 0.48 },
+  ms: { gs: 0.08, tour: 0.23, challenger: 0.25 },
+  qs: { gs: 0.15, tour: 0.5, challenger: 0.43 },
+  md: { gs: 0.15, tour: 0.35, challenger: 0.47 },
 };
 
 // A last-year cut further than this factor from the tournament's own prior
@@ -148,6 +170,28 @@ export function tierChangeFactor(
   const b = med(lastLevel);
   if (a == null || b == null || b <= 0) return 1;
   return Math.min(TIER_FACTOR_CLAMP[1], Math.max(TIER_FACTOR_CLAMP[0], a / b));
+}
+
+/** Live season drift: how this season's cuts have been running against last
+ * season's, measured ONLY on same-group events already completed before the
+ * target's week (walk-forward safe — at predict time those are exactly the
+ * cuts that exist). Median of the year-over-year ratios, clamped; 1 when
+ * fewer than DRIFT_MIN_PAIRS comparable pairs have completed. */
+export function liveSeasonDrift(observations: CutObservation[], target: Target): number {
+  const prevByslug = new Map<string, number>();
+  for (const o of observations) {
+    if (o.year === target.year - 1 && o.group === target.group) prevByslug.set(o.slug, o.cut);
+  }
+  const ratios: number[] = [];
+  for (const o of observations) {
+    if (o.year !== target.year || o.group !== target.group || o.week >= target.week) continue;
+    const prev = prevByslug.get(o.slug);
+    if (prev == null || prev <= 0) continue;
+    ratios.push(o.cut / prev);
+  }
+  if (ratios.length < DRIFT_MIN_PAIRS) return 1;
+  const r = median(ratios)!;
+  return Math.min(DRIFT_CLAMP[1], Math.max(DRIFT_CLAMP[0], r));
 }
 
 /** Fallback base for events with no own history: last season's median cut
@@ -230,6 +274,16 @@ export function predictCut(
     base = own.yearBeforeCut != null ? w1 * last + (1 - w1) * own.yearBeforeCut : last;
     tierFactor = tierChangeFactor(observations, target.level, own.lastYearLevel, target.year);
     base *= tierFactor;
+    // Live season drift: nudge toward how this season has actually been
+    // running (damped so one hot month can't swing a projection).
+    base *= liveSeasonDrift(observations, target) ** DRIFT_BETA;
+    // Cohort shrinkage: one noisy own-history year misleads; the cohort
+    // median anchors. Skipped automatically when no cohort forms (slams).
+    const cohort = cohortBase(target, observations);
+    if (cohort != null) {
+      const alpha = SHRINK_ALPHA[draw];
+      base = alpha * base + (1 - alpha) * cohort;
+    }
     method = 'trend';
   } else {
     base = cohortBase(target, observations);

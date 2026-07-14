@@ -3,11 +3,14 @@ import {
   tierGroup,
   tierChangeFactor,
   cohortBase,
+  liveSeasonDrift,
   predictCut,
   supplyAdjustment,
   median,
   haversineKm,
   DEFAULT_BETAS,
+  DRIFT_BETA,
+  SHRINK_ALPHA,
   type CutObservation,
 } from './cut-prediction';
 
@@ -137,6 +140,60 @@ describe('predictCut', () => {
 
   it('returns null with neither history nor cohort', () => {
     expect(predictCut(target, { lastYearCut: null, yearBeforeCut: null, lastYearLevel: null }, [], 'ms')).toBeNull();
+  });
+});
+
+describe('liveSeasonDrift', () => {
+  // 10 events completed this season (weeks 1-9), each 20% deeper than its own
+  // cut last year -> drift ratio 1.2 for a week-10 target.
+  const rows: CutObservation[] = [];
+  for (let i = 0; i < 10; i++) {
+    rows.push(obs(`e${i}`, 2024, i + 1, 500));
+    rows.push(obs(`e${i}`, 2025, i + 1, 600));
+  }
+
+  it('measures the median year-over-year ratio of completed weeks', () => {
+    expect(liveSeasonDrift(rows, target)).toBeCloseTo(1.2, 5);
+  });
+
+  it('ignores events at or after the target week and other groups', () => {
+    const later = [...rows, obs('future', 2025, 11, 5000), obs('future', 2024, 11, 100)];
+    expect(liveSeasonDrift(later, target)).toBeCloseTo(1.2, 5);
+  });
+
+  it('is neutral with thin support and clamps extremes', () => {
+    expect(liveSeasonDrift(rows.slice(0, 8), target)).toBe(1); // 4 pairs < min 8
+    const wild = rows.map((o) => (o.year === 2025 ? { ...o, cut: o.cut * 10 } : o));
+    expect(liveSeasonDrift(wild, target)).toBe(1.6);
+  });
+
+  it('feeds predictCut as a damped multiplier before shrinkage', () => {
+    const p = predictCut(target, { lastYearCut: 400, yearBeforeCut: null, lastYearLevel: 'Challenger 75' }, rows, 'ms');
+    // drift = 1.2^0.25 on the 400 base; cohort = the three 2024 events within
+    // ±2 weeks of week 10 (weeks 8/9/10, all cut 500).
+    const drifted = 400 * 1.2 ** DRIFT_BETA;
+    const expected = Math.round(SHRINK_ALPHA.ms * drifted + (1 - SHRINK_ALPHA.ms) * 500);
+    expect(p?.cut).toBe(expected);
+    expect(p!.cut).toBeGreaterThan(400); // deeper season pulls it deeper
+  });
+});
+
+describe('cohort shrinkage (v3)', () => {
+  it('pulls the trend estimate toward the cohort median', () => {
+    // Last season cohort around week 10: three events with median cut 600.
+    const rows = [
+      obs('a', 2024, 9, 500, [46, 6]),
+      obs('b', 2024, 10, 600, [47, 8]),
+      obs('c', 2024, 11, 700, [48, 9]),
+    ];
+    const p = predictCut(target, { lastYearCut: 300, yearBeforeCut: null, lastYearLevel: 'Challenger 75' }, rows, 'ms');
+    const alpha = SHRINK_ALPHA.ms;
+    expect(p?.cut).toBe(Math.round(alpha * 300 + (1 - alpha) * 600));
+  });
+
+  it('leaves the estimate alone when no cohort forms (slam case)', () => {
+    const p = predictCut(target, { lastYearCut: 300, yearBeforeCut: null, lastYearLevel: 'Challenger 75' }, [], 'ms');
+    expect(p?.cut).toBe(300);
   });
 });
 
