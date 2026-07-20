@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import CutTrendChart, { type CutTrendPoint, type CutTrendSeries } from '@/components/CutTrendChart';
 import RankVerdict from '@/components/RankVerdict';
-import { getTournamentDetailRowsBySlug, getItfPriorYearCutEditions } from '@/lib/db';
+import { getTournamentDetailRowsBySlug, getItfPriorYearCutEditions, pool } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { CURRENT_SEASON, EARLIEST_SEASON, isAvailableSeason } from '@/lib/seasons';
@@ -489,6 +489,23 @@ export default async function TournamentDetailPage({
       ? await getItfPriorYearCutEditions(current.level, current.city, current.week, current.year)
       : [];
 
+  // This year's projection for the viewed edition (beta), for the hero block.
+  const projection = await pool
+    .query<{ cut: number; low: number; high: number }>(
+      `select distinct on (event_type) predicted_cut as cut, predicted_low as low, predicted_high as high
+         from cut_predictions
+        where tournament_edition_id = $1 and event_type = 'singles' and draw_type = 'main'
+        order by event_type, horizon_weeks asc, predicted_at desc`,
+      [current.edition_id]
+    )
+    .then((r) => r.rows[0] ?? null)
+    .catch(() => null);
+  const heroCutoff = findCutoff(viewedRow.cutoffs, 'singles', 'main');
+  const heroActual =
+    heroCutoff && !isTombstone(heroCutoff)
+      ? heroCutoff.last_alternate_rank ?? heroCutoff.last_direct_acceptance_rank
+      : null;
+
   // Cut per year for each draw, oldest→newest, for the hero trend chart.
   // Prefer the post-alternates ("real") cut when it was recorded; Challenger
   // doubles uses the advanced-entry team cut. ALT/LL counts ride along for
@@ -557,6 +574,27 @@ export default async function TournamentDetailPage({
             </div>
           ))}
         </div>
+        {(heroActual != null || projection != null) && (
+          <div className="entry-hero">
+            <div className="entry-hero__label">
+              {heroActual != null ? `Singles main cut · ${current.year}` : `Projected cut · ${current.year} (beta)`}
+            </div>
+            <div className="entry-hero__row">
+              <span className="entry-hero__num">
+                #{heroActual ?? projection!.cut}
+              </span>
+              {heroActual == null && projection != null && (
+                <span className="entry-hero__range">range {projection.low}–{projection.high}</span>
+              )}
+              <RankVerdict cut={heroActual ?? projection!.cut} event="singles" />
+            </div>
+            {heroActual == null && (
+              <p className="entry-hero__note">
+                Real cut lands after the entry deadline; projection is backtested against five seasons.
+              </p>
+            )}
+          </div>
+        )}
         {hasTrend && <CutTrendChart series={cutTrend} />}
       </div>
 

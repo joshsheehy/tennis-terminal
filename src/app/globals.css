@@ -1289,3 +1289,48 @@ td {
 .nav-rank__pop input:focus { outline: 2px solid var(--brand-ring); border-color: var(--brand); }
 .nav-rank__note { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--text-faint); }
 .nav-rank__save { padding: 8px 12px; font-size: 13.5px; }
+
+/* ======================= Calendar row cuts + verdicts ===================== */
+
+.t-row__cut { margin-left: auto; text-align: right; white-space: nowrap; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding-right: 10px; }
+.t-row__cut-num { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-strong); font-size: 14.5px; }
+.t-row__cut-proj { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--text-faint); margin-left: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+.t-row__cut-closes { font-size: 12px; color: var(--text-muted); font-style: italic; }
+.t-row__cut .rank-verdict { margin-left: 0; }
+
+/* ======================= Tournament page entry hero ======================= */
+
+.entry-hero { margin: 18px 0 4px; padding: 16px 18px; border: 1px solid var(--border); border-left: 3px solid var(--brand); border-radius: 10px; background: var(--surface-alt); }
+.entry-hero__label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px; }
+.entry-hero__row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.entry-hero__num { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.entry-hero__range { font-size: 13.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.entry-hero .rank-verdict { font-size: 13px; padding: 4px 11px; vertical-align: 4px; }
+.entry-hero__note { margin: 8px 0 0; font-size: 12.5px; color: var(--text-faint); }
+
+/* ============================ Swing planner ============================== */
+
+.planner { margin-top: 10px; }
+.planner--empty { font-size: 12.5px; color: var(--text-muted); padding: 8px 2px; }
+.planner__strip { display: flex; gap: 3px; }
+.planner__cell { flex: 1 1 0; height: 14px; border: none; border-radius: 3px; cursor: pointer; padding: 0; min-width: 6px; }
+.planner__cell--in { background: var(--brand); }
+.planner__cell--bubble { background: #f59e0b; }
+.planner__cell--out { background: rgba(220, 38, 38, 0.55); }
+.planner__cell--none { background: var(--surface-tag); }
+.planner__cell--sel { outline: 2px solid var(--text-strong); outline-offset: 1px; }
+.planner__bar { display: flex; align-items: center; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+.planner__legend { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-muted); }
+.planner__dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-left: 6px; }
+.planner__dot--in { background: var(--brand); }
+.planner__dot--bubble { background: #f59e0b; }
+.planner__dot--out { background: rgba(220, 38, 38, 0.55); }
+.planner__len { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); margin-left: auto; }
+.planner__len select { border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; background: var(--surface); color: var(--text-strong); font-size: 12.5px; }
+.planner__go { padding: 6px 14px; font-size: 13px; }
+.planner__proposal { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 12px 14px; }
+.planner__proposal-title { margin: 0 0 8px; font-size: 13.5px; font-weight: 700; color: var(--text-strong); }
+.planner__proposal ul { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; color: var(--text-secondary); }
+.planner__proj { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--text-faint); margin-left: 6px; text-transform: uppercase; }
+.planner__actions { display: flex; gap: 8px; }
+.planner__actions .btn { font-size: 13px; padding: 7px 13px; }

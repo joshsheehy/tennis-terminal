@@ -24,6 +24,7 @@ import {
   summarizeEntries,
 } from '@/lib/swing-rank-check';
 import type { MapEvent } from './SwingsMap';
+import SwingPlanner from './SwingPlanner';
 // Owned here so both the Builder (/) and Swings (/swings) routes get the styles.
 import '../../app/swings/swings.css';
 
@@ -633,6 +634,23 @@ export default function SwingsView({
             setSelectedSwing(null);
           }}
         />
+
+        {mode === 'build' && (
+          <SwingPlanner
+            data={data}
+            rank={rankSingles}
+            selectedWeek={selectedWeek}
+            onSelectWeek={(w) => {
+              setSelectedWeek(w);
+              setSelectedSwing(null);
+            }}
+            onApplyPlan={(ids, firstWeek) => {
+              setChainIds(ids);
+              setSelectedWeek(firstWeek);
+              setSelectedSwing(null);
+            }}
+          />
+        )}
       </div>
 
       {showWelcome && (

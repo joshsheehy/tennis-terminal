@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScheduleRow } from '@/lib/types';
+import RankVerdict from '@/components/RankVerdict';
 import { CURRENT_SEASON } from '@/lib/seasons';
 
 function normalizeForSearch(value: string | null | undefined) {
@@ -97,15 +98,24 @@ function surfaceDotClass(surface: string | null | undefined): string {
   return 'surface-dot';
 }
 
+export type RowCutInfo = {
+  cut: number | null;
+  projected: boolean;
+  /** Player-language empty state, e.g. "entries close Mar 2". */
+  closes?: string | null;
+};
+
 // Shared row body for both the flat search results and the week groups.
 function TournamentRowBody({
   tournament,
   dateText,
   extraTag,
+  cut,
 }: {
   tournament: ScheduleRow;
   dateText: string;
   extraTag?: React.ReactNode;
+  cut?: RowCutInfo;
 }) {
   return (
     <>
@@ -127,6 +137,21 @@ function TournamentRowBody({
           )}
         </div>
       </div>
+      {cut && (
+        <span className="t-row__cut">
+          {cut.cut != null ? (
+            <>
+              <span className="t-row__cut-num">
+                #{cut.cut}
+                {cut.projected && <em className="t-row__cut-proj">proj.</em>}
+              </span>
+              <RankVerdict cut={cut.cut} event="singles" />
+            </>
+          ) : cut.closes ? (
+            <span className="t-row__cut-closes">{cut.closes}</span>
+          ) : null}
+        </span>
+      )}
       <span className="t-row__go" aria-hidden="true">→</span>
     </>
   );
@@ -167,10 +192,12 @@ export default function WeekTournamentPicker({
   tournaments,
   year = CURRENT_SEASON,
   defaultWeekKey,
+  cutInfo,
 }: {
   tournaments: ScheduleRow[];
   year?: number;
   defaultWeekKey?: string;
+  cutInfo?: Record<string, RowCutInfo>;
 }) {
   const inputRef    = useRef<HTMLInputElement>(null);
   const weekRef     = useRef<HTMLDivElement>(null);
@@ -600,6 +627,7 @@ export default function WeekTournamentPicker({
               <TournamentRowBody
                 tournament={t}
                 dateText={`${t.start_date ? formatDate(t.start_date) : 'NA'}${t.week ? ` · Week ${t.week}` : ''}`}
+                cut={cutInfo?.[t.edition_id]}
               />
             </Link>
           </div>
@@ -665,6 +693,7 @@ export default function WeekTournamentPicker({
                     tournament={tournament}
                     dateText={tournament.start_date ? formatDate(tournament.start_date) : 'NA'}
                     extraTag={displayMode === 'continuation' ? <span className="tag-soft">in progress</span> : undefined}
+                    cut={cutInfo?.[tournament.edition_id]}
                   />
                 </Link>
                 </div>
