@@ -4,12 +4,14 @@ import {
   tierChangeFactor,
   cohortBase,
   liveSeasonDrift,
+  regionalSwingDrift,
   predictCut,
   supplyAdjustment,
   median,
   haversineKm,
   DEFAULT_BETAS,
   DRIFT_BETA,
+  REGIONAL_SWING_BETA,
   SHRINK_ALPHA,
   type CutObservation,
 } from './cut-prediction';
@@ -178,7 +180,34 @@ describe('liveSeasonDrift', () => {
   });
 });
 
-describe('cohort shrinkage (v3)', () => {
+describe('regionalSwingDrift', () => {
+  const regionalTarget = { ...target, year: 2025, week: 10, latitude: 47, longitude: 7 };
+  const rows: CutObservation[] = [];
+  for (let i = 0; i < 3; i++) {
+    rows.push(obs(`local${i}`, 2024, 7 + i, 400, [47 + i * 0.2, 7 + i * 0.2]));
+    rows.push(obs(`local${i}`, 2025, 7 + i, 600, [47 + i * 0.2, 7 + i * 0.2]));
+  }
+  rows.push(obs('far', 2024, 9, 100, [-30, -60]));
+  rows.push(obs('far', 2025, 9, 1000, [-30, -60]));
+
+  it('measures recent same-region year-over-year cut movement', () => {
+    expect(regionalSwingDrift(rows, regionalTarget)).toBeCloseTo(1.5, 5);
+  });
+
+  it('is neutral without coordinates or enough local pairs', () => {
+    expect(regionalSwingDrift(rows, { ...regionalTarget, latitude: null })).toBe(1);
+    expect(regionalSwingDrift(rows.slice(0, 4), regionalTarget)).toBe(1);
+  });
+
+  it('feeds predictCut as a damped multiplier before shrinkage', () => {
+    const p = predictCut(regionalTarget, { lastYearCut: 400, yearBeforeCut: null, lastYearLevel: 'Challenger 75' }, rows, 'ms');
+    const drifted = 400 * 1.5 ** REGIONAL_SWING_BETA;
+    const expected = Math.round(SHRINK_ALPHA.ms * drifted + (1 - SHRINK_ALPHA.ms) * 400);
+    expect(p?.cut).toBe(expected);
+  });
+});
+
+describe('cohort shrinkage', () => {
   it('pulls the trend estimate toward the cohort median', () => {
     // Last season cohort around week 10: three events with median cut 600.
     const rows = [
