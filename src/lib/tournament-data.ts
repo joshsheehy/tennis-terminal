@@ -188,7 +188,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Oeiras 1', 'Oeiras', 'Portugal', 2026, 3, '2026-01-19', null, 'Challenger 100', 'Indoor Hard', true, '2831', false),
   challengerEvent('Itajaí', 'Itajaí', 'Brazil', 2026, 3, '2026-01-19', null, 'Challenger 75', 'Clay', false, '3053', false),
   challengerEvent('Soma Bay', 'Soma Bay', 'Egypt', 2026, 3, '2026-01-19', null, 'Challenger 75', 'Hard', false, '3039', false),
-  challengerEvent('Phan Thiết 1', 'Phan Thiết', 'Vietnam', 2026, 3, '2026-01-19', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Phan Thiết 1', 'Phan Thiết', 'Vietnam', 2026, 3, '2026-01-19', null, 'Challenger 50', 'Hard', false, '3057', false),
 
   // ─── WEEK 4 (Jan 26) ─────────────────────────────────────────────────────────
   challengerEvent('Manama', 'Manama', 'Bahrain', 2026, 4, '2026-01-26', null, 'Challenger 125', 'Hard', false, '9635', false),
@@ -196,14 +196,14 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Concepción', 'Concepción', 'Chile', 2026, 4, '2026-01-26', null, 'Challenger 100', 'Clay', false, '9452', false),
   challengerEvent('San Diego, CA', 'San Diego', 'United States', 2026, 4, '2026-01-26', null, 'Challenger 100', 'Hard', false, '2971', false),
   challengerEvent('Oeiras 2', 'Oeiras', 'Portugal', 2026, 4, '2026-01-26', null, 'Challenger 75', 'Indoor Hard', true, '2833', false),
-  challengerEvent('Phan Thiết 2', 'Phan Thiết', 'Vietnam', 2026, 4, '2026-01-26', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Phan Thiết 2', 'Phan Thiết', 'Vietnam', 2026, 4, '2026-01-26', null, 'Challenger 50', 'Hard', false, '3059', false),
 
   // ─── WEEK 5 (Feb 2) ──────────────────────────────────────────────────────────
   challengerEvent('Rosario', 'Rosario', 'Argentina', 2026, 5, '2026-02-02', null, 'Challenger 125', 'Clay', false, '2965', false),
   challengerEvent('Brisbane 1', 'Brisbane', 'Australia', 2026, 5, '2026-02-02', null, 'Challenger 75', 'Hard', false, '2967', false),
   challengerEvent('Cleveland, OH', 'Cleveland', 'United States', 2026, 5, '2026-02-02', null, 'Challenger 75', 'Indoor Hard', true, '9154', false),
   challengerEvent('Tenerife 1', 'Tenerife', 'Spain', 2026, 5, '2026-02-02', null, 'Challenger 75', 'Hard', false, '9623', false),
-  challengerEvent('Cesenatico', 'Cesenatico', 'Italy', 2026, 5, '2026-02-02', null, 'Challenger 50', 'Indoor Hard', true, null, false),
+  challengerEvent('Cesenatico', 'Cesenatico', 'Italy', 2026, 5, '2026-02-02', null, 'Challenger 50', 'Indoor Hard', true, '3061', false),
   challengerEvent('Koblenz', 'Koblenz', 'Germany', 2026, 5, '2026-02-02', null, 'Challenger 50', 'Indoor Hard', true, '7652', false),
 
   // ─── WEEK 5 (Feb 2) ──────────────────────────────────────────────────────────
@@ -224,12 +224,12 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Pau', 'Pau', 'France', 2026, 6, '2026-02-09', null, 'Challenger 125', 'Indoor Hard', true, '9162', false),
   challengerEvent('Brisbane 2', 'Brisbane', 'Australia', 2026, 6, '2026-02-09', null, 'Challenger 75', 'Hard', false, '2969', false),
   challengerEvent('Tenerife 2', 'Tenerife', 'Spain', 2026, 6, '2026-02-09', null, 'Challenger 75', 'Hard', false, '2839', false),
-  challengerEvent('Baton Rouge, LA', 'Baton Rouge', 'United States', 2026, 6, '2026-02-09', null, 'Challenger 50', 'Indoor Hard', true, null, false),
+  challengerEvent('Baton Rouge, LA', 'Baton Rouge', 'United States', 2026, 6, '2026-02-09', null, 'Challenger 50', 'Indoor Hard', true, '3063', false),
   challengerEvent('Chennai', 'Chennai', 'India', 2026, 6, '2026-02-09', null, 'Challenger 50', 'Hard', false, '7849', false),
 
   // ─── WEEK 7 (Feb 16) ─────────────────────────────────────────────────────────
   challengerEvent('Lille', 'Lille', 'France', 2026, 7, '2026-02-16', null, 'Challenger 125', 'Indoor Hard', true, '7874', false),
-  challengerEvent('Metepec', 'Metepec', 'Mexico', 2026, 7, '2026-02-16', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Metepec', 'Metepec', 'Mexico', 2026, 7, '2026-02-16', null, 'Challenger 75', 'Hard', false, '3075', false),
   challengerEvent('New Delhi', 'New Delhi', 'India', 2026, 7, '2026-02-16', null, 'Challenger 75', 'Hard', false, '6961', false),
   challengerEvent('Tigre 1', 'Tigre', 'Argentina', 2026, 7, '2026-02-16', null, 'Challenger 50', 'Clay', false, '9678', false),
 
@@ -237,7 +237,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Saint-Brieuc', 'Saint-Brieuc', 'France', 2026, 8, '2026-02-23', null, 'Challenger 100', 'Indoor Hard', true, '1796', false),
   challengerEvent('Lugano', 'Lugano', 'Switzerland', 2026, 8, '2026-02-23', null, 'Challenger 75', 'Indoor Hard', true, '9516', false),
   challengerEvent('Pune', 'Pune', 'India', 2026, 8, '2026-02-23', null, 'Challenger 75', 'Hard', false, '7100', false),
-  challengerEvent('Tigre 2', 'Tigre', 'Argentina', 2026, 8, '2026-02-23', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Tigre 2', 'Tigre', 'Argentina', 2026, 8, '2026-02-23', null, 'Challenger 50', 'Clay', false, '9695', false),
 
   // ─── WEEK 10 (Mar 9) ─────────────────────────────────────────────────────────
   challengerEvent('Cap Cana', 'Cap Cana', 'Dominican Republic', 2026, 10, '2026-03-09', null, 'Challenger 175', 'Hard', false, '2975', false),
@@ -258,7 +258,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Naples', 'Naples', 'Italy', 2026, 12, '2026-03-23', null, 'Challenger 125', 'Clay', false, '2911', false),
   challengerEvent('Alicante (Montemar)', 'Alicante', 'Spain', 2026, 12, '2026-03-23', null, 'Challenger 100', 'Clay', false, '2955', false),
   challengerEvent('São Paulo', 'São Paulo', 'Brazil', 2026, 12, '2026-03-23', null, 'Challenger 100', 'Clay', false, '2953', false),
-  challengerEvent('Bucaramanga (Floridablanca)', 'Bucaramanga', 'Colombia', 2026, 12, '2026-03-23', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Bucaramanga (Floridablanca)', 'Bucaramanga', 'Colombia', 2026, 12, '2026-03-23', null, 'Challenger 50', 'Clay', false, '5016', false),
   challengerEvent('Split', 'Split', 'Croatia', 2026, 12, '2026-03-23', null, 'Challenger 50', 'Clay', false, '8388', false),
   challengerEvent('Yokkaichi', 'Yokkaichi', 'Japan', 2026, 12, '2026-03-23', null, 'Challenger 50', 'Hard', false, '8268', false),
 
@@ -280,7 +280,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Barletta', 'Barletta', 'Italy', 2026, 13, '2026-03-30', null, 'Challenger 75', 'Clay', false, '7494', false),
   challengerEvent('San Luis Potosí', 'San Luis Potosí', 'Mexico', 2026, 13, '2026-03-30', null, 'Challenger 75', 'Clay', false, '213', false),
   challengerEvent('São Leopoldo', 'São Leopoldo', 'Brazil', 2026, 13, '2026-03-30', null, 'Challenger 75', 'Clay', false, '2821', false),
-  challengerEvent('Miyazaki', 'Miyazaki', 'Japan', 2026, 13, '2026-03-30', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Miyazaki', 'Miyazaki', 'Japan', 2026, 13, '2026-03-30', null, 'Challenger 50', 'Hard', false, '3073', false),
 
   // ─── WEEK 14 (Apr 6) ─────────────────────────────────────────────────────────
   challengerEvent('Mexico City', 'Mexico City', 'Mexico', 2026, 14, '2026-04-06', null, 'Challenger 125', 'Clay', false, '8375', false),
@@ -288,21 +288,21 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Campinas', 'Campinas', 'Brazil', 2026, 14, '2026-04-06', null, 'Challenger 75', 'Clay', false, '6307', false),
   challengerEvent('Madrid Challenger', 'Madrid', 'Spain', 2026, 14, '2026-04-06', null, 'Challenger 75', 'Clay', false, '9687', false),
   challengerEvent('Sarasota, FL', 'Sarasota', 'United States', 2026, 14, '2026-04-06', null, 'Challenger 75', 'Clay', false, '5069', false),
-  challengerEvent('Wuning 1', 'Wuning', 'China', 2026, 14, '2026-04-06', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Wuning 1', 'Wuning', 'China', 2026, 14, '2026-04-06', null, 'Challenger 50', 'Hard', false, '3079', false),
 
   // ─── WEEK 15 (Apr 13) ────────────────────────────────────────────────────────
   challengerEvent('Busan', 'Busan', 'South Korea', 2026, 15, '2026-04-13', null, 'Challenger 125', 'Hard', false, '1741', false),
   challengerEvent('Oeiras 3', 'Oeiras', 'Portugal', 2026, 15, '2026-04-13', null, 'Challenger 125', 'Clay', false, '2979', false),
   challengerEvent('Santa Cruz de la Sierra', 'Santa Cruz de la Sierra', 'Bolivia', 2026, 15, '2026-04-13', null, 'Challenger 75', 'Clay', false, '9479', false),
   challengerEvent('Tallahassee, FL', 'Tallahassee', 'United States', 2026, 15, '2026-04-13', null, 'Challenger 75', 'Clay', false, '692', false),
-  challengerEvent('Wuning 2', 'Wuning', 'China', 2026, 15, '2026-04-13', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Wuning 2', 'Wuning', 'China', 2026, 15, '2026-04-13', null, 'Challenger 50', 'Hard', false, '3081', false),
 
   // ─── WEEK 16 (Apr 20) ────────────────────────────────────────────────────────
   challengerEvent('Gwangju', 'Gwangju', 'South Korea', 2026, 16, '2026-04-20', null, 'Challenger 75', 'Hard', false, '7490', false),
   challengerEvent('Rome Challenger', 'Rome', 'Italy', 2026, 16, '2026-04-20', null, 'Challenger 75', 'Clay', false, '2151', false),
   challengerEvent('Savannah, GA', 'Savannah', 'United States', 2026, 16, '2026-04-20', null, 'Challenger 75', 'Clay', false, '5067', false),
   challengerEvent('Abidjan 1', 'Abidjan', "Côte d'Ivoire", 2026, 16, '2026-04-20', null, 'Challenger 50', 'Hard', false, '2995', false),
-  challengerEvent('Shymkent 1', 'Shymkent', 'Kazakhstan', 2026, 16, '2026-04-20', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Shymkent 1', 'Shymkent', 'Kazakhstan', 2026, 16, '2026-04-20', null, 'Challenger 50', 'Clay', false, '7736', false),
 
   // ─── WEEK 14 (Apr 6) — ATP 1000 ──────────────────────────────────────────────
   // Monte-Carlo starts Sunday Apr 5; store the Monday so the computed week is 14.
@@ -320,7 +320,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Aix-en-Provence', 'Aix-en-Provence', 'France', 2026, 17, '2026-04-27', null, 'Challenger 175', 'Clay', false, '7009', false),
   challengerEvent('Cagliari', 'Cagliari', 'Italy', 2026, 17, '2026-04-27', null, 'Challenger 175', 'Clay', false, '2861', false),
   challengerEvent('Mauthausen', 'Mauthausen', 'Austria', 2026, 17, '2026-04-27', null, 'Challenger 100', 'Clay', false, '9697', false),
-  challengerEvent('Jiujiang', 'Jiujiang', 'China', 2026, 17, '2026-04-27', null, 'Challenger 75', 'Hard', false, null, false),
+  challengerEvent('Jiujiang', 'Jiujiang', 'China', 2026, 17, '2026-04-27', null, 'Challenger 75', 'Hard', false, '3083', false),
   challengerEvent('Ostrava', 'Ostrava', 'Czech Republic', 2026, 17, '2026-04-27', null, 'Challenger 75', 'Clay', false, '1797', false),
   challengerEvent('Abidjan 2', 'Abidjan', "Côte d'Ivoire", 2026, 17, '2026-04-27', null, 'Challenger 75', 'Hard', false, '2997', false),
   challengerEvent('Shymkent 2', 'Shymkent', 'Kazakhstan', 2026, 17, '2026-04-27', null, 'Challenger 50', 'Clay', false, '9192', false),
@@ -338,42 +338,42 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Oeiras 4', 'Oeiras', 'Portugal', 2026, 19, '2026-05-11', null, 'Challenger 100', 'Clay', false, '9514', false),
   challengerEvent('Tunis', 'Tunis', 'Tunisia', 2026, 19, '2026-05-11', null, 'Challenger 75', 'Clay', false, '1541', false),
   challengerEvent('Zagreb', 'Zagreb', 'Croatia', 2026, 19, '2026-05-11', null, 'Challenger 75', 'Clay', false, '9500', false),
-  challengerEvent('Bengaluru 2', 'Bengaluru', 'India', 2026, 19, '2026-05-11', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Bengaluru 2', 'Bengaluru', 'India', 2026, 19, '2026-05-11', null, 'Challenger 50', 'Hard', false, '3107', false),
   challengerEvent('Córdoba Challenger', 'Córdoba', 'Argentina', 2026, 19, '2026-05-11', null, 'Challenger 50', 'Clay', false, '2981', false),
 
   // ─── WEEK 20 (May 18) ────────────────────────────────────────────────────────
   challengerEvent('İstanbul (İstinye)', 'İstanbul', 'Turkey', 2026, 20, '2026-05-18', null, 'Challenger 75', 'Clay', false, '7083', false),
-  challengerEvent('Bengaluru 3', 'Bengaluru', 'India', 2026, 20, '2026-05-18', null, 'Challenger 50', 'Hard', false, null, false),
-  challengerEvent('Cervia', 'Cervia', 'Italy', 2026, 20, '2026-05-18', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Bengaluru 3', 'Bengaluru', 'India', 2026, 20, '2026-05-18', null, 'Challenger 50', 'Hard', false, '3109', false),
+  challengerEvent('Cervia', 'Cervia', 'Italy', 2026, 20, '2026-05-18', null, 'Challenger 50', 'Clay', false, '3095', false),
 
   // ─── WEEK 21 (May 25) ────────────────────────────────────────────────────────
   challengerEvent('Chișinău', 'Chișinău', 'Moldova', 2026, 21, '2026-05-25', null, 'Challenger 100', 'Clay', false, '2993', false),
   challengerEvent('Little Rock, AR', 'Little Rock', 'United States', 2026, 21, '2026-05-25', null, 'Challenger 75', 'Hard', false, '9188', false),
   challengerEvent('Vicenza', 'Vicenza', 'Italy', 2026, 21, '2026-05-25', null, 'Challenger 75', 'Clay', false, '7015', false),
-  challengerEvent('Centurion 1', 'Centurion', 'South Africa', 2026, 21, '2026-05-25', null, 'Challenger 50', 'Hard', false, null, false),
-  challengerEvent('Košice', 'Košice', 'Slovakia', 2026, 21, '2026-05-25', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Centurion 1', 'Centurion', 'South Africa', 2026, 21, '2026-05-25', null, 'Challenger 50', 'Hard', false, '3087', false),
+  challengerEvent('Košice', 'Košice', 'Slovakia', 2026, 21, '2026-05-25', null, 'Challenger 50', 'Clay', false, '3097', false),
 
   // ─── WEEK 22 (Jun 1) ─────────────────────────────────────────────────────────
   challengerEvent('Birmingham', 'Birmingham', 'Great Britain', 2026, 22, '2026-06-01', null, 'Challenger 125', 'Grass', false, '4940', false),
   challengerEvent('Perugia', 'Perugia', 'Italy', 2026, 22, '2026-06-01', null, 'Challenger 125', 'Clay', false, '9001', false),
-  challengerEvent('Bad Rappenau', 'Bad Rappenau', 'Germany', 2026, 22, '2026-06-01', null, 'Challenger 100', 'Clay', false, null, false),
+  challengerEvent('Bad Rappenau', 'Bad Rappenau', 'Germany', 2026, 22, '2026-06-01', null, 'Challenger 100', 'Clay', false, '460', false),
   challengerEvent('Prostějov', 'Prostějov', 'Czech Republic', 2026, 22, '2026-06-01', null, 'Challenger 100', 'Clay', false, '558', false),
   challengerEvent('Tyler, TX', 'Tyler', 'United States', 2026, 22, '2026-06-01', null, 'Challenger 75', 'Hard', false, '2873', false),
-  challengerEvent('Centurion 2', 'Centurion', 'South Africa', 2026, 22, '2026-06-01', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Centurion 2', 'Centurion', 'South Africa', 2026, 22, '2026-06-01', null, 'Challenger 50', 'Hard', false, '3089', false),
 
   // ─── WEEK 23 (Jun 8) ─────────────────────────────────────────────────────────
   challengerEvent('Ilkley', 'Ilkley', 'Great Britain', 2026, 23, '2026-06-08', null, 'Challenger 125', 'Grass', false, '9005', false),
   challengerEvent('Bratislava', 'Bratislava', 'Slovakia', 2026, 23, '2026-06-08', null, 'Challenger 100', 'Clay', false, '9003', false),
   challengerEvent('Lyon Challenger', 'Lyon', 'France', 2026, 23, '2026-06-08', null, 'Challenger 100', 'Clay', false, '7536', false),
-  challengerEvent('Cattolica', 'Cattolica', 'Italy', 2026, 23, '2026-06-08', null, 'Challenger 75', 'Clay', false, null, false),
+  challengerEvent('Cattolica', 'Cattolica', 'Italy', 2026, 23, '2026-06-08', null, 'Challenger 75', 'Clay', false, '3085', false),
   challengerEvent('San Miguel de Tucumán', 'San Miguel de Tucumán', 'Argentina', 2026, 23, '2026-06-08', null, 'Challenger 50', 'Clay', false, '2927', false),
 
   // ─── WEEK 24 (Jun 15) ────────────────────────────────────────────────────────
   challengerEvent('Nottingham 2', 'Nottingham', 'Great Britain', 2026, 24, '2026-06-15', null, 'Challenger 125', 'Grass', false, '7740', false),
-  challengerEvent('Parma', 'Parma', 'Italy', 2026, 24, '2026-06-15', null, 'Challenger 125', 'Clay', false, null, false),
+  challengerEvent('Parma', 'Parma', 'Italy', 2026, 24, '2026-06-15', null, 'Challenger 125', 'Clay', false, '9835', false),
   challengerEvent('Poznań', 'Poznań', 'Poland', 2026, 24, '2026-06-15', null, 'Challenger 100', 'Clay', false, '786', false),
-  challengerEvent('Dublin', 'Dublin', 'Ireland', 2026, 24, '2026-06-15', null, 'Challenger 75', 'Grass', false, null, false),
-  challengerEvent('Asunción (CIT)', 'Asunción', 'Paraguay', 2026, 24, '2026-06-15', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Dublin', 'Dublin', 'Ireland', 2026, 24, '2026-06-15', null, 'Challenger 75', 'Grass', false, '3115', false),
+  challengerEvent('Asunción (CIT)', 'Asunción', 'Paraguay', 2026, 24, '2026-06-15', null, 'Challenger 50', 'Clay', false, '3117', false),
   challengerEvent('Royan', 'Royan', 'France', 2026, 24, '2026-06-15', null, 'Challenger 50', 'Clay', false, '4942', false),
 
   // ─── WEEK 25 (Jun 22) ────────────────────────────────────────────────────────
@@ -388,7 +388,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Brașov', 'Brașov', 'Romania', 2026, 26, '2026-06-29', null, 'Challenger 75', 'Clay', false, '2931', false),
   challengerEvent('Cary, NC', 'Cary', 'United States', 2026, 26, '2026-06-29', null, 'Challenger 75', 'Hard', false, '7316', false),
   challengerEvent('Milan Challenger', 'Milan', 'Italy', 2026, 26, '2026-06-29', null, 'Challenger 75', 'Clay', false, '3463', false),
-  challengerEvent('Quito', 'Quito', 'Ecuador', 2026, 26, '2026-06-29', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Quito', 'Quito', 'Ecuador', 2026, 26, '2026-06-29', null, 'Challenger 50', 'Clay', false, '3119', false),
   challengerEvent('Troyes', 'Troyes', 'France', 2026, 26, '2026-06-29', null, 'Challenger 50', 'Clay', false, '1214', false),
 
   // ─── WEEK 27 (Jul 6) ─────────────────────────────────────────────────────────
@@ -397,7 +397,7 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Iași', 'Iași', 'Romania', 2026, 27, '2026-07-06', null, 'Challenger 100', 'Clay', false, '8394', false),
   challengerEvent('Bogotá', 'Bogotá', 'Colombia', 2026, 27, '2026-07-06', null, 'Challenger 75', 'Clay', false, '7389', false),
   challengerEvent('Trieste', 'Trieste', 'Italy', 2026, 27, '2026-07-06', null, 'Challenger 75', 'Clay', false, '9351', false),
-  challengerEvent('Liège', 'Liège', 'Belgium', 2026, 27, '2026-07-06', null, 'Challenger 50', 'Clay', false, null, false),
+  challengerEvent('Liège', 'Liège', 'Belgium', 2026, 27, '2026-07-06', null, 'Challenger 50', 'Clay', false, '3101', false),
   challengerEvent('Nottingham 3', 'Nottingham', 'Great Britain', 2026, 27, '2026-07-06', null, 'Challenger 50', 'Grass', false, '3007', false),
 
   // ─── WEEK 28 (Jul 13) ────────────────────────────────────────────────────────
@@ -416,17 +416,17 @@ export const ALL_EDITIONS: TournamentEdition[] = [
 
   // ─── WEEK 30 (Jul 27) ────────────────────────────────────────────────────────
   challengerEvent('San Marino', 'San Marino', 'San Marino', 2026, 30, '2026-07-27', null, 'Challenger 125', 'Clay', false, '9540', false),
-  challengerEvent('Vancouver', 'Vancouver', 'Canada', 2026, 30, '2026-07-27', null, 'Challenger 125', 'Hard', false, null, false),
+  challengerEvent('Vancouver', 'Vancouver', 'Canada', 2026, 30, '2026-07-27', null, 'Challenger 125', 'Hard', false, '7774', false),
   challengerEvent('Bonn', 'Bonn', 'Germany', 2026, 30, '2026-07-27', null, 'Challenger 75', 'Clay', false, '2935', false),
   challengerEvent('Liberec', 'Liberec', 'Czech Republic', 2026, 30, '2026-07-27', null, 'Challenger 75', 'Clay', false, '6795', false),
-  challengerEvent('Centurion 3', 'Centurion', 'South Africa', 2026, 30, '2026-07-27', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Centurion 3', 'Centurion', 'South Africa', 2026, 30, '2026-07-27', null, 'Challenger 50', 'Hard', false, '3091', false),
 
   // ─── WEEK 31 (Aug 3) ─────────────────────────────────────────────────────────
   challengerEvent('Hagen', 'Hagen', 'Germany', 2026, 31, '2026-08-03', null, 'Challenger 100', 'Clay', false, '9542', false),
   challengerEvent('Grodzisk Mazowiecki', 'Grodzisk Mazowiecki', 'Poland', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, '2789', false),
   challengerEvent('Lexington, KY', 'Lexington', 'United States', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, '586', false),
-  challengerEvent('Centurion 4', 'Centurion', 'South Africa', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, null, false),
-  challengerEvent('İstanbul (Enka)', 'İstanbul', 'Turkey', 2026, 31, '2026-08-03', null, 'Challenger 50', 'Hard', false, null, false),
+  challengerEvent('Centurion 4', 'Centurion', 'South Africa', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, '3093', false),
+  challengerEvent('İstanbul (Enka)', 'İstanbul', 'Turkey', 2026, 31, '2026-08-03', null, 'Challenger 50', 'Hard', false, '3111', false),
 
   // ─── WEEK 16 (Apr 22) — ATP 1000 ─────────────────────────────────────────────
   tourEvent('Mutua Madrid Open', 'Madrid', 'Spain', 2026, 16, '2026-04-22', '2026-05-03', 'ATP 1000', 'Clay', false, '1536', false),
