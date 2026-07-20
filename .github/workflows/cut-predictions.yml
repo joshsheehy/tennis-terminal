@@ -74,7 +74,7 @@ jobs:
               print(f"  {json.dumps(r)}", flush=True)
 
           print('\n=== Walk-forward backtest (model vs last-year baseline) ===', flush=True)
-          bt = get('/api/backtest-cuts?tune=true')
+          bt = get('/api/backtest-cuts?tune=true&horizonWeeks=0,4,5,6')
           if not bt.get('ok'):
               raise RuntimeError(f'backtest failed: {json.dumps(bt)[:400]}')
           for draw, rep in (bt.get('report') or {}).items():
@@ -89,6 +89,10 @@ jobs:
                         f"| win {g.get('winRate')}{tuned}", flush=True)
               for year, g in (rep.get('byYear') or {}).items():
                   print(f"  {year}: n={g.get('n')} model {g.get('modelMAE')} vs baseline {g.get('baselineMAE')}", flush=True)
+              for h_key, h_rep in (rep.get('horizons') or {}).items():
+                  ho = h_rep.get('overall') or {}
+                  print(f"  horizon {h_key}: n={ho.get('n')} model MAE {ho.get('modelMAE')} "
+                        f"vs baseline {ho.get('baselineMAE')} | win {ho.get('winRate')}", flush=True)
 
           print(f"\n=== Predictions ({'apply' if apply else 'dry run'}) ===", flush=True)
           out = get(f"/api/predict-cuts?apply={'true' if apply else 'false'}&weeksAhead={weeks}")
