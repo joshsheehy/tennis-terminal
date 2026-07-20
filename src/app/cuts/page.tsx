@@ -29,12 +29,13 @@ export default async function CutsPage({
       <div style={{ marginBottom: 24 }}>
         <p className="eyebrow">Entry cuts</p>
 
-        <h1 className="page-title" style={{ marginBottom: 16 }}>Tournament calendar</h1>
+        <h1 className="page-title" style={{ marginBottom: 16 }}>Every cut, week by week</h1>
 
         <YearPicker currentYear={year} />
 
         <p className="page-lede">
-          Pick a week first, then choose a tournament to open its historical page.
+          Open a week to see its tournaments; open a tournament for its full cut history
+          and this year&apos;s projection.
         </p>
       </div>
 

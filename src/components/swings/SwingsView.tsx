@@ -244,17 +244,24 @@ export default function SwingsView({
     setShowWelcome(false);
   }, []);
 
-  // Remember both rankings between visits.
+  // Remember both rankings between visits; the nav's "My rank" chip edits the
+  // same keys, so stay in sync with it via the shared change event.
   useEffect(() => {
-    const s = Number(localStorage.getItem('swings.rank.singles'));
-    if (Number.isFinite(s) && s > 0) setRankSingles(s);
-    const d = Number(localStorage.getItem('swings.rank.doubles'));
-    if (Number.isFinite(d) && d > 0) setRankDoubles(d);
+    const sync = () => {
+      const s = Number(localStorage.getItem('swings.rank.singles'));
+      setRankSingles(Number.isFinite(s) && s > 0 ? s : null);
+      const d = Number(localStorage.getItem('swings.rank.doubles'));
+      setRankDoubles(Number.isFinite(d) && d > 0 ? d : null);
+    };
+    sync();
+    window.addEventListener('tc:rank-change', sync);
+    return () => window.removeEventListener('tc:rank-change', sync);
   }, []);
   const makeRankUpdater = (key: string, set: (v: number | null) => void) => (value: number | null) => {
     set(value);
     if (value && value > 0) localStorage.setItem(key, String(value));
     else localStorage.removeItem(key);
+    window.dispatchEvent(new Event('tc:rank-change'));
   };
   const updateRankSingles = makeRankUpdater('swings.rank.singles', setRankSingles);
   const updateRankDoubles = makeRankUpdater('swings.rank.doubles', setRankDoubles);

@@ -4,9 +4,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import NavRank from './NavRank';
 
 const LINKS = [
-  { href: '/', label: 'Builder' },
+  { href: '/builder', label: 'Builder' },
   // Swings (inspiration map) hidden for now — still reachable at /swings.
   { href: '/cuts', label: 'Cuts' },
   { href: '/alerts', label: 'Alerts' },
@@ -33,7 +34,7 @@ export default function SiteNav() {
   }
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === '/';
+    if (href === '/builder') return pathname === '/builder' || pathname.startsWith('/swings');
     if (href === '/cuts') return pathname.startsWith('/cuts') || pathname.startsWith('/tournaments');
     return pathname.startsWith(href);
   };
@@ -58,6 +59,7 @@ export default function SiteNav() {
           </Link>
         ))}
       </div>
+      <NavRank />
       {isDark !== null && (
         <button
           className="site-nav__theme"

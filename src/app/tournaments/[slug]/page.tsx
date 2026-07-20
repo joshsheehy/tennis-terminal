@@ -3,6 +3,7 @@ import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import CutTrendChart, { type CutTrendPoint, type CutTrendSeries } from '@/components/CutTrendChart';
+import RankVerdict from '@/components/RankVerdict';
 import { getTournamentDetailRowsBySlug, getItfPriorYearCutEditions } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
@@ -339,6 +340,17 @@ function CutoffTable({
             cutoff.challenger_doubles_advanced_cut_rank !== null ||
             cutoff.challenger_doubles_onsite_cut_rank !== null);
 
+        // The number the viewer's ranking is judged against: the same primary
+        // cut the row displays.
+        const verdictCut =
+          !cutoff || tombstoned
+            ? null
+            : isChallenger && eventType === 'doubles'
+              ? cutoff.challenger_doubles_advanced_cut_rank ??
+                cutoff.last_alternate_rank ??
+                cutoff.last_direct_acceptance_rank
+              : cutoff.last_alternate_rank ?? cutoff.last_direct_acceptance_rank;
+
         let cutDisplay: React.ReactNode;
         if (!cutoff) {
           cutDisplay = <span className="cut-value cut-value--na">Not yet imported</span>;
@@ -376,7 +388,10 @@ function CutoffTable({
 
             {/* Right: cut rank + ALT/LL stacked */}
             <div className="cut-table__right">
-              <div>{cutDisplay}</div>
+              <div>
+                {cutDisplay}
+                {verdictCut != null && <RankVerdict cut={verdictCut} event={eventType} />}
+              </div>
               {hasRank && cutoff && (
                 <div className="cut-sub">{altLlText(cutoff)}</div>
               )}
