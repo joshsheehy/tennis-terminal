@@ -490,21 +490,32 @@ export default async function TournamentDetailPage({
       : [];
 
   // This year's projection for the viewed edition (beta), for the hero block.
-  const projection = await pool
-    .query<{ cut: number; low: number; high: number }>(
-      `select distinct on (event_type) predicted_cut as cut, predicted_low as low, predicted_high as high
+  const projRows = await pool
+    .query<{ event_type: string; draw_type: string; cut: number; low: number; high: number }>(
+      `select distinct on (event_type, draw_type)
+              event_type, draw_type, predicted_cut as cut, predicted_low as low, predicted_high as high
          from cut_predictions
-        where tournament_edition_id = $1 and event_type = 'singles' and draw_type = 'main'
-        order by event_type, horizon_weeks asc, predicted_at desc`,
+        where tournament_edition_id = $1
+        order by event_type, draw_type, horizon_weeks asc, predicted_at desc`,
       [current.edition_id]
     )
-    .then((r) => r.rows[0] ?? null)
-    .catch(() => null);
-  const heroCutoff = findCutoff(viewedRow.cutoffs, 'singles', 'main');
-  const heroActual =
-    heroCutoff && !isTombstone(heroCutoff)
-      ? heroCutoff.last_alternate_rank ?? heroCutoff.last_direct_acceptance_rank
-      : null;
+    .then((r) => r.rows)
+    .catch(() => []);
+  // One hero cell per draw this level runs: the real cut when it's on
+  // record, otherwise the freshest projection with its range.
+  const heroDraws = expectedDrawsForLevel(current.level).map((draw) => {
+    const [eventType, drawType] = draw.split('_') as ['singles' | 'doubles', 'main' | 'qualifying'];
+    const c = findCutoff(viewedRow.cutoffs, eventType, drawType);
+    const actual =
+      c && !isTombstone(c)
+        ? eventType === 'doubles'
+          ? c.challenger_doubles_advanced_cut_rank ?? c.last_alternate_rank ?? c.last_direct_acceptance_rank
+          : c.last_alternate_rank ?? c.last_direct_acceptance_rank
+        : null;
+    const proj = projRows.find((r) => r.event_type === eventType && r.draw_type === drawType) ?? null;
+    return { draw, eventType, label: drawLabel(draw), actual, proj };
+  });
+  const heroHasAny = heroDraws.some((d) => d.actual != null || d.proj != null);
 
   // Cut per year for each draw, oldest→newest, for the hero trend chart.
   // Prefer the post-alternates ("real") cut when it was recorded; Challenger
@@ -574,25 +585,35 @@ export default async function TournamentDetailPage({
             </div>
           ))}
         </div>
-        {(heroActual != null || projection != null) && (
+        {heroHasAny && (
           <div className="entry-hero">
             <div className="entry-hero__label">
-              {heroActual != null ? `Singles main cut · ${current.year}` : `Projected cut · ${current.year} (beta)`}
+              {current.year} cuts at a glance
+              {heroDraws.some((d) => d.actual == null && d.proj != null) && ' · projections marked'}
             </div>
-            <div className="entry-hero__row">
-              <span className="entry-hero__num">
-                #{heroActual ?? projection!.cut}
-              </span>
-              {heroActual == null && projection != null && (
-                <span className="entry-hero__range">range {projection.low}–{projection.high}</span>
-              )}
-              <RankVerdict cut={heroActual ?? projection!.cut} event="singles" />
+            <div className="entry-hero__grid">
+              {heroDraws.map((d) => (
+                <div key={d.draw} className="entry-hero__cell">
+                  <div className="entry-hero__cell-label">{d.label}</div>
+                  {d.actual != null || d.proj != null ? (
+                    <>
+                      <div className="entry-hero__row">
+                        <span className="entry-hero__num">#{d.actual ?? d.proj!.cut}</span>
+                        {d.actual == null && d.proj != null && (
+                          <span className="entry-hero__proj-tag">proj.</span>
+                        )}
+                      </div>
+                      {d.actual == null && d.proj != null && (
+                        <div className="entry-hero__range">range {d.proj.low}–{d.proj.high}</div>
+                      )}
+                      <RankVerdict cut={d.actual ?? d.proj!.cut} event={d.eventType} />
+                    </>
+                  ) : (
+                    <div className="entry-hero__pending">after the deadline</div>
+                  )}
+                </div>
+              ))}
             </div>
-            {heroActual == null && (
-              <p className="entry-hero__note">
-                Real cut lands after the entry deadline; projection is backtested against five seasons.
-              </p>
-            )}
           </div>
         )}
         {hasTrend && <CutTrendChart series={cutTrend} />}

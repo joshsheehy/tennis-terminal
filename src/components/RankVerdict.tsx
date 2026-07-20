@@ -54,6 +54,11 @@ export function verdictFor(
   return { state: margin > 0 ? 'in' : 'out', margin };
 }
 
+export function verdictLabel(v: { state: 'in' | 'bubble' | 'out'; margin: number }): string {
+  if (v.margin >= 0) return `In by ${v.margin}${v.state === 'bubble' ? ' — tight' : ''}`;
+  return `Out by ${Math.abs(v.margin)}${v.state === 'bubble' ? ' — close' : ''}`;
+}
+
 export default function RankVerdict({
   cut,
   event,
@@ -64,12 +69,10 @@ export default function RankVerdict({
   const rank = useMyRank(event);
   if (rank == null || !Number.isFinite(cut) || cut <= 0) return null;
   const v = verdictFor(rank, cut);
-  const label =
-    v.state === 'in'
-      ? `You're in by ${v.margin}`
-      : v.state === 'out'
-        ? `Out by ${Math.abs(v.margin)}`
-        : 'On the bubble';
+  // Always the concrete number — "on the bubble" tells a player nothing.
+  // Amber color still flags the too-close-to-call zone; the text carries
+  // the margin either way.
+  const label = verdictLabel(v);
   return (
     <span className={`rank-verdict rank-verdict--${v.state}`} title={`Your ${event} rank vs this cut`}>
       {label}

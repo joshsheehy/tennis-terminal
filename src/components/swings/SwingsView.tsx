@@ -526,7 +526,13 @@ export default function SwingsView({
     setSelectedSwing(index);
     if (index != null) {
       setSheet('half');
-      setSelectedWeek(Math.min(MAX_WEEK, Math.max(1, data.swings[index].startWeek)));
+      // Explore mode recenters on the swing's first week; in Build mode the
+      // user is anchored to the week they were working in — teleporting to a
+      // far-off startWeek (the "clicked August, landed in week 43" trap) is
+      // pure disorientation.
+      if (mode !== 'build') {
+        setSelectedWeek(Math.min(MAX_WEEK, Math.max(1, data.swings[index].startWeek)));
+      }
     }
   };
 
@@ -639,11 +645,6 @@ export default function SwingsView({
           <SwingPlanner
             data={data}
             rank={rankSingles}
-            selectedWeek={selectedWeek}
-            onSelectWeek={(w) => {
-              setSelectedWeek(w);
-              setSelectedSwing(null);
-            }}
             onApplyPlan={(ids, firstWeek) => {
               setChainIds(ids);
               setSelectedWeek(firstWeek);

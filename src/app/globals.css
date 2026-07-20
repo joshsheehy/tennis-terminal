@@ -1334,3 +1334,25 @@ td {
 .planner__proj { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--text-faint); margin-left: 6px; text-transform: uppercase; }
 .planner__actions { display: flex; gap: 8px; }
 .planner__actions .btn { font-size: 13px; padding: 7px 13px; }
+
+/* Hero grid: one cell per draw, numbers + verdicts side by side. */
+.entry-hero__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.entry-hero__cell { min-width: 0; }
+.entry-hero__cell-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px; }
+.entry-hero__cell .entry-hero__num { font-size: 26px; }
+.entry-hero__proj-tag { font-size: 10.5px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.entry-hero__cell .rank-verdict { margin-left: 0; margin-top: 4px; display: inline-block; }
+.entry-hero__cell .entry-hero__range { font-size: 12px; }
+.entry-hero__pending { font-size: 13px; color: var(--text-faint); font-style: italic; margin-top: 6px; }
+
+/* Timeline verdict dots: the strip is gone — the answer lives on the weeks. */
+.timeline__vdot { width: 7px; height: 7px; border-radius: 50%; background: transparent; margin-top: 3px; }
+.timeline__vdot--in { background: var(--brand); }
+.timeline__vdot--bubble { background: #f59e0b; }
+.timeline__vdot--out { background: rgba(220, 38, 38, 0.55); }
+
+/* Regional swing proposals */
+.planner__proposals { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.planner__hop { font-size: 11px; color: var(--text-faint); margin: 0 6px; font-variant-numeric: tabular-nums; }
+.planner__where { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
+.planner__dismiss { align-self: flex-start; font-size: 12.5px; padding: 6px 12px; }
