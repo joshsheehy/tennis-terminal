@@ -20,14 +20,21 @@
 //      across same-group events already completed THIS season, damped
 //      (^0.25) and clamped. Directly corrects the live bias the tracking
 //      report caught; fitted on the full backtest it helps every draw.
-//   4. COHORT SHRINKAGE (new in v3, the big win) — the point estimate is
+//   4. REGIONAL SWING DRIFT (new in v4) — looks at completed events
+//      in the target's geographic swing during the prior three weeks and
+//      compares their year-over-year median cut ratio. This captures the
+//      travel-chain effect: when nearby events have just drawn weaker or
+//      stronger fields than last year, players often continue to stay in the
+//      same area. It is deliberately low-support and damped, so it helps the
+//      cases calendar supply alone missed without swamping own history.
+//   5. COHORT SHRINKAGE (new in v3, the big win) — the point estimate is
 //      pulled toward the median cut of same-group events within ±2 weeks
 //      last season: cut = α·own + (1-α)·cohort (α fitted per draw). One
 //      noisy own-history year misleads; the cohort anchors. Improves MAE
 //      6.5% (ms) / 10% (qs) / 14% (md) over v2.1, better in every season
 //      2023-2026, challengers most, tour events unharmed (slams skip it —
 //      their cohort is too thin to form).
-//   5. COHORT FALLBACK — events with no history take the cohort median
+//   6. COHORT FALLBACK — events with no history take the cohort median
 //      alone, with a wider uncertainty band.
 //
 // Factors the backtest REJECTED (kept as switched-off machinery so they can
@@ -45,7 +52,7 @@
 // relative absolute error per draw × tier (live coverage so far: 82% inside
 // the band against a 75% design target).
 
-export const MODEL_VERSION = 'blend-v3';
+export const MODEL_VERSION = 'blend-v4';
 
 export type TierGroup = 'gs' | 'tour' | 'challenger';
 export type PredictDraw = 'ms' | 'qs' | 'md';
@@ -101,11 +108,15 @@ export const SHRINK_ALPHA: Record<PredictDraw, number> = { ms: 0.75, qs: 0.6, md
 
 // Damping exponent on the live season-drift ratio, and its clamp/support.
 export const DRIFT_BETA = 0.25;
+export const REGIONAL_SWING_BETA = 0.2;
 const DRIFT_CLAMP: [number, number] = [0.6, 1.6];
 const DRIFT_MIN_PAIRS = 8;
+const REGIONAL_SWING_MIN_PAIRS = 3;
+const REGIONAL_SWING_RADIUS_KM = 3000;
+const REGIONAL_SWING_LOOKBACK_WEEKS = 3;
 
 // Relative half-width of the projected range: fitted p75 of |relative error|
-// per draw × tier under the v3 predictor (gs bands from small samples, kept
+// per draw × tier under the v4 predictor (gs bands from small samples, kept
 // conservative).
 const RANGE: Record<PredictDraw, Record<TierGroup, number>> = {
   ms: { gs: 0.08, tour: 0.23, challenger: 0.25 },
@@ -194,6 +205,38 @@ export function liveSeasonDrift(observations: CutObservation[], target: Target):
   return Math.min(DRIFT_CLAMP[1], Math.max(DRIFT_CLAMP[0], r));
 }
 
+
+/** Regional swing drift: a local version of liveSeasonDrift over the completed
+ * nearby events in the last few weeks. This is the player-flow signal that
+ * calendar counts alone cannot see: if the current South American / European /
+ * Asian swing is already coming in deeper or weaker than last year, the target
+ * event is nudged in the same direction. Walk-forward safe: it only uses cuts
+ * from weeks before the target week and requires both current- and prior-year
+ * cuts for the same slug. */
+export function regionalSwingDrift(observations: CutObservation[], target: Target): number {
+  if (target.latitude == null || target.longitude == null) return 1;
+  const prevByslug = new Map<string, number>();
+  for (const o of observations) {
+    if (o.year === target.year - 1 && o.group === target.group) prevByslug.set(o.slug, o.cut);
+  }
+
+  const ratios: number[] = [];
+  for (const o of observations) {
+    if (o.year !== target.year || o.group !== target.group) continue;
+    const weeksBack = target.week - o.week;
+    if (weeksBack <= 0 || weeksBack > REGIONAL_SWING_LOOKBACK_WEEKS) continue;
+    if (o.latitude == null || o.longitude == null) continue;
+    if (haversineKm(target.latitude, target.longitude, o.latitude, o.longitude) > REGIONAL_SWING_RADIUS_KM) continue;
+    const prev = prevByslug.get(o.slug);
+    if (prev == null || prev <= 0) continue;
+    ratios.push(o.cut / prev);
+  }
+
+  if (ratios.length < REGIONAL_SWING_MIN_PAIRS) return 1;
+  const r = median(ratios)!;
+  return Math.min(DRIFT_CLAMP[1], Math.max(DRIFT_CLAMP[0], r));
+}
+
 /** Fallback base for events with no own history: last season's median cut
  * among same-group events within ±2 calendar weeks, neighbours preferred. */
 export function cohortBase(target: Target, observations: CutObservation[]): number | null {
@@ -277,6 +320,7 @@ export function predictCut(
     // Live season drift: nudge toward how this season has actually been
     // running (damped so one hot month can't swing a projection).
     base *= liveSeasonDrift(observations, target) ** DRIFT_BETA;
+    base *= regionalSwingDrift(observations, target) ** REGIONAL_SWING_BETA;
     // Cohort shrinkage: one noisy own-history year misleads; the cohort
     // median anchors. Skipped automatically when no cohort forms (slams).
     const cohort = cohortBase(target, observations);

@@ -208,7 +208,17 @@ jobs:
 
           request_json('/api/restore-historical-status')
 
-          # 10) Autonomous-discovery health gate. If the official Challenger
+          # 10) Beta cut projections: after the night's calendar/cut imports,
+          # refresh the production prediction snapshots and score any stored
+          # predictions whose actual cuts landed during this sync. Keep this in
+          # the main sync too (not only cut-predictions.yml / official-calendar-
+          # sync) so every data refresh feeds the beta cuts shown on swings.
+          print('\n=== Cut projections (beta) ===', flush=True)
+          pred = request_json('/api/predict-cuts?apply=true&weeksAhead=8', required=False, timeout=280, retries=2)
+          print(f"projections: written={pred.get('written')} scored={pred.get('scored')} "
+                f"upcoming={pred.get('upcomingEditions')} noModel={pred.get('skippedNoModel')}", flush=True)
+
+          # 11) Autonomous-discovery health gate. If the official Challenger
           # calendar PDF or the ITF feed has gone stale (scraper broke, ATP
           # changed their CDN, etc.), discovery silently imports nothing and the
           # data quietly rots. Fail the job so GitHub emails the owner instead

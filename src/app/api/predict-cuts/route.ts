@@ -203,6 +203,7 @@ export async function GET(request: NextRequest) {
     if (written > 0 || scored > 0) {
       try {
         revalidateTag('schedule');
+        revalidateTag('swings-cutprojections');
       } catch {
         // revalidateTag can throw outside the cache runtime; safe to swallow.
       }
