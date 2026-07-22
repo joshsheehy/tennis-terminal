@@ -63,9 +63,10 @@ export function detailSheetUrlForEdition(edition: {
 }
 
 // Google Flights deep link for a leg. Google reliably parses a natural-language
-// "Flights to X from Y" query, and city names are what we have (no airport
-// codes in the data).
+// query, and city names are what we have (no airport codes in the data). We
+// lead with "One-way" so it doesn't default to a round trip — each leg of a
+// swing is a one-way hop to the next stop.
 export function googleFlightsUrl(fromCity: string, toCity: string): string {
-  const q = `Flights to ${toCity} from ${fromCity}`;
+  const q = `One-way flights to ${toCity} from ${fromCity}`;
   return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
 }
