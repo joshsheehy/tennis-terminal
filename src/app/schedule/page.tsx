@@ -4,7 +4,7 @@ import { getEditionsWithCutoffsByIds, getTournamentDetailRowsBySlug, getItfPrior
 import type { TournamentDetailRow } from '@/lib/db';
 import { CutoffSnapshot, ScheduleRow } from '@/lib/types';
 import { CURRENT_SEASON, EARLIEST_SEASON } from '@/lib/seasons';
-import { detailSheetUrlForEdition, googleFlightsUrl } from '@/lib/tournament-links';
+import { detailSheetUrlForEdition, fridayBefore, googleFlightsUrl } from '@/lib/tournament-links';
 import ScheduleShareButton from '@/components/ScheduleShareButton';
 
 export const dynamic = 'force-dynamic';
@@ -147,7 +147,7 @@ export default async function SchedulePage({
           const sm = singlesNum(findCut(stop.refCutoffs, 'singles', 'main'));
           const sq = singlesNum(findCut(stop.refCutoffs, 'singles', 'qualifying'));
           const dd = doublesNum(findCut(stop.refCutoffs, 'doubles', 'main'), ch);
-          const flights = prev ? googleFlightsUrl(prev.city, e.city) : null;
+          const flights = prev ? googleFlightsUrl(prev.city, e.city, fridayBefore(e.start_date)) : null;
           return (
             <div key={e.edition_id} className="sched-card">
               <div className="sched-card__top">

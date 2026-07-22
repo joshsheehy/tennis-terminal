@@ -62,11 +62,30 @@ export function detailSheetUrlForEdition(edition: {
   return code ? detailSheetUrl(code, edition.year) : null;
 }
 
+// The Friday immediately before a date (YYYY-MM-DD) — the natural travel day for
+// the weekend ahead of a Monday main draw. Returns null if unparseable. A date
+// that already falls on a Friday maps to the previous Friday (a week earlier).
+export function fridayBefore(startISO: string | null | undefined): string | null {
+  if (!startISO) return null;
+  const d = new Date(`${startISO}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  const dow = d.getUTCDay(); // 0 Sun … 5 Fri … 6 Sat
+  const back = ((dow - 5 + 7) % 7) || 7;
+  return new Date(d.getTime() - back * 86400000).toISOString().slice(0, 10);
+}
+
 // Google Flights deep link for a leg. Google reliably parses a natural-language
 // query, and city names are what we have (no airport codes in the data). We
 // lead with "One-way" so it doesn't default to a round trip — each leg of a
-// swing is a one-way hop to the next stop.
-export function googleFlightsUrl(fromCity: string, toCity: string): string {
-  const q = `One-way flights to ${toCity} from ${fromCity}`;
+// swing is a one-way hop to the next stop — and pin the date to the Friday
+// between the two tournaments when we know it.
+export function googleFlightsUrl(
+  fromCity: string,
+  toCity: string,
+  dateISO?: string | null
+): string {
+  const q = dateISO
+    ? `One-way flights to ${toCity} from ${fromCity} on ${dateISO}`
+    : `One-way flights to ${toCity} from ${fromCity}`;
   return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
 }
