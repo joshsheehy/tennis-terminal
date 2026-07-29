@@ -89,21 +89,55 @@ jobs:
                   raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
               return {'ok': False, 'error': str(last_error)}
 
-          def run_paged(label: str, path_factory, *, required: bool = True, max_pages: int = 20, timeout: int = 180):
+          # Ceiling on any single paged sweep, so an endpoint that only manages a
+          # couple of items per call can never run the job into its 90-minute cap.
+          HARD_MAX_PAGES = 400
+
+          def run_paged(label: str, path_factory, *, required: bool = True, max_pages: int = 20,
+                        timeout: int = 180, budget_s: float = 1500):
+              """Page through an endpoint until it reports hasMore=false.
+
+              Endpoints like /api/import-cutoffs are time-budgeted server-side (25s),
+              so a page can return having processed far fewer items than `limit` asked
+              for — in practice a handful, because a target with no published PDF probes
+              7-8 candidate URLs before giving up. That makes a fixed page cap a moving
+              target: every week of the season adds eligible editions, so the same sweep
+              needs more pages, and a hardcoded cap eventually fails the job for no real
+              reason (2026 outgrew max_pages=60 at 594 targets in July).
+
+              So max_pages is only a floor. When the endpoint reports totalTargets we
+              re-project the cap from the observed per-page rate, and bound the sweep by
+              wall-clock time instead. Leftovers are not lost: these imports are
+              incremental, and step 9's /api/run-all sweeps up any cuts still missing.
+              """
               print(f'\n=== {label} ===', flush=True)
               offset = 0
-              for _ in range(max_pages):
+              pages = 0
+              cap = max_pages
+              started = time.monotonic()
+              while pages < cap:
+                  elapsed = time.monotonic() - started
+                  if elapsed > budget_s:
+                      print(f'WARNING: {label} stopped after {pages} pages / {elapsed:.0f}s '
+                            f'(budget {budget_s:.0f}s); the rest rolls into the next run', flush=True)
+                      return {'ok': True, 'hasMore': False}
                   data = request_json(path_factory(offset), required=required, timeout=timeout)
+                  pages += 1
                   if not data.get('hasMore'):
                       return data
                   next_offset = data.get('nextOffset')
                   if next_offset is None or next_offset == offset:
                       raise RuntimeError(f'{label} did not return a valid nextOffset')
                   offset = int(next_offset)
+                  # Re-size the cap from real progress: at the rate we're actually
+                  # advancing, how many pages does the reported backlog need? Keeps the
+                  # sweep sized to the data rather than to a number guessed months ago.
+                  total = data.get('totalTargets')
+                  if isinstance(total, int) and offset > 0 and total > offset:
+                      projected = (total * pages + offset - 1) // offset + 5
+                      cap = max(cap, min(projected, HARD_MAX_PAGES))
                   time.sleep(2)
-              if required:
-                  raise RuntimeError(f'{label} exceeded max_pages={max_pages}')
-              print(f'WARNING: {label} hit max_pages={max_pages}; some items may be incomplete', flush=True)
+              print(f'WARNING: {label} hit its {cap}-page ceiling; the rest rolls into the next run', flush=True)
               return {'ok': True, 'hasMore': False}
 
           # Scope: 'nightly' (current year only) or 'full' (incl. 2024/2025
@@ -181,12 +215,28 @@ jobs:
           # current year only; the weekly full pass adds 2024/2025 (2024 alone
           # is ~870 targets / up to 200 pages — the bulk of the compute we're
           # moving off the nightly run).
+          # This phase dominates the job: at ~33s per page the current year alone
+          # ran 33 minutes in July 2026. Give the whole phase one deadline so a
+          # Sunday full pass can't stack three years' sweeps into the 90-minute
+          # job timeout. Historical years are mostly imported already, so their
+          # pages advance near the full limit and they finish in a few minutes;
+          # they're capped low and the current year inherits whatever is left.
+          CUTOFF_PHASE_BUDGET_S = 3300
+          HISTORICAL_YEAR_BUDGET_S = 420
+          cutoff_deadline = time.monotonic() + CUTOFF_PHASE_BUDGET_S
           for year in cut_years:
+              remaining = cutoff_deadline - time.monotonic()
+              if remaining <= 30:
+                  print(f'WARNING: skipping ATP cutoff refill {year}; the '
+                        f'{CUTOFF_PHASE_BUDGET_S}s phase budget is spent', flush=True)
+                  continue
+              year_budget = remaining if year == current_year else min(HISTORICAL_YEAR_BUDGET_S, remaining)
               run_paged(
                   f'ATP cutoff refill {year}',
                   lambda offset, y=year: f'/api/import-cutoffs?year={y}&limit=40&offset={offset}',
                   required=(year == current_year),
                   max_pages=200 if year == 2024 else 60,
+                  budget_s=year_budget,
               )
 
           # 8) Restore any historical rows that were previously hidden by stale cleanup.
