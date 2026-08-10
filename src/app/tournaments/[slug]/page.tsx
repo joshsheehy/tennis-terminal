@@ -7,6 +7,7 @@ import { getTournamentDetailRowsBySlug, getItfPriorYearCutEditions } from '@/lib
 import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { CURRENT_SEASON, EARLIEST_SEASON, isAvailableSeason } from '@/lib/seasons';
+import { backLinkFor } from '@/lib/back-link';
 import { SITE_NAME, SITE_URL } from '@/lib/brand';
 
 // Look up the most recent protennislive_code we know for a slug, so the
@@ -443,10 +444,10 @@ export default async function TournamentDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ year?: string }>;
+  searchParams: Promise<{ year?: string; from?: string }>;
 }) {
   const { slug } = await params;
-  const { year: yearParam } = await searchParams;
+  const { year: yearParam, from: fromParam } = await searchParams;
   const year = yearParam && isAvailableSeason(Number(yearParam)) ? Number(yearParam) : CURRENT_SEASON;
 
   // Show EVERY season on record for this tournament, no matter which year's
@@ -516,11 +517,12 @@ export default async function TournamentDetailPage({
     points: trendPoints(trendMeta[key].event, trendMeta[key].draw),
   }));
   const hasTrend = cutTrend.some((s) => s.points.length >= 2);
+  const backLink = backLinkFor(fromParam, year);
 
   return (
     <main className="page">
-      <Link href={year !== CURRENT_SEASON ? `/cuts?year=${year}` : '/cuts'} className="back-link">
-        ← Back to {year} schedule
+      <Link href={backLink.href} className="back-link">
+        {backLink.label}
       </Link>
 
       <div className="detail-hero">

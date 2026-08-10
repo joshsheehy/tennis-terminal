@@ -107,6 +107,17 @@ describe('deadlinesForEdition', () => {
     expect(atpMain?.qualifyingDeadlineDate).toBeUndefined();
   });
 
+  it('emits no deadlines for the separate "<Slam> Qualifying" entry', () => {
+    // The qualifying entry is its own tournament a week before the main draw.
+    // Its deadlines all live on the main-draw row, so it must contribute none —
+    // otherwise the digest invents a "US Open Qualifying Doubles" deadline (a
+    // draw that does not exist) and dates the qualifying one a week early.
+    const ds = deadlinesForEdition(
+      row({ level: 'Grand Slam Qualifying', name: 'US Open Qualifying', start_date: '2026-03-09' })
+    );
+    expect(ds).toEqual([]);
+  });
+
   it('returns nothing for uncovered levels', () => {
     expect(deadlinesForEdition(row({ level: 'Exhibition' }))).toHaveLength(0);
   });

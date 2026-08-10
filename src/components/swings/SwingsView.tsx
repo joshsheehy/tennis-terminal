@@ -326,6 +326,18 @@ export default function SwingsView({
 
   // Keep the ?build= param in sync without a server round-trip, and mirror it
   // per year so back-navigation and bare nav links can't lose the schedule.
+  // Where the tournament page should send you back to: this exact view, with
+  // the chain you've built and the filters you set. Mirrors syncBuildParam so
+  // the round trip lands you back in the builder rather than on /cuts, and
+  // rebuilds the same schedule instead of resetting it.
+  const returnHref = () => {
+    const next = new URLSearchParams(params.toString());
+    if (chainIds.length) next.set('build', chainIds.join(','));
+    else next.delete('build');
+    const qs = next.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  };
+
   const syncBuildParam = (ids: string[]) => {
     const next = new URLSearchParams(params.toString());
     if (ids.length) next.set('build', ids.join(','));
@@ -695,6 +707,7 @@ export default function SwingsView({
           refs={data.cutRefs[infoEvent.event.slug]}
           projections={data.cutProjections[infoEvent.event.slug]}
           year={data.year}
+          backTo={returnHref()}
           onAdd={
             infoEvent.canAdd
               ? () => {
@@ -1540,6 +1553,7 @@ function TournamentInfoCard({
   refs,
   projections,
   year,
+  backTo,
   onAdd,
   onClose,
 }: {
@@ -1548,6 +1562,8 @@ function TournamentInfoCard({
   refs: SwingsPageData['cutRefs'][string] | undefined;
   projections: CutProjectionsByDraw | undefined;
   year: number;
+  /** This view + current chain, so the tournament page can send you back here. */
+  backTo: string;
   /** When set (candidate rows), the card shows an explicit add action. */
   onAdd?: () => void;
   onClose: () => void;
@@ -1639,7 +1655,7 @@ function TournamentInfoCard({
         )}
         <a
           className={`tinfo-open${onAdd ? ' tinfo-open--secondary' : ''}`}
-          href={`/tournaments/${event.slug}?year=${year}`}
+          href={`/tournaments/${event.slug}?year=${year}&from=${encodeURIComponent(backTo)}`}
         >
           View full tournament page →
         </a>

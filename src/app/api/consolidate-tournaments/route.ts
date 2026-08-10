@@ -13,6 +13,11 @@ function normalize(s: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/,\s*[a-z]{2}$/, '')
+    // Hyphens/underscores are word separators, not part of the word: the ATP
+    // archive writes "Mouilleron le Captif" where the official calendar writes
+    // "Mouilleron-le-Captif". Without this the same city lands in two different
+    // buckets and its duplicate rows are never even compared.
+    .replace(/[-_]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }

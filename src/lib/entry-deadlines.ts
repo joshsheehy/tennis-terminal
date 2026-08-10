@@ -92,6 +92,12 @@ const CATEGORY_RULES: Record<Category, RuleDef[]> = {
   ],
 };
 
+// "<Slam> Qualifying" is its own tournament entry (the week before the main
+// draw) and runs a singles qualifying draw only — no main draw, no doubles.
+export function isGrandSlamQualifyingLevel(level: string): boolean {
+  return level.trim().toLowerCase().startsWith('grand slam qualifying');
+}
+
 // Map a tournament level string ("ATP 250", "Challenger 75", "ITF M25",
 // "Grand Slam"…) to its category, or null when no rule governs it.
 export function categoryForLevel(level: string): Category | null {
@@ -187,6 +193,16 @@ export function deadlinesForEdition(row: ScheduleRow): Deadline[] {
   const start = parseUtcDateOnly(row.start_date);
   if (!start) return [];
   const monday = mondayOfWeekUtc(start);
+
+  // A slam is modelled as two tournament entries: the main event and a separate
+  // "<Slam> Qualifying" entry the week before. All of a slam's deadlines are
+  // derived from the MAIN draw week — including the qualifying one, which the
+  // main-draw row already carries as qualifyingDeadlineDate — so the qualifying
+  // entry contributes no deadlines of its own. Letting it through made the
+  // digest invent draws that don't exist ("US Open Qualifying Doubles", plus a
+  // nonsensical qualifying-event "main draw") and date them off its own Monday,
+  // a week early.
+  if (isGrandSlamQualifyingLevel(row.level)) return [];
 
   const rules = CATEGORY_RULES[category];
   const qualifyingRule = rules.find((r) => r.kind === 'qualifying');

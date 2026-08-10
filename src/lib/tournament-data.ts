@@ -428,6 +428,15 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Centurion 4', 'Centurion', 'South Africa', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, '3093', false),
   challengerEvent('İstanbul (Enka)', 'İstanbul', 'Turkey', 2026, 31, '2026-08-03', null, 'Challenger 50', 'Hard', false, '3111', false),
 
+  // ─── WEEK 39 (Sep 28) ────────────────────────────────────────────────────────
+  // The curated Challenger list above stops at week 31; later weeks come from
+  // calendar discovery. This one needs a canonical entry anyway: the ATP archive
+  // calls the event "Mouilleron le Captif" while the official calendar and PTL
+  // call it "Open de Vendée", so discovery created two separate tournaments for
+  // the same event (one with the cuts, one empty). A canonical row gives the
+  // pair a single identity for consolidate-tournaments to merge into.
+  challengerEvent('Open de Vendée', 'Mouilleron-le-Captif', 'France', 2026, 39, '2026-09-28', null, 'Challenger 75', 'Indoor Hard', true, '6857', false),
+
   // ─── WEEK 16 (Apr 22) — ATP 1000 ─────────────────────────────────────────────
   tourEvent('Mutua Madrid Open', 'Madrid', 'Spain', 2026, 16, '2026-04-22', '2026-05-03', 'ATP 1000', 'Clay', false, '1536', false),
 
