@@ -1,0 +1,82 @@
+name: ATP host and archive discovery
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/atp-host-archive-discovery.yml'
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Search public certificate and Wayback metadata for ATP report hosts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re, urllib.parse, urllib.request, urllib.error
+
+          UA={'User-Agent':'Mozilla/5.0 (compatible; TennisCutsPublicSourceResearch/1.0)'}
+          def get(url, timeout=25, limit=5_000_000):
+              try:
+                  req=urllib.request.Request(url,headers=UA)
+                  with urllib.request.urlopen(req,timeout=timeout) as r:
+                      return r.status,r.headers,r.read(limit)
+              except urllib.error.HTTPError as e:
+                  return e.code,e.headers,e.read(limit)
+              except Exception as e:
+                  print('ERR',url,type(e).__name__,str(e),flush=True)
+                  return None,{},b''
+
+          print('=== CERTIFICATE TRANSPARENCY ===')
+          names=set()
+          for domain in ['atppz.com','protennislive.com','atptour.com']:
+              url='https://crt.sh/?q='+urllib.parse.quote('%.'+domain)+'&output=json'
+              st,h,b=get(url)
+              print(domain,'status',st,'bytes',len(b))
+              try:
+                  rows=json.loads(b.decode('utf-8','replace'))
+              except Exception:
+                  rows=[]
+              local=set()
+              for row in rows:
+                  for n in str(row.get('name_value','')).split('\n'):
+                      n=n.strip().lower().lstrip('*.')
+                      if n.endswith(domain): local.add(n); names.add(n)
+              print(domain,'hosts',len(local))
+              for n in sorted(local):
+                  if any(k in n for k in ['ps','player','report','api','feed','data','content','download','static','admin','service','web']):
+                      print('HOST',n)
+
+          print('\n=== WAYBACK OLD ECEAS URL INVENTORY ===')
+          targets=[
+            'http://ps.atppz.com/eceas/*',
+            'https://ps.atppz.com/eceas/*',
+            'http://atp-playerzone.com/admin/PlayerServices/ECEAS/*',
+            'https://atp-playerzone.com/admin/PlayerServices/ECEAS/*',
+            'http://icontent.atptour.com/AcceptanceList/*',
+            'https://icontent.atptour.com/AcceptanceList/*',
+          ]
+          for target in targets:
+              q='https://web.archive.org/cdx/search/cdx?url='+urllib.parse.quote(target,safe='')+'&output=json&fl=timestamp,original,statuscode,mimetype&filter=statuscode:200&collapse=urlkey&limit=200'
+              st,h,b=get(q,timeout=40)
+              print('\nTARGET',target,'status',st,'bytes',len(b))
+              if not b: continue
+              try:
+                  rows=json.loads(b.decode('utf-8','replace'))
+              except Exception as e:
+                  print('CDX parse',type(e).__name__,b[:300]); continue
+              for row in rows[1:31]: print('CAP',row)
+
+          print('\n=== LIKELY ATP HOST REACHABILITY ===')
+          candidates=sorted(n for n in names if any(k in n for k in ['report','content','download','player','ps.','ps-','api','feed']))
+          for host in candidates[:80]:
+              for scheme in ['https']:
+                  u=f'{scheme}://{host}/'
+                  st,h,b=get(u,timeout=5,limit=20000)
+                  if st is not None:
+                      text=b.decode('utf-8','replace')
+                      title=re.search(r'<title[^>]*>(.*?)</title>',text,re.I|re.S)
+                      print('LIVE',host,st,h.get('content-type'),h.get('location'),'title',re.sub(r'\s+',' ',title.group(1)).strip()[:100] if title else None)
+          PY
