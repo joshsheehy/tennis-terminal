@@ -122,10 +122,12 @@ export default async function DepthPage({
   const week = sp.week ? Number(sp.week) : thisWeek;
 
   const view = await buildWeekView(pool, year, week, discipline);
+  // buildWeekView snaps to the nearest week that actually holds events, so the
+  // pickers and heading must follow the resolved week, not the requested one.
   const qs = (o: Record<string, string | number>) =>
     `/depth?${new URLSearchParams({
       year: String(year),
-      week: String(week),
+      week: String(view.week),
       discipline,
       ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])),
     }).toString()}`;
@@ -157,14 +159,14 @@ export default async function DepthPage({
       </div>
       <div className="chip-row" style={{ marginTop: 8, flexWrap: 'wrap' }}>
         {view.availableWeeks.map((w) => (
-          <Pick key={w} href={qs({ week: w })} on={w === week}>
+          <Pick key={w} href={qs({ week: w })} on={w === view.week}>
             w{w}
           </Pick>
         ))}
       </div>
 
       <h2 style={{ marginTop: 28 }}>
-        Week {week}, {year} · {discipline}
+        Week {view.week}, {year} · {discipline}
       </h2>
 
       {view.regions.length === 0 ? (
@@ -193,8 +195,9 @@ export default async function DepthPage({
           <strong>What this does not tell you.</strong> The ranking compares events against
           each other <em>inside one week</em>, which is the only claim the data supports. It
           does not predict a cut, and it deliberately does not say whether a cut will be
-          tougher or easier than last year&apos;s — that comparison was tested and failed.
-          Last year&apos;s cut is shown as a fact to anchor against, not as a forecast.
+          tougher or easier than last year&apos;s — that was tested against 685 paired
+          seasons and added nothing. Last year&apos;s cut is shown as a fact to anchor
+          against, not as a forecast.
         </p>
         <p>
           Place counts are estimates from standard draw sizes per level, not from published

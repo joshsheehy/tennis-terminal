@@ -3,11 +3,12 @@
 // easiest to hardest to get into.
 //
 // This is deliberately the ONLY claim the validation supports. V1 showed depth
-// reproduces the within-week ordering of observed cuts (Spearman +0.32 singles
-// / +0.29 doubles, 74-81% of pairs ordered correctly). V5 showed that year-over
-// -year Δdepth does NOT predict how a cut moves — it was ~8% worse than reusing
-// last year's number. So this ranks events against EACH OTHER inside one week,
-// and never claims a cut will be tougher or easier than last year's.
+// reproduces the within-week ordering of observed cuts: 73% of singles pairs
+// (770) and 75% of doubles pairs (321) ordered correctly, Spearman +0.19 and
+// +0.27. V5 showed that year-over-year Δdepth adds nothing to predicting how a
+// cut MOVES — fitting it changed MAE by -0.1% on the restructured weeks it
+// exists for. So this ranks events against EACH OTHER inside one week, and
+// never claims a cut will be tougher or easier than last year's.
 //
 // Last year's cut is shown beside the ranking as a factual anchor, read from
 // the cuts already stored in cutoff_snapshots. Nothing is re-fetched.
@@ -120,8 +121,22 @@ export async function buildWeekView(
     levelBySlugYear.set(`${o.slug}:${o.year}`, o.level);
   }
 
-  const inWeek = events.filter((e) => e.year === year && e.week === week);
-  const scope = sameWeekScope(events, year, week);
+  const availableWeeks = [
+    ...new Set(events.filter((e) => e.year === year).map((e) => e.week)),
+  ].sort((a, b) => a - b);
+
+  // Switching season keeps the week number in the URL, and that week may hold
+  // nothing in the new season. Fall back to the nearest week that does, so the
+  // page never renders an empty screen for a season full of events.
+  const resolvedWeek =
+    availableWeeks.includes(week) || availableWeeks.length === 0
+      ? week
+      : availableWeeks.reduce((best, w) =>
+          Math.abs(w - week) < Math.abs(best - week) ? w : best
+        );
+
+  const inWeek = events.filter((e) => e.year === year && e.week === resolvedWeek);
+  const scope = sameWeekScope(events, year, resolvedWeek);
 
   const regions: WeekRegion[] = clusterEvents(inWeek)
     .map((cluster) => {
@@ -164,13 +179,9 @@ export async function buildWeekView(
     .filter((r) => r.entries.length > 0)
     .sort((a, b) => b.entries.length - a.entries.length);
 
-  const availableWeeks = [
-    ...new Set(events.filter((e) => e.year === year).map((e) => e.week)),
-  ].sort((a, b) => a - b);
-
   return {
     year,
-    week,
+    week: resolvedWeek,
     discipline,
     unit: discipline === 'doubles' ? 'team places' : 'places',
     regions,
