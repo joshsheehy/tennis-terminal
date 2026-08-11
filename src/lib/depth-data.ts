@@ -16,9 +16,10 @@ export async function loadDepthEvents(pool: Pool): Promise<DepthEvent[]> {
     indoor: boolean | null;
     latitude: number | null;
     longitude: number | null;
+    singles_draw_size: number | null;
   }>(
     `select te.id as edition_id, t.slug, t.name, te.year, te.week, te.level,
-            te.surface, te.indoor, t.latitude, t.longitude
+            te.surface, te.indoor, t.latitude, t.longitude, te.singles_draw_size
      from tournament_editions te
      join tournaments t on t.id = te.tournament_id
      where te.status = 'held' and te.week is not null`
@@ -34,6 +35,7 @@ export async function loadDepthEvents(pool: Pool): Promise<DepthEvent[]> {
     indoor: r.indoor,
     latitude: r.latitude,
     longitude: r.longitude,
+    singlesDrawSize: r.singles_draw_size,
   }));
 }
 
@@ -59,13 +61,14 @@ export type DepthObservation = {
  * Cut observations with the direct-acceptance and post-alternate boundaries
  * kept SEPARATE.
  *
- * This matters more than it looks. The shipped model's CUT_EXPR in
- * cut-prediction-data.ts coalesces `last_alternate_rank` FIRST for both
- * disciplines, so every fitted constant in cut-prediction.ts was trained on a
- * mixture: the post-alternate cut where one was recorded, the direct-acceptance
- * cut where it was not. `legacyCut` reproduces that expression exactly so the
- * validator can measure how far apart the two definitions actually are before
- * anything is changed.
+ * The shipped model's CUT_EXPR in cut-prediction-data.ts coalesces
+ * `last_alternate_rank` FIRST for both disciplines, which looked like it was
+ * training on a mixture of two cut definitions. Measured against production it
+ * is not: `last_alternate_rank` is null on all 2,965 snapshot rows, so the
+ * coalesce always falls through to the direct-acceptance value and the model
+ * already trains purely on the deadline cut. `legacyCut` reproduces that
+ * expression exactly so the validator keeps re-measuring the gap if alternate
+ * ranks ever start being captured.
  */
 export async function loadDepthObservations(
   pool: Pool,

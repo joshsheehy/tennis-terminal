@@ -6,7 +6,8 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw, CutProjectionsByDraw } from '@/lib/swings-page-data';
+import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw } from '@/lib/swings-page-data';
+import type { WeekCompetitionByDraw } from '@/lib/week-competition';
 import { LevelGroup, levelRank } from '@/lib/swings';
 import {
   CandidateTier,
@@ -705,7 +706,7 @@ export default function SwingsView({
           event={infoEvent.event}
           series={data.cutSeries[infoEvent.event.slug]}
           refs={data.cutRefs[infoEvent.event.slug]}
-          projections={data.cutProjections[infoEvent.event.slug]}
+          competitionByDraw={data.weekCompetition[infoEvent.event.slug]}
           year={data.year}
           backTo={returnHref()}
           onAdd={
@@ -1487,10 +1488,17 @@ function BottomSheet({
   );
 }
 
+/** 1 -> "1st", 2 -> "2nd", 23 -> "23rd". */
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+}
+
 // --- Tournament info popover -------------------------------------------------
 // Opened from the ⓘ dot on builder rows: the tournament's cut line, the latest
-// reference cuts, a reserved slot for the beta cut projection, and an explicit
-// link to the full tournament page (tapping a candidate row adds it to the
+// reference cuts, how the event compares with the alternatives that week, and
+// an explicit link to the full tournament page (tapping a candidate row adds it to the
 // swing, so the page link needs its own affordance).
 function MiniCutLine({ points, label }: { points: Array<[number, number]>; label: string }) {
   const n = points.length;
@@ -1551,7 +1559,7 @@ function TournamentInfoCard({
   event,
   series,
   refs,
-  projections,
+  competitionByDraw,
   year,
   backTo,
   onAdd,
@@ -1560,7 +1568,7 @@ function TournamentInfoCard({
   event: SwingMapEvent;
   series: CutSeriesByDraw | undefined;
   refs: SwingsPageData['cutRefs'][string] | undefined;
-  projections: CutProjectionsByDraw | undefined;
+  competitionByDraw: WeekCompetitionByDraw | undefined;
   year: number;
   /** This view + current chain, so the tournament page can send you back here. */
   backTo: string;
@@ -1580,7 +1588,10 @@ function TournamentInfoCard({
   const [drawKey, setDrawKey] = useState<keyof CutSeriesByDraw>(drawChoices[0].key);
   const draw = drawChoices.find((d) => d.key === drawKey) ?? drawChoices[0];
   const points = series?.[draw.key] ?? [];
-  const projection = projections?.[draw.key];
+  // Qualifying has no separate competition figure: entries to a qualifying
+  // draw come from the same regional pool as the main draw it feeds.
+  const competition =
+    draw.key === 'q' ? competitionByDraw?.m : competitionByDraw?.[draw.key];
 
   // Latest reference cut for the active draw (2026 stops reference last year).
   const singlesRef = refs?.singles;
@@ -1636,16 +1647,33 @@ function TournamentInfoCard({
         ) : (
           <p className="tinfo-line tinfo-line--muted">No {draw.label.toLowerCase()} cut history on record yet.</p>
         )}
-        {projection ? (
+        {competition ? (
           <p className="tinfo-beta tinfo-beta--live">
-            Projected cut · <strong>~#{projection.cut}</strong>{' '}
-            <span>
-              range {projection.low}–{projection.high} · beta
-            </span>
+            {competition.of > 1 ? (
+              <>
+                <strong>
+                  {ordinal(competition.rank)} easiest of {competition.of}
+                </strong>{' '}
+                <span>
+                  within reach this week · {competition.estimated ? '≈' : ''}
+                  {competition.places} {draw.key === 'd' ? 'team places' : 'places'} at this
+                  level or better
+                </span>
+              </>
+            ) : (
+              <>
+                <strong>Alone in its region</strong>{' '}
+                <span>
+                  this week · {competition.estimated ? '≈' : ''}
+                  {competition.places} {draw.key === 'd' ? 'team places' : 'places'} at this
+                  level or better
+                </span>
+              </>
+            )}
           </p>
         ) : (
           <p className="tinfo-beta">
-            Projected cut · <span>beta — coming soon</span>
+            Week competition · <span>no calendar data for this week</span>
           </p>
         )}
         {onAdd && (

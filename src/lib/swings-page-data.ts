@@ -5,6 +5,7 @@
 
 import { unstable_cache } from 'next/cache';
 import { pool } from './db';
+import { loadWeekCompetition, type WeekCompetitionByDraw } from './week-competition';
 import { getAtpWeekForSeason } from './atp-week';
 import { CURRENT_SEASON } from './seasons';
 import {
@@ -75,6 +76,10 @@ export type SwingsPageData = {
   /** Beta cut projections for the viewed season's upcoming events, keyed by
    * slug then draw key — freshest horizon per draw. */
   cutProjections: Record<string, CutProjectionsByDraw>;
+  /** Week competition per slug: places within reach at this level or better,
+   * and the event's rank among the alternatives that week. Replaces the beta
+   * cut projection in the info popover. */
+  weekCompetition: Record<string, WeekCompetitionByDraw>;
 };
 
 export type CutSeriesByDraw = {
@@ -89,6 +94,12 @@ export type CutProjectionsByDraw = {
   q?: CutProjection;
   d?: CutProjection;
 };
+
+const getCachedWeekCompetition = unstable_cache(
+  async (year: number) => loadWeekCompetition(pool, year),
+  ['swings-weekcompetition'],
+  { revalidate: 300 }
+);
 
 const getCachedEvents = unstable_cache(
   async (year: number) => loadSwingEventsForYear(pool, year),
@@ -280,7 +291,7 @@ export async function getSwingsPageData(
   groups: LevelGroup[] = DEFAULT_LEVEL_SCOPE,
   config: SwingConfig = DEFAULT_SWING_CONFIG
 ): Promise<SwingsPageData> {
-  const [all, cutRefs, cutSeries, cutProjections] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year), getCachedCutProjections(year)]);
+  const [all, cutRefs, cutSeries, cutProjections, weekCompetition] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year), getCachedCutProjections(year), getCachedWeekCompetition(year)]);
   const groupSet = new Set(groups);
   const scoped = all.filter((e) => {
     const g = levelGroup(e.level);
@@ -351,5 +362,5 @@ export async function getSwingsPageData(
   const currentWeek =
     year === CURRENT_SEASON ? getAtpWeekForSeason(new Date(), year) ?? 1 : 1;
 
-  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries, cutProjections };
+  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries, cutProjections, weekCompetition };
 }

@@ -57,6 +57,17 @@ export async function GET(request: NextRequest) {
     fetchJson(`${baseUrl}/api/import-cutoffs?year=${year - 1}`),
   ]);
 
+  // 4. Backfill real singles draw sizes from JeffSackmann's match CSVs. These
+  //    feed the acceptance-slot counts behind /depth, which otherwise fall back
+  //    to per-level defaults that flatten the 56-vs-96 and 32-vs-48 splits.
+  //    A season's file only fills in as matches are played, so the current year
+  //    is re-run nightly and the previous year catches late corrections.
+  //    Non-fatal: a flaky CSV fetch must not abort the cron.
+  const [drawSizesCurrent, drawSizesPrevious] = await Promise.all([
+    fetchJson(`${baseUrl}/api/import-draw-sizes?year=${year}&apply=true`),
+    fetchJson(`${baseUrl}/api/import-draw-sizes?year=${year - 1}&apply=true`),
+  ]);
+
   // New tournaments / fresh cuts won't show on the schedule until the cached
   // schedule query is invalidated.
   try {
@@ -96,5 +107,9 @@ export async function GET(request: NextRequest) {
     },
     currentYear,
     previousYear,
+    drawSizes: {
+      current: { ok: drawSizesCurrent.ok, ...(drawSizesCurrent.json as object) },
+      previous: { ok: drawSizesPrevious.ok, ...(drawSizesPrevious.json as object) },
+    },
   });
 }

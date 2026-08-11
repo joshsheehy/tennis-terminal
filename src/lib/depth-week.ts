@@ -35,6 +35,9 @@ export type WeekEntry = {
   reasons: string[];
   /** How many events at or above this one sit within reach. */
   competingEvents: number;
+  /** 'actual' when the place count came from a real imported draw size,
+   * 'default' when it fell back to the per-level estimate. */
+  slotsSource: 'actual' | 'default';
   lastYearCut: number | null;
   lastYearLevel: string | null;
   thisYearCut: number | null;
@@ -165,6 +168,7 @@ export async function buildWeekView(
           ownSlots: d.ownSlots,
           reasons,
           competingEvents: d.contributions.length,
+          slotsSource: d.slotsSource,
           lastYearCut: cutBySlugYear.get(`${e.slug}:${year - 1}`) ?? null,
           lastYearLevel: levelBySlugYear.get(`${e.slug}:${year - 1}`) ?? null,
           thisYearCut: cutBySlugYear.get(`${e.slug}:${year}`) ?? null,

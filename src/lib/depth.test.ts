@@ -144,6 +144,29 @@ describe('daSlots', () => {
     expect(daSlots('ATP Finals', 'singles').slots).toBe(0);
     expect(daSlots('ATP Finals', 'doubles').slots).toBe(0);
   });
+
+  it('derives singles slots from a real draw size and marks them actual', () => {
+    // Challenger 48-draw: 48 - 3 wildcards - 4 qualifiers.
+    expect(daSlots('Challenger 100', 'singles', 48)).toEqual({ slots: 41, source: 'actual' });
+  });
+
+  it('separates a 96-draw Masters from a 56-draw one', () => {
+    const big = daSlots('ATP 1000', 'singles', 96);
+    const small = daSlots('ATP 1000', 'singles', 56);
+    expect(big.slots - small.slots).toBe(40);
+    expect(big.source).toBe('actual');
+  });
+
+  it('ignores a real draw size for doubles, which has no source for it', () => {
+    expect(daSlots('Challenger 100', 'doubles', 48)).toEqual({ slots: 14, source: 'default' });
+  });
+
+  it('falls back to the default when the draw size is absent or nonsensical', () => {
+    expect(daSlots('Challenger 100', 'singles', null).source).toBe('default');
+    expect(daSlots('Challenger 100', 'singles', 0).source).toBe('default');
+    // Smaller than its own reserved places: the size is wrong, not the event.
+    expect(daSlots('Challenger 100', 'singles', 4)).toEqual({ slots: 25, source: 'default' });
+  });
 });
 
 describe('absorption', () => {

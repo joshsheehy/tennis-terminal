@@ -99,11 +99,16 @@ export function wSurface(
 //   singles: md_size - wildcards - qualifier_slots
 //   doubles: md_teams - wildcard_teams, counted IN TEAMS
 //
-// singles_draw_size / doubles_draw_size exist on tournament_editions but no
-// importer has ever written them, so every value below is a per-level default
-// and `source` is 'default'. Wildcard counts in particular vary by event —
-// home-federation tournaments often grant extra doubles wildcards — so these
-// are genuinely approximate and downstream confidence should degrade for them.
+// /api/import-draw-sizes writes singles_draw_size and qualifying_draw_size from
+// JeffSackmann's match CSVs, so SINGLES counts are derived from the real draw
+// where that has run and report source 'actual'. The values below remain the
+// fallback for events the importer has not reached.
+//
+// DOUBLES is always a default: tennis_atp's doubles files do not span the tour
+// and Challenger calendar, so doubles_draw_size stays unwritten. Wildcard
+// counts are estimates in both disciplines — they are not published in any feed
+// we read, and home-federation events often grant extra ones — so even an
+// 'actual' draw size yields an approximate acceptance count.
 
 export type SlotSource = 'actual' | 'default';
 export type Slots = { slots: number; source: SlotSource };
@@ -123,9 +128,42 @@ const SLOT_DEFAULTS: Array<[minRank: number, slots: SlotDefault]> = [
   [10, { singles: 24, doubles: 14 }], // ITF
 ];
 
-export function daSlots(level: string, discipline: Discipline): Slots {
+/** Places a level's main draw gives away before direct acceptances start:
+ * wildcards, plus qualifier slots for singles. Still per-level estimates — the
+ * counts are not published in any feed we read, and home-federation events
+ * often grant extra wildcards. */
+function reservedSlots(rank: number, discipline: Discipline): number {
+  if (discipline === 'doubles') return rank >= 100 ? 4 : 2;
+  if (rank >= 100) return 8 + 16; // Slam: wildcards + qualifiers
+  if (rank >= 90) return 6 + 7;
+  if (rank >= 70) return 4 + 4;
+  return 3 + 4; // Challenger and below
+}
+
+/**
+ * Acceptance places that actually set a cut.
+ *
+ * `actualDrawSize` is the real main draw from tournament_editions when an
+ * importer has written it (singles only — see src/lib/draw-sizes.ts). When
+ * present the count is derived from it and reported as 'actual'; otherwise it
+ * falls back to the per-level default and reports 'default', so downstream
+ * confidence degrades exactly where the number is a guess.
+ */
+export function daSlots(
+  level: string,
+  discipline: Discipline,
+  actualDrawSize?: number | null
+): Slots {
   const rank = levelRank(level);
   if (rank === 0) return { slots: 0, source: 'default' };
+
+  if (discipline === 'singles' && actualDrawSize != null && actualDrawSize > 0) {
+    const slots = actualDrawSize - reservedSlots(rank, discipline);
+    // A draw smaller than its own reserved places means the size is wrong, not
+    // that the event has no acceptances; fall through to the default.
+    if (slots > 0) return { slots, source: 'actual' };
+  }
+
   for (const [minRank, slots] of SLOT_DEFAULTS) {
     if (rank >= minRank) return { slots: slots[discipline], source: 'default' };
   }
@@ -195,6 +233,9 @@ export type DepthEvent = {
   indoor: boolean | null;
   latitude: number | null;
   longitude: number | null;
+  /** Real singles main draw from tournament_editions, when an importer has
+   * written it. null falls back to the per-level default. */
+  singlesDrawSize?: number | null;
 };
 
 export type DepthContribution = {
@@ -237,7 +278,7 @@ export function computeDepth(
   sameWeek: DepthEvent[],
   discipline: Discipline
 ): DepthResult {
-  const own = daSlots(target.level, discipline);
+  const own = daSlots(target.level, discipline, target.singlesDrawSize);
   const targetRank = levelRank(target.level);
   const contributions: DepthContribution[] = [];
   let slotsAbove = 0;
@@ -276,7 +317,7 @@ export function computeDepth(
     const weekOffset = Math.max(0, target.week - other.week);
     const rawSlots = above
       ? absorptionSlots(other.level, discipline, weekOffset)
-      : daSlots(other.level, discipline).slots;
+      : daSlots(other.level, discipline, other.singlesDrawSize).slots;
 
     if (rawSlots === 0) continue;
     const contribution = rawSlots * g * s;

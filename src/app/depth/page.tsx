@@ -74,9 +74,13 @@ function Entry({
 
       <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', marginTop: 12 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 600 }}>≈{entry.spotsNearby}</div>
+          <div style={{ fontSize: 22, fontWeight: 600 }}>
+            {entry.slotsSource === 'default' ? '≈' : ''}
+            {entry.spotsNearby}
+          </div>
           <div style={{ fontSize: 12, opacity: 0.65 }}>
             {unit} within reach at this level or better
+            {entry.slotsSource === 'default' ? ' (estimated)' : ''}
           </div>
         </div>
         <div>
@@ -200,8 +204,9 @@ export default async function DepthPage({
           against, not as a forecast.
         </p>
         <p>
-          Place counts are estimates from standard draw sizes per level, not from published
-          entry lists. <Link href="/depth/validation">See the validation</Link>.
+          Counts marked ≈ are estimated from standard draw sizes for the level; the rest
+          come from the real imported draw. Doubles is always estimated, and wildcard counts
+          are estimated throughout. <Link href="/depth/validation">See the validation</Link>.
         </p>
       </div>
     </main>
