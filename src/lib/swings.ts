@@ -56,12 +56,16 @@ export function levelGroup(level: string): LevelGroup | null {
 export function levelRank(level: string): number {
   const l = level.trim().toLowerCase();
   if (l.includes('grand slam')) return 100;
+  if (l.includes('finals')) return 95;
   if (/atp\s*1000/.test(l)) return 90;
   if (/atp\s*500/.test(l)) return 80;
   if (/atp\s*250/.test(l)) return 70;
   if (/challenger\s*175/.test(l)) return 60;
   if (/challenger\s*125/.test(l)) return 55;
   if (/challenger\s*100/.test(l)) return 50;
+  // Legacy level string still present in historical rows. Without this it fell
+  // through to the generic Challenger branch and sorted BELOW Challenger 50.
+  if (/challenger\s*80/.test(l)) return 47;
   if (/challenger\s*75/.test(l)) return 45;
   if (/challenger\s*50/.test(l)) return 40;
   if (l.includes('challenger')) return 35;
