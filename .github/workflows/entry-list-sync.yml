@@ -1,18 +1,56 @@
 name: Entry list sync
 
-# Temporarily manual-only while we validate a direct ATP / PlayerZone-public
-# source. Do not use third-party aggregators as the production hub.
+# Manual-only until ATP/TDI authorizes the official ProTennisLive PlayerList
+# source. Once PROTENNISLIVE_TOKEN is configured on Railway and usage rights are
+# confirmed, this same workflow can be given a cron schedule without changing
+# the ingestion architecture.
 on:
   workflow_dispatch:
+    inputs:
+      week:
+        description: 'Monday of ATP week (YYYY-MM-DD); blank = next Monday'
+        required: false
+        type: string
 
 concurrency:
   group: entry-list-sync
   cancel-in-progress: true
 
 jobs:
-  hold:
+  sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Explain hold
+      - name: Sync official ATP PlayerList data
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          WEEK: ${{ inputs.week }}
         run: |
-          echo "Automatic entry-list sync is paused until a direct ATP/PZ-public source is validated."
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "APP_URL and ADMIN_SECRET repository secrets are required"
+            exit 1
+          fi
+
+          base="${APP_URL%/}"
+          [[ "$base" == http* ]] || base="https://$base"
+
+          call_api() {
+            local path="$1"
+            curl --fail-with-body --silent --show-error --max-time 120 \
+              -H "Accept: application/json" \
+              -H "X-Admin-Secret: $ADMIN_SECRET" \
+              "$base$path"
+            echo
+          }
+
+          call_api '/api/setup-entry-lists'
+
+          path='/api/sync-protennis-player-lists'
+          if [ -n "${WEEK:-}" ]; then
+            encoded_week=$(python3 -c 'import os,urllib.parse; print(urllib.parse.quote(os.environ["WEEK"]))')
+            path="$path?week=$encoded_week"
+          fi
+          call_api "$path"
