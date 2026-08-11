@@ -1,0 +1,45 @@
+name: ATP auth metadata probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/atp-auth-metadata-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect unauthenticated auth metadata only
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import urllib.request, urllib.error
+
+          base='https://api.protennislive.com'
+          targets=[
+            ('GET', base+'/feeds/PlayerList/2026/3121', None),
+            ('GET', base+'/feeds/PlayerList/2026/3121', 'Bearer invalid-token-for-metadata-probe'),
+            ('OPTIONS', base+'/feeds/PlayerList/2026/3121', None),
+            ('GET', base+'/.well-known/openid-configuration', None),
+            ('GET', base+'/feeds/.well-known/openid-configuration', None),
+          ]
+          keep=['www-authenticate','server','location','access-control-allow-origin','access-control-allow-methods','access-control-allow-headers','content-type','x-powered-by']
+          for method,url,auth in targets:
+            headers={'User-Agent':'Mozilla/5.0 (compatible; TennisCutsOfficialSourceResearch/1.0)','Accept':'application/json,*/*'}
+            if auth: headers['Authorization']=auth
+            req=urllib.request.Request(url,headers=headers,method=method)
+            try:
+              with urllib.request.urlopen(req,timeout=12) as r:
+                status=r.status; rh=r.headers; body=r.read(5000)
+            except urllib.error.HTTPError as e:
+              status=e.code; rh=e.headers; body=e.read(5000)
+            except Exception as e:
+              print('\n',method,url,'ERR',type(e).__name__,str(e)); continue
+            print('\n',method,url,'STATUS',status)
+            for k in keep:
+              v=rh.get(k)
+              if v is not None: print(k+':',v)
+            print('body:',body.decode('utf8','replace')[:1000].replace('\n',' '))
+          PY
