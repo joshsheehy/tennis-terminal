@@ -1,0 +1,89 @@
+name: ATP public source deep probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/atp-public-source-deep-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Inspect ATP public tournament frontend for entry-list plumbing
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re, urllib.parse, urllib.request, urllib.error, json
+
+          page='https://www.atptour.com/en/tournaments/quebec-city/3103/overview'
+          hdr={'User-Agent':'Mozilla/5.0','Accept':'text/html,application/xhtml+xml,*/*'}
+
+          def get(url, timeout=20, limit=3_000_000):
+              req=urllib.request.Request(url,headers=hdr)
+              try:
+                  with urllib.request.urlopen(req,timeout=timeout) as r:
+                      b=r.read(limit)
+                      return r.status,r.headers,b
+              except urllib.error.HTTPError as e:
+                  return e.code,e.headers,e.read(limit)
+              except Exception as e:
+                  print('ERR',url,type(e).__name__,str(e),flush=True)
+                  return None,{},b''
+
+          st,hh,body=get(page)
+          text=body.decode('utf-8','replace')
+          print('PAGE',st,'bytes',len(body),'ctype',hh.get('content-type'))
+          print('page-hits', [x for x in ['PlayerList','protennislive','acceptance','entry list','alternate','api/','Authorization'] if x.lower() in text.lower()])
+
+          scripts=[]
+          for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',text,re.I):
+              u=urllib.parse.urljoin(page,src)
+              if u not in scripts: scripts.append(u)
+          print('scripts',len(scripts))
+
+          needles=[
+            'PlayerList','api.protennislive.com','protennislive.com/feeds','AcceptanceList',
+            'acceptance','alternate','EntryCode','PlayerListType','Authorization','Bearer ',
+            'token','oauth','client_id','clientId','tournamentDetails','TournamentId',
+            '/api/','api.atptour','atptour.com/api'
+          ]
+          url_rx=re.compile(r'https?://[^"\'\\\s<>]+')
+          apiish=set()
+          for i,u in enumerate(scripts[:120]):
+              st,h,b=get(u,timeout=15,limit=5_000_000)
+              if not b: continue
+              s=b.decode('utf-8','replace')
+              hits=[n for n in needles if n.lower() in s.lower()]
+              if hits:
+                  print('\nSCRIPT',i,st,u,'bytes',len(b),'HITS',hits)
+                  low=s.lower()
+                  for n in hits:
+                      pos=low.find(n.lower())
+                      lo=max(0,pos-350); hi=min(len(s),pos+900)
+                      print('CTX',n,re.sub(r'\s+',' ',s[lo:hi])[:1400])
+                  for found in url_rx.findall(s):
+                      if any(k in found.lower() for k in ['api','protennis','atptour','player','tournament','feed','auth']):
+                          apiish.add(found[:500])
+          print('\nAPIISH URLS')
+          for u in sorted(apiish)[:120]: print(u)
+
+          # Probe common same-origin/public data route shapes without credentials.
+          candidates=[
+            'https://www.atptour.com/-/ajax/tournamentdetails?year=2026&tournamentId=3103',
+            'https://www.atptour.com/-/ajax/tournament-details?year=2026&tournamentId=3103',
+            'https://www.atptour.com/api/tournaments/2026/3103',
+            'https://www.atptour.com/api/tournament/2026/3103',
+            'https://www.atptour.com/api/playerlist/2026/3103',
+            'https://www.atptour.com/api/player-list/2026/3103',
+            'https://www.atptour.com/-/api/tournaments/2026/3103',
+            'https://www.atptour.com/-/api/playerlist/2026/3103',
+            'https://www.atptour.com/-/api/player-list/2026/3103',
+          ]
+          print('\nCANDIDATES')
+          for u in candidates:
+              st,h,b=get(u,timeout=10,limit=200000)
+              sample=re.sub(r'\s+',' ',b.decode('utf-8','replace'))[:300]
+              print(st,h.get('content-type'),len(b),u,'=>',sample)
+          PY
