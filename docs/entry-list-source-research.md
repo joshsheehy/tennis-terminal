@@ -54,7 +54,9 @@ Each `PlayerListItem` includes fields useful to TennisCuts, including:
 
 This is the closest known official structured source to the full acceptance-list product requirement. Preserve the API's array order; derive alternate queue position from the order of `Alternate=true` rows, never by re-sorting on ranking.
 
-Direct unauthenticated requests return HTTP 401. Swagger declares Bearer authorization. We must not bypass that requirement or automate a logged-in PlayerZone session.
+Direct unauthenticated requests return HTTP 401. Swagger declares Bearer authorization. A clean unauthenticated request returns `WWW-Authenticate: Bearer`; a deliberately invalid token returns Bearer `invalid_token`. `OPTIONS` is also authenticated, and neither the host root nor `/feeds` exposes a usable public OpenID discovery document. There is therefore no evidence of a self-service/public token issuer hidden behind standard OIDC discovery.
+
+We must not bypass that requirement or automate a logged-in PlayerZone session.
 
 ATP's Tournament Data Form publicly directs tournament developers to the `tournamentclient` Swagger and states that development teams requiring tokens should contact Bram Tukker at `bram.tukker@atptour.com`. That establishes a legitimate token-request path.
 
