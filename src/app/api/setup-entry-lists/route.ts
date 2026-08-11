@@ -4,10 +4,10 @@ import { pool } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Idempotent production-safe setup for the lightweight entry-list tables.
-// Source discovery/selection lives outside this route. We intentionally do not
-// seed tournament- or federation-specific websites here: the experiment is now
-// focused on centralized sources that can cover an entire ATP week.
+// Idempotent production-safe setup for lightweight ATP acceptance-list storage.
+// Source discovery/selection lives outside this route. The production design is
+// intentionally official-source only; regional/third-party experiments are not
+// created or activated here.
 export async function GET() {
   await pool.query(`
     create table if not exists acceptance_list_sources (
@@ -39,6 +39,7 @@ export async function GET() {
       list_date date,
       ranking_date date,
       original_cutoff_rank int,
+      player_list_type text,
       parse_status text not null check (parse_status in ('parsed', 'missing_cutoff', 'not_acceptance_list', 'needs_ocr')),
       entry_count int not null default 0,
       entries jsonb not null default '[]'::jsonb,
@@ -47,19 +48,8 @@ export async function GET() {
       unique (source_id, content_hash)
     );
 
-    create table if not exists central_entry_list_week_snapshots (
-      id uuid primary key default gen_random_uuid(),
-      tour text not null default 'atp',
-      week_start date not null,
-      source_type text not null,
-      source_url text not null,
-      source_updated_text text,
-      content_hash text not null,
-      tournament_count int not null default 0,
-      tournaments jsonb not null default '[]'::jsonb,
-      created_at timestamptz not null default now(),
-      unique (tour, week_start, content_hash)
-    );
+    alter table acceptance_list_snapshots
+      add column if not exists player_list_type text;
 
     create index if not exists acceptance_list_sources_due_idx
       on acceptance_list_sources(active, next_check_at)
@@ -70,22 +60,23 @@ export async function GET() {
 
     create index if not exists acceptance_list_snapshots_source_fetched_idx
       on acceptance_list_snapshots(source_id, fetched_at desc);
-
-    create index if not exists central_entry_list_week_latest_idx
-      on central_entry_list_week_snapshots(tour, week_start, created_at desc);
   `);
 
-  // Earlier proof-of-concept rows pointed directly at organizer sites. Preserve
-  // their snapshots for comparison, but stop polling those sources going forward.
+  // Preserve old proof snapshots, but make sure no organizer/federation or
+  // third-party proof source can be polled by a future generic scheduler.
   const deactivated = await pool.query<{ id: string }>(
     `
     update acceptance_list_sources
     set active = false, next_check_at = null, updated_at = now()
-    where source_type in ('official_tournament_pdf', 'official_federation_pdf')
+    where source_type in (
+      'official_tournament_pdf',
+      'official_federation_pdf',
+      'central_public_aggregator_experiment'
+    )
       and active = true
     returning id
     `
   );
 
-  return NextResponse.json({ ok: true, deactivatedRegionalSources: deactivated.rowCount ?? 0 });
+  return NextResponse.json({ ok: true, deactivatedNonCentralOfficialSources: deactivated.rowCount ?? 0 });
 }
