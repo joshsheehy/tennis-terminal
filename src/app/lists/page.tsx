@@ -162,7 +162,7 @@ export default async function EntryListsPage({
             {weeks.map((w) => (
               <Link
                 key={w}
-                href={`/depth/lists?week=${w}`}
+                href={`/lists?week=${w}`}
                 className={w === activeWeek ? 'chip chip--on' : 'chip'}
                 prefetch={false}
               >
