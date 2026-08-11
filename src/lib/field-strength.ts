@@ -99,19 +99,55 @@ export function strengthBand(delta: number): StrengthBand {
   return 'similar';
 }
 
+// Labels are written from the PLAYER's side, not the field's. The band names
+// describe the field (a "much-stronger" field), but what someone deciding where
+// to enter needs to read is what that does to them: a stronger field means a
+// lower cut and a harder draw, so it is tougher to get into.
 export const BAND_LABEL: Record<StrengthBand, string> = {
-  'much-stronger': 'Much stronger',
-  stronger: 'Stronger',
+  'much-stronger': 'Much tougher to enter',
+  stronger: 'Tougher to enter',
   similar: 'About the same',
-  weaker: 'Weaker',
-  'much-weaker': 'Much weaker',
+  weaker: 'Easier to enter',
+  'much-weaker': 'Much easier to enter',
 };
 
-/** Green for a stronger field, red for a weaker one, neutral in between. */
-export const BAND_COLOR: Record<StrengthBand, string> = {
-  'much-stronger': '#0f6b3a',
-  stronger: '#1a7f47',
-  similar: '#8a8a8a',
-  weaker: '#c2691e',
-  'much-weaker': '#b3261e',
+/** What happened to the field itself, for the line that explains the move. */
+export const BAND_FIELD_LABEL: Record<StrengthBand, string> = {
+  'much-stronger': 'much stronger field',
+  stronger: 'stronger field',
+  similar: 'similar field',
+  weaker: 'weaker field',
+  'much-weaker': 'much weaker field',
 };
+
+// Colour tracks OPPORTUNITY, not field strength. Green is the event that got
+// easier to get into. An earlier version painted a stronger field green and a
+// weaker one red on a good/bad reading, which told a player the opposite of
+// what they needed: "much weaker" is the opening, and it was showing in red.
+export const BAND_COLOR: Record<StrengthBand, string> = {
+  'much-stronger': '#b3261e',
+  stronger: '#c2691e',
+  similar: '#8a8a8a',
+  weaker: '#1a7f47',
+  'much-weaker': '#0f6b3a',
+};
+
+/**
+ * Plain reading of a score. The score is a percentile by construction, so it
+ * translates directly and needs no hedging: a 52 beat 52% of the editions
+ * recorded at that level.
+ */
+export function scoreMeaning(score: number, level: string): string {
+  if (score >= 90) return `stronger than almost every ${level} on record`;
+  if (score <= 10) return `weaker than almost every ${level} on record`;
+  return `stronger than ${score}% of ${level} editions on record`;
+}
+
+/** One sentence a beginner can act on. */
+export function entryMeaning(score: number): string {
+  if (score >= 75) return 'a hard field to get into';
+  if (score >= 55) return 'a bit harder to get into than usual';
+  if (score > 45) return 'a normal field for this level';
+  if (score > 25) return 'a bit easier to get into than usual';
+  return 'an easy field to get into';
+}

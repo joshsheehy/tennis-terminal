@@ -2,7 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { pool } from '@/lib/db';
 import { buildStrengthView, type StrengthRow } from '@/lib/field-strength-data';
-import { BAND_LABEL, BAND_COLOR } from '@/lib/field-strength';
+import {
+  BAND_LABEL,
+  BAND_FIELD_LABEL,
+  BAND_COLOR,
+  scoreMeaning,
+  entryMeaning,
+} from '@/lib/field-strength';
 import type { Discipline } from '@/lib/depth';
 import { CURRENT_SEASON, AVAILABLE_SEASONS } from '@/lib/seasons';
 
@@ -112,12 +118,13 @@ function Row_({ row, year }: { row: StrengthRow; year: number }) {
           {row.band ? (
             <>
               <div style={{ color, fontWeight: 700, fontSize: 15 }}>
-                {row.delta! > 0 ? '↑' : row.delta! < 0 ? '↓' : '='} {BAND_LABEL[row.band]}
+                {BAND_LABEL[row.band]}
               </div>
-              <div style={{ fontSize: 12, opacity: 0.7 }}>
-                {row.delta! > 0 ? '+' : ''}
-                {row.delta} pts · cut {row.priorCut} →{' '}
-                {row.basis === 'projected' ? '~' : ''}
+              <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+                {BAND_FIELD_LABEL[row.band]} than {year - 1}
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>
+                cut #{row.priorCut} → {row.basis === 'projected' ? '~#' : '#'}
                 {row.cut}
               </div>
             </>
@@ -134,6 +141,13 @@ function Row_({ row, year }: { row: StrengthRow; year: number }) {
           )}
         </div>
       </div>
+      {row.score != null ? (
+        <p style={{ fontSize: 12, opacity: 0.75, margin: '10px 0 0' }}>
+          <strong>{row.score}/100</strong> — {scoreMeaning(row.score, row.level)}.{' '}
+          {entryMeaning(row.score)[0].toUpperCase() + entryMeaning(row.score).slice(1)}
+          {row.basis === 'projected' ? ', on this year\u2019s projection' : ''}.
+        </p>
+      ) : null}
       {row.itfNote ? (
         <p
           style={{
@@ -188,11 +202,52 @@ export default async function FieldStrengthPage({
       <p className="eyebrow">Internal preview</p>
       <h1>Field strength vs last year</h1>
       <p style={{ maxWidth: 730, opacity: 0.85 }}>
-        Every event scored <strong>0–100</strong> against every other cut ever recorded at its
-        own level. <strong>100</strong> is the strongest field on record for that level,{' '}
-        <strong>50</strong> is a completely typical edition, <strong>0</strong> is the weakest.
-        Scoring within level is what makes an ATP 250 and a Challenger 75 comparable.
+        Each event gets a <strong>strength score out of 100</strong>. It answers one question:{' '}
+        <em>how good was the field compared with every other edition of this same level we
+        have on record?</em>
       </p>
+
+      <div className="card" style={{ padding: 16, marginTop: 16, maxWidth: 730 }}>
+        <div
+          style={{
+            height: 14,
+            borderRadius: 7,
+            background: 'linear-gradient(90deg,#0f6b3a 0%,#8a8a8a 50%,#b3261e 100%)',
+          }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+          {[
+            ['0', 'Weakest field', 'easiest to get into'],
+            ['50', 'Totally normal', 'for this level'],
+            ['100', 'Strongest field', 'hardest to get into'],
+          ].map(([n, a, b], i) => (
+            <div
+              key={n}
+              style={{
+                textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right',
+                fontSize: 12,
+                lineHeight: 1.35,
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{n}</div>
+              <div>{a}</div>
+              <div style={{ opacity: 0.6 }}>{b}</div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: 13, marginTop: 14, marginBottom: 0, opacity: 0.85 }}>
+          <strong>Higher always means a stronger field.</strong> A 75 had a better field than
+          a 52 — more good players entered, so the cut was lower and it was harder to get in.
+          A score is only ever compared with the same level, so a Challenger 75 scoring 80 was
+          strong <em>for a Challenger 75</em> — it does not mean it was stronger than an ATP
+          250 scoring 60.
+        </p>
+        <p style={{ fontSize: 13, marginTop: 10, marginBottom: 0, opacity: 0.85 }}>
+          <span style={{ color: '#1a7f47', fontWeight: 700 }}>Green</span> means the event got{' '}
+          <strong>easier to get into</strong> than last year — the opening you can use.{' '}
+          <span style={{ color: '#b3261e', fontWeight: 700 }}>Red</span> means it got tougher.
+        </p>
+      </div>
       <p style={{ maxWidth: 730, opacity: 0.85 }}>
         Events already played are <strong>measured</strong> from their real cut. Events still
         to come are <strong>projected</strong> from the nightly cut model, shown faded with the

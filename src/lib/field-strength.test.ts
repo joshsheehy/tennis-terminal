@@ -6,6 +6,10 @@ import {
   strengthBand,
   MIN_COHORT,
   BAND_EDGE,
+  BAND_LABEL,
+  BAND_COLOR,
+  scoreMeaning,
+  entryMeaning,
 } from './field-strength';
 
 const cohortOf = (n: number, start = 100, step = 10) =>
@@ -128,5 +132,38 @@ describe('strengthBand', () => {
     for (const d of [12, 20, 30, 50]) {
       expect(strengthBand(-d)).toBe(strengthBand(d).replace('stronger', 'weaker'));
     }
+  });
+});
+
+describe('plain-language translation', () => {
+  it('reads a score as the percentile it actually is', () => {
+    expect(scoreMeaning(52, 'Challenger 100')).toBe(
+      'stronger than 52% of Challenger 100 editions on record'
+    );
+  });
+
+  it('avoids a silly "stronger than 97%" phrasing at the extremes', () => {
+    expect(scoreMeaning(97, 'ATP 250')).toMatch(/almost every ATP 250/);
+    expect(scoreMeaning(3, 'ATP 250')).toMatch(/weaker than almost every/);
+  });
+
+  it('gives a beginner something to act on across the range', () => {
+    expect(entryMeaning(90)).toMatch(/hard/);
+    expect(entryMeaning(50)).toMatch(/normal/);
+    expect(entryMeaning(10)).toMatch(/easy/);
+  });
+
+  // A weaker field is the OPPORTUNITY for a player: easier to get into. Colour
+  // has to track that, not a good/bad reading of field quality.
+  it('labels bands from the player side, not the field side', () => {
+    expect(BAND_LABEL['much-weaker']).toMatch(/easier/i);
+    expect(BAND_LABEL['much-stronger']).toMatch(/tougher/i);
+  });
+
+  it('paints the easier event green and the tougher one red', () => {
+    expect(BAND_COLOR['much-weaker']).toBe('#0f6b3a');
+    expect(BAND_COLOR.weaker).toBe('#1a7f47');
+    expect(BAND_COLOR['much-stronger']).toBe('#b3261e');
+    expect(BAND_COLOR.stronger).toBe('#c2691e');
   });
 });

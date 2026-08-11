@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw } from '@/lib/swings-page-data';
 import type { StrengthByDraw } from '@/lib/field-strength-swings';
-import { BAND_LABEL, BAND_COLOR } from '@/lib/field-strength';
+import { BAND_LABEL, BAND_FIELD_LABEL, BAND_COLOR, entryMeaning } from '@/lib/field-strength';
 import { LevelGroup, levelRank } from '@/lib/swings';
 import {
   CandidateTier,
@@ -1641,24 +1641,26 @@ function TournamentInfoCard({
         {strength && strength.score != null && strength.delta != null && strength.band ? (
           <div className="tinfo-beta tinfo-beta--live">
             <span style={{ color: BAND_COLOR[strength.band], fontWeight: 700 }}>
-              {strength.delta > 0 ? '↑' : strength.delta < 0 ? '↓' : '='}{' '}
               {BAND_LABEL[strength.band]}
             </span>{' '}
             <span>
-              than {year - 1} · strength {strength.priorScore} →{' '}
-              {strength.basis === 'projected' ? '~' : ''}
+              than {year - 1} · {BAND_FIELD_LABEL[strength.band]} · strength{' '}
+              {strength.priorScore} → {strength.basis === 'projected' ? '~' : ''}
               {strength.score}
               {strength.basis === 'projected' &&
               strength.low != null &&
               strength.high != null
                 ? ` (${strength.low}–${strength.high})`
-                : ''}
+                : ''}{' '}
+              out of 100
             </span>
           </div>
         ) : strength && strength.score != null ? (
           <p className="tinfo-beta tinfo-beta--live">
-            Field strength · <strong>{strength.score}</strong>{' '}
-            <span>out of 100 for this level · no {year - 1} cut to compare</span>
+            Field strength · <strong>{strength.score}/100</strong>{' '}
+            <span>
+              for this level — {entryMeaning(strength.score)} · no {year - 1} cut to compare
+            </span>
           </p>
         ) : (
           <p className="tinfo-beta">
