@@ -56,6 +56,10 @@ export async function GET(request: NextRequest) {
 
   // Only known public sources are checked here. Source discovery is deliberately
   // separate so the cheap recurring sync never searches/crawls the web.
+  // Keep the first two days of the active tournament eligible as well: this lets
+  // us capture late published list revisions and makes verification possible when
+  // a source is first registered right as tournament week begins. After that the
+  // draw-sheet pipeline becomes the authoritative source and entry polling stops.
   const due = await pool.query<DueSource>(
     `
     select als.id, als.source_url, als.etag, als.last_modified,
@@ -64,7 +68,7 @@ export async function GET(request: NextRequest) {
     join tournament_editions te on te.id = als.tournament_edition_id
     where als.active = true
       and te.status = 'held'
-      and te.start_date >= current_date
+      and te.start_date >= current_date - interval '2 days'
       and te.start_date <= current_date + interval '35 days'
       and (als.next_check_at is null or als.next_check_at <= now())
     order by coalesce(als.next_check_at, '-infinity'::timestamptz), te.start_date
