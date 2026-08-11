@@ -35,22 +35,27 @@ jobs:
               print('last-modified', res.headers.get('last-modified'))
               print('bytes', len(raw.encode('utf-8')))
 
-          text = re.sub(r'<script[\s\S]*?</script>', ' ', raw, flags=re.I)
-          text = re.sub(r'<style[\s\S]*?</style>', ' ', text, flags=re.I)
-          text = re.sub(r'<[^>]+>', ' ', text)
-          text = html.unescape(text)
-          text = re.sub(r'\s+', ' ', text).strip()
+          visible = re.sub(r'<script[\s\S]*?</script>', ' ', raw, flags=re.I)
+          visible = re.sub(r'<style[\s\S]*?</style>', ' ', visible, flags=re.I)
+          visible = re.sub(r'<[^>]+>', ' ', visible)
+          visible = html.unescape(visible)
+          visible = re.sub(r'\s+', ' ', visible).strip()
 
-          stamp = re.search(r'(?:Data\s+updated|Updated)\s+([^<]{0,120}?)(?:Tick Tock Tennis|ticktocktennis\.com|$)', text, re.I)
+          stamp = re.search(r'(?:Data\s+updated|Updated)\s+([^<]{0,120}?)(?:Tick Tock Tennis|ticktocktennis\.com|$)', visible, re.I)
           print('update-stamp', stamp.group(1).strip() if stamp else 'not-found')
+
+          scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', raw, flags=re.I)
+          print('script-srcs', scripts)
 
           targets = ['Quebec City', 'Cancun', 'Kingston', 'Prague', 'Roehampton', 'Sion']
           for target in targets:
-              idx = text.lower().find(target.lower())
+              idx = raw.lower().find(target.lower())
               if idx < 0:
-                  print(f'[{target}] NOT FOUND')
+                  print(f'[{target}] NOT FOUND IN RAW HTML')
                   continue
-              lo = max(0, idx - 250)
-              hi = min(len(text), idx + 1200)
-              print(f'[{target}] {text[lo:hi]}')
+              lo = max(0, idx - 500)
+              hi = min(len(raw), idx + 2500)
+              snippet = raw[lo:hi].replace('\n', ' ')
+              snippet = re.sub(r'\s+', ' ', snippet)
+              print(f'[{target}] RAW {snippet}')
           PY
