@@ -38,23 +38,31 @@ jobs:
           if not base.startswith(('http://', 'https://')):
               base = 'https://' + base
 
+          headers = {
+              'Accept': 'application/json',
+              'User-Agent': 'TennisCutsEntryListSync/1.0',
+              'X-Admin-Secret': os.environ['ADMIN_SECRET'],
+          }
+
+          def get(path, timeout=120):
+              url = base + path
+              print(f'GET {url}', flush=True)
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req, timeout=timeout) as res:
+                  data = json.loads(res.read().decode('utf-8'))
+              print(json.dumps(data)[:5000], flush=True)
+              return data
+
+          # Idempotent: creates the tiny schema if needed and seeds only public,
+          # verified organizer/federation sources. This avoids giving GitHub
+          # direct database credentials and keeps source discovery out of cron.
+          get('/api/setup-entry-lists')
+
           # The endpoint checks at most 12 due sources at a time. Calling it a
           # few times lets a busy week drain up to 48 sources without creating a
           # long-running Railway request. Once no source is due we stop.
           for batch in range(4):
-              url = base + '/api/sync-entry-lists?limit=12'
-              req = urllib.request.Request(
-                  url,
-                  headers={
-                      'Accept': 'application/json',
-                      'User-Agent': 'TennisCutsEntryListSync/1.0',
-                      'X-Admin-Secret': os.environ['ADMIN_SECRET'],
-                  },
-              )
-              print(f'GET {url} (batch {batch + 1}/4)', flush=True)
-              with urllib.request.urlopen(req, timeout=120) as res:
-                  data = json.loads(res.read().decode('utf-8'))
-              print(json.dumps(data)[:5000], flush=True)
+              data = get('/api/sync-entry-lists?limit=12')
               if int(data.get('checked', 0)) == 0:
                   break
           PY
