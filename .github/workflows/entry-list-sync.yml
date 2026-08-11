@@ -2,6 +2,13 @@ name: Entry list sync
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/entry-list-sync.yml'
+      - 'src/lib/acceptance-list-parser.ts'
+      - 'src/app/api/setup-entry-lists/route.ts'
+      - 'src/app/api/sync-entry-lists/route.ts'
+      - 'sql/013_create_acceptance_lists.sql'
   schedule:
     # Four cheap passes per day, offset from the top of the hour. The API itself
     # decides whether each source is actually due (24h when >21 days out, 6h
