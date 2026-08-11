@@ -134,8 +134,13 @@ export const SATURATION_CUT = { singles: 600, doubles: 500 } as const;
 export function isSaturated(obs: DepthObservation, discipline: Discipline): boolean {
   const cut = obs.daCut;
   if (cut == null) return true;
-  if (cut > SATURATION_CUT[discipline]) return true;
-  // The acceptance list did not fill: alternates were needed to make the draw.
-  if (obs.alternateEntries > 0) return true;
-  return false;
+  return cut > SATURATION_CUT[discipline];
 }
+
+// NOT a saturation signal: alternate_entries_count > 0. Every official
+// acceptance list publishes a queue of alternates behind the cut, so the count
+// is positive on ordinary, fully-contested events. An earlier version of this
+// check treated it as "the draw did not fill" and excluded 57% of singles and
+// 69% of doubles rows, thinning the sample the whole validation rests on.
+// Whether a draw truly failed to fill is only visible from the entry list,
+// which cutoff_snapshots does not store.
