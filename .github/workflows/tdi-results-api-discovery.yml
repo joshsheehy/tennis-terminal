@@ -1,0 +1,56 @@
+name: TDI Results public API discovery
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/tdi-results-api-discovery.yml']
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect official public TDI Results frontend plumbing
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re,urllib.parse,urllib.request,urllib.error
+          H={'User-Agent':'Mozilla/5.0 (compatible; TennisCutsOfficialSourceResearch/1.0)','Accept':'text/html,*/*'}
+          def get(u,timeout=15,limit=8_000_000):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(u,headers=H),timeout=timeout) as r:
+                      return r.status,r.headers,r.read(limit),r.geturl()
+              except urllib.error.HTTPError as e:return e.code,e.headers,e.read(limit),u
+              except Exception as e:print('ERR',u,type(e).__name__,str(e),flush=True);return None,{},b'',u
+
+          for x in ['https://results.tennisdata.com/robots.txt','https://results.tennisdata.com/en']:
+              st,h,b,final=get(x)
+              print('\nROOT',x,st,final,h.get('content-type'),'bytes',len(b))
+              if 'robots' in x: print(b.decode('utf8','replace')[:5000])
+              if x.endswith('/en'):
+                  html=b.decode('utf8','replace')
+                  scripts=[]
+                  for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',html,re.I):
+                      u=urllib.parse.urljoin(final,src)
+                      if u not in scripts:scripts.append(u)
+                  print('scripts',len(scripts))
+                  needles=['graphql','api/','/api','tournament','participant','playerlist','entrycode','alternate','acceptance','draw','fixture','event','competition','endpoint','baseurl','baseUrl']
+                  urls=set(); routes=set()
+                  for i,u in enumerate(scripts[:100]):
+                      st2,h2,b2,f2=get(u,timeout=15)
+                      if not b2:continue
+                      s=b2.decode('utf8','replace')
+                      hits=[n for n in needles if n.lower() in s.lower()]
+                      if hits:
+                          print('\nSCRIPT',i,st2,f2,'bytes',len(b2),'HITS',hits)
+                          low=s.lower()
+                          for n in hits:
+                              p=low.find(n.lower())
+                              print('CTX',n,re.sub(r'\s+',' ',s[max(0,p-350):p+1300])[:1700])
+                      for v in re.findall(r'https?://[^"\'\\\s<>]+',s):
+                          if any(k in v.lower() for k in ['tennisdata','api','graphql','championdata']):urls.add(v[:600])
+                      for v in re.findall(r'["\'](/[^"\']{2,220})["\']',s):
+                          if any(k in v.lower() for k in ['api','graphql','tournament','competition','event','result','player']):routes.add(v)
+                  print('\nABS URLS')
+                  for v in sorted(urls)[:200]:print(v)
+                  print('\nROUTES')
+                  for v in sorted(routes)[:200]:print(v)
+          PY
