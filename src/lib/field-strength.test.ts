@@ -5,6 +5,7 @@ import {
   strengthScore,
   strengthBand,
   MIN_COHORT,
+  BAND_EDGE,
 } from './field-strength';
 
 const cohortOf = (n: number, start = 100, step = 10) =>
@@ -99,26 +100,33 @@ describe('strengthScore', () => {
 
 describe('strengthBand', () => {
   it('bands movement in score points', () => {
-    expect(strengthBand(20)).toBe('much-stronger');
-    expect(strengthBand(8)).toBe('stronger');
+    expect(strengthBand(40)).toBe('much-stronger');
+    expect(strengthBand(18)).toBe('stronger');
     expect(strengthBand(0)).toBe('similar');
-    expect(strengthBand(-8)).toBe('weaker');
-    expect(strengthBand(-20)).toBe('much-weaker');
+    expect(strengthBand(-18)).toBe('weaker');
+    expect(strengthBand(-40)).toBe('much-weaker');
   });
 
-  it('treats small movement as noise', () => {
-    expect(strengthBand(4)).toBe('similar');
-    expect(strengthBand(-4)).toBe('similar');
+  // Calibrated against production: the middle half of events moves between -19
+  // and +13 points, so a move of 8 is an ordinary season, not a real change.
+  // Edges of 5/15 put 54% of events in a "Much" band and only 18% in "About the
+  // same", which makes the labels say nothing.
+  it('treats ordinary year-to-year drift as unchanged', () => {
+    for (const d of [-11, -8, -4, 0, 4, 8, 11]) {
+      expect(strengthBand(d)).toBe('similar');
+    }
+  });
+
+  it('reserves the extreme bands for genuinely large moves', () => {
+    expect(strengthBand(BAND_EDGE.notable - 1)).toBe('similar');
+    expect(strengthBand(BAND_EDGE.notable)).toBe('stronger');
+    expect(strengthBand(BAND_EDGE.extreme - 1)).toBe('stronger');
+    expect(strengthBand(BAND_EDGE.extreme)).toBe('much-stronger');
   });
 
   it('is symmetric about zero', () => {
-    for (const d of [5, 15, 30]) {
-      expect(strengthBand(d)).toBe(
-        { 5: 'stronger', 15: 'much-stronger', 30: 'much-stronger' }[d]
-      );
-      expect(strengthBand(-d)).toBe(
-        { 5: 'weaker', 15: 'much-weaker', 30: 'much-weaker' }[d]
-      );
+    for (const d of [12, 20, 30, 50]) {
+      expect(strengthBand(-d)).toBe(strengthBand(d).replace('stronger', 'weaker'));
     }
   });
 });

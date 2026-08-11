@@ -26,7 +26,17 @@ function Pick({ href, on, children }: { href: string; on: boolean; children: Rea
  * The comparison is the point, so they share a scale and sit adjacent. */
 function StrengthBars({ row, year }: { row: StrengthRow; year: number }) {
   const color = row.band ? BAND_COLOR[row.band] : '#8a8a8a';
-  const Bar = ({ value, label, dim }: { value: number | null; label: string; dim: boolean }) => (
+  const Bar = ({
+    value,
+    label,
+    dim,
+    projected = false,
+  }: {
+    value: number | null;
+    label: string;
+    dim: boolean;
+    projected?: boolean;
+  }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
       <span style={{ fontSize: 11, opacity: 0.6, width: 34, textAlign: 'right' }}>{label}</span>
       <div
@@ -45,6 +55,7 @@ function StrengthBars({ row, year }: { row: StrengthRow; year: number }) {
               width: `${value}%`,
               height: '100%',
               background: dim ? 'rgba(128,128,128,0.55)' : color,
+              opacity: projected ? 0.65 : 1,
             }}
           />
         ) : null}
@@ -57,7 +68,17 @@ function StrengthBars({ row, year }: { row: StrengthRow; year: number }) {
   return (
     <div style={{ minWidth: 260 }}>
       <Bar value={row.priorScore} label={String(year - 1).slice(2)} dim />
-      <Bar value={row.score} label={String(year).slice(2)} dim={false} />
+      <Bar
+        value={row.score}
+        label={String(year).slice(2)}
+        dim={false}
+        projected={row.basis === 'projected'}
+      />
+      {row.basis === 'projected' && row.scoreLow != null && row.scoreHigh != null ? (
+        <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2, paddingLeft: 42 }}>
+          projected · could land {row.scoreLow}–{row.scoreHigh}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -95,13 +116,17 @@ function Row_({ row, year }: { row: StrengthRow; year: number }) {
               </div>
               <div style={{ fontSize: 12, opacity: 0.7 }}>
                 {row.delta! > 0 ? '+' : ''}
-                {row.delta} pts · cut {row.priorCut} → {row.cut}
+                {row.delta} pts · cut {row.priorCut} →{' '}
+                {row.basis === 'projected' ? '~' : ''}
+                {row.cut}
               </div>
             </>
           ) : (
             <div style={{ fontSize: 13, opacity: 0.6 }}>
               {row.score == null
-                ? 'Not enough cuts at this level to score'
+                ? row.cut == null
+                  ? 'Not played yet, no projection'
+                  : 'Not enough cuts at this level to score'
                 : row.priorCut == null
                   ? 'No cut recorded last year'
                   : '—'}
@@ -109,6 +134,18 @@ function Row_({ row, year }: { row: StrengthRow; year: number }) {
           )}
         </div>
       </div>
+      {row.itfNote ? (
+        <p
+          style={{
+            fontSize: 12,
+            opacity: 0.75,
+            margin: '8px 0 0',
+            color: row.itf?.exposure === 'high' ? '#c2691e' : undefined,
+          }}
+        >
+          {row.itfNote}
+        </p>
+      ) : null}
       {row.levelChanged ? (
         <p style={{ fontSize: 12, opacity: 0.7, margin: '8px 0 0' }}>
           Level changed since last season, so each year is scored against a different
@@ -157,8 +194,11 @@ export default async function FieldStrengthPage({
         Scoring within level is what makes an ATP 250 and a Challenger 75 comparable.
       </p>
       <p style={{ maxWidth: 730, opacity: 0.85 }}>
-        This is measured, not projected — it reads the cuts already stored. Challenger, ATP
-        and Grand Slam only, since ITF cuts are not collected.
+        Events already played are <strong>measured</strong> from their real cut. Events still
+        to come are <strong>projected</strong> from the nightly cut model, shown faded with the
+        range they could land in — that is the number to plan against, and it is the least
+        certain thing here. Challenger, ATP and Grand Slam only, since ITF cuts are not
+        collected.
       </p>
 
       <div className="chip-row" style={{ marginTop: 20 }}>
@@ -190,11 +230,27 @@ export default async function FieldStrengthPage({
 
       <p style={{ marginTop: 20, fontSize: 13, opacity: 0.7 }}>
         {view.counts.total} events · {view.counts.scored} scored ·{' '}
-        {view.counts.compared} with a {year - 1} cut to compare against
+        {view.counts.compared} with a {year - 1} cut to compare against ·{' '}
+        {view.counts.projected} projected
         {view.unscoredLevels.length > 0
           ? ` · too few cuts to score: ${view.unscoredLevels.join(', ')}`
           : ''}
       </p>
+
+      {view.seasonMedianDelta != null ? (
+        <p
+          className="card"
+          style={{ padding: 12, fontSize: 13, marginTop: 12, maxWidth: 730 }}
+        >
+          <strong>
+            The whole calendar moved {view.seasonMedianDelta > 0 ? '+' : ''}
+            {view.seasonMedianDelta} points this season.
+          </strong>{' '}
+          Fields drift tour-wide, so an event that moved by about this much held its
+          position rather than genuinely changing. Read each row against this number, not
+          against zero.
+        </p>
+      ) : null}
 
       {rows.length === 0 ? (
         <p style={{ opacity: 0.7, marginTop: 20 }}>No cuts recorded for {year} yet.</p>
