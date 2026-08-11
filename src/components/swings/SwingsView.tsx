@@ -7,7 +7,8 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw } from '@/lib/swings-page-data';
-import type { WeekCompetitionByDraw } from '@/lib/week-competition';
+import type { StrengthByDraw } from '@/lib/field-strength-swings';
+import { BAND_LABEL, BAND_COLOR } from '@/lib/field-strength';
 import { LevelGroup, levelRank } from '@/lib/swings';
 import {
   CandidateTier,
@@ -706,7 +707,7 @@ export default function SwingsView({
           event={infoEvent.event}
           series={data.cutSeries[infoEvent.event.slug]}
           refs={data.cutRefs[infoEvent.event.slug]}
-          competitionByDraw={data.weekCompetition[infoEvent.event.slug]}
+          strengthByDraw={data.fieldStrength[infoEvent.event.slug]}
           year={data.year}
           backTo={returnHref()}
           onAdd={
@@ -1488,17 +1489,10 @@ function BottomSheet({
   );
 }
 
-/** 1 -> "1st", 2 -> "2nd", 23 -> "23rd". */
-function ordinal(n: number): string {
-  const rem100 = n % 100;
-  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
-  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
-}
-
 // --- Tournament info popover -------------------------------------------------
 // Opened from the ⓘ dot on builder rows: the tournament's cut line, the latest
-// reference cuts, how the event compares with the alternatives that week, and
-// an explicit link to the full tournament page (tapping a candidate row adds it to the
+// reference cuts, how strong the field looks against last season, and an
+// explicit link to the full tournament page (tapping a candidate row adds it to the
 // swing, so the page link needs its own affordance).
 function MiniCutLine({ points, label }: { points: Array<[number, number]>; label: string }) {
   const n = points.length;
@@ -1559,7 +1553,7 @@ function TournamentInfoCard({
   event,
   series,
   refs,
-  competitionByDraw,
+  strengthByDraw,
   year,
   backTo,
   onAdd,
@@ -1568,7 +1562,7 @@ function TournamentInfoCard({
   event: SwingMapEvent;
   series: CutSeriesByDraw | undefined;
   refs: SwingsPageData['cutRefs'][string] | undefined;
-  competitionByDraw: WeekCompetitionByDraw | undefined;
+  strengthByDraw: StrengthByDraw | undefined;
   year: number;
   /** This view + current chain, so the tournament page can send you back here. */
   backTo: string;
@@ -1588,10 +1582,7 @@ function TournamentInfoCard({
   const [drawKey, setDrawKey] = useState<keyof CutSeriesByDraw>(drawChoices[0].key);
   const draw = drawChoices.find((d) => d.key === drawKey) ?? drawChoices[0];
   const points = series?.[draw.key] ?? [];
-  // Qualifying has no separate competition figure: entries to a qualifying
-  // draw come from the same regional pool as the main draw it feeds.
-  const competition =
-    draw.key === 'q' ? competitionByDraw?.m : competitionByDraw?.[draw.key];
+  const strength = strengthByDraw?.[draw.key];
 
   // Latest reference cut for the active draw (2026 stops reference last year).
   const singlesRef = refs?.singles;
@@ -1647,33 +1638,31 @@ function TournamentInfoCard({
         ) : (
           <p className="tinfo-line tinfo-line--muted">No {draw.label.toLowerCase()} cut history on record yet.</p>
         )}
-        {competition ? (
+        {strength && strength.score != null && strength.delta != null && strength.band ? (
+          <div className="tinfo-beta tinfo-beta--live">
+            <span style={{ color: BAND_COLOR[strength.band], fontWeight: 700 }}>
+              {strength.delta > 0 ? '↑' : strength.delta < 0 ? '↓' : '='}{' '}
+              {BAND_LABEL[strength.band]}
+            </span>{' '}
+            <span>
+              than {year - 1} · strength {strength.priorScore} →{' '}
+              {strength.basis === 'projected' ? '~' : ''}
+              {strength.score}
+              {strength.basis === 'projected' &&
+              strength.low != null &&
+              strength.high != null
+                ? ` (${strength.low}–${strength.high})`
+                : ''}
+            </span>
+          </div>
+        ) : strength && strength.score != null ? (
           <p className="tinfo-beta tinfo-beta--live">
-            {competition.of > 1 ? (
-              <>
-                <strong>
-                  {ordinal(competition.rank)} easiest of {competition.of}
-                </strong>{' '}
-                <span>
-                  within reach this week · {competition.estimated ? '≈' : ''}
-                  {competition.places} {draw.key === 'd' ? 'team places' : 'places'} at this
-                  level or better
-                </span>
-              </>
-            ) : (
-              <>
-                <strong>Alone in its region</strong>{' '}
-                <span>
-                  this week · {competition.estimated ? '≈' : ''}
-                  {competition.places} {draw.key === 'd' ? 'team places' : 'places'} at this
-                  level or better
-                </span>
-              </>
-            )}
+            Field strength · <strong>{strength.score}</strong>{' '}
+            <span>out of 100 for this level · no {year - 1} cut to compare</span>
           </p>
         ) : (
           <p className="tinfo-beta">
-            Week competition · <span>no calendar data for this week</span>
+            Field strength · <span>no cut on record for this draw</span>
           </p>
         )}
         {onAdd && (

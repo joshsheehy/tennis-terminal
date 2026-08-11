@@ -5,7 +5,7 @@
 
 import { unstable_cache } from 'next/cache';
 import { pool } from './db';
-import { loadWeekCompetition, type WeekCompetitionByDraw } from './week-competition';
+import { loadFieldStrength, type StrengthByDraw } from './field-strength-swings';
 import { getAtpWeekForSeason } from './atp-week';
 import { CURRENT_SEASON } from './seasons';
 import {
@@ -76,10 +76,9 @@ export type SwingsPageData = {
   /** Beta cut projections for the viewed season's upcoming events, keyed by
    * slug then draw key — freshest horizon per draw. */
   cutProjections: Record<string, CutProjectionsByDraw>;
-  /** Week competition per slug: places within reach at this level or better,
-   * and the event's rank among the alternatives that week. Replaces the beta
-   * cut projection in the info popover. */
-  weekCompetition: Record<string, WeekCompetitionByDraw>;
+  /** Field strength per slug: this season against last, 0-100 within the
+   * event's own level. Drives the info popover. */
+  fieldStrength: Record<string, StrengthByDraw>;
 };
 
 export type CutSeriesByDraw = {
@@ -95,9 +94,9 @@ export type CutProjectionsByDraw = {
   d?: CutProjection;
 };
 
-const getCachedWeekCompetition = unstable_cache(
-  async (year: number) => loadWeekCompetition(pool, year),
-  ['swings-weekcompetition'],
+const getCachedFieldStrength = unstable_cache(
+  async (year: number) => loadFieldStrength(pool, year),
+  ['swings-fieldstrength'],
   { revalidate: 300 }
 );
 
@@ -291,7 +290,7 @@ export async function getSwingsPageData(
   groups: LevelGroup[] = DEFAULT_LEVEL_SCOPE,
   config: SwingConfig = DEFAULT_SWING_CONFIG
 ): Promise<SwingsPageData> {
-  const [all, cutRefs, cutSeries, cutProjections, weekCompetition] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year), getCachedCutProjections(year), getCachedWeekCompetition(year)]);
+  const [all, cutRefs, cutSeries, cutProjections, fieldStrength] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year), getCachedCutProjections(year), getCachedFieldStrength(year)]);
   const groupSet = new Set(groups);
   const scoped = all.filter((e) => {
     const g = levelGroup(e.level);
@@ -362,5 +361,5 @@ export async function getSwingsPageData(
   const currentWeek =
     year === CURRENT_SEASON ? getAtpWeekForSeason(new Date(), year) ?? 1 : 1;
 
-  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries, cutProjections, weekCompetition };
+  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries, cutProjections, fieldStrength };
 }
