@@ -1,0 +1,89 @@
+name: ProTennisLive PlayerList probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/protennis-playerlist-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe official ProTennisLive PlayerList API for Aug 17 week
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import urllib.error
+          import urllib.request
+
+          events = [
+              ('Kingston', '3121'),
+              ('Prague', '600'),
+              ('Roehampton', '3123'),
+              ('Sion', '3133'),
+              ('Cancun', '3009'),
+              ('Quebec City', '3103'),
+          ]
+
+          def summarize(value, depth=0):
+              if depth > 2:
+                  return type(value).__name__
+              if isinstance(value, dict):
+                  return {k: summarize(v, depth + 1) for k, v in list(value.items())[:30]}
+              if isinstance(value, list):
+                  return {'type': 'list', 'length': len(value), 'sample': [summarize(v, depth + 1) for v in value[:2]]}
+              if isinstance(value, str):
+                  return value[:120]
+              return value
+
+          headers = {
+              'Accept': 'application/json',
+              'User-Agent': 'Mozilla/5.0 (compatible; TennisCutsOfficialSourceProbe/1.0)',
+          }
+
+          for name, code in events:
+              url = f'https://api.protennislive.com/feeds/PlayerList/2026/{code}'
+              print(f'\n===== {name} ({code}) =====')
+              req = urllib.request.Request(url, headers=headers)
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as res:
+                      body = res.read()
+                      print('status', res.status)
+                      print('content-type', res.headers.get('content-type'))
+                      print('bytes', len(body))
+                      text = body.decode('utf-8', errors='replace')
+                      try:
+                          data = json.loads(text)
+                      except Exception as exc:
+                          print('json-error', type(exc).__name__)
+                          print('body-prefix', text[:600])
+                          continue
+                      print('shape', json.dumps(summarize(data), ensure_ascii=False)[:8000])
+
+                      # Surface field names that could make this useful as an
+                      # acceptance/alternate feed without dumping the full list.
+                      keys = set()
+                      def walk(v):
+                          if isinstance(v, dict):
+                              keys.update(v.keys())
+                              for child in v.values():
+                                  walk(child)
+                          elif isinstance(v, list):
+                              for child in v[:1000]:
+                                  walk(child)
+                      walk(data)
+                      interesting = sorted(k for k in keys if any(token in k.lower() for token in [
+                          'rank', 'status', 'entry', 'accept', 'alternate', 'position', 'draw',
+                          'qual', 'wild', 'direct', 'seed', 'player', 'country', 'name'
+                      ]))
+                      print('interesting-fields', interesting)
+              except urllib.error.HTTPError as exc:
+                  print('status', exc.code)
+                  print('content-type', exc.headers.get('content-type'))
+                  print('body-prefix', exc.read(800).decode('utf-8', errors='replace'))
+              except Exception as exc:
+                  print('error', type(exc).__name__, str(exc))
+          PY
