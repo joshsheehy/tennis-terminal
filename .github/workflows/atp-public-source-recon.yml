@@ -1,0 +1,79 @@
+name: ATP public source recon
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/atp-public-source-recon.yml'
+
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Inspect public ATP pages and JS for entry-list routes
+        run: |
+          python3 - <<'PY'
+          import re, urllib.request, urllib.parse, urllib.error
+
+          UA={'User-Agent':'Mozilla/5.0 (compatible; TennisCutsPublicRecon/1.0)','Accept':'text/html,application/xhtml+xml,*/*'}
+          def get(url, timeout=20):
+              req=urllib.request.Request(url,headers=UA)
+              try:
+                  with urllib.request.urlopen(req,timeout=timeout) as r:
+                      return r.status, r.geturl(), r.headers, r.read()
+              except urllib.error.HTTPError as e:
+                  return e.code, url, e.headers, e.read()
+              except Exception as e:
+                  return None, url, {}, str(e).encode()
+
+          ids=['3131','3121','3009','3103','3123','3133']
+          print('=== DIRECT MEDIA NOTES PAGES FOR CHALLENGERS ===')
+          for tid in ids:
+              for ajax in ['', '&ajax=true']:
+                  u=f'https://www.atptour.com/en/media/daily-media-notes?tournamentId={tid}&year=2026{ajax}'
+                  st,final,h,b=get(u)
+                  text=b.decode('utf-8','replace')
+                  hrefs=re.findall(r'href=["\']([^"\']+)["\']',text,re.I)
+                  pdfs=[x for x in hrefs if '.pdf' in x.lower()]
+                  print(tid, 'ajax' if ajax else 'full', 'status',st,'bytes',len(b),'pdfs',len(pdfs),'notavail', 'not available' in text.lower())
+                  for p in pdfs[:20]: print(' PDF',p)
+
+          print('\n=== ATP MEDIA PAGE HTML / SCRIPT RECON ===')
+          u='https://www.atptour.com/en/media/daily-media-notes?tournamentId=319&year=2026'
+          st,final,h,b=get(u)
+          text=b.decode('utf-8','replace')
+          scripts=re.findall(r'<script[^>]+src=["\']([^"\']+)["\']',text,re.I)
+          print('page',st,'bytes',len(b),'scripts',len(scripts))
+          for pat in ['ajax','daily-media','media-notes','Alpha List','tournamentId','api/']:
+              hits=[m.group(0) for m in re.finditer(pat,text,re.I)]
+              print('html-pattern',pat,'hits',len(hits))
+          base='https://www.atptour.com'
+          for src in scripts[:40]:
+              url=urllib.parse.urljoin(base,src)
+              st,final,h,b=get(url,15)
+              if st!=200 or len(b)>5_000_000: continue
+              js=b.decode('utf-8','replace')
+              low=js.lower()
+              keys=['daily-media-notes','media notes','alphalist','alpha list','playerlist','acceptancelist','acceptance list','/-/ajax/','participants','tournamentid']
+              found=[k for k in keys if k in low]
+              if not found: continue
+              print('\nSCRIPT',url,'bytes',len(b),'FOUND',found)
+              for k in found:
+                  i=low.find(k)
+                  print(' ',k, re.sub(r'\s+',' ',js[max(0,i-350):i+800])[:1200])
+
+          print('\n=== COMMON PUBLIC ATP AJAX CANDIDATES ===')
+          candidates=[
+            'https://www.atptour.com/-/ajax/media/GetDailyMediaNotes?tournamentId=3131&year=2026',
+            'https://www.atptour.com/-/ajax/media/GetMediaNotes?tournamentId=3131&year=2026',
+            'https://www.atptour.com/-/ajax/tournaments/GetTournament?tournamentId=3131&year=2026',
+            'https://www.atptour.com/-/ajax/tournaments/GetTournamentDetails?tournamentId=3131&year=2026',
+            'https://www.atptour.com/-/ajax/tournaments/GetTournamentParticipants?tournamentId=3131&year=2026',
+            'https://www.atptour.com/-/ajax/tournaments/GetParticipants?tournamentId=3131&year=2026',
+          ]
+          for u in candidates:
+              st,final,h,b=get(u,10)
+              txt=b.decode('utf-8','replace')
+              print(st,len(b),u,'ctype',h.get('content-type') if hasattr(h,'get') else None,'prefix',re.sub(r'\s+',' ',txt[:180]))
+          PY
