@@ -54,11 +54,28 @@ Each `PlayerListItem` includes fields useful to TennisCuts, including:
 
 This is the closest known official structured source to the full acceptance-list product requirement. Preserve the API's array order; derive alternate queue position from the order of `Alternate=true` rows, never by re-sorting on ranking.
 
-Direct unauthenticated requests return HTTP 401. Swagger declares Bearer/JWT authorization. We must not bypass that requirement or automate a logged-in PlayerZone session.
+Direct unauthenticated requests return HTTP 401. Swagger declares Bearer authorization. We must not bypass that requirement or automate a logged-in PlayerZone session.
 
-ATP's Tournament Data Form publicly states that tournament developers can use the ProTennisLive Swagger and that development teams requiring tokens should contact Bram Tukker at ATP. That establishes a legitimate token-request path.
+ATP's Tournament Data Form publicly directs tournament developers to the `tournamentclient` Swagger and states that development teams requiring tokens should contact Bram Tukker at `bram.tukker@atptour.com`. That establishes a legitimate token-request path.
 
 ATP's current website Terms & Conditions also prohibit systematic retrieval to build a database without prior express written permission. A production access request therefore needs both technical authorization and clear storage/display permission; a technically reachable endpoint alone is not enough.
+
+## All officially advertised ProTennisLive client contracts inspected
+
+The public Swagger UI advertises six client contracts. All six were inspected on 2026-08-11 rather than guessing hidden API names:
+
+| Contract | Relevant routes | Entry-list value |
+| --- | --- | --- |
+| `orgclient` | `/PlayerList/{year}/{id}` plus calendar/ranks/draws/results | **Best fit.** Multi-tournament, code-driven PlayerList feed. Bearer required. |
+| `tournamentclient` | `/PlayerList` plus tournament-scoped draws/results/schedules | Same PlayerList schema, but tournament identity comes from token claims. Several routes explicitly require Tournament Claims. Not scalable without ATP-issued scope. |
+| `playerclient` | player profile/results/ranks | No acceptance-list route. |
+| `playersensitiveclient` | `/PzPlayerSensitive` | Sensitive PlayerZone player data. Out of scope and must not be used for this project. |
+| `draftclient` | WTA draft order-of-play routes | Irrelevant. |
+| `integrations` | packet delivery reporting | Irrelevant. |
+
+No advertised client exposes a second public acceptance-list endpoint, an ECEAS replacement, or a route containing literal `Original Cut Off` / acceptance-list `Ranking Date` / report publication date.
+
+The result narrows the central-source problem substantially: **`orgclient /PlayerList/{year}/{id}` is the official ATP feed we should pursue.** There is no evidence that further endpoint-name guessing will reveal a public equivalent.
 
 ## PlayerList metadata gap
 
@@ -68,7 +85,9 @@ The documented PlayerList schema does **not** expose these acceptance-report hea
 - acceptance-list `Ranking Date`
 - report/list publication date
 
-Do not synthesize those fields from PlayerList contents. Ask ATP/TDI whether an acceptance-report/ECEAS-equivalent endpoint or additional contract exposes them.
+`/Ranks/rankdate` is only the current global ATP ranking date and must not be substituted for the acceptance-list ranking date.
+
+Do not synthesize those fields from PlayerList contents. Ask ATP/TDI whether an acceptance-report/ECEAS-equivalent field or additional authorized contract exposes them.
 
 ## PlayerZone report routes
 
@@ -78,34 +97,54 @@ The older ECEAS report family generated the exact PDF style TennisCuts wants (Of
 
 Do not automate PlayerZone credentials, cookies, sessions or authentication workarounds.
 
-## ATP public website
+## ATP public website / app route
 
-ATP's public tournament frontend has a `whoisplaying` roster feature, but the observed model is promotional: player/profile/country information rather than full acceptance-list rank, EntryCode and alternate-queue data. It is not a replacement for PlayerList.
+The public ATP tournament frontend exposes a promotional `Who is Playing` roster, but the observed public page model does not expose the complete alternate queue, `EntryCode`, or acceptance-report metadata required here. Direct same-origin API guesses were blocked by the site's edge protection and no public PlayerList plumbing was found in indexed content.
+
+This avenue can remain a passive discovery target if ATP later publishes richer pre-draw data, but it is not currently a substitute for `orgclient` PlayerList.
 
 ## Third-party hub experiment
 
 The temporary centralized third-party parser/sync experiment has been removed from application code. It is not part of the production source architecture. The old database migration can remain as harmless migration history, but no active workflow depends on it.
 
+## Aug. 17, 2026 pilot week
+
+These ATP Challenger tournament IDs are already known and are ideal for an official-feed acceptance-list pilot:
+
+- Kingston 1 — `3121`
+- Prague — `600`
+- Roehampton 1 — `3123`
+- Sion — `3133`
+- Cancun — `3009`
+- Quebec City — `3103`
+
+Unauthenticated `orgclient /PlayerList/2026/{id}` calls for these events return HTTP 401, as expected from the documented bearer requirement.
+
+If ATP supplies appropriate read-only orgclient access, this week can be imported without regional-site discovery: six code-based requests per sync cycle, compact normalized hashes, and database writes only when a list changes.
+
 ## Official access paths to pursue
 
-1. **ATP ProTennisLive token** — request read-only access appropriate for TennisCuts, preferably the `orgclient /PlayerList/{year}/{tournamentId}` contract so existing tournament codes remain the key.
-2. **Tennis Data Innovations (TDI)** — TDI centrally manages/commercializes ATP data and advertises a Tennis Data Platform sandbox for third-party innovation. Ask whether acceptance lists are included and what storage/display rights apply.
-3. **Champion Data TDI Service Desk** — Champion Data operates the TDI platform and exposes a TDI partner service desk. This is a secondary formal route for platform/API access questions.
+1. **ATP ProTennisLive orgclient access** — request read-only access to `/PlayerList/{year}/{tournamentId}` across ATP Tour and Challenger, using the existing ATP numeric tournament IDs as the key.
+2. **Tennis Data Innovations (TDI)** — TDI centrally manages/commercializes ATP data and advertises a Tennis Data Platform sandbox for third-party innovation. Ask whether acceptance/player-list data is available there and what storage/display rights apply.
+3. **Champion Data / TDI platform** — Champion Data operates the TDI platform and is a secondary formal route for platform/API access questions.
 
 The access request should explicitly describe TennisCuts as a non-betting player tournament-planning utility with low-volume, cached, read-only usage and request the following fields/rights:
 
 - tournament year/id
 - main vs qualifying
 - singles vs doubles
-- PlayerListType
+- `PlayerListType`
 - stable published player order
 - PlayerId/name/nationality/rank
-- EntryCode
-- Alternate
-- Original Cut Off
-- Ranking Date
+- `EntryCode`
+- `Alternate`
+- literal Original Cut Off
+- acceptance-list Ranking Date
 - list/report date
-- permission to cache snapshots and display current position/movement to players
+- permission to cache revision snapshots and display current alternate position/movement to players
+- rate limits, token scope, expiry and renewal method
+
+A prepared request is in `docs/atp-playerlist-access-request.md`.
 
 ## Code already prepared
 
