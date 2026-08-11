@@ -1,0 +1,83 @@
+name: Public ATP PlayerZone route probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/pz-public-route-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Test unauthenticated ATP/PZ acceptance-list routes
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          import urllib.error
+          import urllib.request
+
+          events = [
+              ('Kingston', '3121'),
+              ('Prague', '600'),
+              ('Roehampton', '3123'),
+              ('Sion', '3133'),
+              ('Cancun', '3009'),
+              ('Quebec City', '3103'),
+          ]
+
+          templates = [
+              ('modern-P', 'https://ps-site.atppz.com/Singles/AcceptanceList/2026/{code}/P'),
+              ('modern-D', 'https://ps-site.atppz.com/Singles/AcceptanceList/2026/{code}/D'),
+              ('legacy-ps', 'https://ps.atppz.com/eceas/ECEAS-Report-Data.asp?TournamentID=2026-{code}'),
+              ('legacy-playerzone', 'https://atp-playerzone.com/admin/PlayerServices/ECEAS/ECEAS-Report-Data.asp?TournamentID=2026-{code}'),
+          ]
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirect)
+          headers = {
+              'Accept': 'text/html,application/pdf,*/*',
+              'User-Agent': 'Mozilla/5.0 (compatible; TennisCutsPublicSourceProbe/1.0)',
+          }
+
+          def probe(url):
+              req = urllib.request.Request(url, headers=headers)
+              try:
+                  with opener.open(req, timeout=20) as res:
+                      body = res.read(300000)
+                      return res.status, res.headers, body
+              except urllib.error.HTTPError as exc:
+                  return exc.code, exc.headers, exc.read(300000)
+              except Exception as exc:
+                  return None, {}, str(exc).encode()
+
+          for label, template in templates:
+              print(f'\n===== {label} =====')
+              for name, code in events:
+                  url = template.format(code=code)
+                  status, hdrs, body = probe(url)
+                  ctype = hdrs.get('content-type') if hasattr(hdrs, 'get') else None
+                  location = hdrs.get('location') if hasattr(hdrs, 'get') else None
+                  text = body.decode('utf-8', errors='replace')
+                  title = re.search(r'<title[^>]*>(.*?)</title>', text, re.I | re.S)
+                  markers = []
+                  for marker in ['Official Player', 'Acceptance List', 'Original Cut Off', 'Alternates', 'Ranking Date', 'Login', 'Sign In']:
+                      if marker.lower() in text.lower():
+                          markers.append(marker)
+                  print({
+                      'event': name,
+                      'code': code,
+                      'status': status,
+                      'contentType': ctype,
+                      'location': location,
+                      'bytesRead': len(body),
+                      'title': re.sub(r'\\s+', ' ', title.group(1)).strip()[:100] if title else None,
+                      'markers': markers,
+                      'pdfMagic': body.startswith(b'%PDF'),
+                  })
+          PY
