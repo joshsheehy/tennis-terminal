@@ -1,0 +1,40 @@
+name: PlayerZone public route map
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/pz-public-route-map.yml']
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Map public PlayerZone route behavior without authentication
+        run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error,re
+          H={'User-Agent':'Mozilla/5.0','Accept':'text/html,*/*'}
+          urls=[
+            'https://www.atppz.com/robots.txt','https://www.atppz.com/sitemap.xml',
+            "https://www.atppz.com/Managing-Player's-Entry-Information.html",
+            'https://www.atppz.com/entries','https://www.atppz.com/entry','https://www.atppz.com/tournaments',
+            'https://www.atppz.com/playerservices','https://www.atppz.com/PlayerServices',
+            'https://www.atppz.com/Singles/AcceptanceList/2026/3121/P',
+            'https://www.atppz.com/Singles/AcceptanceList/2026/3121/D',
+            'https://www.atppz.com/eceas/ECEAS-Report-Data.asp?TournamentID=2026-3121'
+          ]
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,req,fp,code,msg,headers,newurl):return None
+          op=urllib.request.build_opener(NoRedirect)
+          for u in urls:
+              try:
+                  with op.open(urllib.request.Request(u,headers=H),timeout=8) as r:
+                      b=r.read(100000); st=r.status; h=r.headers
+              except urllib.error.HTTPError as e:
+                  st=e.code;h=e.headers;b=e.read(100000)
+              except Exception as e:
+                  print('ERR',u,type(e).__name__,str(e));continue
+              t=b.decode('utf8','replace')
+              title=re.search(r'<title[^>]*>(.*?)</title>',t,re.I|re.S)
+              print('\nURL',u,'STATUS',st,'LOC',h.get('location'),'CTYPE',h.get('content-type'),'BYTES',len(b),'TITLE',re.sub(r'\s+',' ',title.group(1)).strip() if title else None)
+              if 'robots.txt' in u or 'sitemap.xml' in u:print(t[:5000])
+          PY
