@@ -1,0 +1,58 @@
+name: ATP public entry API probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/atp-entry-api-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe unauthenticated ATP endpoints
+        run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.error
+
+          urls = [
+              'https://api.protennislive.com/feeds/swagger/orgclient/swagger.json',
+              'https://api.protennislive.com/feeds/PlayerList/2026/8392',
+              'https://api.protennislive.com/feeds/PlayerList/2026/3131',
+              'https://api.protennislive.com/feeds/PlayerList/2026/8297',
+              'https://api.protennislive.com/feeds/PlayerList/2026/9533',
+              'https://api.protennislive.com/feeds/Tournaments/2026/8392',
+              'https://ps-site.atppz.com/Singles/AcceptanceList/2026/8392/P',
+              'https://ps-site.atppz.com/Singles/AcceptanceList/2026/3131/P',
+              'https://ps-site.atppz.com/Singles/AcceptanceList/2026/8297/P',
+              'https://ps-site.atppz.com/Singles/AcceptanceList/2026/9533/P',
+              'https://icontent.atptour.com/AcceptanceList/SglAcceptList/ECEAS_Report.aspx?TournamentID=2026-8392',
+          ]
+
+          for url in urls:
+              print('\n===', url, '===', flush=True)
+              req = urllib.request.Request(url, headers={
+                  'User-Agent': 'Mozilla/5.0 (compatible; TennisCutsResearch/1.0)',
+                  'Accept': 'application/json,text/html,application/pdf,*/*;q=0.8',
+              })
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as res:
+                      body = res.read(6000)
+                      print('status:', res.status)
+                      print('final_url:', res.geturl())
+                      print('content-type:', res.headers.get('content-type'))
+                      print('www-authenticate:', res.headers.get('www-authenticate'))
+                      print('location:', res.headers.get('location'))
+                      print('body-prefix:', body.decode('utf-8', errors='replace')[:5000])
+              except urllib.error.HTTPError as exc:
+                  body = exc.read(6000)
+                  print('status:', exc.code)
+                  print('final_url:', exc.geturl())
+                  print('content-type:', exc.headers.get('content-type'))
+                  print('www-authenticate:', exc.headers.get('www-authenticate'))
+                  print('location:', exc.headers.get('location'))
+                  print('body-prefix:', body.decode('utf-8', errors='replace')[:5000])
+              except Exception as exc:
+                  print('error:', type(exc).__name__, str(exc))
+          PY
