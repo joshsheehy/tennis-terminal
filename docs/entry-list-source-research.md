@@ -58,6 +58,8 @@ Direct unauthenticated requests return HTTP 401. Swagger declares Bearer/JWT aut
 
 ATP's Tournament Data Form publicly states that tournament developers can use the ProTennisLive Swagger and that development teams requiring tokens should contact Bram Tukker at ATP. That establishes a legitimate token-request path.
 
+ATP's current website Terms & Conditions also prohibit systematic retrieval to build a database without prior express written permission. A production access request therefore needs both technical authorization and clear storage/display permission; a technically reachable endpoint alone is not enough.
+
 ## PlayerList metadata gap
 
 The documented PlayerList schema does **not** expose these acceptance-report header fields:
@@ -79,6 +81,10 @@ Do not automate PlayerZone credentials, cookies, sessions or authentication work
 ## ATP public website
 
 ATP's public tournament frontend has a `whoisplaying` roster feature, but the observed model is promotional: player/profile/country information rather than full acceptance-list rank, EntryCode and alternate-queue data. It is not a replacement for PlayerList.
+
+## Third-party hub experiment
+
+The temporary centralized third-party parser/sync experiment has been removed from application code. It is not part of the production source architecture. The old database migration can remain as harmless migration history, but no active workflow depends on it.
 
 ## Official access paths to pursue
 
@@ -107,4 +113,6 @@ The access request should explicitly describe TennisCuts as a non-betting player
 
 `src/lib/protennis-player-list.test.ts` verifies that published order is preserved, alternate positions are derived from that order, and cutoff/ranking-date metadata is not invented.
 
-Automatic entry-list sync remains paused until a direct official source is authorized and validated.
+`src/app/api/sync-protennis-player-lists/route.ts` is the protected week-level importer. It derives ATP tournament codes from the same code infrastructure used by historical cut imports, calls only the official PlayerList endpoint, stores a new compact snapshot only when the normalized list hash changes, and refuses to run unless `PROTENNISLIVE_TOKEN` is configured.
+
+`.github/workflows/entry-list-sync.yml` remains manual-only. Once official access and usage rights are granted, it can be scheduled without changing the ingestion design.
