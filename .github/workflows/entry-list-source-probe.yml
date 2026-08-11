@@ -30,9 +30,6 @@ jobs:
           with urllib.request.urlopen(req, timeout=30) as res:
               raw = res.read().decode('utf-8', errors='replace')
               print('status', res.status)
-              print('content-type', res.headers.get('content-type'))
-              print('etag', res.headers.get('etag'))
-              print('last-modified', res.headers.get('last-modified'))
               print('bytes', len(raw.encode('utf-8')))
 
           visible = re.sub(r'<script[\s\S]*?</script>', ' ', raw, flags=re.I)
@@ -40,22 +37,23 @@ jobs:
           visible = re.sub(r'<[^>]+>', ' ', visible)
           visible = html.unescape(visible)
           visible = re.sub(r'\s+', ' ', visible).strip()
-
           stamp = re.search(r'(?:Data\s+updated|Updated)\s+([^<]{0,120}?)(?:Tick Tock Tennis|ticktocktennis\.com|$)', visible, re.I)
           print('update-stamp', stamp.group(1).strip() if stamp else 'not-found')
 
-          scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', raw, flags=re.I)
-          print('script-srcs', scripts)
+          # Show how the page labels qnext; this tells us whether it is suitable
+          # for tracking alternates rather than guessing from the data field name.
+          for m in list(re.finditer(r'qnext', raw, flags=re.I))[-5:]:
+              lo = max(0, m.start() - 350)
+              hi = min(len(raw), m.end() + 700)
+              snippet = re.sub(r'\s+', ' ', raw[lo:hi])
+              if 'function' in snippet.lower() or 'innerhtml' in snippet.lower() or 'qual' in snippet.lower():
+                  print('[QNEXT USE]', snippet)
 
+          # Compact proof that all six Aug-17 Challenger objects are present in
+          # the same embedded source, without dumping the full lists to the log.
           targets = ['Quebec City', 'Cancun', 'Kingston', 'Prague', 'Roehampton', 'Sion']
           for target in targets:
-              idx = raw.lower().find(target.lower())
-              if idx < 0:
-                  print(f'[{target}] NOT FOUND IN RAW HTML')
-                  continue
-              lo = max(0, idx - 500)
-              hi = min(len(raw), idx + 2500)
-              snippet = raw[lo:hi].replace('\n', ' ')
-              snippet = re.sub(r'\s+', ' ', snippet)
-              print(f'[{target}] RAW {snippet}')
+              pattern = re.compile(r'name:\s*"' + re.escape(target) + r'[^\"]*"[\s\S]{0,20000}?qnext:\s*(\[[\s\S]*?\])\s*}', re.I)
+              m = pattern.search(raw)
+              print(f'[{target}]', 'FOUND' if m else 'NOT FOUND')
           PY
