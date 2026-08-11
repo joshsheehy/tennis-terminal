@@ -11,76 +11,68 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Enumerate official ProTennisLive Swagger contracts
+      - name: Inspect Swagger UI config and public contract names
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json,re,urllib.request,urllib.error,urllib.parse
+          import json,re,urllib.request,urllib.error
 
           H={'User-Agent':'Mozilla/5.0 (compatible; TennisCutsOfficialSourceResearch/1.0)','Accept':'*/*'}
-          def get(u, timeout=15, limit=10_000_000):
-              req=urllib.request.Request(u,headers=H)
+          def get(u, timeout=12, limit=2_000_000):
               try:
+                  req=urllib.request.Request(u,headers=H)
                   with urllib.request.urlopen(req,timeout=timeout) as r:
                       return r.status,r.headers,r.read(limit),r.geturl()
               except urllib.error.HTTPError as e:
                   return e.code,e.headers,e.read(limit),u
               except Exception as e:
-                  print('ERR',u,type(e).__name__,str(e),flush=True)
-                  return None,{},b'',u
+                  return None,{},str(e).encode(),u
 
           root='https://api.protennislive.com/feeds/swagger/index.html'
           st,h,b,final=get(root)
           html=b.decode('utf8','replace')
-          print('INDEX',st,final,len(b),h.get('content-type'))
-          scripts=[]
-          for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',html,re.I):
-              u=urllib.parse.urljoin(final,src)
-              if u not in scripts:scripts.append(u)
-          print('SCRIPTS',scripts)
-          alltext=html
-          for u in scripts:
-              st2,h2,b2,f2=get(u)
-              s=b2.decode('utf8','replace')
-              alltext+='\n'+s
-              if any(k in s.lower() for k in ['swagger','orgclient','tournamentclient','urls:']):
-                  print('\nSCRIPT',st2,f2,'bytes',len(b2))
-                  for term in ['orgclient','tournamentclient','swagger.json','urls:','url:']:
-                      p=s.lower().find(term.lower())
-                      if p>=0:print('CTX',term,re.sub(r'\s+',' ',s[max(0,p-1000):p+2500])[:3600])
+          print('INDEX',st,len(b))
+          # ASP.NET/Swashbuckle puts the real URL definitions inline in this page.
+          for term in ['urls:', 'orgclient', 'tournamentclient', 'SwaggerUIBundle']:
+              p=html.lower().find(term.lower())
+              if p>=0:
+                  print('HTML_CTX',term,re.sub(r'\s+',' ',html[max(0,p-1200):p+3500])[:5000])
 
-          docs=set(re.findall(r'https?://[^"\'\\\s<>]+swagger\.json',alltext,re.I))
-          docs.update('https://api.protennislive.com/feeds/swagger/%s/swagger.json'%x for x in ['orgclient','tournamentclient'])
-          print('\nDOCS',sorted(docs))
+          candidates=[
+            'orgclient','tournamentclient','publicclient','websiteclient','webclient',
+            'playerclient','playerzoneclient','pzclient','mediaclient','media',
+            'tdiclient','tdpclient','dataclient','partnerclient','appclient',
+            'mobileclient','digitalclient','externalclient','feedclient','client',
+            'internalclient','adminclient','scoreclient','scoringclient','resultsclient'
+          ]
+          print('\nCONTRACT_PROBE')
+          found=[]
+          for name in candidates:
+              u=f'https://api.protennislive.com/feeds/swagger/{name}/swagger.json'
+              st,h,b,final=get(u,timeout=8,limit=500_000)
+              ctype=h.get('content-type') if hasattr(h,'get') else None
+              title=version=None;paths=None
+              if st==200 and b[:1] in (b'{',b'['):
+                  try:
+                      spec=json.loads(b.decode())
+                      title=spec.get('info',{}).get('title');version=spec.get('info',{}).get('version');paths=len(spec.get('paths',{}))
+                      found.append((name,title,version,paths))
+                  except Exception:pass
+              print(name,'status=',st,'bytes=',len(b),'ctype=',ctype,'title=',title,'version=',version,'paths=',paths)
+          print('FOUND',found)
 
-          terms=['accept','alternate','entrycode','playerlist','playerlisttype','cutoff','cut off','rankingdate','ranking date','eceas','report','withdraw','entry list','original cut']
-          for u in sorted(docs):
-              st,h,b,final=get(u)
-              print('\n==== DOC',u,'STATUS',st,'BYTES',len(b),'====')
-              if st!=200:
-                  print(b[:500].decode('utf8','replace'))
-                  continue
-              try: spec=json.loads(b.decode())
-              except Exception as e:
-                  print('BADJSON',e);continue
-              print('TITLE',spec.get('info',{}).get('title'),'VERSION',spec.get('info',{}).get('version'))
-              print('SECURITY',json.dumps(spec.get('security')))
-              paths=spec.get('paths',{})
-              print('PATHS',len(paths))
-              for path,ops in paths.items():
-                  blob=(path+' '+json.dumps(ops)).lower()
-                  if any(t in blob for t in terms):
-                      print('PATH_HIT',path)
-                      for method,op in ops.items():
-                          if isinstance(op,dict):
-                              print(' ',method,'summary=',op.get('summary'),'security=',op.get('security'))
-              schemas=spec.get('components',{}).get('schemas',{})
-              for name,sch in schemas.items():
-                  blob=(name+' '+json.dumps(sch)).lower()
-                  hits=[t for t in terms if t in blob]
-                  if hits:
-                      print('SCHEMA_HIT',name,'terms',hits)
-                      # Keep output useful, especially for acceptance-list-related contracts.
-                      if any(t in hits for t in ['cutoff','cut off','rankingdate','ranking date','eceas','original cut','playerlist','entrycode','alternate']):
-                          print(json.dumps(sch,ensure_ascii=False)[:9000])
+          # Compare PlayerList contract details in every discovered ATP spec.
+          for name,title,version,_ in found:
+              if title!='ProTennis.Api':continue
+              u=f'https://api.protennislive.com/feeds/swagger/{name}/swagger.json'
+              st,h,b,final=get(u,limit=1_000_000)
+              spec=json.loads(b.decode())
+              print('\nDOC',name,'globalSecurity=',json.dumps(spec.get('security')))
+              for path,ops in spec.get('paths',{}).items():
+                  if any(k in path.lower() for k in ['playerlist','rankdate','accept','entry','report','eceas']):
+                      print('PATH',path,json.dumps(ops,ensure_ascii=False)[:7000])
+              for schema_name,schema in spec.get('components',{}).get('schemas',{}).items():
+                  blob=(schema_name+' '+json.dumps(schema)).lower()
+                  if any(k in blob for k in ['original cut','cutoff','cut off','ranking date','rankingdate','playerlisttype','entrycode']):
+                      print('SCHEMA',schema_name,json.dumps(schema,ensure_ascii=False)[:7000])
           PY
