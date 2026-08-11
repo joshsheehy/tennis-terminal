@@ -70,6 +70,7 @@ jobs:
                    sql/008_add_swing_level_scope.sql \
                    sql/009_add_swing_kind.sql \
                    sql/010_add_itf_qualifying_byes.sql \
+                   sql/013_create_acceptance_lists.sql \
                    scripts/seed-dev-db.sql; do
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
           done
