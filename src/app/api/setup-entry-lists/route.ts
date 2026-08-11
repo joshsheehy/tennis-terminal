@@ -47,6 +47,20 @@ export async function GET() {
       unique (source_id, content_hash)
     );
 
+    create table if not exists central_entry_list_week_snapshots (
+      id uuid primary key default gen_random_uuid(),
+      tour text not null default 'atp',
+      week_start date not null,
+      source_type text not null,
+      source_url text not null,
+      source_updated_text text,
+      content_hash text not null,
+      tournament_count int not null default 0,
+      tournaments jsonb not null default '[]'::jsonb,
+      created_at timestamptz not null default now(),
+      unique (tour, week_start, content_hash)
+    );
+
     create index if not exists acceptance_list_sources_due_idx
       on acceptance_list_sources(active, next_check_at)
       where active = true;
@@ -56,6 +70,9 @@ export async function GET() {
 
     create index if not exists acceptance_list_snapshots_source_fetched_idx
       on acceptance_list_snapshots(source_id, fetched_at desc);
+
+    create index if not exists central_entry_list_week_latest_idx
+      on central_entry_list_week_snapshots(tour, week_start, created_at desc);
   `);
 
   // Earlier proof-of-concept rows pointed directly at organizer sites. Preserve
