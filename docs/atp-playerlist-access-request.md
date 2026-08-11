@@ -2,6 +2,16 @@
 
 Prepared for TennisCuts. Do not send automatically; review before contacting ATP/TDI.
 
+## Confirmed official contact routes
+
+- ATP Tournament Data Form: `https://form.jotform.com/243574303848361`
+  - ATP explicitly links the `tournamentclient` Swagger there.
+  - The form says development teams that require tokens should contact Bram Tukker at `bram.tukker@atptour.com`.
+- TDI Tennis Data Platform: `https://www.tennisdata.com/tennis-data-platform`
+  - TDI describes an open sandbox for third-party innovation.
+- Champion Data Service Desk: `https://championdata.atlassian.net/servicedesk/customer/portals`
+  - The public help center includes a dedicated **TDI Service Desk** for TDI partners.
+
 ## Subject
 
 Read-only ProTennisLive PlayerList access for player tournament-planning tool
