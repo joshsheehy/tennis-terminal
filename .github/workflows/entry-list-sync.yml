@@ -5,14 +5,13 @@ on:
   push:
     paths:
       - '.github/workflows/entry-list-sync.yml'
-      - 'src/lib/acceptance-list-parser.ts'
+      - 'src/lib/central-entry-list-parser.ts'
       - 'src/app/api/setup-entry-lists/route.ts'
-      - 'src/app/api/sync-entry-lists/route.ts'
-      - 'sql/013_create_acceptance_lists.sql'
+      - 'src/app/api/sync-central-entry-lists/route.ts'
+      - 'sql/014_create_central_entry_list_weeks.sql'
   schedule:
-    # Four cheap passes per day, offset from the top of the hour. The API itself
-    # decides whether each source is actually due (24h when >21 days out, 6h
-    # inside 21 days), so most scheduled runs are no-ops.
+    # One ~190 KB centralized page fetch four times per day. The app hashes only
+    # the target ATP week and writes nothing unless that week's lists changed.
     - cron: '37 */6 * * *'
 
 concurrency:
@@ -22,9 +21,9 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Sync public acceptance lists
+      - name: Sync centralized ATP entry lists
         env:
           APP_URL: ${{ secrets.APP_URL }}
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
@@ -47,29 +46,22 @@ jobs:
 
           headers = {
               'Accept': 'application/json',
-              'User-Agent': 'TennisCutsEntryListSync/1.0',
+              'User-Agent': 'TennisCutsEntryListSync/2.0',
               'X-Admin-Secret': os.environ['ADMIN_SECRET'],
           }
 
-          def get(path, timeout=120):
+          def get(path, timeout=90):
               url = base + path
               print(f'GET {url}', flush=True)
               req = urllib.request.Request(url, headers=headers)
               with urllib.request.urlopen(req, timeout=timeout) as res:
                   data = json.loads(res.read().decode('utf-8'))
-              print(json.dumps(data)[:5000], flush=True)
+              print(json.dumps(data)[:8000], flush=True)
               return data
 
-          # Idempotent: creates the tiny schema if needed and seeds only public,
-          # verified organizer/federation sources. This avoids giving GitHub
-          # direct database credentials and keeps source discovery out of cron.
+          # Idempotent schema setup also disables the old regional-site proof rows.
           get('/api/setup-entry-lists')
-
-          # The endpoint checks at most 12 due sources at a time. Calling it a
-          # few times lets a busy week drain up to 48 sources without creating a
-          # long-running Railway request. Once no source is due we stop.
-          for batch in range(4):
-              data = get('/api/sync-entry-lists?limit=12')
-              if int(data.get('checked', 0)) == 0:
-                  break
+          # No web search and no tournament-by-tournament requests: one central
+          # source is parsed for the next ATP week and snapshotted only if changed.
+          get('/api/sync-central-entry-lists')
           PY
