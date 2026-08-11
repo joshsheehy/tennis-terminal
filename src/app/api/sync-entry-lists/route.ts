@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, withTransaction } from '@/lib/db';
 import { parseAcceptanceListPdfBuffer } from '@/lib/acceptance-list-parser';
 
 export const runtime = 'nodejs';
@@ -122,9 +122,8 @@ export async function GET(request: NextRequest) {
 
       const parsed = await parseAcceptanceListPdfBuffer(buffer);
 
-      await pool.query('begin');
-      try {
-        await pool.query(
+      await withTransaction(async (client) => {
+        await client.query(
           `insert into acceptance_list_snapshots (
              source_id, list_date, ranking_date, original_cutoff_rank,
              parse_status, entry_count, entries, content_hash
@@ -142,7 +141,7 @@ export async function GET(request: NextRequest) {
           ]
         );
 
-        await pool.query(
+        await client.query(
           `update acceptance_list_sources
            set etag = $2, last_modified = $3, last_content_hash = $4,
                last_checked_at = now(), last_changed_at = now(), next_check_at = $5,
@@ -150,11 +149,7 @@ export async function GET(request: NextRequest) {
            where id = $1`,
           [source.id, etag, lastModified, hash, nextCheck]
         );
-        await pool.query('commit');
-      } catch (error) {
-        await pool.query('rollback');
-        throw error;
-      }
+      });
 
       results.push({
         sourceId: source.id,
