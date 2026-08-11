@@ -1,28 +1,20 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { pool } from '@/lib/db';
-import { buildWeekView, type WeekEntry } from '@/lib/depth-week';
+import { buildStrengthView, type StrengthRow } from '@/lib/field-strength-data';
+import { BAND_LABEL, BAND_COLOR } from '@/lib/field-strength';
 import type { Discipline } from '@/lib/depth';
 import { CURRENT_SEASON, AVAILABLE_SEASONS } from '@/lib/seasons';
-import { getAtpWeekForSeason } from '@/lib/atp-week';
 
 export const dynamic = 'force-dynamic';
 
 // Hidden surface: not linked from SiteNav, not in the sitemap, noindex.
 export const metadata: Metadata = {
-  title: 'Week competition — which events are easiest to enter',
+  title: 'Field strength — how each event compares to last year',
   robots: { index: false, follow: false },
 };
 
-function Pick({
-  href,
-  on,
-  children,
-}: {
-  href: string;
-  on: boolean;
-  children: React.ReactNode;
-}) {
+function Pick({ href, on, children }: { href: string; on: boolean; children: React.ReactNode }) {
   return (
     <Link href={href} className={on ? 'chip chip--on' : 'chip'} prefetch={false}>
       {children}
@@ -30,120 +22,143 @@ function Pick({
   );
 }
 
-function Entry({
-  entry,
-  rank,
-  total,
-  unit,
-}: {
-  entry: WeekEntry;
-  rank: number;
-  total: number;
-  unit: string;
-}) {
-  // Easiest is rank 1. With only one event there is nothing to compare against.
-  const band =
-    total < 2 ? null : rank === 1 ? 'Easiest to enter' : rank === total ? 'Hardest to enter' : null;
-  const bandColor = rank === 1 ? '#1a7f47' : '#b3261e';
-
+/** Two stacked bars: last year's strength and this year's, on one 0-100 axis.
+ * The comparison is the point, so they share a scale and sit adjacent. */
+function StrengthBars({ row, year }: { row: StrengthRow; year: number }) {
+  const color = row.band ? BAND_COLOR[row.band] : '#8a8a8a';
+  const Bar = ({ value, label, dim }: { value: number | null; label: string; dim: boolean }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+      <span style={{ fontSize: 11, opacity: 0.6, width: 34, textAlign: 'right' }}>{label}</span>
+      <div
+        style={{
+          flex: 1,
+          height: 10,
+          borderRadius: 5,
+          background: 'rgba(128,128,128,0.18)',
+          overflow: 'hidden',
+          maxWidth: 260,
+        }}
+      >
+        {value != null ? (
+          <div
+            style={{
+              width: `${value}%`,
+              height: '100%',
+              background: dim ? 'rgba(128,128,128,0.55)' : color,
+            }}
+          />
+        ) : null}
+      </div>
+      <span style={{ fontSize: 12, width: 26, fontWeight: dim ? 400 : 600 }}>
+        {value ?? '—'}
+      </span>
+    </div>
+  );
   return (
-    <li
-      className="card"
-      style={{ padding: 16, marginBottom: 10, display: 'block' }}
-    >
+    <div style={{ minWidth: 260 }}>
+      <Bar value={row.priorScore} label={String(year - 1).slice(2)} dim />
+      <Bar value={row.score} label={String(year).slice(2)} dim={false} />
+    </div>
+  );
+}
+
+function Row_({ row, year }: { row: StrengthRow; year: number }) {
+  const color = row.band ? BAND_COLOR[row.band] : '#8a8a8a';
+  return (
+    <li className="card" style={{ padding: 14, marginBottom: 8, display: 'block' }}>
       <div
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
           gap: 16,
           flexWrap: 'wrap',
-          alignItems: 'baseline',
+          alignItems: 'center',
+          justifyContent: 'space-between',
         }}
       >
-        <div>
-          <strong style={{ fontSize: 17 }}>{entry.name}</strong>
-          <span style={{ marginLeft: 10, opacity: 0.7, fontSize: 14 }}>
-            {entry.level} · {entry.surface}
-            {entry.indoor ? ' (indoor)' : ''}
-          </span>
+        <div style={{ minWidth: 220 }}>
+          <strong style={{ fontSize: 16 }}>{row.name}</strong>
+          <div style={{ fontSize: 13, opacity: 0.65, marginTop: 2 }}>
+            w{row.week} · {row.level}
+            {row.levelChanged && row.priorLevel ? (
+              <span style={{ color: '#c2691e' }}> · was {row.priorLevel}</span>
+            ) : null}
+          </div>
         </div>
-        {band ? (
-          <span style={{ color: bandColor, fontWeight: 600, fontSize: 13 }}>{band}</span>
-        ) : null}
-      </div>
 
-      <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', marginTop: 12 }}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 600 }}>
-            {entry.slotsSource === 'default' ? '≈' : ''}
-            {entry.spotsNearby}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.65 }}>
-            {unit} within reach at this level or better
-            {entry.slotsSource === 'default' ? ' (estimated)' : ''}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 600 }}>
-            {entry.lastYearCut ?? '—'}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.65 }}>
-            last year&apos;s cut
-            {entry.lastYearLevel && entry.lastYearLevel !== entry.level
-              ? ` (was ${entry.lastYearLevel})`
-              : ''}
-          </div>
-        </div>
-        {entry.thisYearCut != null ? (
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 600 }}>{entry.thisYearCut}</div>
-            <div style={{ fontSize: 12, opacity: 0.65 }}>this year&apos;s cut</div>
-          </div>
-        ) : null}
-      </div>
+        <StrengthBars row={row} year={year} />
 
-      <ul style={{ margin: '12px 0 0', paddingLeft: 18, fontSize: 14, opacity: 0.8 }}>
-        {entry.reasons.map((r, i) => (
-          <li key={i}>{r}</li>
-        ))}
-      </ul>
+        <div style={{ minWidth: 150, textAlign: 'right' }}>
+          {row.band ? (
+            <>
+              <div style={{ color, fontWeight: 700, fontSize: 15 }}>
+                {row.delta! > 0 ? '↑' : row.delta! < 0 ? '↓' : '='} {BAND_LABEL[row.band]}
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                {row.delta! > 0 ? '+' : ''}
+                {row.delta} pts · cut {row.priorCut} → {row.cut}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 13, opacity: 0.6 }}>
+              {row.score == null
+                ? 'Not enough cuts at this level to score'
+                : row.priorCut == null
+                  ? 'No cut recorded last year'
+                  : '—'}
+            </div>
+          )}
+        </div>
+      </div>
+      {row.levelChanged ? (
+        <p style={{ fontSize: 12, opacity: 0.7, margin: '8px 0 0' }}>
+          Level changed since last season, so each year is scored against a different
+          cohort — the move is not like-for-like.
+        </p>
+      ) : null}
     </li>
   );
 }
 
-export default async function DepthPage({
+export default async function FieldStrengthPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; week?: string; discipline?: string }>;
+  searchParams: Promise<{ year?: string; discipline?: string; draw?: string; sort?: string }>;
 }) {
   const sp = await searchParams;
   const year =
-    sp.year && AVAILABLE_SEASONS.includes(Number(sp.year))
-      ? Number(sp.year)
-      : CURRENT_SEASON;
+    sp.year && AVAILABLE_SEASONS.includes(Number(sp.year)) ? Number(sp.year) : CURRENT_SEASON;
   const discipline: Discipline = sp.discipline === 'doubles' ? 'doubles' : 'singles';
-  const thisWeek = getAtpWeekForSeason(new Date(), year) ?? 1;
-  const week = sp.week ? Number(sp.week) : thisWeek;
+  const drawType = sp.draw === 'qualifying' ? 'qualifying' : 'main';
+  const sort = sp.sort === 'move' ? 'move' : 'week';
 
-  const view = await buildWeekView(pool, year, week, discipline);
-  // buildWeekView snaps to the nearest week that actually holds events, so the
-  // pickers and heading must follow the resolved week, not the requested one.
+  const view = await buildStrengthView(pool, year, discipline, drawType);
+  const rows = [...view.rows];
+  if (sort === 'move') {
+    rows.sort((a, b) => (b.delta ?? -Infinity) - (a.delta ?? -Infinity));
+  }
+
   const qs = (o: Record<string, string | number>) =>
     `/depth?${new URLSearchParams({
       year: String(year),
-      week: String(view.week),
       discipline,
+      draw: drawType,
+      sort,
       ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])),
     }).toString()}`;
 
   return (
     <main className="page">
       <p className="eyebrow">Internal preview</p>
-      <h1>Which events are easiest to enter?</h1>
-      <p style={{ maxWidth: 720, opacity: 0.85 }}>
-        For one week, events that draw on the same players are grouped together and ranked.
-        The more places there are nearby at your level or better, the thinner the field
-        spreads — and the easier the event is to get into.
+      <h1>Field strength vs last year</h1>
+      <p style={{ maxWidth: 730, opacity: 0.85 }}>
+        Every event scored <strong>0–100</strong> against every other cut ever recorded at its
+        own level. <strong>100</strong> is the strongest field on record for that level,{' '}
+        <strong>50</strong> is a completely typical edition, <strong>0</strong> is the weakest.
+        Scoring within level is what makes an ATP 250 and a Challenger 75 comparable.
+      </p>
+      <p style={{ maxWidth: 730, opacity: 0.85 }}>
+        This is measured, not projected — it reads the cuts already stored. Challenger, ATP
+        and Grand Slam only, since ITF cuts are not collected.
       </p>
 
       <div className="chip-row" style={{ marginTop: 20 }}>
@@ -154,61 +169,48 @@ export default async function DepthPage({
         ))}
       </div>
       <div className="chip-row" style={{ marginTop: 8 }}>
-        <Pick href={qs({ discipline: 'singles' })} on={discipline === 'singles'}>
-          Singles
+        <Pick href={qs({ discipline: 'singles', draw: 'main' })} on={discipline === 'singles' && drawType === 'main'}>
+          Singles main
         </Pick>
-        <Pick href={qs({ discipline: 'doubles' })} on={discipline === 'doubles'}>
+        <Pick href={qs({ discipline: 'singles', draw: 'qualifying' })} on={discipline === 'singles' && drawType === 'qualifying'}>
+          Singles qualifying
+        </Pick>
+        <Pick href={qs({ discipline: 'doubles', draw: 'main' })} on={discipline === 'doubles'}>
           Doubles
         </Pick>
       </div>
-      <div className="chip-row" style={{ marginTop: 8, flexWrap: 'wrap' }}>
-        {view.availableWeeks.map((w) => (
-          <Pick key={w} href={qs({ week: w })} on={w === view.week}>
-            w{w}
-          </Pick>
-        ))}
+      <div className="chip-row" style={{ marginTop: 8 }}>
+        <Pick href={qs({ sort: 'week' })} on={sort === 'week'}>
+          By week
+        </Pick>
+        <Pick href={qs({ sort: 'move' })} on={sort === 'move'}>
+          Biggest movers
+        </Pick>
       </div>
 
-      <h2 style={{ marginTop: 28 }}>
-        Week {view.week}, {year} · {discipline}
-      </h2>
+      <p style={{ marginTop: 20, fontSize: 13, opacity: 0.7 }}>
+        {view.counts.total} events · {view.counts.scored} scored ·{' '}
+        {view.counts.compared} with a {year - 1} cut to compare against
+        {view.unscoredLevels.length > 0
+          ? ` · too few cuts to score: ${view.unscoredLevels.join(', ')}`
+          : ''}
+      </p>
 
-      {view.regions.length === 0 ? (
-        <p style={{ opacity: 0.7 }}>No events recorded for this week.</p>
+      {rows.length === 0 ? (
+        <p style={{ opacity: 0.7, marginTop: 20 }}>No cuts recorded for {year} yet.</p>
       ) : (
-        view.regions.map((region) => (
-          <section key={region.label} style={{ marginTop: 24 }}>
-            <h3>{region.label}</h3>
-            <ol style={{ listStyle: 'none', padding: 0, margin: '12px 0 0' }}>
-              {region.entries.map((e, i) => (
-                <Entry
-                  key={e.slug}
-                  entry={e}
-                  rank={i + 1}
-                  total={region.entries.length}
-                  unit={view.unit}
-                />
-              ))}
-            </ol>
-          </section>
-        ))
+        <ol style={{ listStyle: 'none', padding: 0, margin: '16px 0 0' }}>
+          {rows.map((r) => (
+            <Row_ key={`${r.slug}-${r.week}`} row={r} year={year} />
+          ))}
+        </ol>
       )}
 
-      <div style={{ marginTop: 40, fontSize: 13, opacity: 0.7, maxWidth: 720 }}>
-        <p>
-          <strong>What this does not tell you.</strong> The ranking compares events against
-          each other <em>inside one week</em>, which is the only claim the data supports. It
-          does not predict a cut, and it deliberately does not say whether a cut will be
-          tougher or easier than last year&apos;s — that was tested against 685 paired
-          seasons and added nothing. Last year&apos;s cut is shown as a fact to anchor
-          against, not as a forecast.
-        </p>
-        <p>
-          Counts marked ≈ are estimated from standard draw sizes for the level; the rest
-          come from the real imported draw. Doubles is always estimated, and wildcard counts
-          are estimated throughout. <Link href="/depth/validation">See the validation</Link>.
-        </p>
-      </div>
+      <p style={{ marginTop: 32, fontSize: 13, opacity: 0.7, maxWidth: 730 }}>
+        A score compares an event only with its own level, so a Challenger 75 at 80 had a
+        strong field <em>for a Challenger 75</em> — not a stronger field than an ATP 250 at 60.{' '}
+        <Link href="/depth/validation">Validation</Link>.
+      </p>
     </main>
   );
 }
