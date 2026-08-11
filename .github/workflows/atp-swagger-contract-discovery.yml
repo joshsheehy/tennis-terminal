@@ -1,0 +1,86 @@
+name: ATP Swagger contract discovery
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/atp-swagger-contract-discovery.yml'
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Enumerate official ProTennisLive Swagger contracts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,re,urllib.request,urllib.error,urllib.parse
+
+          H={'User-Agent':'Mozilla/5.0 (compatible; TennisCutsOfficialSourceResearch/1.0)','Accept':'*/*'}
+          def get(u, timeout=15, limit=10_000_000):
+              req=urllib.request.Request(u,headers=H)
+              try:
+                  with urllib.request.urlopen(req,timeout=timeout) as r:
+                      return r.status,r.headers,r.read(limit),r.geturl()
+              except urllib.error.HTTPError as e:
+                  return e.code,e.headers,e.read(limit),u
+              except Exception as e:
+                  print('ERR',u,type(e).__name__,str(e),flush=True)
+                  return None,{},b'',u
+
+          root='https://api.protennislive.com/feeds/swagger/index.html'
+          st,h,b,final=get(root)
+          html=b.decode('utf8','replace')
+          print('INDEX',st,final,len(b),h.get('content-type'))
+          scripts=[]
+          for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',html,re.I):
+              u=urllib.parse.urljoin(final,src)
+              if u not in scripts:scripts.append(u)
+          print('SCRIPTS',scripts)
+          alltext=html
+          for u in scripts:
+              st2,h2,b2,f2=get(u)
+              s=b2.decode('utf8','replace')
+              alltext+='\n'+s
+              if any(k in s.lower() for k in ['swagger','orgclient','tournamentclient','urls:']):
+                  print('\nSCRIPT',st2,f2,'bytes',len(b2))
+                  for term in ['orgclient','tournamentclient','swagger.json','urls:','url:']:
+                      p=s.lower().find(term.lower())
+                      if p>=0:print('CTX',term,re.sub(r'\s+',' ',s[max(0,p-1000):p+2500])[:3600])
+
+          docs=set(re.findall(r'https?://[^"\'\\\s<>]+swagger\.json',alltext,re.I))
+          docs.update('https://api.protennislive.com/feeds/swagger/%s/swagger.json'%x for x in ['orgclient','tournamentclient'])
+          print('\nDOCS',sorted(docs))
+
+          terms=['accept','alternate','entrycode','playerlist','playerlisttype','cutoff','cut off','rankingdate','ranking date','eceas','report','withdraw','entry list','original cut']
+          for u in sorted(docs):
+              st,h,b,final=get(u)
+              print('\n==== DOC',u,'STATUS',st,'BYTES',len(b),'====')
+              if st!=200:
+                  print(b[:500].decode('utf8','replace'))
+                  continue
+              try: spec=json.loads(b.decode())
+              except Exception as e:
+                  print('BADJSON',e);continue
+              print('TITLE',spec.get('info',{}).get('title'),'VERSION',spec.get('info',{}).get('version'))
+              print('SECURITY',json.dumps(spec.get('security')))
+              paths=spec.get('paths',{})
+              print('PATHS',len(paths))
+              for path,ops in paths.items():
+                  blob=(path+' '+json.dumps(ops)).lower()
+                  if any(t in blob for t in terms):
+                      print('PATH_HIT',path)
+                      for method,op in ops.items():
+                          if isinstance(op,dict):
+                              print(' ',method,'summary=',op.get('summary'),'security=',op.get('security'))
+              schemas=spec.get('components',{}).get('schemas',{})
+              for name,sch in schemas.items():
+                  blob=(name+' '+json.dumps(sch)).lower()
+                  hits=[t for t in terms if t in blob]
+                  if hits:
+                      print('SCHEMA_HIT',name,'terms',hits)
+                      # Keep output useful, especially for acceptance-list-related contracts.
+                      if any(t in hits for t in ['cutoff','cut off','rankingdate','ranking date','eceas','original cut','playerlist','entrycode','alternate']):
+                          print(json.dumps(sch,ensure_ascii=False)[:9000])
+          PY
