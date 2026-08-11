@@ -1,0 +1,19 @@
+name: PlayerZone custom JS inspect
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/pz-custom-js-inspect.yml']
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Print route-relevant custom JS
+        run: |
+          python3 - <<'PY'
+          import urllib.request,re
+          for u in ['https://www.atppz.com/js/common.js','https://www.atppz.com/js/Global.js']:
+              print('\n====',u,'====')
+              s=urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=10).read().decode('utf8','replace')
+              print(s)
+          PY
