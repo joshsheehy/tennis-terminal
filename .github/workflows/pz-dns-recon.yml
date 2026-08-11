@@ -1,0 +1,41 @@
+name: PZ DNS recon
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/pz-dns-recon.yml'
+
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Resolve PlayerZone public report hosts
+        run: |
+          set -euo pipefail
+          for host in ps-site.atppz.com ps.atppz.com atppz.com atp-playerzone.com api.protennislive.com; do
+            echo "=== $host ==="
+            python3 - "$host" <<'PY'
+          import socket,sys
+          h=sys.argv[1]
+          try:
+              print(socket.getaddrinfo(h,443,type=socket.SOCK_STREAM))
+          except Exception as e:
+              print(type(e).__name__,e)
+          PY
+            command -v dig >/dev/null && { dig +short A "$host"; dig +short AAAA "$host"; dig +short CNAME "$host"; } || true
+          done
+
+          echo '=== DNS-over-HTTPS cross-check ==='
+          python3 - <<'PY'
+          import json,urllib.parse,urllib.request
+          for h in ['ps-site.atppz.com','ps.atppz.com','atppz.com','atp-playerzone.com']:
+              u='https://cloudflare-dns.com/dns-query?'+urllib.parse.urlencode({'name':h,'type':'A'})
+              req=urllib.request.Request(u,headers={'Accept':'application/dns-json','User-Agent':'Mozilla/5.0'})
+              try:
+                  with urllib.request.urlopen(req,timeout=10) as r:
+                      data=json.loads(r.read())
+                  print(h,'Status',data.get('Status'),'Answer',data.get('Answer'))
+              except Exception as e: print(h,type(e).__name__,e)
+          PY
