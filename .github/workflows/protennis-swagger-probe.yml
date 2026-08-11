@@ -1,0 +1,32 @@
+name: ProTennisLive Swagger probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/protennis-swagger-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Inspect official API base, auth and PlayerList schema
+        run: |
+          python3 - <<'PY'
+          import json
+          import urllib.request
+
+          url = 'https://api.protennislive.com/feeds/swagger/orgclient/swagger.json'
+          req = urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0','Accept':'application/json'})
+          with urllib.request.urlopen(req, timeout=15) as res:
+              spec = json.loads(res.read().decode('utf-8'))
+          print('servers', json.dumps(spec.get('servers'), ensure_ascii=False))
+          print('global-security', json.dumps(spec.get('security'), ensure_ascii=False))
+          print('security-schemes', json.dumps(spec.get('components',{}).get('securitySchemes',{}), ensure_ascii=False)[:3000])
+          path = spec.get('paths',{}).get('/PlayerList/{tournamentYear}/{tournamentId}',{})
+          print('playerlist-operation', json.dumps(path, ensure_ascii=False)[:8000])
+          schemas = spec.get('components',{}).get('schemas',{})
+          for name in ['TournamentPlayerList','TournamentPlayerListItem','PlayerListItem']:
+              print(name, json.dumps(schemas.get(name), ensure_ascii=False)[:8000])
+          PY
