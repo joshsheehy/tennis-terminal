@@ -41,17 +41,14 @@ function codeFromText(value: string | null): string | null {
   return posting?.[1] ?? null;
 }
 
-function staticCodeBySlug(): Map<string, string> {
-  const latest = new Map<string, { year: number; code: string }>();
+function staticCodeByEdition(): Map<string, string> {
+  const codes = new Map<string, string>();
   for (const entry of ALL_EDITIONS) {
     const code = entry.edition.protennislive_code;
     if (!code) continue;
-    const current = latest.get(entry.tournament.slug);
-    if (!current || entry.edition.year > current.year) {
-      latest.set(entry.tournament.slug, { year: entry.edition.year, code });
-    }
+    codes.set(`${entry.tournament.slug}:${entry.edition.year}`, code);
   }
-  return new Map(Array.from(latest, ([slug, value]) => [slug, value.code]));
+  return codes;
 }
 
 function contentHash(playerListType: string | null, entries: unknown[]): string {
@@ -102,20 +99,21 @@ export async function GET(request: NextRequest) {
     [weekStart]
   );
 
-  const fallbackCodes = staticCodeBySlug();
+  const fallbackCodes = staticCodeByEdition();
   const results: Array<Record<string, unknown>> = [];
 
   for (const edition of editions.rows) {
     const code =
       codeFromText(edition.source_url) ??
       codeFromText(edition.source_notes) ??
-      fallbackCodes.get(edition.slug) ??
+      fallbackCodes.get(`${edition.slug}:${edition.year}`) ??
       null;
 
     if (!code || !/^\d+$/.test(code)) {
       results.push({
         tournament: edition.name,
         slug: edition.slug,
+        year: edition.year,
         status: 'missing_atp_code',
       });
       continue;
@@ -208,6 +206,7 @@ export async function GET(request: NextRequest) {
       results.push({
         tournament: edition.name,
         slug: edition.slug,
+        year: edition.year,
         code,
         status: 'ok',
         lists: storedLists,
@@ -230,6 +229,7 @@ export async function GET(request: NextRequest) {
       results.push({
         tournament: edition.name,
         slug: edition.slug,
+        year: edition.year,
         code,
         status: 'error',
         error: message,
