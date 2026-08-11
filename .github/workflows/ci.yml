@@ -72,6 +72,7 @@ jobs:
                    sql/010_add_itf_qualifying_byes.sql \
                    sql/013_create_acceptance_lists.sql \
                    sql/014_create_central_entry_list_weeks.sql \
+                   sql/015_add_player_list_type.sql \
                    scripts/seed-dev-db.sql; do
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
           done
