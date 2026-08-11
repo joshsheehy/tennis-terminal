@@ -1,0 +1,33 @@
+name: TDI future week probe
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/tdi-future-week-probe.yml']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Test whether official TDI Results exposes Aug 17 future tournament/player data
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import urllib.request,re,html as H
+          hdr={'User-Agent':'Mozilla/5.0 (compatible; TennisCutsOfficialSourceResearch/1.0)','Accept':'text/html,*/*'}
+          for date in ['2026-08-17','2026-08-18']:
+              u='https://results.tennisdata.com/en?date='+date
+              with urllib.request.urlopen(urllib.request.Request(u,headers=hdr),timeout=20) as r:b=r.read(3_000_000)
+              s=b.decode('utf8','replace')
+              print('\nDATE',date,'status',r.status,'bytes',len(b))
+              for name in ['Kingston','Prague','Roehampton','Sion','Cancun','Quebec City']:
+                  print(name, name.lower() in s.lower())
+              # Find tournament blocks and player-like serialized fields around target names.
+              for name in ['Kingston','Prague','Roehampton','Sion','Cancun','Quebec City']:
+                  p=s.lower().find(name.lower())
+                  if p>=0:
+                      ctx=H.unescape(re.sub(r'\\"','"',s[max(0,p-2000):p+12000]))
+                      fields=sorted(set(re.findall(r'"([A-Za-z_][A-Za-z0-9_]*)"\s*:',ctx)))
+                      print('FIELDS',name,fields[:120])
+                      for needle in ['player','participant','rank','entry','alternate','draw','seed']:
+                          if needle in ctx.lower():print('HAS',name,needle)
+          PY
