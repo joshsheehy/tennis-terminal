@@ -1,8 +1,27 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { pool } from '@/lib/db';
-import type { EntryListTournament, EntryPlayer } from '@/lib/entry-list-source';
+import type { EntryPlayer } from '@/lib/entry-list-source';
 import { impliedCut } from '@/lib/entry-list-source';
+
+/** Shape stored by /api/sync-central-entry-lists. Deliberately NOT
+ * EntryListTournament: the sync renames the alternate queue to
+ * `qualifyingNextIn` and carries the matched edition's name, so reading it as
+ * the parser type crashes on undefined arrays. */
+type StoredTournament = {
+  editionId: string | null;
+  tournament: string;
+  city: string;
+  startDate: string;
+  level: string | null;
+  sourceName: string;
+  surface: string | null;
+  main: EntryPlayer[];
+  wildCards: EntryPlayer[];
+  qualifying: EntryPlayer[];
+  qualifyingNextIn: EntryPlayer[];
+  released: boolean;
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +37,7 @@ type SnapshotRow = {
   source_type: string;
   source_updated_text: string | null;
   tournament_count: number;
-  tournaments: EntryListTournament[];
+  tournaments: StoredTournament[];
   created_at: string;
 };
 
@@ -44,11 +63,11 @@ const iso = (v: string | Date) =>
   v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
 
 /** Where a player sits in a list: a direct acceptance, or Nth in the queue. */
-function positionsOf(t: EntryListTournament): Map<string, string> {
+function positionsOf(t: StoredTournament): Map<string, string> {
   const out = new Map<string, string>();
-  t.main.forEach((p) => out.set(p.name, 'DA'));
-  t.qualifying.forEach((p) => out.set(p.name, 'Q'));
-  t.qualifyingNext.forEach((p, i) => out.set(p.name, `ALT ${i + 1}`));
+  (t.main ?? []).forEach((p) => out.set(p.name, 'DA'));
+  (t.qualifying ?? []).forEach((p) => out.set(p.name, 'Q'));
+  (t.qualifyingNextIn ?? []).forEach((p, i) => out.set(p.name, `ALT ${i + 1}`));
   return out;
 }
 
@@ -56,8 +75,8 @@ function Movement({
   latest,
   previous,
 }: {
-  latest: EntryListTournament;
-  previous: EntryListTournament | undefined;
+  latest: StoredTournament;
+  previous: StoredTournament | undefined;
 }) {
   if (!previous) return null;
   const before = positionsOf(previous);
@@ -127,7 +146,7 @@ export default async function EntryListsPage({
   const previous = forWeek[1] ?? null;
 
   const prevByName = new Map(
-    (previous?.tournaments ?? []).map((t) => [t.rawName, t] as const)
+    (previous?.tournaments ?? []).map((t) => [t.sourceName, t] as const)
   );
 
   return (
@@ -191,10 +210,10 @@ export default async function EntryListsPage({
 
           <ol style={{ listStyle: 'none', padding: 0, margin: '20px 0 0' }}>
             {(latest?.tournaments ?? []).map((t) => {
-              const cut = impliedCut(t.main);
+              const cut = impliedCut(t.main ?? []);
               return (
                 <li
-                  key={t.rawName}
+                  key={t.sourceName}
                   className="card"
                   style={{ padding: 14, marginBottom: 10, display: 'block' }}
                 >
@@ -207,18 +226,18 @@ export default async function EntryListsPage({
                       alignItems: 'baseline',
                     }}
                   >
-                    <strong style={{ fontSize: 16 }}>{t.name}</strong>
+                    <strong style={{ fontSize: 16 }}>{t.tournament}</strong>
                     <span style={{ fontSize: 13, opacity: 0.7 }}>
                       {t.level ?? '—'} · {t.surface ?? '—'} · cut #{cut ?? '—'} ·{' '}
-                      {t.main.length} in · {t.qualifyingNext.length} waiting
+                      {(t.main ?? []).length} in · {(t.qualifyingNextIn ?? []).length} waiting
                     </span>
                   </div>
 
-                  <Movement latest={t} previous={prevByName.get(t.rawName)} />
+                  <Movement latest={t} previous={prevByName.get(t.sourceName)} />
 
-                  <PlayerRows players={t.main} label="Main draw" />
-                  <PlayerRows players={t.qualifying} label="Qualifying" />
-                  <PlayerRows players={t.qualifyingNext} label="Alternates queue" />
+                  <PlayerRows players={t.main ?? []} label="Main draw" />
+                  <PlayerRows players={t.qualifying ?? []} label="Qualifying" />
+                  <PlayerRows players={t.qualifyingNextIn ?? []} label="Alternates queue" />
                 </li>
               );
             })}
