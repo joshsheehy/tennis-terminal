@@ -143,6 +143,28 @@ export function scoreMeaning(score: number, level: string): string {
   return `stronger than ${score}% of ${level} editions on record`;
 }
 
+/**
+ * Widest projection range, in score points, that still supports naming a
+ * direction.
+ *
+ * A projected cut carries low/high bounds, and mapping those through the
+ * percentile scale can leave a range covering most of it — a real case was
+ * "68 -> ~30 (5-97)", which is the model saying it has no idea, while the point
+ * estimate still drove a confident "Much easier to enter" in green. Beyond this
+ * width the band is suppressed and the row says so instead. Doubles hits this
+ * most: the model's doubles error is several times its singles error.
+ */
+export const MAX_USABLE_RANGE = 40;
+
+/** True when a projection's bounds are too wide to claim a direction from. */
+export function projectionTooUncertain(
+  low: number | null,
+  high: number | null
+): boolean {
+  if (low == null || high == null) return false;
+  return high - low > MAX_USABLE_RANGE;
+}
+
 /** One sentence a beginner can act on. */
 export function entryMeaning(score: number): string {
   if (score >= 75) return 'a hard field to get into';

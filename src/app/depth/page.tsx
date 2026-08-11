@@ -8,6 +8,7 @@ import {
   BAND_COLOR,
   scoreMeaning,
   entryMeaning,
+  projectionTooUncertain,
 } from '@/lib/field-strength';
 import type { Discipline } from '@/lib/depth';
 import { CURRENT_SEASON, AVAILABLE_SEASONS } from '@/lib/seasons';
@@ -91,6 +92,9 @@ function StrengthBars({ row, year }: { row: StrengthRow; year: number }) {
 
 function Row_({ row, year }: { row: StrengthRow; year: number }) {
   const color = row.band ? BAND_COLOR[row.band] : '#8a8a8a';
+  // A projection whose bounds span most of the scale cannot support a
+  // direction, however confident the point estimate looks.
+  const tooUncertain = projectionTooUncertain(row.scoreLow, row.scoreHigh);
   return (
     <li className="card" style={{ padding: 14, marginBottom: 8, display: 'block' }}>
       <div
@@ -115,7 +119,7 @@ function Row_({ row, year }: { row: StrengthRow; year: number }) {
         <StrengthBars row={row} year={year} />
 
         <div style={{ minWidth: 150, textAlign: 'right' }}>
-          {row.band ? (
+          {row.band && !tooUncertain ? (
             <>
               <div style={{ color, fontWeight: 700, fontSize: 15 }}>
                 {BAND_LABEL[row.band]}
@@ -130,7 +134,9 @@ function Row_({ row, year }: { row: StrengthRow; year: number }) {
             </>
           ) : (
             <div style={{ fontSize: 13, opacity: 0.6 }}>
-              {row.score == null
+              {tooUncertain
+                ? 'Too uncertain to call yet'
+                : row.score == null
                 ? row.cut == null
                   ? 'Not played yet, no projection'
                   : 'Not enough cuts at this level to score'
@@ -255,6 +261,34 @@ export default async function FieldStrengthPage({
         certain thing here. Challenger, ATP and Grand Slam only, since ITF cuts are not
         collected.
       </p>
+
+      <details className="card" style={{ padding: 16, marginTop: 12, maxWidth: 730 }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+          Where does this number come from?
+        </summary>
+        <p style={{ fontSize: 13, marginTop: 12, opacity: 0.85 }}>
+          <strong>For an event already played</strong> it is that edition&apos;s real cut,
+          ranked against every cut recorded at the same level across all five seasons — not
+          just last year. A Challenger 100 is scored against every Challenger 100 on record.
+        </p>
+        <p style={{ fontSize: 13, opacity: 0.85 }}>
+          <strong>For an event still to come</strong> it is the projected cut, ranked against
+          that same pool. The projection is the nightly model, which combines the event&apos;s
+          own last two cuts, a correction if it changed level, how this season&apos;s cuts are
+          running against last season, how neighbouring events in the same swing have moved
+          in the last three weeks, and the median cut of similar events within two weeks of
+          it last season.
+        </p>
+        <p style={{ fontSize: 13, opacity: 0.85, marginBottom: 0 }}>
+          <strong>What is deliberately not in it:</strong> the count of tournaments in a
+          region. That was measured three separate ways — total event mass in a radius,
+          acceptance places at or above the event&apos;s level, and nearby ITF supply — and
+          none of them predicted a cut better than simply using last year&apos;s. The reason
+          appears to be that the whole calendar expanded together, so it moved every field at
+          once rather than separating one region from another. That tour-wide movement is the
+          figure shown below.
+        </p>
+      </details>
 
       <div className="chip-row" style={{ marginTop: 20 }}>
         {AVAILABLE_SEASONS.map((y) => (

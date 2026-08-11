@@ -10,6 +10,8 @@ import {
   BAND_COLOR,
   scoreMeaning,
   entryMeaning,
+  projectionTooUncertain,
+  MAX_USABLE_RANGE,
 } from './field-strength';
 
 const cohortOf = (n: number, start = 100, step = 10) =>
@@ -165,5 +167,36 @@ describe('plain-language translation', () => {
     expect(BAND_COLOR.weaker).toBe('#1a7f47');
     expect(BAND_COLOR['much-stronger']).toBe('#b3261e');
     expect(BAND_COLOR.stronger).toBe('#c2691e');
+  });
+});
+
+describe('projectionTooUncertain', () => {
+  // Real case from production: a doubles projection read "68 -> ~30 (5-97)",
+  // which covers almost the whole scale, yet the point estimate still drove a
+  // confident "Much easier to enter" in green.
+  it('rejects a range covering most of the scale', () => {
+    expect(projectionTooUncertain(5, 97)).toBe(true);
+  });
+
+  it('accepts a range narrow enough to mean something', () => {
+    expect(projectionTooUncertain(28, 55)).toBe(false);
+  });
+
+  it('is false for measured rows, which carry no bounds', () => {
+    expect(projectionTooUncertain(null, null)).toBe(false);
+    expect(projectionTooUncertain(40, null)).toBe(false);
+  });
+
+  it('cuts over exactly at the threshold', () => {
+    expect(projectionTooUncertain(10, 10 + MAX_USABLE_RANGE)).toBe(false);
+    expect(projectionTooUncertain(10, 10 + MAX_USABLE_RANGE + 1)).toBe(true);
+  });
+});
+
+describe('ITF exclusion', () => {
+  it('keeps ITF out, so no strength block is ever rendered for one', () => {
+    for (const l of ['ITF M15', 'ITF M25', 'ITF World Tennis Tour', 'ITF A']) {
+      expect(isScorableLevel(l)).toBe(false);
+    }
   });
 });
