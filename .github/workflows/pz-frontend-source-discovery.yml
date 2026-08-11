@@ -1,0 +1,52 @@
+name: PlayerZone frontend source discovery
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/pz-frontend-source-discovery.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Inspect public PlayerZone login/frontend assets for report route metadata
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re, urllib.parse, urllib.request, urllib.error
+          roots=['https://atppz.com/','https://www.atppz.com/','https://atp-playerzone.com/']
+          hdr={'User-Agent':'Mozilla/5.0','Accept':'text/html,application/xhtml+xml,*/*'}
+          def get(u,timeout=15,limit=5_000_000):
+              try:
+                  req=urllib.request.Request(u,headers=hdr)
+                  with urllib.request.urlopen(req,timeout=timeout) as r:return r.status,r.headers,r.read(limit),r.geturl()
+              except urllib.error.HTTPError as e:return e.code,e.headers,e.read(limit),u
+              except Exception as e:
+                  print('ERR',u,type(e).__name__,str(e),flush=True);return None,{},b'',u
+          needles=['AcceptanceList','ECEAS','ps-site','ps.atppz','PlayerServices','Report','TournamentID','entry list','acceptance','Alternate','Original Cut Off','api','service']
+          scripts=[]
+          for root in roots:
+              st,h,b,final=get(root)
+              t=b.decode('utf-8','replace')
+              print('\nROOT',root,'=>',st,final,h.get('content-type'),'bytes',len(b))
+              print('hits',[n for n in needles if n.lower() in t.lower()])
+              for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',t,re.I):
+                  u=urllib.parse.urljoin(final,src)
+                  if u not in scripts:scripts.append(u)
+              for href in re.findall(r'href=["\']([^"\']+)',t,re.I):
+                  if any(k in href.lower() for k in ['accept','report','eceas','player','service']):print('LINK',urllib.parse.urljoin(final,href))
+          print('\nSCRIPTS',len(scripts))
+          for i,u in enumerate(scripts[:100]):
+              st,h,b,final=get(u,timeout=12)
+              s=b.decode('utf-8','replace')
+              hits=[n for n in needles if n.lower() in s.lower()]
+              if not hits:continue
+              print('\nSCRIPT',i,st,final,'bytes',len(b),'hits',hits)
+              low=s.lower()
+              for n in hits:
+                  p=low.find(n.lower());print('CTX',n,re.sub(r'\s+',' ',s[max(0,p-300):p+1000])[:1400])
+              for url in re.findall(r'https?://[^"\'\\\s<>]+',s):
+                  if any(k in url.lower() for k in ['atppz','playerzone','protennis','accept','report','api']):print('URL',url[:500])
+          PY
