@@ -4,39 +4,10 @@ import { pool } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type SeedSource = {
-  city: string;
-  year: number;
-  eventType: 'singles' | 'doubles';
-  drawType: 'main' | 'qualifying';
-  atpCode: string;
-  sourceUrl: string;
-};
-
-// Only sources we have verified are genuinely public and organizer/federation hosted
-// belong here. Do not add PlayerZone URLs or guessed URLs.
-const VERIFIED_PUBLIC_SOURCES: SeedSource[] = [
-  {
-    city: 'Todi',
-    year: 2026,
-    eventType: 'singles',
-    drawType: 'main',
-    atpCode: '8392',
-    sourceUrl: 'https://internazionalitodi.com/wp-content/uploads/sites/8/2026/07/Todi-MDS.pdf',
-  },
-  {
-    city: 'Todi',
-    year: 2026,
-    eventType: 'doubles',
-    drawType: 'main',
-    atpCode: '8392',
-    sourceUrl: 'https://internazionalitodi.com/wp-content/uploads/sites/8/2026/08/Todi-MDD.pdf',
-  },
-];
-
 // Idempotent production-safe setup for the lightweight entry-list tables.
-// Keeping this as a protected admin endpoint lets GitHub Actions initialize a
-// fresh Railway database without needing the DATABASE_URL secret in GitHub.
+// Source discovery/selection lives outside this route. We intentionally do not
+// seed tournament- or federation-specific websites here: the experiment is now
+// focused on centralized sources that can cover an entire ATP week.
 export async function GET() {
   await pool.query(`
     create table if not exists acceptance_list_sources (
@@ -87,54 +58,17 @@ export async function GET() {
       on acceptance_list_snapshots(source_id, fetched_at desc);
   `);
 
-  const seeded: Array<Record<string, unknown>> = [];
-  for (const source of VERIFIED_PUBLIC_SOURCES) {
-    const edition = await pool.query<{ id: string; name: string }>(
-      `
-      select te.id, t.name
-      from tournament_editions te
-      join tournaments t on t.id = te.tournament_id
-      where te.year = $1
-        and lower(t.city) = lower($2)
-        and te.status = 'held'
-        and te.level not ilike 'ITF%'
-      order by te.updated_at desc
-      limit 1
-      `,
-      [source.year, source.city]
-    );
+  // Earlier proof-of-concept rows pointed directly at organizer sites. Preserve
+  // their snapshots for comparison, but stop polling those sources going forward.
+  const deactivated = await pool.query<{ id: string }>(
+    `
+    update acceptance_list_sources
+    set active = false, next_check_at = null, updated_at = now()
+    where source_type in ('official_tournament_pdf', 'official_federation_pdf')
+      and active = true
+    returning id
+    `
+  );
 
-    if (!edition.rows[0]) {
-      seeded.push({ city: source.city, year: source.year, status: 'edition_not_found' });
-      continue;
-    }
-
-    const result = await pool.query<{ id: string }>(
-      `
-      insert into acceptance_list_sources (
-        tournament_edition_id, event_type, draw_type, atp_code,
-        source_type, source_url, active, next_check_at, updated_at
-      ) values ($1, $2, $3, $4, 'official_tournament_pdf', $5, true, now(), now())
-      on conflict (tournament_edition_id, event_type, draw_type, source_url)
-      do update set
-        atp_code = excluded.atp_code,
-        source_type = excluded.source_type,
-        active = true,
-        next_check_at = least(acceptance_list_sources.next_check_at, now()),
-        updated_at = now()
-      returning id
-      `,
-      [edition.rows[0].id, source.eventType, source.drawType, source.atpCode, source.sourceUrl]
-    );
-
-    seeded.push({
-      tournament: edition.rows[0].name,
-      eventType: source.eventType,
-      drawType: source.drawType,
-      sourceId: result.rows[0]?.id,
-      status: 'seeded',
-    });
-  }
-
-  return NextResponse.json({ ok: true, seeded });
+  return NextResponse.json({ ok: true, deactivatedRegionalSources: deactivated.rowCount ?? 0 });
 }
