@@ -1,0 +1,60 @@
+name: Entry list sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Four cheap passes per day, offset from the top of the hour. The API itself
+    # decides whether each source is actually due (24h when >21 days out, 6h
+    # inside 21 days), so most scheduled runs are no-ops.
+    - cron: '37 */6 * * *'
+
+concurrency:
+  group: entry-list-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sync public acceptance lists
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "APP_URL and ADMIN_SECRET repository secrets are required"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          base = os.environ['APP_URL'].strip().rstrip('/')
+          if not base.startswith(('http://', 'https://')):
+              base = 'https://' + base
+
+          # The endpoint checks at most 12 due sources at a time. Calling it a
+          # few times lets a busy week drain up to 48 sources without creating a
+          # long-running Railway request. Once no source is due we stop.
+          for batch in range(4):
+              url = base + '/api/sync-entry-lists?limit=12'
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      'Accept': 'application/json',
+                      'User-Agent': 'TennisCutsEntryListSync/1.0',
+                      'X-Admin-Secret': os.environ['ADMIN_SECRET'],
+                  },
+              )
+              print(f'GET {url} (batch {batch + 1}/4)', flush=True)
+              with urllib.request.urlopen(req, timeout=120) as res:
+                  data = json.loads(res.read().decode('utf-8'))
+              print(json.dumps(data)[:5000], flush=True)
+              if int(data.get('checked', 0)) == 0:
+                  break
+          PY
