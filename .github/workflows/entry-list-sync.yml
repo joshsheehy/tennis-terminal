@@ -1,77 +1,18 @@
 name: Entry list sync
 
+# Temporarily manual-only while we validate a direct ATP / PlayerZone-public
+# source. Do not use third-party aggregators as the production hub.
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/entry-list-sync.yml'
-      - 'src/lib/entry-list-source.ts'
-      - 'src/app/api/setup-entry-lists/route.ts'
-      - 'src/app/api/sync-central-entry-lists/route.ts'
-      - 'sql/014_create_central_entry_list_weeks.sql'
-  schedule:
-    # One ~190 KB centralized page fetch four times per day. The app hashes only
-    # the target ATP week and writes nothing unless that week's lists changed.
-    - cron: '37 */6 * * *'
 
 concurrency:
   group: entry-list-sync
   cancel-in-progress: true
 
 jobs:
-  sync:
+  hold:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Sync centralized ATP entry lists
-        env:
-          APP_URL: ${{ secrets.APP_URL }}
-          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+      - name: Explain hold
         run: |
-          set -euo pipefail
-
-          if [ -z "${APP_URL:-}" ] || [ -z "${ADMIN_SECRET:-}" ]; then
-            echo "APP_URL and ADMIN_SECRET repository secrets are required"
-            exit 1
-          fi
-
-          python3 - <<'PY'
-          import json
-          import os
-          import time
-          import urllib.error
-          import urllib.request
-
-          base = os.environ['APP_URL'].strip().rstrip('/')
-          if not base.startswith(('http://', 'https://')):
-              base = 'https://' + base
-
-          headers = {
-              'Accept': 'application/json',
-              'User-Agent': 'TennisCutsEntryListSync/2.0',
-              'X-Admin-Secret': os.environ['ADMIN_SECRET'],
-          }
-
-          def get(path, timeout=90, retries=4):
-              url = base + path
-              last = None
-              for attempt in range(1, retries + 1):
-                  print(f'GET {url} ({attempt}/{retries})', flush=True)
-                  req = urllib.request.Request(url, headers=headers)
-                  try:
-                      with urllib.request.urlopen(req, timeout=timeout) as res:
-                          data = json.loads(res.read().decode('utf-8'))
-                      print(json.dumps(data)[:8000], flush=True)
-                      return data
-                  except (urllib.error.URLError, TimeoutError) as exc:
-                      last = exc
-                      if attempt < retries:
-                          time.sleep(10 * attempt)
-              raise RuntimeError(f'{url} failed: {last}')
-
-          # Idempotent schema setup also disables the old regional-site proof rows.
-          get('/api/setup-entry-lists')
-          # No web search and no tournament-by-tournament requests: one central
-          # source is parsed for the next ATP week and snapshotted only if changed.
-          get('/api/sync-central-entry-lists')
-          PY
+          echo "Automatic entry-list sync is paused until a direct ATP/PZ-public source is validated."
