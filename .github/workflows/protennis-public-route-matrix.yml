@@ -1,0 +1,55 @@
+name: ProTennisLive public route matrix
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/protennis-public-route-matrix.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Test documented official feed routes without credentials
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re, urllib.request, urllib.error
+          base='https://api.protennislive.com/feeds'
+          hdr={'User-Agent':'Mozilla/5.0 (compatible; TennisCutsOfficialSourceResearch/1.0)','Accept':'application/json,text/plain,*/*'}
+          paths=[
+            '/PlayerList/2026/3103',
+            '/Tournaments/calendar',
+            '/Tournaments/participants',
+            '/Tournaments/2026/3103',
+            '/Draws/2026/3103',
+            '/Results/2026/3103',
+            '/Schedules/2026/3103',
+            '/Ranks/rankdate',
+            '/Ranks/sglroll/1/10',
+            '/Players',
+            '/LiveMatches',
+          ]
+          def req(path):
+              u=base+path
+              r=urllib.request.Request(u,headers=hdr)
+              try:
+                  with urllib.request.urlopen(r,timeout=15) as x:
+                      b=x.read(300000); return x.status,x.headers,b
+              except urllib.error.HTTPError as e:
+                  return e.code,e.headers,e.read(300000)
+              except Exception as e:
+                  return None,{},str(e).encode()
+          for p in paths:
+              st,h,b=req(p)
+              t=b.decode('utf-8','replace')
+              print('\n',p,'=>',st,h.get('content-type'),'bytes',len(b),'www-auth',h.get('www-authenticate'))
+              print(re.sub(r'\s+',' ',t)[:500])
+
+          spec=json.loads(urllib.request.urlopen(urllib.request.Request(base+'/swagger/orgclient/swagger.json',headers=hdr),timeout=15).read().decode())
+          print('\nGLOBAL SECURITY',spec.get('security'))
+          for p in ['/PlayerList/{tournamentYear}/{tournamentId}','/Tournaments/participants','/Tournaments/calendar']:
+              op=spec.get('paths',{}).get(p,{}).get('get',{})
+              print('OP',p,'security=',op.get('security','<inherits>'),'parameters=',op.get('parameters'))
+          PY
