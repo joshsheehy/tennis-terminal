@@ -1,0 +1,62 @@
+name: ATP auth and PZ assets probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/atp-auth-and-pz-assets-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect public auth metadata and first-party PlayerZone assets
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,re,urllib.parse,urllib.request,urllib.error
+          H={'User-Agent':'Mozilla/5.0','Accept':'*/*'}
+          def get(u,timeout=15,limit=5_000_000):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(u,headers=H),timeout=timeout) as r:
+                      return r.status,r.headers,r.read(limit),r.geturl()
+              except urllib.error.HTTPError as e:return e.code,e.headers,e.read(limit),u
+              except Exception as e:print('ERR',u,type(e).__name__,str(e));return None,{},b'',u
+
+          # OpenAPI: enumerate any auth/token/session endpoints or OAuth metadata.
+          u='https://api.protennislive.com/feeds/swagger/orgclient/swagger.json'
+          st,h,b,final=get(u)
+          spec=json.loads(b.decode())
+          print('OPENAPI',st,'securitySchemes=',json.dumps(spec.get('components',{}).get('securitySchemes',{})))
+          for path,ops in spec.get('paths',{}).items():
+              if any(k in path.lower() for k in ['auth','token','login','session','credential','key']):
+                  print('AUTH_PATH',path,json.dumps(ops)[:4000])
+          raw=json.dumps(spec)
+          for key in ['issuer','authority','oauth','tokenurl','clientid','client_id','bearerformat']:
+              print('SPEC_TERM',key, key in raw.lower())
+
+          # PlayerZone login HTML: expose first-party script names, form actions and AJAX URLs.
+          login='https://www.atppz.com/registration/login'
+          st,h,b,final=get(login)
+          html=b.decode('utf-8','replace')
+          print('\nLOGIN',st,final,'bytes',len(b))
+          for action in re.findall(r'<form[^>]*action=["\']([^"\']*)',html,re.I):print('FORM',urllib.parse.urljoin(final,action))
+          scripts=[]
+          for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',html,re.I):
+              x=urllib.parse.urljoin(final,src);scripts.append(x);print('SCRIPT_SRC',x)
+          for patt in [r'url\s*:\s*["\']([^"\']+)',r'fetch\s*\(\s*["\']([^"\']+)',r'axios\.[a-z]+\s*\(\s*["\']([^"\']+)']:
+              for x in re.findall(patt,html,re.I):print('INLINE_ENDPOINT',urllib.parse.urljoin(final,x))
+          for i,x in enumerate(scripts):
+              host=urllib.parse.urlparse(x).hostname or ''
+              if host not in ['www.atppz.com','atppz.com','rsc.atppz.com']:continue
+              st2,h2,b2,f2=get(x,timeout=10)
+              s=b2.decode('utf-8','replace')
+              print('\nFIRSTPARTY',i,st2,f2,'bytes',len(b2))
+              # Print only URLs/routes, not generic vendor context.
+              vals=set()
+              for p in [r'https?://[^"\'\\\s<>]+',r'["\'](/[^"\']{2,160})["\']']:
+                  for v in re.findall(p,s):
+                      if any(k in v.lower() for k in ['api','login','registration','player','report','accept','eceas','service','tournament','auth','token']):vals.add(v)
+              for v in sorted(vals)[:150]:print('ROUTE',v)
+          PY
