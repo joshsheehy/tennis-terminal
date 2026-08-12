@@ -1,0 +1,51 @@
+RUN_UTC 2026-08-12T03:37:17.471915+00:00
+POST_STATUS 200 BYTES 43920 FINAL https://www.spaziotennis.com/wp-json/wp/v2/posts/139834
+
+===== CURRENT https://www.spaziotennis.com/wp-json/wp/v2/posts/139834 =====
+TYPE dict COUNT 
+id 139834
+date 2026-07-29T08:13:08
+date_gmt 2026-07-29T06:13:08
+modified 2026-08-03T22:29:21
+modified_gmt 2026-08-03T20:29:21
+slug entry-list-atp-challenger-2026-week-33-cancun-quebec-city-kingston-praga-roehampton-sion
+link https://www.spaziotennis.com/trn/ent/entry-list-atp-challenger-2026-week-33-cancun-quebec-city-kingston-praga-roehampton-sion/139834
+status publish
+LINKS {"self": [{"href": "https://www.spaziotennis.com/wp-json/wp/v2/posts/139834", "targetHints": {"allow": ["GET"]}}], "collection": [{"href": "https://www.spaziotennis.com/wp-json/wp/v2/posts"}], "about": [{"href": "https://www.spaziotennis.com/wp-json/wp/v2/types/post"}], "author": [{"embeddable": true, "href": "https://www.spaziotennis.com/wp-json/wp/v2/users/88"}], "replies": [{"embeddable": true, "href": "https://www.spaziotennis.com/wp-json/wp/v2/comments?post=139834"}], "version-history": [{"count": 4, "href": "https://www.spaziotennis.com/wp-json/wp/v2/posts/139834/revisions"}], "predecessor-version": [{"id": 140241, "href": "https://www.spaziotennis.com/wp-json/wp/v2/posts/139834/revisions/140241"}], "wp:featuredmedia": [{"embeddable": true, "href": "https://www.spaziotennis.com/wp-json/wp/v2/media/119225"}], "wp:attachment": [{"href": "https://www.spaziotennis.com/wp-json/wp/v2/media?parent=139834"}], "wp:term": [{"taxonomy": "category", "embeddable": true, "href": "https://www.spaziotennis.com/wp-json/wp/v2/categories?post=139834"}, {"taxonomy": "post_tag", "embeddable": true, "href": "https://www.spaziotennis.com/wp-json/wp/v2/tags?post=139834"}], "curies": [{"name": "wp", "href": "https://api.w.org/{rel}", "templated": true}]}
+CONTENT_TEXT
+ Le entry list e i partecipanti dei sei tornei Atp Challenger della Settimana 33 (17-23 agosto 2026) . Due ricchi eventi nella settimana che precede le qualificazioni degli Us Open e che coincidi con gli ultimi turni del Masters 1000 di Cincinnati. Sia in Canada che in Messico tanti i top-100 a caccia di punti importanti. Di seguito tutte le entry list dei sei Atp Challenger in programma la trentaduesima settimana della stagione. 
+ IL CALENDARIO ATP COMPLETO 
+ IL CALENDARIO WTA COMPLETO 
+ IL CALENDARIO ATP CHALLENGER 
+ TUTTE LE ENTRY LIST COMPLETE DEL 2026 
+ ENTRY LIST CHALLENGER WEEK 33 (17-23 AGOSTO ) 
+ ENTRY LIST ATP CHALLENGER 175 CANCUN 
+ OUT Darderi, Luciano ITA 23 Cerúndolo, Juan Manuel ARG 50 Báez, Sebastián ARG 53 Burruchaga, Román ARG 58 Tirante, Thiago ARG 64 Vallejo, Adolfo Daniel PAR 65 Shapovalov, Denis CAN 68 Kopriva, Vít CZE 70 Majchrzak, Kamil POL 72 Carabelli, Camilo Ugo ARG 75 Safiullin, Roman 92 Walton, Adam AUS 96 Comesaña, Francisco ARG 100 Džumhur, Damir BIH 102 Wong, Coleman HKG 108 Virtanen, Otto FIN 115 Švrčina, Dalibor CZE 116 Wu, Yibing CHN 117 Zheng, Michael USA 118 Kouame, Moise FRA 213 (NG) Blanch, Darwin USA 226 (NG) 
+ ALTERNATES IN Rocha, Henrique POR 123 Ofner, Sebastian AUT 124 Wawrinka, Stan SUI 125 Gea, Arthur FRA 127 Llamas Ruiz, Pablo ESP 129 Mejia, Nicolas COL 131 Muller, Alexandre FRA 132 Barrios Vera, Tomás CHI 138 Garín, Cristian CHI 139 McDonald, Mackenzie USA 145 
+ ENTRY LIST ATP CHALLENGER 175 QUEBEC CITY 
+ Blockx, Alexander BEL 32 Bergs, Zizou BEL 36 Fery, Arthur GBR 37 Van Assche, Luca FRA 48 Halys, Quentin FRA 52 Atmane, Terence FRA 56 Shang, Juncheng CHN 56 (PR) van de Zandschulp, Botic NED 69 Duckworth, James AUS 83 Mpetshi Perricard, Giovanni FRA 87 Choinski, Jan GBR 88 Gaston, Hugo FRA 90 Hijikata, Rinky AUS 93 Shimabukuro, Sho JPN 94 Prizmic, Dino CRO 98 Diallo, Gabriel CAN 99 Bonzi, Benjamin FRA 101 Popyrin, Alexei AUS 103 Vukic, Aleksandar AUS 105 Budkov Kjaer, Nicolai NOR 144 (NG) Sakamoto, Rei JPN 166 (NG) 
+ ALTERNATES de Jong, Jesper NED 106 Spizzirri, Eliot USA 109 Fearnley, Jacob GBR 110 Bu, Yunchaokete CHN 111 Samuel, Toby GBR 112 Kypson, Patrick USA 113 Mochizuki, Shintaro JPN 114 Droguet, Titouan FRA 119 Jacquet, Kyrian FRA 120 Sweeny, Dane AUS 121 
+ ENTRY LIST ATP CHALLENGER 75 KINGSTON 
+ Royer, Valentin FRA 78 Heide, Gustavo BRA 134 Martínez, Pedro ESP 148 Prado Angelo, Juan Carlos BOL 157 Bueno, Gonzalo PER 160 Glinka, Daniil EST 169 Tomic, Bernard AUS 171 Schwaerzler, Joel AUT 183 Gómez, Federico ARG 191 Midón, Lautaro ARG 196 Broady, Liam GBR 202 Ymer, Elias SWE 203 Chidekh, Clément FRA 204 Wendelken, Harry GBR 205 Draxl, Liam CAN 211 Gill, Felix GBR 219 Justo, Guido ARG 223 Added, Dan FRA 224 Roncadelli, Franco URU 225 Miguel, Guto BRA 11 (JR) Willwerth, Benjamin USA 19 (JR) 
+ ALTERNATES IN Crawford, Oliver GBR 228 Ferreira Silva, Frederico POR 235 Clarke, Jay GBR 237 Bax, Florent FRA 247 Mayot, Harold FRA 255 Andrade, Andy ECU 262 Ficovich, Juan Pablo ARG 273 Guillen Meza, Alvaro ECU 277 Broom, Charles GBR 283 Erel, Yanki TUR 287 
+ ENTRY LIST ATP CHALLENGER 75 PRAGA 
+ Kolar, Zdenek CZE 154 Sachko, Vitaliy UKR 192 Coppejans, Kimmer BEL 218 Bailly, Gilles Arnaud BEL 230 Feldbausch, Kilian SUI 242 Nedic, Andrej BIH 244 Nagal, Sumit IND 246 Soto, Matias CHI 252 Dodig, Matej CRO 258 Tseng, Chun-Hsin TPE 260 Krumich, Martin CZE 261 Cretu, Cezar ROU 263 Barrena, Alex ARG 264 OUT Ribecai, Michele ITA 267 Barton, Hynek CZE 268 Hardt, Nick DOM 275 Torres, Juan Bautista ARG 276 Jianu, Filip Cristian ROU 279 Broska, Florian GER 284 Vasami, Jacopo ITA 2 (JR) Faurel, Thomas FRA 321 
+ ALTERNATES IN Damas, Miguel ESP 289 Galán, Daniel COL 290 Cuenin, Sean FRA 299 Mrva, Maxim CZE 304 Roca Batalla, Oriol ESP 338 Rehberg, Max Hans GER 339 Brunclik, Petr CZE 340 Forejtek, Jonas CZE 345 Topo, Marko GER 348 Wiskandt, Max GER 365 
+ ENTRY LIST ATP CHALLENGER 50 ROEHAMPTON 
+ Moller, Elmer DEN 190 Hussey, Giles GBR 253 Basing, Max GBR 257 Gray, Alastair GBR 266 Martineau, Matteo FRA 280 Pucinelli De Almeida, Matheus BRA 297 Alkaya, Mert TUR 298 Monday, Johannus GBR 312 OUT Stewart, Hamish GBR 331 Geerts, Michael BEL 337 Matusevich, Anton GBR 342 Dhamne, Manas IND 372 Friend, Jay JPN 376 Shimizu, Yuta JPN 380 Maxted, Lui GBR 398 Jones, Maximus THA 417 OUT Vandermeersch, Cyril FRA 422 Boitan, Adrian ROU 429 Poullain, Lucas FRA 439 Badenhorst, Devin RSA 10 (CO) Ivanov, Ivan BUL 7 (JR) 
+ ALTERNATES IN Radulov, Iliyan BUL 441 IN Potenza, Luca ITA 447 Loffhagen, George GBR 453 Langmo, Christian USA 457 OUT Bennani, Karim MAR 458 Rybakov, Alex USA 475 Shepp, Anton NZL 489 Durasovic, Viktor NOR 490 Bittoun Kouzmine, Constantin FRA 507 Matsuda, Koki JPN 514 
+ ENTRY LIST ATP CHALLENGER 50 SION 
+ Giustino, Lorenzo ITA 201 La Serna, Juan Manuel ARG 282 Kopp, Sandro AUT 286 Bondioli, Federico ITA 291 Romano, Filippo ITA 300 Ajdukovic, Duje CRO 307 Hemery, Calvin FRA 318 Moeller, Marvin GER 319 Dalla Valle, Enrico ITA 323 Dellien, Murkel BOL 327 Estevez, Juan ARG 329 Mena, Facundo ARG 330 Casanova, Hernan ARG 334 Milic, Ognjen SRB 336 Chepelev, Andrey 351 Compagnucci, Tommaso ITA 358 Nesterov, Petr BUL 360 Ratti, Lucio ARG 364 Kuzmanov, Dimitar BUL 375 Erhard, Mathys FRA 383 Dahlin, Max SWE 9 (CO) 
+ ALTERNATES Kravchenko, Georgii UKR 387 Perot, Raphael FRA 388 Blancaneaux, Geoffrey FRA 408 Nikles, Johan SUI 412 Prihodko, Oleg MKD 414 Giunta, Massimo ITA 418 Brunold, Mika SUI 420 Bernet, Henry SUI 426 Aboian, Valerio ARG 427 Orlov, Vladyslav UKR 430 
+
+
+REVLIST_STATUS ERR BYTES 0 FINAL HTTP Error 401: Unauthorized
+
+
+REVLIST_STATUS ERR BYTES 0 FINAL HTTP Error 401: Unauthorized
+
+
+REVLIST_STATUS ERR BYTES 0 FINAL HTTP Error 401: Unauthorized
+
+
+REV_COUNT 0
