@@ -11,51 +11,41 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - name: Probe X search and public syndication
+      - name: Trace LiveTennis Q-list backend
         run: |
           python3 - <<'PY'
-          import re, urllib.request, urllib.parse, html
+          import re, urllib.request, html
           UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,*/*'}
           def get(url):
             try:
               req=urllib.request.Request(url,headers=UA)
               with urllib.request.urlopen(req,timeout=25) as r:
                 return r.status,r.geturl(),r.read().decode('utf-8','replace')
-            except Exception as e: return 'ERR',str(e),''
-          def clean(s):
-            s=re.sub(r'<script.*?</script>',' ',s,flags=re.S|re.I)
-            s=re.sub(r'<style.*?</style>',' ',s,flags=re.S|re.I)
-            s=re.sub(r'<[^>]+>','\n',s)
-            s=html.unescape(s)
-            s=re.sub(r'[ \t]+',' ',s)
-            return re.sub(r'\n\s*\n+','\n',s)
+            except Exception as e:return 'ERR',str(e),''
 
-          queries=[
-            'from:CHQ_Updates Cancun since:2026-07-20 until:2026-08-12',
-            'from:CHQ_Updates Quebec since:2026-07-20 until:2026-08-12',
-            'from:CHQ_Updates Kingston since:2026-07-20 until:2026-08-12',
-            'from:CHQ_Updates Roehampton since:2026-07-20 until:2026-08-12',
-            'from:CHQ_Updates Prague since:2026-07-20 until:2026-08-12',
-            'from:CHQ_Updates Sion since:2026-07-20 until:2026-08-12',
-            'from:CHQ_Updates "Qualifying list" since:2026-07-20 until:2026-08-12',
-            'from:CHQ_Updates "Next:" since:2026-07-20 until:2026-08-12',
-          ]
-          urls=[
-            'https://syndication.twitter.com/srv/timeline-profile/screen-name/CHQ_Updates',
-            'https://syndication.twitter.com/srv/timeline-profile/screen-name/CHQ_Updates?dnt=true',
-          ]
-          for q in queries:
-            enc=urllib.parse.quote(q)
-            urls += [
-              f'https://x.com/search?q={enc}&src=typed_query&f=live',
-              f'https://r.jina.ai/https://x.com/search?q={enc}%26src=typed_query%26f=live',
-              f'https://r.jina.ai/http://x.com/search?q={enc}%26src=typed_query%26f=live',
-            ]
-          for url in urls:
+          pages={
+            'old':'https://www.livetennis.it/post/446046/challenger-todi-cancun-barranquilla-sumter-sofia-1-e-hersonissos-3-la-situazione-aggiornata-md-e-qualificazioni/',
+            'current':'https://www.livetennis.it/post/469551/challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun/',
+          }
+          for label,url in pages.items():
             st,final,b=get(url)
-            t=clean(b) if b else ''
-            print('\n===== ',url,' STATUS ',st,' BYTES ',len(b),' FINAL ',final,' =====')
-            print(t[:9000])
-            ids=re.findall(r'(?:status/|tweet_id["=:]+)(\d{10,})',b)
-            if ids: print('TWEET_IDS',list(dict.fromkeys(ids))[:50])
+            print('\n=====PAGE',label,st,len(b),final,'=====')
+            low=b.lower()
+            for needle in ['challenger cancun (q)','cancun (q)','entry list','alternates','ajax','admin-ajax','wp-json','shortcode','tournament','qualific']:
+              poss=[m.start() for m in re.finditer(re.escape(needle),low)]
+              print('\nNEEDLE',needle,'COUNT',len(poss),'FIRST',poss[:10])
+              for pos in poss[:4]:
+                print(b[max(0,pos-1200):pos+3000])
+            print('\n--- ATTR/HREF HINTS ---')
+            for m in re.finditer(r'<[^>]+(?:data-[^=>]+|onclick|href|src)=[^>]+>',b,re.I):
+              s=m.group(0)
+              if re.search(r'entry|challenger|ajax|qual|cancun|torneo|tournament',s,re.I):
+                print(s[:1800])
+            print('\n--- SCRIPT URLS ---')
+            for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',b,re.I):
+              print(src)
+            print('\n--- FORM/AJAX TOKENS ---')
+            for pat in [r'ajaxurl.{0,500}',r'action["\']?\s*[:=].{0,300}',r'nonce.{0,300}',r'wp_ajax.{0,300}',r'fetch\(.{0,500}',r'XMLHttpRequest.{0,500}',r'\.post\(.{0,500}']:
+              for m in re.finditer(pat,b,re.I|re.S):
+                print(re.sub(r'\s+',' ',m.group(0))[:1000])
           PY
