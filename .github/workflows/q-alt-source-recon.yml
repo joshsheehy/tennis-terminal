@@ -11,49 +11,39 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Probe Week 33 ProTennisLive posting IDs
+      - name: Map Week 33 ProTennisLive posting IDs slowly
         run: |
           mkdir -p research
           python3 -m pip install --quiet pypdf
-          python3 - <<'PY' > research/ptl-week33-candidates.txt
-          import urllib.request, hashlib, io, datetime
+          python3 - <<'PY' > research/ptl-week33-id-map.txt
+          import urllib.request, hashlib, io, datetime, time
           from pypdf import PdfReader
 
           IDS=[3009,3013,3017,3019,3031,3037,3103,3121,600]
-          FILES=['mds.pdf','qs.pdf','fs.pdf','md.pdf','mdd.pdf','qd.pdf']
           UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'application/pdf,*/*'}
-
-          def fetch(url):
+          print('RUN_UTC',datetime.datetime.now(datetime.timezone.utc).isoformat())
+          for idx,tid in enumerate(IDS):
+            if idx: time.sleep(7)
+            url=f'https://www.protennislive.com/posting/2026/{tid}/mds.pdf'
             try:
               req=urllib.request.Request(url,headers=UA)
-              with urllib.request.urlopen(req,timeout=12) as r:
-                return str(r.status),r.geturl(),r.headers.get('content-type',''),r.read()
-            except Exception as e:
-              return 'ERR',str(e),'',b''
-
-          print('RUN_UTC',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          for tid in IDS:
-            print(f'\n######## ID {tid} ########')
-            for filename in FILES:
-              url=f'https://www.protennislive.com/posting/2026/{tid}/{filename}'
-              status,final,ctype,data=fetch(url)
-              sha=hashlib.sha256(data).hexdigest()[:16] if data else '-'
-              print(f'\n===== {tid}/{filename} STATUS={status} BYTES={len(data)} TYPE={ctype} SHA={sha} FINAL={final} =====')
-              if not data.startswith(b'%PDF'):
-                if data: print(data[:500].decode('utf-8','replace'))
-                continue
-              try:
+              with urllib.request.urlopen(req,timeout=15) as r:
+                data=r.read(); status=r.status; ctype=r.headers.get('content-type','')
+              sha=hashlib.sha256(data).hexdigest()[:16]
+              print(f'\n===== ID={tid} STATUS={status} BYTES={len(data)} TYPE={ctype} SHA={sha} =====')
+              if data.startswith(b'%PDF'):
                 reader=PdfReader(io.BytesIO(data))
-                print('PAGES',len(reader.pages))
-                text='\n'.join((p.extract_text() or '') for p in reader.pages[:3])
-                print(text[:18000])
-              except Exception as e:
-                print('PDF_PARSE_ERR',repr(e))
+                text='\n'.join((p.extract_text() or '') for p in reader.pages[:2])
+                print(text[:12000])
+              else:
+                print(data[:500].decode('utf-8','replace'))
+            except Exception as e:
+              print(f'\n===== ID={tid} ERR={e!r} =====')
           PY
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/ptl-week33-candidates.txt
-          git commit -m "Save Week 33 PTL candidate probe" || exit 0
+          git add research/ptl-week33-id-map.txt
+          git commit -m "Save Week 33 PTL ID map" || exit 0
           git push
