@@ -8,45 +8,52 @@ permissions:
 jobs:
   recon:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Trace Spazio dynamic entry list backend
+      - name: Probe Week 33 ProTennisLive posting IDs
         run: |
           mkdir -p research
-          python3 - <<'PY' > research/spazio-backend-trace.txt
-          import urllib.request,json,re,urllib.parse,datetime
-          UA={'User-Agent':'Mozilla/5.0 Chrome/140 Safari/537.36','Accept':'text/html,application/json,application/javascript,*/*'}
-          def get(u):
+          python3 -m pip install --quiet pypdf
+          python3 - <<'PY' > research/ptl-week33-candidates.txt
+          import urllib.request, hashlib, io, datetime
+          from pypdf import PdfReader
+
+          IDS=[3009,3013,3017,3019,3031,3037,3103,3121,600]
+          FILES=['mds.pdf','qs.pdf','fs.pdf','md.pdf','mdd.pdf','qd.pdf']
+          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'application/pdf,*/*'}
+
+          def fetch(url):
             try:
-              with urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=20) as r:return str(r.status),r.geturl(),r.read().decode('utf-8','replace')
-            except Exception as e:return 'ERR',str(e),''
-          print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          api='https://www.spaziotennis.com/wp-json/wp/v2/posts/139834'
-          st,f,b=get(api); print('API',st,len(b),f)
-          j=json.loads(b); c=j['content']['rendered']
-          print('\n===== RAW RENDERED CONTENT =====\n',c[:100000])
-          for needle in ['Darderi','CANCUN','ALTERNATES','KINGSTON','qual','entry']:
-            print('\nNEEDLE',needle)
-            for m in list(re.finditer(needle,c,re.I))[:15]: print(c[max(0,m.start()-1800):m.start()+5000])
-          print('\n===== TAGS/ATTRS =====')
-          for tag in re.findall(r'<[^>]+>',c):
-            if re.search(r'class=|id=|data-|href=|src=|shortcode|entry|challenger|altern',tag,re.I): print(tag[:2500])
-          page=j['link']; st,f,p=get(page); print('\nPAGE',st,len(p),f)
-          print('\n===== PAGE ENDPOINT HINTS =====')
-          for pat in [r'<script[^>]+src=["\']([^"\']+)',r'<link[^>]+href=["\']([^"\']+)',r'https?://[^"\'<>\s]+',r'wp-content/plugins/[^/"\']+']:
-            vals=[]
-            for m in re.finditer(pat,p,re.I):
-              v=m.group(1) if m.lastindex else m.group(0)
-              if any(x in v.lower() for x in ['plugin','entry','tennis','ajax','api','json','script','wp-']): vals.append(v)
-            for v in list(dict.fromkeys(vals))[:250]: print(v)
-          for term in ['admin-ajax','wp-json','ajax','entry-list','shortcode','alternates','Darderi']:
-            for m in list(re.finditer(term,p,re.I))[:10]: print('\nCTX',term,p[max(0,m.start()-1200):m.start()+3000])
+              req=urllib.request.Request(url,headers=UA)
+              with urllib.request.urlopen(req,timeout=12) as r:
+                return str(r.status),r.geturl(),r.headers.get('content-type',''),r.read()
+            except Exception as e:
+              return 'ERR',str(e),'',b''
+
+          print('RUN_UTC',datetime.datetime.now(datetime.timezone.utc).isoformat())
+          for tid in IDS:
+            print(f'\n######## ID {tid} ########')
+            for filename in FILES:
+              url=f'https://www.protennislive.com/posting/2026/{tid}/{filename}'
+              status,final,ctype,data=fetch(url)
+              sha=hashlib.sha256(data).hexdigest()[:16] if data else '-'
+              print(f'\n===== {tid}/{filename} STATUS={status} BYTES={len(data)} TYPE={ctype} SHA={sha} FINAL={final} =====')
+              if not data.startswith(b'%PDF'):
+                if data: print(data[:500].decode('utf-8','replace'))
+                continue
+              try:
+                reader=PdfReader(io.BytesIO(data))
+                print('PAGES',len(reader.pages))
+                text='\n'.join((p.extract_text() or '') for p in reader.pages[:3])
+                print(text[:18000])
+              except Exception as e:
+                print('PDF_PARSE_ERR',repr(e))
           PY
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/spazio-backend-trace.txt
-          git commit -m "Save Spazio entry backend trace" || exit 0
+          git add research/ptl-week33-candidates.txt
+          git commit -m "Save Week 33 PTL candidate probe" || exit 0
           git push
