@@ -8,6 +8,7 @@ import {
   type Aug17EntryList,
   type EntryListPlayer,
 } from '@/lib/aug17-entry-lists';
+import WhereDoIStand from '@/components/WhereDoIStand';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
@@ -156,6 +157,8 @@ export default async function ListsPage({
           the stale Q section. ATP/PlayerZone remains authoritative.
         </div>
       </div>
+
+      <WhereDoIStand events={AUG17_ENTRY_LISTS} />
 
       <div className={styles.eventGrid} aria-label="Aug 17 tournaments">
         {AUG17_ENTRY_LISTS.map((item) => {
