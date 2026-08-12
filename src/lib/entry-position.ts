@@ -102,13 +102,14 @@ export function standingsForEvents(
     main: ListEntrant[];
     mainNext: ListEntrant[];
     qualifying: ListEntrant[];
-    qualifyingNext: ListEntrant[];
+    /** Optional: most sources publish only a main-draw next-in queue. */
+    qualifyingNext?: ListEntrant[];
   }>
 ): EventStanding[] {
   return events
     .map((e) => {
       const main = standingFor(rank, e.main, e.mainNext, 'main');
-      const qualifying = standingFor(rank, e.qualifying, e.qualifyingNext, 'qualifying');
+      const qualifying = standingFor(rank, e.qualifying, e.qualifyingNext ?? [], 'qualifying');
       const score = outcomeScore(main, qualifying);
       return {
         slug: e.slug,

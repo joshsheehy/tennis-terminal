@@ -5,6 +5,19 @@ export type EntryListPlayer = {
   note?: string;
 };
 
+/**
+ * NOTE ON THE MISSING QUALIFYING ALTERNATE QUEUE
+ *
+ * The source exposes one "next in" queue per tournament, and it belongs to the
+ * MAIN draw. An earlier shape copied it into a `qualifyingNext` field as well,
+ * which rendered main-draw alternates under the qualifying heading — where they
+ * showed up ranked BETTER than the players actually accepted into qualifying,
+ * because they are waiting for a main-draw place, not a qualifying one. It was
+ * a strict subset of `mainNext` in all six events.
+ *
+ * There is no separate qualifying alternate queue in the data, so there is no
+ * field for one. Do not re-derive it from `mainNext`.
+ */
 export type Aug17EntryList = {
   slug: string;
   name: string;
@@ -14,7 +27,6 @@ export type Aug17EntryList = {
   main: EntryListPlayer[];
   mainNext: EntryListPlayer[];
   qualifying: EntryListPlayer[];
-  qualifyingNext: EntryListPlayer[];
   recentMovement: string[];
 };
 
@@ -93,15 +105,6 @@ export const AUG17_ENTRY_LISTS: Aug17EntryList[] = [
       p('Luka Pavlovic', 'FRA', 208),
       p('Laslo Djere', 'SRB', 210),
     ],
-    qualifyingNext: [
-      p('Sebastian Ofner', 'AUT', 124),
-      p('Stan Wawrinka', 'SUI', 125),
-      p('Arthur Gea', 'FRA', 127),
-      p('Pablo Llamas Ruiz', 'ESP', 129),
-      p('Alexandre Muller', 'FRA', 132),
-      p('Cristian Garin', 'CHI', 139),
-      p('Mackenzie McDonald', 'USA', 145),
-    ],
     recentMovement: ['Luciano Darderi withdrew', 'Henrique Rocha moved into the main draw'],
   },
   {
@@ -159,14 +162,6 @@ export const AUG17_ENTRY_LISTS: Aug17EntryList[] = [
       p('Chris Rodesch', 'LUX', 153),
       p('Stefanos Sakellaridis', 'GRE', 155),
       p('Soonwoo Kwon', 'KOR', 158),
-    ],
-    qualifyingNext: [
-      p('Jesper de Jong', 'NED', 106),
-      p('Jacob Fearnley', 'GBR', 110),
-      p('Toby Samuel', 'GBR', 112),
-      p('Shintaro Mochizuki', 'JPN', 114),
-      p('Titouan Droguet', 'FRA', 119),
-      p('Dane Sweeny', 'AUS', 121),
     ],
     recentMovement: [],
   },
@@ -230,11 +225,6 @@ export const AUG17_ENTRY_LISTS: Aug17EntryList[] = [
       p('Edward Winter', 'AUS', 391),
       p('Lucas Andrade Da Silva', 'BRA', null),
       p('Aidan Kim', 'USA', null),
-    ],
-    qualifyingNext: [
-      p('Harold Mayot', 'FRA', 255),
-      p('Charles Broom', 'GBR', 283),
-      p('Yanki Erel', 'TUR', 287),
     ],
     recentMovement: ['Liam Broady withdrew', 'Oliver Crawford moved into the main draw'],
   },
@@ -300,11 +290,6 @@ export const AUG17_ENTRY_LISTS: Aug17EntryList[] = [
       p('Milos Karol', 'SVK', 463),
       p('Lorenzo Carboni', 'ITA', 470),
     ],
-    qualifyingNext: [
-      p('Maxim Mrva', 'CZE', 304),
-      p('Max Hans Rehberg', 'GER', 339),
-      p('Max Wiskandt', 'GER', 365),
-    ],
     recentMovement: ['Michele Ribecai withdrew', 'Miguel Damas moved into the main draw'],
   },
   {
@@ -366,10 +351,6 @@ export const AUG17_ENTRY_LISTS: Aug17EntryList[] = [
       p('Leonardo Rossi', 'ITA', 599),
       p('Daniel De Jonge', 'NED', 603),
       p('Nicolas Tepmahc', 'FRA', 614),
-    ],
-    qualifyingNext: [
-      p('Karim Bennani', 'MAR', 458),
-      p('Koki Matsuda', 'JPN', 514),
     ],
     recentMovement: [
       'Hamish Stewart withdrew',
@@ -440,14 +421,6 @@ export const AUG17_ENTRY_LISTS: Aug17EntryList[] = [
       p('Kai Wehnelt', 'GER', 618),
       p('Maximo Zeitune', 'ARG', 628),
       p('Theo Papamalamis', 'FRA', null),
-    ],
-    qualifyingNext: [
-      p('Georgii Kravchenko', 'UKR', 387),
-      p('Geoffrey Blancaneaux', 'FRA', 408),
-      p('Oleg Prihodko', 'MKD', 414),
-      p('Massimo Giunta', 'ITA', 418),
-      p('Valerio Aboian', 'ARG', 427),
-      p('Vladyslav Orlov', 'UKR', 430),
     ],
     recentMovement: [],
   },

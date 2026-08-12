@@ -48,7 +48,6 @@ function buildAppearanceIndex(): Map<string, Appearance[]> {
     add(event, event.main, 'MD');
     add(event, event.mainNext, 'MD ALT');
     add(event, event.qualifying, 'Q');
-    add(event, event.qualifyingNext, 'Q ALT');
   });
   return index;
 }
@@ -111,7 +110,6 @@ function selectedCrossEntries(event: Aug17EntryList) {
     ...event.main,
     ...event.mainNext,
     ...event.qualifying,
-    ...event.qualifyingNext,
   ];
 
   selectedPlayers.forEach((player) => {
@@ -178,7 +176,6 @@ export default async function ListsPage({
                 <span className={styles.badge}>MD {item.main.length}</span>
                 <span className={styles.badge}>MD ALT {item.mainNext.length}</span>
                 <span className={styles.badge}>Q {item.qualifying.length}</span>
-                <span className={styles.badge}>Q ALT {item.qualifyingNext.length}</span>
               </div>
             </Link>
           );
@@ -233,7 +230,6 @@ export default async function ListsPage({
             <div className={styles.sectionTitle}>Qualifying acceptance</div>
             <ListTable players={event.qualifying} prefix="Q" />
             <div className={styles.sectionTitle}>Qualifying next-in</div>
-            <ListTable players={event.qualifyingNext} prefix="Q ALT" next />
           </div>
         </div>
 
