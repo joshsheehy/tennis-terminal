@@ -72,3 +72,11 @@
   .crossItem { display: grid; gap: 3px; }
   .crossWhere { text-align: left; }
 }
+
+/* The live cut line: first alternate still standing. Colour plus weight, so it
+   still reads if colour is lost. */
+.nextInRow td { color: #ff6b6b; font-weight: 700; }
+.nextInRow .country { filter: none; }
+
+/* Flags carry the nation now, so the cell only needs to hold the glyph. */
+.playerCell .country { margin-left: 6px; font-size: 1.05em; letter-spacing: 0; }

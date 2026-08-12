@@ -16,6 +16,7 @@ import {
 import type { PublicEntryRow, PublicEntryTournament } from '@/lib/spazio-entry-list-parser';
 import { pool } from '@/lib/db';
 import WhereDoIStand from '@/components/WhereDoIStand';
+import { flagFor } from '@/lib/country-flag';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
@@ -236,13 +237,25 @@ function statusClass(row: TrackedEntryRow) {
 }
 
 function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'main' | 'alt' | 'q' }) {
+  // The first alternate who has not withdrawn or been promoted is next in
+  // line. Marking it gives the eye somewhere to land, the way the red row does
+  // in the ATP app.
+  const nextInIndex =
+    section === 'alt'
+      ? rows.findIndex((r) => r.state === 'active')
+      : -1;
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table}>
         <thead><tr><th>#</th><th>Player</th><th className={styles.rank}>Rank</th><th>Status</th></tr></thead>
         <tbody>
           {rows.map((row, index) => (
-            <tr key={`${section}-${row.name}-${index}`} className={rowClass(row, section)}>
+            <tr
+              key={`${section}-${row.name}-${index}`}
+              className={[rowClass(row, section), index === nextInIndex ? styles.nextInRow : null]
+                .filter(Boolean)
+                .join(' ')}
+            >
               {/* One position column. The live alternate number is the one a
                   player acts on, so it wins where it exists; otherwise the
                   original label stands. Showing both side by side made every
@@ -256,7 +269,11 @@ function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'ma
               </td>
               <td className={styles.playerCell}>
                 <span className={styles.playerName}>{row.name}</span>
-                {row.country ? <span className={styles.country}>{row.country}</span> : null}
+                {row.country ? (
+                  <span className={styles.country} title={row.country}>
+                    {flagFor(row.country) ?? row.country}
+                  </span>
+                ) : null}
                 {row.note ? <span className={styles.note}>{row.note}</span> : null}
                 {row.detail ? <span className={styles.rowDetail}>{row.detail}</span> : null}
               </td>
