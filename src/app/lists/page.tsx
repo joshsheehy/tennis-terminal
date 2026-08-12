@@ -239,20 +239,35 @@ function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'ma
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table}>
-        <thead><tr><th>Orig</th><th>Live</th><th>Player</th><th className={styles.rank}>Entry rank</th><th>Status</th><th>Ctry</th></tr></thead>
+        <thead><tr><th>#</th><th>Player</th><th className={styles.rank}>Rank</th><th>Status</th></tr></thead>
         <tbody>
           {rows.map((row, index) => (
             <tr key={`${section}-${row.name}-${index}`} className={rowClass(row, section)}>
-              <td className={styles.pos}>{section === 'q' ? 'Q accepted' : row.originalLabel}</td>
-              <td className={styles.livePos}>{section === 'alt' && row.effectivePosition ? `ALT ${row.effectivePosition}` : '—'}</td>
+              {/* One position column. The live alternate number is the one a
+                  player acts on, so it wins where it exists; otherwise the
+                  original label stands. Showing both side by side made every
+                  row carry a redundant column and an em dash. */}
+              <td className={styles.pos}>
+                {section === 'alt' && row.effectivePosition
+                  ? row.effectivePosition
+                  : section === 'q'
+                    ? ''
+                    : row.originalLabel}
+              </td>
               <td className={styles.playerCell}>
                 <span className={styles.playerName}>{row.name}</span>
+                {row.country ? <span className={styles.country}>{row.country}</span> : null}
                 {row.note ? <span className={styles.note}>{row.note}</span> : null}
                 {row.detail ? <span className={styles.rowDetail}>{row.detail}</span> : null}
               </td>
-              <td className={styles.rank}>{row.rank ?? '—'}</td>
-              <td><span className={`${styles.statusBadge} ${statusClass(row)}`}>{row.statusLabel}</span></td>
-              <td className={styles.country}>{row.country || '—'}</td>
+              <td className={styles.rank}>{row.rank ?? ''}</td>
+              <td>
+                {row.statusLabel && row.statusLabel !== 'In' ? (
+                  <span className={`${styles.statusBadge} ${statusClass(row)}`}>
+                    {row.statusLabel}
+                  </span>
+                ) : null}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -310,8 +325,6 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
         </div>
       </div>
 
-      <WhereDoIStand events={activeEvents} />
-
       <div className={styles.eventGrid} aria-label="Aug 17 tournaments">
         {trackedEvents.map((item) => {
           const on = item.slug === event.slug;
@@ -339,7 +352,8 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
         </div>
 
         <div className={styles.legend}>
-          <span><b>Orig</b> never changes.</span><span><b>Live ALT</b> removes departed/promoted players above.</span><span>Struck rows stay visible so movement is auditable.</span>
+          <span>Alternate numbers are live — players who left or moved up are already removed.</span>
+          <span>Struck rows stay visible so movement is auditable.</span>
         </div>
 
         <div className={styles.columns}>
@@ -395,6 +409,8 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           The automated public poll runs hourly and saves a new raw snapshot only when the source changes. Every explicit OUT/IN/strike is written to a deduplicated movement ledger. PlayerZone/ATP remains authoritative; public-source uncertainty is labeled rather than guessed.
         </p>
       </section>
+
+      <WhereDoIStand events={activeEvents} />
     </main>
   );
 }
