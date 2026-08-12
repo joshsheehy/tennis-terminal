@@ -1,0 +1,28 @@
+RUN_UTC 2026-08-12T23:54:40.353789+00:00
+
+===== ID=3009 STATUS=200 BYTES=2616 TYPE=application/pdf SHA=eaf906597d4921ed =====
+-Tournament Information Not Yet Available-
+
+===== ID=3013 STATUS=200 BYTES=2616 TYPE=application/pdf SHA=eaf906597d4921ed =====
+-Tournament Information Not Yet Available-
+
+===== ID=3017 STATUS=200 BYTES=2616 TYPE=application/pdf SHA=eaf906597d4921ed =====
+-Tournament Information Not Yet Available-
+
+===== ID=3019 STATUS=200 BYTES=2616 TYPE=application/pdf SHA=eaf906597d4921ed =====
+-Tournament Information Not Yet Available-
+
+===== ID=3031 STATUS=200 BYTES=2616 TYPE=application/pdf SHA=eaf906597d4921ed =====
+-Tournament Information Not Yet Available-
+
+===== ID=3037 STATUS=200 BYTES=2616 TYPE=application/pdf SHA=eaf906597d4921ed =====
+-Tournament Information Not Yet Available-
+
+===== ID=3103 STATUS=200 BYTES=2616 TYPE=application/pdf SHA=eaf906597d4921ed =====
+-Tournament Information Not Yet Available-
+
+===== ID=3121 STATUS=200 BYTES=2616 TYPE=application/pdf SHA=eaf906597d4921ed =====
+-Tournament Information Not Yet Available-
+
+===== ID=600 STATUS=200 BYTES=2616 TYPE=application/pdf SHA=eaf906597d4921ed =====
+-Tournament Information Not Yet Available-
