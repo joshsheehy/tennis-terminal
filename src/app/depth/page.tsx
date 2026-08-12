@@ -2,14 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { pool } from '@/lib/db';
 import { buildStrengthView, type StrengthRow } from '@/lib/field-strength-data';
-import {
-  BAND_LABEL,
-  BAND_FIELD_LABEL,
-  BAND_COLOR,
-  scoreMeaning,
-  entryMeaning,
-  projectionTooUncertain,
-} from '@/lib/field-strength';
 import type { Discipline } from '@/lib/depth';
 import { CURRENT_SEASON, AVAILABLE_SEASONS } from '@/lib/seasons';
 
@@ -17,9 +9,60 @@ export const dynamic = 'force-dynamic';
 
 // Hidden surface: not linked from SiteNav, not in the sitemap, noindex.
 export const metadata: Metadata = {
-  title: 'Field strength — how each event compares to last year',
+  title: 'Stronger or weaker than last year',
   robots: { index: false, follow: false },
 };
+
+// THE ONLY QUESTION THIS PAGE ANSWERS
+//
+// Will this tournament's field be stronger or weaker than last year's?
+//
+// An earlier version scored every event 0-100 against every cut ever recorded
+// at its level. That was solving a problem nobody has: a percentile makes an
+// ATP 250 comparable with a Challenger 75, but the comparison people actually
+// make is an event against ITSELF a year ago — same event, same level. For that
+// the cut numbers already compare directly, and #312 -> #394 says more to a
+// tennis player than "98/100" ever could. The scale has been removed.
+
+/** How much the cut moved, as a share of last year's. Relative rather than
+ * absolute because 50 places at a Challenger 50 (cuts near 450) is ordinary,
+ * while 50 places at a Challenger 125 (cuts near 150) is a different event. */
+type Verdict = {
+  label: string;
+  detail: string;
+  color: string;
+} | null;
+
+function verdictFor(row: StrengthRow): Verdict {
+  if (row.cut == null || row.priorCut == null) return null;
+
+  // A projection whose bounds span a huge cut range cannot support a direction.
+  if (row.basis === 'projected' && row.scoreLow != null && row.scoreHigh != null) {
+    if (row.scoreHigh - row.scoreLow > 40) return null;
+  }
+
+  const move = row.cut - row.priorCut;
+  const share = Math.abs(move) / row.priorCut;
+  const places = Math.abs(move);
+
+  if (share < 0.1) {
+    return {
+      label: 'About the same',
+      detail: `${places} places different`,
+      color: '#8a8a8a',
+    };
+  }
+  // A LOWER cut means better players got in: a stronger field, harder to enter.
+  const stronger = move < 0;
+  const much = share >= 0.25 ? 'Much ' : '';
+  return {
+    label: stronger ? `${much}stronger field` : `${much}weaker field`,
+    detail: stronger
+      ? `${places} places tougher to get in`
+      : `${places} places easier to get in`,
+    color: stronger ? '#b3261e' : '#1a7f47',
+  };
+}
 
 function Pick({ href, on, children }: { href: string; on: boolean; children: React.ReactNode }) {
   return (
@@ -29,154 +72,69 @@ function Pick({ href, on, children }: { href: string; on: boolean; children: Rea
   );
 }
 
-/** Two stacked bars: last year's strength and this year's, on one 0-100 axis.
- * The comparison is the point, so they share a scale and sit adjacent. */
-function StrengthBars({ row, year }: { row: StrengthRow; year: number }) {
-  const color = row.band ? BAND_COLOR[row.band] : '#8a8a8a';
-  const Bar = ({
-    value,
-    label,
-    dim,
-    projected = false,
-  }: {
-    value: number | null;
-    label: string;
-    dim: boolean;
-    projected?: boolean;
-  }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-      <span style={{ fontSize: 11, opacity: 0.6, width: 34, textAlign: 'right' }}>{label}</span>
-      <div
-        style={{
-          flex: 1,
-          height: 10,
-          borderRadius: 5,
-          background: 'rgba(128,128,128,0.18)',
-          overflow: 'hidden',
-          maxWidth: 260,
-        }}
-      >
-        {value != null ? (
-          <div
-            style={{
-              width: `${value}%`,
-              height: '100%',
-              background: dim ? 'rgba(128,128,128,0.55)' : color,
-              opacity: projected ? 0.65 : 1,
-            }}
-          />
-        ) : null}
-      </div>
-      <span style={{ fontSize: 12, width: 26, fontWeight: dim ? 400 : 600 }}>
-        {value ?? '—'}
-      </span>
-    </div>
-  );
-  return (
-    <div style={{ minWidth: 260 }}>
-      <Bar value={row.priorScore} label={String(year - 1).slice(2)} dim />
-      <Bar
-        value={row.score}
-        label={String(year).slice(2)}
-        dim={false}
-        projected={row.basis === 'projected'}
-      />
-      {row.basis === 'projected' && row.scoreLow != null && row.scoreHigh != null ? (
-        <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2, paddingLeft: 42 }}>
-          projected · could land {row.scoreLow}–{row.scoreHigh}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function Row_({ row, year }: { row: StrengthRow; year: number }) {
-  const color = row.band ? BAND_COLOR[row.band] : '#8a8a8a';
-  // A projection whose bounds span most of the scale cannot support a
-  // direction, however confident the point estimate looks.
-  const tooUncertain = projectionTooUncertain(row.scoreLow, row.scoreHigh);
+  const v = verdictFor(row);
+  const projected = row.basis === 'projected';
+
   return (
     <li className="card" style={{ padding: 14, marginBottom: 8, display: 'block' }}>
       <div
         style={{
           display: 'flex',
-          gap: 16,
+          gap: 20,
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}
       >
-        <div style={{ minWidth: 220 }}>
+        <div style={{ minWidth: 230 }}>
           <strong style={{ fontSize: 16 }}>{row.name}</strong>
-          <div style={{ fontSize: 13, opacity: 0.65, marginTop: 2 }}>
+          <div style={{ fontSize: 13, opacity: 0.6, marginTop: 2 }}>
             w{row.week} · {row.level}
-            {row.levelChanged && row.priorLevel ? (
-              <span style={{ color: '#c2691e' }}> · was {row.priorLevel}</span>
-            ) : null}
+            {row.levelChanged && row.priorLevel ? ` · was ${row.priorLevel}` : ''}
           </div>
         </div>
 
-        <StrengthBars row={row} year={year} />
+        <div style={{ fontSize: 15, minWidth: 200 }}>
+          <span style={{ opacity: 0.6 }}>{year - 1} cut </span>
+          <strong>#{row.priorCut ?? '—'}</strong>
+          <span style={{ opacity: 0.6 }}> → {year} </span>
+          <strong>
+            {row.cut == null ? '—' : `${projected ? '~#' : '#'}${row.cut}`}
+          </strong>
+        </div>
 
-        <div style={{ minWidth: 150, textAlign: 'right' }}>
-          {row.band && !tooUncertain ? (
+        <div style={{ minWidth: 190, textAlign: 'right' }}>
+          {v ? (
             <>
-              <div style={{ color, fontWeight: 700, fontSize: 15 }}>
-                {BAND_LABEL[row.band]}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                {BAND_FIELD_LABEL[row.band]} than {year - 1}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>
-                cut #{row.priorCut} → {row.basis === 'projected' ? '~#' : '#'}
-                {row.cut}
-              </div>
+              <div style={{ color: v.color, fontWeight: 700, fontSize: 15 }}>{v.label}</div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>{v.detail}</div>
+              {projected ? (
+                <div style={{ fontSize: 11, opacity: 0.55 }}>projected, not played yet</div>
+              ) : null}
             </>
           ) : (
-            <div style={{ fontSize: 13, opacity: 0.6 }}>
-              {tooUncertain
-                ? 'Too uncertain to call yet'
-                : row.score == null
-                ? row.cut == null
-                  ? 'Not played yet, no projection'
-                  : 'Not enough cuts at this level to score'
-                : row.priorCut == null
-                  ? 'No cut recorded last year'
-                  : '—'}
+            <div style={{ fontSize: 13, opacity: 0.55 }}>
+              {row.priorCut == null
+                ? `No ${year - 1} cut to compare`
+                : row.cut == null
+                  ? 'No projection yet'
+                  : 'Too uncertain to call'}
             </div>
           )}
         </div>
       </div>
-      {row.score != null ? (
-        <p style={{ fontSize: 12, opacity: 0.75, margin: '10px 0 0' }}>
-          <strong>{row.score}/100</strong> — {scoreMeaning(row.score, row.level)}.{' '}
-          {entryMeaning(row.score)[0].toUpperCase() + entryMeaning(row.score).slice(1)}
-          {row.basis === 'projected' ? ', on this year\u2019s projection' : ''}.
-        </p>
-      ) : null}
-      {row.itfNote ? (
-        <p
-          style={{
-            fontSize: 12,
-            opacity: 0.75,
-            margin: '8px 0 0',
-            color: row.itf?.exposure === 'high' ? '#c2691e' : undefined,
-          }}
-        >
-          {row.itfNote}
-        </p>
-      ) : null}
+
       {row.levelChanged ? (
-        <p style={{ fontSize: 12, opacity: 0.7, margin: '8px 0 0' }}>
-          Level changed since last season, so each year is scored against a different
-          cohort — the move is not like-for-like.
+        <p style={{ fontSize: 12, opacity: 0.65, margin: '8px 0 0' }}>
+          Changed level since last season, so the two cuts are not like-for-like.
         </p>
       ) : null}
     </li>
   );
 }
 
-export default async function FieldStrengthPage({
+export default async function StrongerOrWeakerPage({
   searchParams,
 }: {
   searchParams: Promise<{ year?: string; discipline?: string; draw?: string; sort?: string }>;
@@ -191,7 +149,9 @@ export default async function FieldStrengthPage({
   const view = await buildStrengthView(pool, year, discipline, drawType);
   const rows = [...view.rows];
   if (sort === 'move') {
-    rows.sort((a, b) => (b.delta ?? -Infinity) - (a.delta ?? -Infinity));
+    const size = (r: StrengthRow) =>
+      r.cut != null && r.priorCut != null ? Math.abs(r.cut - r.priorCut) / r.priorCut : -1;
+    rows.sort((a, b) => size(b) - size(a));
   }
 
   const qs = (o: Record<string, string | number>) =>
@@ -203,92 +163,17 @@ export default async function FieldStrengthPage({
       ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])),
     }).toString()}`;
 
+  const comparable = rows.filter((r) => verdictFor(r) != null).length;
+
   return (
     <main className="page">
       <p className="eyebrow">Internal preview</p>
-      <h1>Field strength vs last year</h1>
-      <p style={{ maxWidth: 730, opacity: 0.85 }}>
-        Each event gets a <strong>strength score out of 100</strong>. It answers one question:{' '}
-        <em>how good was the field compared with every other edition of this same level we
-        have on record?</em>
+      <h1>Stronger or weaker than last year</h1>
+      <p style={{ maxWidth: 700, opacity: 0.85 }}>
+        Each event&apos;s cut this year against the same event last year. A{' '}
+        <strong>lower cut means a stronger field</strong> — better players entered, so it was
+        harder to get in.
       </p>
-
-      <div className="card" style={{ padding: 16, marginTop: 16, maxWidth: 730 }}>
-        <div
-          style={{
-            height: 14,
-            borderRadius: 7,
-            background: 'linear-gradient(90deg,#0f6b3a 0%,#8a8a8a 50%,#b3261e 100%)',
-          }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-          {[
-            ['0', 'Weakest field', 'easiest to get into'],
-            ['50', 'Totally normal', 'for this level'],
-            ['100', 'Strongest field', 'hardest to get into'],
-          ].map(([n, a, b], i) => (
-            <div
-              key={n}
-              style={{
-                textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right',
-                fontSize: 12,
-                lineHeight: 1.35,
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{n}</div>
-              <div>{a}</div>
-              <div style={{ opacity: 0.6 }}>{b}</div>
-            </div>
-          ))}
-        </div>
-        <p style={{ fontSize: 13, marginTop: 14, marginBottom: 0, opacity: 0.85 }}>
-          <strong>Higher always means a stronger field.</strong> A 75 had a better field than
-          a 52 — more good players entered, so the cut was lower and it was harder to get in.
-          A score is only ever compared with the same level, so a Challenger 75 scoring 80 was
-          strong <em>for a Challenger 75</em> — it does not mean it was stronger than an ATP
-          250 scoring 60.
-        </p>
-        <p style={{ fontSize: 13, marginTop: 10, marginBottom: 0, opacity: 0.85 }}>
-          <span style={{ color: '#1a7f47', fontWeight: 700 }}>Green</span> means the event got{' '}
-          <strong>easier to get into</strong> than last year — the opening you can use.{' '}
-          <span style={{ color: '#b3261e', fontWeight: 700 }}>Red</span> means it got tougher.
-        </p>
-      </div>
-      <p style={{ maxWidth: 730, opacity: 0.85 }}>
-        Events already played are <strong>measured</strong> from their real cut. Events still
-        to come are <strong>projected</strong> from the nightly cut model, shown faded with the
-        range they could land in — that is the number to plan against, and it is the least
-        certain thing here. Challenger, ATP and Grand Slam only, since ITF cuts are not
-        collected.
-      </p>
-
-      <details className="card" style={{ padding: 16, marginTop: 12, maxWidth: 730 }}>
-        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-          Where does this number come from?
-        </summary>
-        <p style={{ fontSize: 13, marginTop: 12, opacity: 0.85 }}>
-          <strong>For an event already played</strong> it is that edition&apos;s real cut,
-          ranked against every cut recorded at the same level across all five seasons — not
-          just last year. A Challenger 100 is scored against every Challenger 100 on record.
-        </p>
-        <p style={{ fontSize: 13, opacity: 0.85 }}>
-          <strong>For an event still to come</strong> it is the projected cut, ranked against
-          that same pool. The projection is the nightly model, which combines the event&apos;s
-          own last two cuts, a correction if it changed level, how this season&apos;s cuts are
-          running against last season, how neighbouring events in the same swing have moved
-          in the last three weeks, and the median cut of similar events within two weeks of
-          it last season.
-        </p>
-        <p style={{ fontSize: 13, opacity: 0.85, marginBottom: 0 }}>
-          <strong>What is deliberately not in it:</strong> the count of tournaments in a
-          region. That was measured three separate ways — total event mass in a radius,
-          acceptance places at or above the event&apos;s level, and nearby ITF supply — and
-          none of them predicted a cut better than simply using last year&apos;s. The reason
-          appears to be that the whole calendar expanded together, so it moved every field at
-          once rather than separating one region from another. That tour-wide movement is the
-          figure shown below.
-        </p>
-      </details>
 
       <div className="chip-row" style={{ marginTop: 20 }}>
         {AVAILABLE_SEASONS.map((y) => (
@@ -298,17 +183,22 @@ export default async function FieldStrengthPage({
         ))}
       </div>
       <div className="chip-row" style={{ marginTop: 8 }}>
-        <Pick href={qs({ discipline: 'singles', draw: 'main' })} on={discipline === 'singles' && drawType === 'main'}>
-          Singles main
+        <Pick
+          href={qs({ discipline: 'singles', draw: 'main' })}
+          on={discipline === 'singles' && drawType === 'main'}
+        >
+          Singles
         </Pick>
-        <Pick href={qs({ discipline: 'singles', draw: 'qualifying' })} on={discipline === 'singles' && drawType === 'qualifying'}>
-          Singles qualifying
+        <Pick
+          href={qs({ discipline: 'singles', draw: 'qualifying' })}
+          on={discipline === 'singles' && drawType === 'qualifying'}
+        >
+          Qualifying
         </Pick>
         <Pick href={qs({ discipline: 'doubles', draw: 'main' })} on={discipline === 'doubles'}>
           Doubles
         </Pick>
-      </div>
-      <div className="chip-row" style={{ marginTop: 8 }}>
+        <span className="chip-row__spacer" />
         <Pick href={qs({ sort: 'week' })} on={sort === 'week'}>
           By week
         </Pick>
@@ -317,32 +207,13 @@ export default async function FieldStrengthPage({
         </Pick>
       </div>
 
-      <p style={{ marginTop: 20, fontSize: 13, opacity: 0.7 }}>
-        {view.counts.total} events · {view.counts.scored} scored ·{' '}
-        {view.counts.compared} with a {year - 1} cut to compare against ·{' '}
-        {view.counts.projected} projected
-        {view.unscoredLevels.length > 0
-          ? ` · too few cuts to score: ${view.unscoredLevels.join(', ')}`
-          : ''}
+      <p style={{ marginTop: 18, fontSize: 13, opacity: 0.65 }}>
+        {comparable} of {rows.length} events can be compared with {year - 1}
+        {view.counts.projected > 0 ? ` · ${view.counts.projected} still projected` : ''}
       </p>
 
-      {view.seasonMedianDelta != null ? (
-        <p
-          className="card"
-          style={{ padding: 12, fontSize: 13, marginTop: 12, maxWidth: 730 }}
-        >
-          <strong>
-            The whole calendar moved {view.seasonMedianDelta > 0 ? '+' : ''}
-            {view.seasonMedianDelta} points this season.
-          </strong>{' '}
-          Fields drift tour-wide, so an event that moved by about this much held its
-          position rather than genuinely changing. Read each row against this number, not
-          against zero.
-        </p>
-      ) : null}
-
       {rows.length === 0 ? (
-        <p style={{ opacity: 0.7, marginTop: 20 }}>No cuts recorded for {year} yet.</p>
+        <p style={{ opacity: 0.7, marginTop: 20 }}>Nothing recorded for {year} yet.</p>
       ) : (
         <ol style={{ listStyle: 'none', padding: 0, margin: '16px 0 0' }}>
           {rows.map((r) => (
@@ -351,10 +222,10 @@ export default async function FieldStrengthPage({
         </ol>
       )}
 
-      <p style={{ marginTop: 32, fontSize: 13, opacity: 0.7, maxWidth: 730 }}>
-        A score compares an event only with its own level, so a Challenger 75 at 80 had a
-        strong field <em>for a Challenger 75</em> — not a stronger field than an ATP 250 at 60.{' '}
-        <Link href="/depth/validation">Validation</Link>.
+      <p style={{ marginTop: 28, fontSize: 13, opacity: 0.65, maxWidth: 700 }}>
+        Events already played show their real cut. Events still to come show the nightly
+        model&apos;s projection, marked <code>~</code>. Where that projection is too uncertain
+        to point either way, the row says so rather than guessing a direction.
       </p>
     </main>
   );
