@@ -11,42 +11,56 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Fetch LiveTennis Aug 17 lists
+      - name: Fetch public Aug 17 list sources
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import html, re, urllib.request
           from html.parser import HTMLParser
 
-          url='https://www.livetennis.it/post/469551/challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun/'
-          req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Accept':'text/html,*/*'})
-          with urllib.request.urlopen(req,timeout=20) as r:
-              body=r.read().decode('utf-8','replace')
-              print('STATUS',r.status,'BYTES',len(body),'FINAL',r.geturl())
-
           class Text(HTMLParser):
               def __init__(self):
                   super().__init__(); self.out=[]; self.skip=0
               def handle_starttag(self,tag,attrs):
                   if tag in ('script','style','noscript'): self.skip+=1
-                  if tag in ('p','div','li','h1','h2','h3','h4','br','tr','td','th'): self.out.append('\n')
+                  if tag in ('p','div','li','h1','h2','h3','h4','br','tr','td','th','section'): self.out.append('\n')
               def handle_endtag(self,tag):
                   if tag in ('script','style','noscript') and self.skip: self.skip-=1
-                  if tag in ('p','div','li','h1','h2','h3','h4','tr'): self.out.append('\n')
+                  if tag in ('p','div','li','h1','h2','h3','h4','tr','section'): self.out.append('\n')
               def handle_data(self,data):
                   if not self.skip: self.out.append(data)
-          p=Text(); p.feed(body)
-          text=html.unescape(''.join(p.out))
-          text=re.sub(r'\r','',text)
-          text=re.sub(r'[ \t]+',' ',text)
-          text=re.sub(r'\n\s*\n+','\n',text)
-          # Print just article-related region, bounded before comments/footer when possible.
-          start=text.lower().find('challenger cancun')
-          if start<0: start=0
-          chunk=text[start:]
-          for marker in ['Lascia un commento','Articoli correlati','Ultimi articoli']:
-              pos=chunk.find(marker)
-              if pos>0: chunk=chunk[:pos]
-          print('\n---TEXT---\n')
-          print(chunk[:120000])
+
+          def fetch(url):
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Accept':'text/html,*/*'})
+              with urllib.request.urlopen(req,timeout=20) as r:
+                  body=r.read().decode('utf-8','replace')
+                  print('STATUS',r.status,'BYTES',len(body),'FINAL',r.geturl())
+              return body
+
+          def visible(body):
+              p=Text(); p.feed(body)
+              text=html.unescape(''.join(p.out))
+              text=re.sub(r'\r','',text)
+              text=re.sub(r'[ \t]+',' ',text)
+              text=re.sub(r'\n\s*\n+','\n',text)
+              return text
+
+          live='https://www.livetennis.it/post/469551/challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun/'
+          body=fetch(live); text=visible(body)
+          start=text.lower().find('🎾 atp challenger tour')
+          print('\n---LIVETENNIS---\n',text[start:start+40000])
+
+          tick='https://entries.ticktocktennis.com/atp'
+          body=fetch(tick)
+          print('\nTICK RAW markers',[(m,body.lower().find(m.lower())) for m in ['Aug 17','Cancun','Quebec City','Kingston','Roehampton','Prague','Sion','Qualifying']])
+          text=visible(body)
+          # Print around each target in visible text and raw HTML, plus likely JSON/script blocks containing Aug 17.
+          print('\n---TICK VISIBLE TARGETS---')
+          for term in ['Cancun','Quebec City','Kingston','Roehampton','Prague','Sion']:
+              pos=text.lower().find(term.lower())
+              print('\n###',term,'POS',pos)
+              if pos>=0: print(text[max(0,pos-1200):pos+10000])
+          print('\n---TICK RAW AUG17 CONTEXT---')
+          pos=body.lower().find('aug 17')
+          if pos>=0: print(body[max(0,pos-5000):pos+120000])
           PY
