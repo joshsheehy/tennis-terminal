@@ -1,0 +1,63 @@
+name: ATP Q native recon
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/atp-q-native-recon.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trace ATP qualifying page requests
+        run: |
+          mkdir -p research
+          python3 - <<'PY' > research/atp-q-native-recon.txt
+          import urllib.request,re,urllib.parse,datetime
+          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/javascript,application/json,*/*'}
+          def get(u):
+            try:
+              req=urllib.request.Request(u,headers=UA)
+              with urllib.request.urlopen(req,timeout=12) as r:return str(r.status),r.geturl(),r.read().decode('utf-8','replace')
+            except Exception as e:return 'ERR',str(e),''
+          page='https://www.atptour.com/en/tournaments/cancun/3010/overview'
+          print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
+          st,final,b=get(page); print('PAGE',st,len(b),final); print(b[:12000])
+          scripts=re.findall(r'<script[^>]+src=["\']([^"\']+)',b,re.I)
+          print('\nSCRIPTS',*scripts,sep='\n')
+          for s in scripts[-20:]:
+            u=urllib.parse.urljoin(page,s); st,f,j=get(u)
+            print('\n=====JS',st,len(j),u,'=====')
+            low=j.lower(); hits=[]
+            for term in ['playerlist','player list','tournamentdetails','tournament details','api/','graphql','scores/current','challenger','tournamentid','eventid','3010']:
+              for m in list(re.finditer(re.escape(term),low))[:20]: hits.append((m.start(),term))
+            for p,t in sorted(hits)[:80]: print('\nHIT',t,j[max(0,p-500):p+1800])
+            for m in re.finditer(r'https?://[^"\'\s)]+',j,re.I):
+              v=m.group(0)
+              if any(x in v.lower() for x in ['api','atptour','score','tournament']): print('URL',v[:1000])
+          # probe common public Sitecore/API paths once terminology is known from old ATP site conventions
+          paths=[
+            '/-/api/tournaments/gettournamentdetails?tournamentId=3010&tournamentYear=2026',
+            '/-/api/tournaments/GetTournamentDetails?tournamentId=3010&tournamentYear=2026',
+            '/-/api/tournaments/GetPlayerList?tournamentId=3010&tournamentYear=2026',
+            '/-/api/tournaments/playerlist?tournamentId=3010&tournamentYear=2026',
+            '/-/api/tournaments/PlayerList?tournamentId=3010&tournamentYear=2026',
+            '/-/api/tournaments/GetTournamentPlayerList?tournamentId=3010&tournamentYear=2026',
+            '/-/api/tournaments/gettournamentdetails?eventId=3010&year=2026',
+          ]
+          for p in paths:
+            u='https://www.atptour.com'+p; st,f,x=get(u); print('\n=====PROBE',st,len(x),u,'FINAL',f,'=====\n',x[:12000])
+          PY
+      - name: Commit output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/atp-q-native-recon.txt
+          git commit -m "Save ATP Q native recon" || exit 0
+          git push
