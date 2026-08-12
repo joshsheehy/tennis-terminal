@@ -12,57 +12,68 @@ permissions:
 jobs:
   recon:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect TickTock raw entry data
+      - name: Probe public Week 33 backends
         run: |
           mkdir -p research
-          python3 - <<'PY' > research/ticktock-raw-output.txt
-          import urllib.request,re,html,json,urllib.parse,datetime
-          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/javascript,application/json,*/*'}
-          def get(u):
+          python3 - <<'PY' > research/week33-backend-recon.txt
+          import urllib.request, urllib.parse, re, json, html, datetime
+          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,application/xml,text/xml,*/*'}
+          EVENTS=['cancun','quebec','kingston','prague','praga','roehampton','sion']
+          def get(url):
             try:
-              req=urllib.request.Request(u,headers=UA)
-              with urllib.request.urlopen(req,timeout=25) as r:return r.status,r.geturl(),r.read().decode('utf-8','replace')
+              req=urllib.request.Request(url,headers=UA)
+              with urllib.request.urlopen(req,timeout=25) as r:return str(r.status),r.geturl(),r.read().decode('utf-8','replace')
             except Exception as e:return 'ERR',str(e),''
+          def clean(s):
+            s=re.sub(r'<script.*?</script>',' ',s,flags=re.S|re.I); s=re.sub(r'<style.*?</style>',' ',s,flags=re.S|re.I)
+            s=re.sub(r'<[^>]+>','\n',s); s=html.unescape(s); s=re.sub(r'[ \t]+',' ',s)
+            return re.sub(r'\n\s*\n+','\n',s)
+          def show(label,url,b,st,final):
+            print(f'\n===== {label} STATUS={st} BYTES={len(b)} FINAL={final} URL={url} =====')
+            if not b:return
+            t=clean(b); low=t.lower(); hits=[]
+            terms=EVENTS+['week 33','settimana 33','qualifying','qualificazioni','alternates','withdrawals','cancellati','q alt','qualalt','2026']
+            for term in terms:
+              for m in list(re.finditer(re.escape(term),low))[:30]: hits.append((m.start(),term))
+            hits.sort(); merged=[]
+            for pos,term in hits:
+              a=max(0,pos-700); z=min(len(t),pos+3500)
+              if merged and a<=merged[-1][1]: merged[-1]=(merged[-1][0],max(merged[-1][1],z),merged[-1][2]+'|'+term)
+              else: merged.append((a,z,term))
+            for a,z,why in merged[:50]: print('\n--- HIT '+why+' ---\n'+t[a:z])
+            for pat in [r'https?://[^"\'<>\s]+',r'/api/[^"\'<>\s]+',r'/_next/[^"\'<>\s]+',r'\.json[^"\'<>\s]*']:
+              vals=[]
+              for m in re.finditer(pat,b,re.I):
+                v=m.group(0)
+                if any(x in v.lower() for x in ['api','json','tennis','entry','sitemap','next','data']): vals.append(v)
+              if vals: print('\nURL_HINTS',*list(dict.fromkeys(vals))[:100],sep='\n')
           print('RUN_UTC',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          urls=['https://entries.ticktocktennis.com/atp','https://entries.ticktocktennis.com/atp.html','https://entries.ticktocktennis.com/']
-          fetched={}
-          for u in urls:
-            st,final,b=get(u); fetched[u]=b
-            print('\n===== PAGE',u,'STATUS',st,'BYTES',len(b),'FINAL',final,'=====')
-            for needle in ['qualAlt','qnext','Qualifying Next-In','Cancun','Quebec City','Kingston','Roehampton','Prague','Sion','Aug 17','2026-08-17']:
-              poss=[m.start() for m in re.finditer(re.escape(needle),b,re.I)]
-              print('NEEDLE',needle,'COUNT',len(poss),'POS',poss[:20])
-              for p in poss[:8]: print('\nCTX',needle,'\n',b[max(0,p-1000):p+6000])
-            scripts=re.findall(r'<script[^>]+src=["\']([^"\']+)',b,re.I)
-            print('\nSCRIPTS')
-            for s in scripts: print(s)
-          # fetch JS assets and search for schema/endpoints
-          base='https://entries.ticktocktennis.com/'
-          scripts=[]
-          for b in fetched.values(): scripts += re.findall(r'<script[^>]+src=["\']([^"\']+)',b,re.I)
-          seen=set()
-          for s in scripts:
-            u=urllib.parse.urljoin(base,s)
-            if u in seen: continue
-            seen.add(u)
-            st,final,b=get(u)
-            print('\n===== JS',u,'STATUS',st,'BYTES',len(b),'=====')
-            for needle in ['qualAlt','qnext','Qualifying Next-In','fetch(','json','atp','entry','week']:
-              poss=[m.start() for m in re.finditer(re.escape(needle),b,re.I)]
-              if poss: print('NEEDLE',needle,'COUNT',len(poss),'POS',poss[:15])
-              for p in poss[:8]: print('\nCTX',needle,'\n',b[max(0,p-1200):p+5000])
-            # print likely data URLs
-            for m in re.finditer(r'https?://[^"\'\s)]+|["\'][^"\']+\.(?:json|csv)[^"\']*["\']',b,re.I):
-              val=m.group(0)
-              if any(x in val.lower() for x in ['json','entry','atp','data','list']): print('URL_HINT',val[:700])
+          urls=[]
+          # SpazioTennis WordPress + sitemap/search surfaces
+          for q in ['Cancun','Quebec','Kingston','Prague','Roehampton','Sion','Week 33','settimana 33']:
+            e=urllib.parse.quote(q)
+            urls += [(f'SPAZIO_SEARCH_{q}',f'https://www.spaziotennis.com/wp-json/wp/v2/search?search={e}&per_page=100'),
+                     (f'SPAZIO_POSTS_{q}',f'https://www.spaziotennis.com/wp-json/wp/v2/posts?search={e}&after=2026-08-01T00:00:00&per_page=100')]
+          urls += [('SPAZIO_WP','https://www.spaziotennis.com/wp-json/'),('SPAZIO_SITEMAP','https://www.spaziotennis.com/wp-sitemap.xml'),('SPAZIO_SITEMAP2','https://www.spaziotennis.com/sitemap_index.xml')]
+          # Canal Tenis WordPress + sitemap/search surfaces
+          for q in ['Cancun','Quebec','Kingston','Prague','Roehampton','Sion','Challenger 2026']:
+            e=urllib.parse.quote(q)
+            urls += [(f'CANAL_SEARCH_{q}',f'https://canaltenis.com/wp-json/wp/v2/search?search={e}&per_page=100'),
+                     (f'CANAL_POSTS_{q}',f'https://canaltenis.com/wp-json/wp/v2/posts?search={e}&after=2026-08-01T00:00:00&per_page=100')]
+          urls += [('CANAL_WP','https://canaltenis.com/wp-json/'),('CANAL_SITEMAP','https://canaltenis.com/wp-sitemap.xml'),('CANAL_SITEMAP2','https://canaltenis.com/sitemap_index.xml')]
+          # Darts Rankings page/source/routing/data discovery
+          darts=['https://www.dartsrankings.com/tennis/cancun','https://www.dartsrankings.com/tennis/cancun?year=2026','https://www.dartsrankings.com/tennis/cancun/2026','https://www.dartsrankings.com/tennis/quebec','https://www.dartsrankings.com/tennis/quebec-city','https://www.dartsrankings.com/tennis/kingston','https://www.dartsrankings.com/tennis/prague','https://www.dartsrankings.com/tennis/roehampton','https://www.dartsrankings.com/tennis/sion','https://www.dartsrankings.com/sitemap.xml','https://www.dartsrankings.com/robots.txt']
+          urls += [(f'DARTS_{i}',u) for i,u in enumerate(darts)]
+          for label,url in urls:
+            st,final,b=get(url); show(label,url,b,st,final)
           PY
       - name: Commit recon output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/ticktock-raw-output.txt
-          git commit -m "Save TickTock raw entry recon" || exit 0
+          git add research/week33-backend-recon.txt
+          git commit -m "Save Week 33 backend recon" || exit 0
           git push
