@@ -1,0 +1,40 @@
+name: Public entry list sync
+
+on:
+  schedule:
+    # Offset from the top of the hour to reduce contention with other scheduled jobs.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: public-entry-list-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Snapshot and diff Aug 17 public entry lists
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "APP_URL and ADMIN_SECRET repository secrets are required"
+            exit 1
+          fi
+          base="${APP_URL%/}"
+          [[ "$base" == http* ]] || base="https://$base"
+
+          call_api() {
+            curl --fail-with-body --silent --show-error --max-time 120 \
+              -H "Accept: application/json" \
+              -H "X-Admin-Secret: $ADMIN_SECRET" \
+              "$base$1"
+            echo
+          }
+
+          call_api '/api/setup-entry-lists'
+          call_api '/api/sync-public-entry-lists?week=2026-08-17'
