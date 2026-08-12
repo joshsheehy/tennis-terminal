@@ -9,43 +9,74 @@ on:
 jobs:
   recon:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 8
     steps:
-      - name: Trace LiveTennis Q-list backend
+      - name: Probe LiveTennis public surfaces
         run: |
           python3 - <<'PY'
-          import re, urllib.request, html
-          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,*/*'}
+          import re, urllib.request, urllib.parse, html, json
+          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,application/rss+xml,*/*'}
           def get(url):
             try:
               req=urllib.request.Request(url,headers=UA)
               with urllib.request.urlopen(req,timeout=25) as r:
                 return r.status,r.geturl(),r.read().decode('utf-8','replace')
             except Exception as e:return 'ERR',str(e),''
-
-          pages={
-            'old':'https://www.livetennis.it/post/446046/challenger-todi-cancun-barranquilla-sumter-sofia-1-e-hersonissos-3-la-situazione-aggiornata-md-e-qualificazioni/',
-            'current':'https://www.livetennis.it/post/469551/challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun/',
-          }
-          for label,url in pages.items():
+          def text(s):
+            s=re.sub(r'<script.*?</script>',' ',s,flags=re.S|re.I)
+            s=re.sub(r'<style.*?</style>',' ',s,flags=re.S|re.I)
+            s=re.sub(r'<[^>]+>','\n',s)
+            s=html.unescape(s)
+            s=re.sub(r'[ \t]+',' ',s)
+            return re.sub(r'\n\s*\n+','\n',s)
+          def report(label,url):
             st,final,b=get(url)
-            print('\n=====PAGE',label,st,len(b),final,'=====')
-            low=b.lower()
-            for needle in ['challenger cancun (q)','cancun (q)','entry list','alternates','ajax','admin-ajax','wp-json','shortcode','tournament','qualific']:
-              poss=[m.start() for m in re.finditer(re.escape(needle),low)]
-              print('\nNEEDLE',needle,'COUNT',len(poss),'FIRST',poss[:10])
-              for pos in poss[:4]:
-                print(b[max(0,pos-1200):pos+3000])
-            print('\n--- ATTR/HREF HINTS ---')
-            for m in re.finditer(r'<[^>]+(?:data-[^=>]+|onclick|href|src)=[^>]+>',b,re.I):
-              s=m.group(0)
-              if re.search(r'entry|challenger|ajax|qual|cancun|torneo|tournament',s,re.I):
-                print(s[:1800])
-            print('\n--- SCRIPT URLS ---')
-            for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',b,re.I):
-              print(src)
-            print('\n--- FORM/AJAX TOKENS ---')
-            for pat in [r'ajaxurl.{0,500}',r'action["\']?\s*[:=].{0,300}',r'nonce.{0,300}',r'wp_ajax.{0,300}',r'fetch\(.{0,500}',r'XMLHttpRequest.{0,500}',r'\.post\(.{0,500}']:
-              for m in re.finditer(pat,b,re.I|re.S):
-                print(re.sub(r'\s+',' ',m.group(0))[:1000])
+            print(f'\n===== {label} STATUS={st} BYTES={len(b)} FINAL={final} =====')
+            if not b:return
+            t=text(b)
+            needles=['CANCUN','QUEBEC','KINGSTON','ROEHAMPTON','PRAGA','SION','QUALIFICAZIONI','ALTERNATES','Alternates','OUT',' IN ','Next']
+            hits=[]
+            low=t.lower()
+            for n in needles:
+              for m in list(re.finditer(re.escape(n.lower()),low))[:4]:
+                hits.append((m.start(),n))
+            for pos,n in sorted(set(hits))[:40]:
+              print(f'--- {n} @{pos} ---')
+              print(t[max(0,pos-550):pos+1800])
+            # JSON post content extraction
+            try:
+              j=json.loads(b)
+              if isinstance(j,dict):
+                for key in ['content','excerpt','title','link','modified','date']:
+                  v=j.get(key)
+                  if isinstance(v,dict):v=v.get('rendered')
+                  if v:
+                    vv=text(str(v))
+                    print(f'JSON[{key}]',vv[:18000])
+            except Exception:pass
+
+          old='446046'
+          cur='469551'
+          oldslug='challenger-todi-cancun-barranquilla-sumter-sofia-1-e-hersonissos-3-la-situazione-aggiornata-md-e-qualificazioni'
+          curslug='challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun'
+          targets=[]
+          for pid,slug,lab in [(old,oldslug,'OLD'),(cur,curslug,'CUR')]:
+            page=f'https://www.livetennis.it/post/{pid}/{slug}/'
+            targets += [
+              (f'{lab}_PAGE',page),
+              (f'{lab}_REST',f'https://www.livetennis.it/wp-json/wp/v2/posts/{pid}?context=view'),
+              (f'{lab}_REST_ROUTE',f'https://www.livetennis.it/?rest_route=/wp/v2/posts/{pid}'),
+              (f'{lab}_REST_INCLUDE',f'https://www.livetennis.it/wp-json/wp/v2/posts?include={pid}&per_page=1'),
+              (f'{lab}_FEED',page+'feed/'),
+              (f'{lab}_AMP',page+'amp/'),
+              (f'{lab}_OEMBED',f'https://www.livetennis.it/wp-json/oembed/1.0/embed?url='+urllib.parse.quote(page,safe='')),
+              (f'{lab}_JINA_HTTPS','https://r.jina.ai/https://www.livetennis.it/post/'+pid+'/'+slug+'/'),
+              (f'{lab}_JINA_HTTP','https://r.jina.ai/http://www.livetennis.it/post/'+pid+'/'+slug+'/'),
+            ]
+          targets += [
+            ('SITE_FEED','https://www.livetennis.it/feed/'),
+            ('ENTRYLIST_FEED','https://www.livetennis.it/site/atp/entry-list/feed/'),
+            ('SEARCH_FEED','https://www.livetennis.it/?s=Cancun+Quebec+Kingston+Roehampton+Sion&feed=rss2'),
+          ]
+          for label,url in targets: report(label,url)
           PY
