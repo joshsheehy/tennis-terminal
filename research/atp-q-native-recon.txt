@@ -1,0 +1,26 @@
+RUN 2026-08-12T03:34:17.239230+00:00
+PAGE ERR 0 HTTP Error 403: Forbidden
+
+
+SCRIPTS
+
+=====PROBE ERR 0 https://www.atptour.com/-/api/tournaments/gettournamentdetails?tournamentId=3010&tournamentYear=2026 FINAL HTTP Error 403: Forbidden =====
+ 
+
+=====PROBE ERR 0 https://www.atptour.com/-/api/tournaments/GetTournamentDetails?tournamentId=3010&tournamentYear=2026 FINAL HTTP Error 403: Forbidden =====
+ 
+
+=====PROBE ERR 0 https://www.atptour.com/-/api/tournaments/GetPlayerList?tournamentId=3010&tournamentYear=2026 FINAL HTTP Error 403: Forbidden =====
+ 
+
+=====PROBE ERR 0 https://www.atptour.com/-/api/tournaments/playerlist?tournamentId=3010&tournamentYear=2026 FINAL HTTP Error 403: Forbidden =====
+ 
+
+=====PROBE ERR 0 https://www.atptour.com/-/api/tournaments/PlayerList?tournamentId=3010&tournamentYear=2026 FINAL HTTP Error 403: Forbidden =====
+ 
+
+=====PROBE ERR 0 https://www.atptour.com/-/api/tournaments/GetTournamentPlayerList?tournamentId=3010&tournamentYear=2026 FINAL HTTP Error 403: Forbidden =====
+ 
+
+=====PROBE ERR 0 https://www.atptour.com/-/api/tournaments/gettournamentdetails?eventId=3010&year=2026 FINAL HTTP Error 403: Forbidden =====
+ 
