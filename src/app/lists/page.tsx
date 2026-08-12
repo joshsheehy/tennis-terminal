@@ -26,6 +26,16 @@ type Appearance = {
   position: number;
 };
 
+function displayLevel(event: Pick<Aug17EntryList, 'slug' | 'level'>): string {
+  if (event.slug === 'cancun' || event.slug === 'quebec-city') return 'CH 125';
+  return event.level;
+}
+
+const DISPLAY_ENTRY_LISTS = AUG17_ENTRY_LISTS.map((event) => ({
+  ...event,
+  level: displayLevel(event),
+}));
+
 function keyName(name: string): string {
   return name
     .normalize('NFD')
@@ -44,7 +54,7 @@ function buildAppearanceIndex(): Map<string, Appearance[]> {
     });
   };
 
-  AUG17_ENTRY_LISTS.forEach((event) => {
+  DISPLAY_ENTRY_LISTS.forEach((event) => {
     add(event, event.main, 'MD');
     add(event, event.mainNext, 'MD ALT');
     add(event, event.qualifying, 'Q');
@@ -136,7 +146,11 @@ export default async function ListsPage({
   searchParams: Promise<{ event?: string }>;
 }) {
   const { event: eventParam } = await searchParams;
-  const event = getAug17EntryList(eventParam);
+  const rawEvent = getAug17EntryList(eventParam);
+  const event = {
+    ...rawEvent,
+    level: displayLevel(rawEvent),
+  };
   const crossEntries = selectedCrossEntries(event);
 
   return (
@@ -156,10 +170,10 @@ export default async function ListsPage({
         </div>
       </div>
 
-      <WhereDoIStand events={AUG17_ENTRY_LISTS} />
+      <WhereDoIStand events={DISPLAY_ENTRY_LISTS} />
 
       <div className={styles.eventGrid} aria-label="Aug 17 tournaments">
-        {AUG17_ENTRY_LISTS.map((item) => {
+        {DISPLAY_ENTRY_LISTS.map((item) => {
           const on = item.slug === event.slug;
           return (
             <Link
