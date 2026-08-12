@@ -50,6 +50,18 @@ export async function GET() {
     alter table acceptance_list_snapshots
       add column if not exists player_list_type text;
 
+    create table if not exists entry_list_source_status (
+      week_start date not null,
+      source_key text not null,
+      source_url text not null,
+      last_checked_at timestamptz,
+      last_changed_at timestamptz,
+      last_content_hash text,
+      last_error text,
+      updated_at timestamptz not null default now(),
+      primary key (week_start, source_key)
+    );
+
     create table if not exists entry_list_source_snapshots (
       id uuid primary key default gen_random_uuid(),
       week_start date not null,
