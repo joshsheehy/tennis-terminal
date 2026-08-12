@@ -278,6 +278,43 @@ function parseFlatRow(line: string, section: AcceptanceListSection): AcceptanceL
   return null;
 }
 
+/**
+ * One acceptance-list record: a name, a three-letter nation, a ranking, and an
+ * optional status code. Names may carry a trailing entry-count marker such as
+ * "(2)", so the name group is anything up to the nation column.
+ */
+// The status group needs a field-boundary lookahead. Without it, a line like
+// "...\t304\tCaniato, Carlo Alberto\t..." matches the leading "C" of the next
+// name as a status code and strips it, yielding "aniato, Carlo Alberto".
+const RECORD_RE = /([^\t]+)\t([A-Z]{3})\t(\d{1,5})(?:\t([A-Z]{1,3})(?=\t|$))?/g;
+
+/**
+ * Split a line that holds several records side by side into one line each.
+ *
+ * These PDFs lay the list out in TWO COLUMNS, and text extraction flattens a
+ * row into a single line carrying both:
+ *
+ *   "Michalski, Daniel\tPOL\t304\tCaniato, Carlo Alberto\tITA\t391"
+ *
+ * Read as one record that yields the left-hand player and silently discards the
+ * right-hand one — half of every list. A Todi qualifying list parsed this way
+ * returned 11 "wildcards" and no direct acceptances for a document holding
+ * neither.
+ *
+ * Lines with a single record are returned untouched, so single-column
+ * documents are unaffected.
+ */
+export function splitColumnarRow(line: string): string[] {
+  // The metadata header carries tab-separated numbers too and must never be
+  // read as a player row.
+  if (/original\s+cut\s*off/i.test(line)) return [line];
+  const matches = [...line.matchAll(RECORD_RE)];
+  if (matches.length < 2) return [line];
+  return matches.map((m) =>
+    [m[1].trim(), m[2], m[3], ...(m[4] ? [m[4]] : [])].join('\t')
+  );
+}
+
 function parseEntryRows(text: string): AcceptanceListEntry[] {
   const lines = text.replace(/\r/g, '\n').split('\n');
   const entries: AcceptanceListEntry[] = [];
@@ -286,6 +323,10 @@ function parseEntryRows(text: string): AcceptanceListEntry[] {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
+
+    // The metadata header is tab-separated numbers and parses as a player row
+    // otherwise, producing a phantom entrant named after a label.
+    if (/original\s+cut\s*off/i.test(line)) continue;
 
     const headingSection = sectionFromHeading(normalizeRow(line));
     if (headingSection) {
@@ -297,15 +338,18 @@ function parseEntryRows(text: string): AcceptanceListEntry[] {
       continue;
     }
 
-    let entry: AcceptanceListEntry | null = null;
-    if (line.includes('\t')) {
-      entry = parseColumns(line.split('\t'), section, line);
-    }
-    if (!entry) entry = parseFlatRow(line, section);
-    if (!entry) continue;
+    // A two-column row carries two players; each is classified separately.
+    for (const part of splitColumnarRow(line)) {
+      let entry: AcceptanceListEntry | null = null;
+      if (part.includes('\t')) {
+        entry = parseColumns(part.split('\t'), section, part);
+      }
+      if (!entry) entry = parseFlatRow(part, section);
+      if (!entry) continue;
 
-    if (entry.section === 'unknown' && !entry.status) continue;
-    entries.push(entry);
+      if (entry.section === 'unknown' && !entry.status) continue;
+      entries.push(entry);
+    }
   }
 
   return entries;

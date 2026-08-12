@@ -53,7 +53,7 @@ export const AUG17_ENTRY_LISTS: Aug17EntryList[] = [
   {
     slug: 'cancun',
     name: 'Cancun',
-    level: 'CH 175',
+    level: 'CH 125',
     surface: 'Hard',
     atpCode: '3009',
     main: [
@@ -110,7 +110,7 @@ export const AUG17_ENTRY_LISTS: Aug17EntryList[] = [
   {
     slug: 'quebec-city',
     name: 'Quebec City',
-    level: 'CH 175',
+    level: 'CH 125',
     surface: 'Hard',
     atpCode: '3103',
     main: [

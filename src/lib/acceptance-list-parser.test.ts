@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { parseAcceptanceListText } from './acceptance-list-parser';
+import { parseAcceptanceListText,
+  splitColumnarRow,
+} from './acceptance-list-parser';
 
 describe('parseAcceptanceListText', () => {
   it('parses a Brownsburg-style official ATP acceptance list without treating NG as the cutoff', () => {
@@ -111,5 +113,47 @@ describe('parseAcceptanceListText', () => {
     const parsed = parseAcceptanceListText(text);
     expect(parsed.parse_status).toBe('not_acceptance_list');
     expect(parsed.original_cutoff_rank).toBeNull();
+  });
+});
+
+describe('splitColumnarRow', () => {
+  // These PDFs print the list in two columns; extraction flattens a row into
+  // one line holding both players. Reading it as a single record silently
+  // discarded the right-hand column — half of every list.
+  it('splits a two-player row into one record each', () => {
+    expect(
+      splitColumnarRow('Michalski, Daniel\tPOL\t304\tCaniato, Carlo Alberto\tITA\t391')
+    ).toEqual(['Michalski, Daniel\tPOL\t304', 'Caniato, Carlo Alberto\tITA\t391']);
+  });
+
+  it('does not eat the first letter of the next name as a status code', () => {
+    // Without a field-boundary lookahead the "C" of Caniato was captured as a
+    // status and stripped, leaving "aniato, Carlo Alberto".
+    const out = splitColumnarRow('A, B\tPOL\t304\tCaniato, Carlo Alberto\tITA\t391');
+    expect(out[1]).toBe('Caniato, Carlo Alberto\tITA\t391');
+  });
+
+  it('keeps a genuine status code', () => {
+    expect(splitColumnarRow('X, Y\tESP\t107\tPR\tZ, W\tFRA\t200')).toEqual([
+      'X, Y\tESP\t107\tPR',
+      'Z, W\tFRA\t200',
+    ]);
+  });
+
+  it('keeps entry-count markers in the name', () => {
+    expect(splitColumnarRow('Weis, Alexander (1)\tITA\t587\tFilar, Karol (2)\tPOL\t597')).toEqual([
+      'Weis, Alexander (1)\tITA\t587',
+      'Filar, Karol (2)\tPOL\t597',
+    ]);
+  });
+
+  it('leaves a single-column row untouched', () => {
+    expect(splitColumnarRow('Solo, Player\tITA\t100')).toEqual(['Solo, Player\tITA\t100']);
+    expect(splitColumnarRow('Alternates')).toEqual(['Alternates']);
+  });
+
+  it('never splits the metadata header, whose numbers look like rankings', () => {
+    const header = 'Date:\t8/10/2026\tOriginal Cut Off:\t585\tRankings Date:\t7/22/2026';
+    expect(splitColumnarRow(header)).toEqual([header]);
   });
 });
