@@ -1,0 +1,19 @@
+RUN_UTC 2026-08-12T23:56:58.705639+00:00
+
+===== cancun ID=3009 STATUS=200 BYTES=2616 PLACEHOLDER=True TYPE=application/pdf SHA=eaf906597d4921ed URL=https://www.protennislive.com/posting/2026/3009/qs.pdf =====
+-Tournament Information Not Yet Available-
+
+===== quebec-city ID=3103 STATUS=200 BYTES=2616 PLACEHOLDER=True TYPE=application/pdf SHA=eaf906597d4921ed URL=https://www.protennislive.com/posting/2026/3103/qs.pdf =====
+-Tournament Information Not Yet Available-
+
+===== kingston ID=3121 STATUS=200 BYTES=2616 PLACEHOLDER=True TYPE=application/pdf SHA=eaf906597d4921ed URL=https://www.protennislive.com/posting/2026/3121/qs.pdf =====
+-Tournament Information Not Yet Available-
+
+===== prague ID=600 STATUS=200 BYTES=2616 PLACEHOLDER=True TYPE=application/pdf SHA=eaf906597d4921ed URL=https://www.protennislive.com/posting/2026/600/qs.pdf =====
+-Tournament Information Not Yet Available-
+
+===== roehampton ID=3123 STATUS=200 BYTES=2616 PLACEHOLDER=True TYPE=application/pdf SHA=eaf906597d4921ed URL=https://www.protennislive.com/posting/2026/3123/qs.pdf =====
+-Tournament Information Not Yet Available-
+
+===== sion ID=3133 STATUS=200 BYTES=2616 PLACEHOLDER=True TYPE=application/pdf SHA=eaf906597d4921ed URL=https://www.protennislive.com/posting/2026/3133/qs.pdf =====
+-Tournament Information Not Yet Available-
