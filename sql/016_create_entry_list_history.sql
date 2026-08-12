@@ -3,6 +3,18 @@
 -- acceptance documents; these tables preserve changing public list states and
 -- explicit OUT / IN evidence without overwriting history.
 
+create table if not exists entry_list_source_status (
+  week_start date not null,
+  source_key text not null,
+  source_url text not null,
+  last_checked_at timestamptz,
+  last_changed_at timestamptz,
+  last_content_hash text,
+  last_error text,
+  updated_at timestamptz not null default now(),
+  primary key (week_start, source_key)
+);
+
 create table if not exists entry_list_source_snapshots (
   id uuid primary key default gen_random_uuid(),
   week_start date not null,
@@ -24,15 +36,9 @@ create table if not exists entry_list_movements (
   event_type text not null default 'singles' check (event_type in ('singles', 'doubles')),
   player_name text not null,
   movement_type text not null check (movement_type in (
-    'md_withdrawal',
-    'md_alt_to_md',
-    'q_to_md',
-    'q_withdrawal',
-    'q_alt_to_q',
-    'q_alt_to_md',
-    'q_alt_withdrawal',
-    'removed_unknown',
-    'reported_next'
+    'md_withdrawal', 'md_alt_to_md', 'q_to_md', 'q_withdrawal',
+    'q_alt_to_q', 'q_alt_to_md', 'q_alt_withdrawal',
+    'removed_unknown', 'reported_next'
   )),
   from_section text not null check (from_section in ('main', 'main_alt', 'qualifying', 'qualifying_alt', 'unknown')),
   to_section text not null check (to_section in ('main', 'qualifying', 'out', 'unknown')),
