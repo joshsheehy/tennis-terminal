@@ -12,68 +12,63 @@ permissions:
 jobs:
   recon:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 7
     steps:
       - uses: actions/checkout@v4
-      - name: Probe public Week 33 backends
+      - name: Inspect SpazioTennis Week 33 revisions
         run: |
           mkdir -p research
-          python3 - <<'PY' > research/week33-backend-recon.txt
-          import urllib.request, urllib.parse, re, json, html, datetime
-          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,application/xml,text/xml,*/*'}
-          EVENTS=['cancun','quebec','kingston','prague','praga','roehampton','sion']
-          def get(url):
+          python3 - <<'PY' > research/spazio-week33-revisions.txt
+          import urllib.request,json,re,html,datetime
+          UA={'User-Agent':'Mozilla/5.0 Chrome/140 Safari/537.36','Accept':'application/json,text/html,*/*'}
+          def get(u):
             try:
-              req=urllib.request.Request(url,headers=UA)
+              req=urllib.request.Request(u,headers=UA)
               with urllib.request.urlopen(req,timeout=25) as r:return str(r.status),r.geturl(),r.read().decode('utf-8','replace')
             except Exception as e:return 'ERR',str(e),''
-          def clean(s):
+          def txt(s):
             s=re.sub(r'<script.*?</script>',' ',s,flags=re.S|re.I); s=re.sub(r'<style.*?</style>',' ',s,flags=re.S|re.I)
-            s=re.sub(r'<[^>]+>','\n',s); s=html.unescape(s); s=re.sub(r'[ \t]+',' ',s)
-            return re.sub(r'\n\s*\n+','\n',s)
-          def show(label,url,b,st,final):
-            print(f'\n===== {label} STATUS={st} BYTES={len(b)} FINAL={final} URL={url} =====')
-            if not b:return
-            t=clean(b); low=t.lower(); hits=[]
-            terms=EVENTS+['week 33','settimana 33','qualifying','qualificazioni','alternates','withdrawals','cancellati','q alt','qualalt','2026']
-            for term in terms:
-              for m in list(re.finditer(re.escape(term),low))[:30]: hits.append((m.start(),term))
-            hits.sort(); merged=[]
-            for pos,term in hits:
-              a=max(0,pos-700); z=min(len(t),pos+3500)
-              if merged and a<=merged[-1][1]: merged[-1]=(merged[-1][0],max(merged[-1][1],z),merged[-1][2]+'|'+term)
-              else: merged.append((a,z,term))
-            for a,z,why in merged[:50]: print('\n--- HIT '+why+' ---\n'+t[a:z])
-            for pat in [r'https?://[^"\'<>\s]+',r'/api/[^"\'<>\s]+',r'/_next/[^"\'<>\s]+',r'\.json[^"\'<>\s]*']:
-              vals=[]
-              for m in re.finditer(pat,b,re.I):
-                v=m.group(0)
-                if any(x in v.lower() for x in ['api','json','tennis','entry','sitemap','next','data']): vals.append(v)
-              if vals: print('\nURL_HINTS',*list(dict.fromkeys(vals))[:100],sep='\n')
+            s=re.sub(r'<br\s*/?>','\n',s,flags=re.I); s=re.sub(r'</(?:p|div|li|h\d|tr|table)>','\n',s,flags=re.I)
+            s=re.sub(r'<[^>]+>',' ',s); s=html.unescape(s); s=re.sub(r'[ \t]+',' ',s); return re.sub(r'\n\s*\n+','\n',s)
+          def dump_json(label,u,b):
+            print('\n===== '+label+' '+u+' =====')
+            try:
+              j=json.loads(b)
+            except Exception:
+              print(b[:30000]); return None
+            print('TYPE',type(j).__name__,'COUNT',len(j) if isinstance(j,list) else '')
+            if isinstance(j,dict):
+              for k in ['id','date','date_gmt','modified','modified_gmt','slug','link','status']:
+                print(k,j.get(k))
+              print('LINKS',json.dumps(j.get('_links',{}),ensure_ascii=False)[:10000])
+              c=j.get('content',{}); c=c.get('rendered','') if isinstance(c,dict) else str(c)
+              print('CONTENT_TEXT\n'+txt(c)[:70000])
+              return j
+            for x in j:
+              if isinstance(x,dict): print('REV',x.get('id'),x.get('date'),x.get('modified'),x.get('parent'),x.get('slug'))
+            return j
           print('RUN_UTC',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          urls=[]
-          # SpazioTennis WordPress + sitemap/search surfaces
-          for q in ['Cancun','Quebec','Kingston','Prague','Roehampton','Sion','Week 33','settimana 33']:
-            e=urllib.parse.quote(q)
-            urls += [(f'SPAZIO_SEARCH_{q}',f'https://www.spaziotennis.com/wp-json/wp/v2/search?search={e}&per_page=100'),
-                     (f'SPAZIO_POSTS_{q}',f'https://www.spaziotennis.com/wp-json/wp/v2/posts?search={e}&after=2026-08-01T00:00:00&per_page=100')]
-          urls += [('SPAZIO_WP','https://www.spaziotennis.com/wp-json/'),('SPAZIO_SITEMAP','https://www.spaziotennis.com/wp-sitemap.xml'),('SPAZIO_SITEMAP2','https://www.spaziotennis.com/sitemap_index.xml')]
-          # Canal Tenis WordPress + sitemap/search surfaces
-          for q in ['Cancun','Quebec','Kingston','Prague','Roehampton','Sion','Challenger 2026']:
-            e=urllib.parse.quote(q)
-            urls += [(f'CANAL_SEARCH_{q}',f'https://canaltenis.com/wp-json/wp/v2/search?search={e}&per_page=100'),
-                     (f'CANAL_POSTS_{q}',f'https://canaltenis.com/wp-json/wp/v2/posts?search={e}&after=2026-08-01T00:00:00&per_page=100')]
-          urls += [('CANAL_WP','https://canaltenis.com/wp-json/'),('CANAL_SITEMAP','https://canaltenis.com/wp-sitemap.xml'),('CANAL_SITEMAP2','https://canaltenis.com/sitemap_index.xml')]
-          # Darts Rankings page/source/routing/data discovery
-          darts=['https://www.dartsrankings.com/tennis/cancun','https://www.dartsrankings.com/tennis/cancun?year=2026','https://www.dartsrankings.com/tennis/cancun/2026','https://www.dartsrankings.com/tennis/quebec','https://www.dartsrankings.com/tennis/quebec-city','https://www.dartsrankings.com/tennis/kingston','https://www.dartsrankings.com/tennis/prague','https://www.dartsrankings.com/tennis/roehampton','https://www.dartsrankings.com/tennis/sion','https://www.dartsrankings.com/sitemap.xml','https://www.dartsrankings.com/robots.txt']
-          urls += [(f'DARTS_{i}',u) for i,u in enumerate(darts)]
-          for label,url in urls:
-            st,final,b=get(url); show(label,url,b,st,final)
+          base='https://www.spaziotennis.com/wp-json/wp/v2/posts/139834'
+          st,f,b=get(base); print('POST_STATUS',st,'BYTES',len(b),'FINAL',f); post=dump_json('CURRENT',base,b)
+          candidates=[base+'/revisions?per_page=100&context=view',base+'/revisions?per_page=100',base+'/revisions']
+          revs=[]
+          for u in candidates:
+            st,f,b=get(u); print('\nREVLIST_STATUS',st,'BYTES',len(b),'FINAL',f); print(b[:20000])
+            try:
+              j=json.loads(b)
+              if isinstance(j,list) and j:
+                revs=j; break
+            except: pass
+          print('\nREV_COUNT',len(revs))
+          for r in revs:
+            rid=r.get('id'); u=base+'/revisions/'+str(rid)
+            st,f,b=get(u); print('\nREV_DETAIL_STATUS',rid,st,'BYTES',len(b))
+            if st=='200': dump_json('REV_'+str(rid),u,b)
           PY
-      - name: Commit recon output
+      - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/week33-backend-recon.txt
-          git commit -m "Save Week 33 backend recon" || exit 0
+          git add research/spazio-week33-revisions.txt
+          git commit -m "Save Week 33 Spazio revision history" || exit 0
           git push
