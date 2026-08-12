@@ -102,7 +102,7 @@ function ListTable({
           <tr>
             <th>Pos</th>
             <th>Player</th>
-            <th className={styles.rank}>Rank</th>
+            <th className={styles.rank}>Entry rank</th>
             <th>Ctry</th>
           </tr>
         </thead>
@@ -166,7 +166,8 @@ export default async function ListsPage({
           This is a planning view, not an official ATP acceptance report. Main-draw status is
           reconciled to the newer Aug. 11 public update; qualifying uses the Aug. 10 snapshot.
           Players promoted into the main draw since the qualifying snapshot have been removed from
-          the stale Q section. ATP/PlayerZone remains authoritative.
+          the stale Q section. Entry ranks are preserved from the published list rather than updated
+          with the weekly ATP ranking. ATP/PlayerZone remains authoritative.
         </div>
       </div>
 
@@ -268,6 +269,7 @@ export default async function ListsPage({
         ) : null}
 
         <p className={styles.foot}>
+          Entry rank is the ranking attached to the published entry list and is kept fixed here.
           MD next-in is only as deep as the Aug. 11 public update exposes; qualifying is deeper in
           the Aug. 10 snapshot. We intentionally do not invent Original Cut Off, ranking date, or
           unseen alternate positions. The next version can replace these snapshots with ATP&apos;s
