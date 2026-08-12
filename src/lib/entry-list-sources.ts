@@ -17,8 +17,6 @@ export type EntryListSourceDefinition = {
     | 'main-alternates'
     | 'qualifying'
     | 'qualifying-alternates'
-    // Doubles is its own list with its own cut and, at ATP level, its own
-    // alternate queue. Most public mirrors carry singles only.
     | 'doubles-main'
     | 'doubles-alternates'
     | 'movement'
@@ -42,6 +40,24 @@ export const ENTRY_LIST_SOURCES: EntryListSourceDefinition[] = [
     baseUrl: 'https://api.protennislive.com/feeds/PlayerList/',
     supports: ['main', 'main-alternates', 'qualifying', 'qualifying-alternates', 'movement'],
     notes: 'Official structured source. Requires legitimately issued bearer access. Preserve API array order.',
+  },
+  {
+    id: 'organizer-acceptance-pdf',
+    label: 'Organizer acceptance PDFs (MDS / MDD / QS)',
+    tier: 'tournament',
+    priority: 85,
+    baseUrl: '',
+    supports: ['main', 'main-alternates', 'qualifying', 'qualifying-alternates', 'doubles-main', 'doubles-alternates'],
+    notes: "ATP acceptance documents republished by organizers. QS files can preserve the full ordered qualifying-alternate queue; coverage is organizer-specific.",
+  },
+  {
+    id: 'spazio-tennis',
+    label: 'SpazioTennis',
+    tier: 'movement-feed',
+    priority: 82,
+    baseUrl: 'https://www.spaziotennis.com/',
+    supports: ['main', 'main-alternates', 'movement'],
+    notes: 'Week articles preserve original rows plus explicit OUT, IN and struck-through rows. Polling stores raw snapshots and never trusts the article level label over the official ATP calendar.',
   },
   {
     id: 'canal-tenis',
@@ -68,7 +84,7 @@ export const ENTRY_LIST_SOURCES: EntryListSourceDefinition[] = [
     priority: 75,
     baseUrl: 'https://www.livetennis.it/',
     supports: ['main', 'main-alternates', 'qualifying', 'movement'],
-    notes: 'Frequently publishes newer withdrawal/promotion updates. Treat article timestamp and source wording as provenance.',
+    notes: 'Frequently publishes newer withdrawal/promotion updates. Historical Q blocks have contained ordered qualifying alternates.',
   },
   {
     id: 'chq-updates',
@@ -101,38 +117,10 @@ export const ENTRY_LIST_SOURCES: EntryListSourceDefinition[] = [
     id: 'darts-rankings',
     label: 'DartsRankings (defunct)',
     tier: 'cross-check',
-    // Priority 0: the site no longer publishes, so it can never resolve. Kept
-    // as the reference for WHAT to build — singles main and qualifying with
-    // both alternate queues, plus doubles — not as a fetchable source.
     priority: 0,
     baseUrl: 'https://www.dartsrankings.com/tennis/',
-    supports: [
-      'main',
-      'main-alternates',
-      'qualifying',
-      'qualifying-alternates',
-      'doubles-main',
-      'movement',
-    ],
-    notes:
-      'DEFUNCT — do not schedule fetches. This is the product target being reproduced, kept for its shape rather than its data.',
-  },
-  {
-    id: 'organizer-acceptance-pdf',
-    label: 'Organizer acceptance PDFs (MDS / MDD / QS)',
-    tier: 'tournament',
-    priority: 85,
-    baseUrl: '',
-    supports: [
-      'main',
-      'main-alternates',
-      'qualifying',
-      'qualifying-alternates',
-      'doubles-main',
-      'doubles-alternates',
-    ],
-    notes:
-      "The ATP's own acceptance documents, republished by organizers on their own sites. Filenames follow {Name}-MDS / -MDD / -QS in the upload directory and are often NOT linked from any page — Todi publishes all three but links only MDS and MDD. Verified on Todi 2026: QS carries Original Cut Off 585 with 92 ordered alternates, MDD carries cut 630 with 13 doubles acceptances. The only source confirmed to deliver qualifying alternates AND doubles. Coverage is per-organizer and patchy; treat a hit as a bonus, not a guarantee.",
+    supports: ['main', 'main-alternates', 'qualifying', 'qualifying-alternates', 'doubles-main', 'movement'],
+    notes: 'DEFUNCT — product-shape reference only. Do not schedule fetches.',
   },
   {
     id: 'tournament-site-social',
@@ -160,24 +148,12 @@ export type Aug17SourceUrls = {
 
 /** Predictable live snapshot URLs discovered for the Aug. 17, 2026 pilot. */
 export const AUG17_ENTRY_SOURCE_URLS: Record<string, Aug17SourceUrls> = {
-  cancun: {
-    canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-cancun-2026/',
-  },
-  'quebec-city': {
-    canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-quebec-2026/',
-  },
-  kingston: {
-    canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-kingston-2026/',
-  },
-  prague: {
-    canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-praga-2026/',
-  },
-  roehampton: {
-    canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-roehampton-2026/',
-  },
-  sion: {
-    canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-sion-2026/',
-  },
+  cancun: { canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-cancun-2026/' },
+  'quebec-city': { canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-quebec-2026/' },
+  kingston: { canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-kingston-2026/' },
+  prague: { canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-praga-2026/' },
+  roehampton: { canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-roehampton-2026/' },
+  sion: { canalTenis: 'https://canaltenis.com/entry-list-atp-challenger-sion-2026/' },
 };
 
 export function sourceById(id: string): EntryListSourceDefinition | undefined {
