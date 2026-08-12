@@ -1,74 +1,51 @@
 name: Q alternate source recon
-
 on:
   workflow_dispatch:
   push:
-    paths:
-      - '.github/workflows/q-alt-source-recon.yml'
-
+    paths: ['.github/workflows/q-alt-source-recon.yml']
 permissions:
   contents: write
-
 jobs:
   recon:
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect SpazioTennis Week 33 revisions
+      - name: Inspect CanalTennis Week 33 posts
         run: |
           mkdir -p research
-          python3 - <<'PY' > research/spazio-week33-revisions.txt
-          import urllib.request,json,re,html,datetime
+          python3 - <<'PY' > research/canal-week33.txt
+          import urllib.request,urllib.parse,json,re,html,datetime
           UA={'User-Agent':'Mozilla/5.0 Chrome/140 Safari/537.36','Accept':'application/json,text/html,*/*'}
           def get(u):
             try:
-              req=urllib.request.Request(u,headers=UA)
-              with urllib.request.urlopen(req,timeout=25) as r:return str(r.status),r.geturl(),r.read().decode('utf-8','replace')
+              with urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=25) as r:return r.status,r.geturl(),r.read().decode('utf-8','replace')
             except Exception as e:return 'ERR',str(e),''
-          def txt(s):
-            s=re.sub(r'<script.*?</script>',' ',s,flags=re.S|re.I); s=re.sub(r'<style.*?</style>',' ',s,flags=re.S|re.I)
-            s=re.sub(r'<br\s*/?>','\n',s,flags=re.I); s=re.sub(r'</(?:p|div|li|h\d|tr|table)>','\n',s,flags=re.I)
-            s=re.sub(r'<[^>]+>',' ',s); s=html.unescape(s); s=re.sub(r'[ \t]+',' ',s); return re.sub(r'\n\s*\n+','\n',s)
-          def dump_json(label,u,b):
-            print('\n===== '+label+' '+u+' =====')
-            try:
-              j=json.loads(b)
-            except Exception:
-              print(b[:30000]); return None
-            print('TYPE',type(j).__name__,'COUNT',len(j) if isinstance(j,list) else '')
-            if isinstance(j,dict):
-              for k in ['id','date','date_gmt','modified','modified_gmt','slug','link','status']:
-                print(k,j.get(k))
-              print('LINKS',json.dumps(j.get('_links',{}),ensure_ascii=False)[:10000])
-              c=j.get('content',{}); c=c.get('rendered','') if isinstance(c,dict) else str(c)
-              print('CONTENT_TEXT\n'+txt(c)[:70000])
-              return j
+          def clean(s):
+            s=re.sub(r'<br\s*/?>','\n',s,flags=re.I);s=re.sub(r'</(?:p|div|li|h\d|tr|table)>','\n',s,flags=re.I);s=re.sub(r'<[^>]+>',' ',s);s=html.unescape(s);s=re.sub(r'[ \t]+',' ',s);return re.sub(r'\n\s*\n+','\n',s)
+          print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
+          events=['Cancun','Quebec City','Kingston','Prague','Roehampton','Sion']
+          seen=set()
+          for ev in events:
+            u='https://canaltenis.com/wp-json/wp/v2/search?search='+urllib.parse.quote('Entry List ATP Challenger '+ev+' 2026')+'&per_page=100'
+            st,f,b=get(u); print('\nSEARCH',ev,st,len(b),f)
+            try:j=json.loads(b)
+            except: print(b[:3000]); continue
             for x in j:
-              if isinstance(x,dict): print('REV',x.get('id'),x.get('date'),x.get('modified'),x.get('parent'),x.get('slug'))
-            return j
-          print('RUN_UTC',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          base='https://www.spaziotennis.com/wp-json/wp/v2/posts/139834'
-          st,f,b=get(base); print('POST_STATUS',st,'BYTES',len(b),'FINAL',f); post=dump_json('CURRENT',base,b)
-          candidates=[base+'/revisions?per_page=100&context=view',base+'/revisions?per_page=100',base+'/revisions']
-          revs=[]
-          for u in candidates:
-            st,f,b=get(u); print('\nREVLIST_STATUS',st,'BYTES',len(b),'FINAL',f); print(b[:20000])
-            try:
-              j=json.loads(b)
-              if isinstance(j,list) and j:
-                revs=j; break
-            except: pass
-          print('\nREV_COUNT',len(revs))
-          for r in revs:
-            rid=r.get('id'); u=base+'/revisions/'+str(rid)
-            st,f,b=get(u); print('\nREV_DETAIL_STATUS',rid,st,'BYTES',len(b))
-            if st=='200': dump_json('REV_'+str(rid),u,b)
+              title=x.get('title',''); pid=x.get('id')
+              if 'Entry List' not in title or '2026' not in title or pid in seen: continue
+              seen.add(pid); pu=f'https://canaltenis.com/wp-json/wp/v2/posts/{pid}'
+              st2,f2,pb=get(pu);print('\n=====POST',pid,title,'STATUS',st2,'=====')
+              try:p=json.loads(pb)
+              except: print(pb[:5000]);continue
+              for k in ['date','modified','link']:print(k,p.get(k))
+              print('LINKS',json.dumps(p.get('_links',{}),ensure_ascii=False)[:5000])
+              c=p.get('content',{}).get('rendered',''); print(clean(c)[:45000])
           PY
       - name: Commit output
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name "github-actions[bot]]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/spazio-week33-revisions.txt
-          git commit -m "Save Week 33 Spazio revision history" || exit 0
+          git add research/canal-week33.txt
+          git commit -m "Save CanalTennis Week 33 recon" || exit 0
           git push
