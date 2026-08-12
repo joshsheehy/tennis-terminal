@@ -8,44 +8,45 @@ permissions:
 jobs:
   recon:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect CanalTennis Week 33 posts
+      - name: Trace Spazio dynamic entry list backend
         run: |
           mkdir -p research
-          python3 - <<'PY' > research/canal-week33.txt
-          import urllib.request,urllib.parse,json,re,html,datetime
-          UA={'User-Agent':'Mozilla/5.0 Chrome/140 Safari/537.36','Accept':'application/json,text/html,*/*'}
+          python3 - <<'PY' > research/spazio-backend-trace.txt
+          import urllib.request,json,re,urllib.parse,datetime
+          UA={'User-Agent':'Mozilla/5.0 Chrome/140 Safari/537.36','Accept':'text/html,application/json,application/javascript,*/*'}
           def get(u):
             try:
-              with urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=25) as r:return r.status,r.geturl(),r.read().decode('utf-8','replace')
+              with urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=20) as r:return str(r.status),r.geturl(),r.read().decode('utf-8','replace')
             except Exception as e:return 'ERR',str(e),''
-          def clean(s):
-            s=re.sub(r'<br\s*/?>','\n',s,flags=re.I);s=re.sub(r'</(?:p|div|li|h\d|tr|table)>','\n',s,flags=re.I);s=re.sub(r'<[^>]+>',' ',s);s=html.unescape(s);s=re.sub(r'[ \t]+',' ',s);return re.sub(r'\n\s*\n+','\n',s)
           print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          events=['Cancun','Quebec City','Kingston','Prague','Roehampton','Sion']
-          seen=set()
-          for ev in events:
-            u='https://canaltenis.com/wp-json/wp/v2/search?search='+urllib.parse.quote('Entry List ATP Challenger '+ev+' 2026')+'&per_page=100'
-            st,f,b=get(u); print('\nSEARCH',ev,st,len(b),f)
-            try:j=json.loads(b)
-            except: print(b[:3000]); continue
-            for x in j:
-              title=x.get('title',''); pid=x.get('id')
-              if 'Entry List' not in title or '2026' not in title or pid in seen: continue
-              seen.add(pid); pu=f'https://canaltenis.com/wp-json/wp/v2/posts/{pid}'
-              st2,f2,pb=get(pu);print('\n=====POST',pid,title,'STATUS',st2,'=====')
-              try:p=json.loads(pb)
-              except: print(pb[:5000]);continue
-              for k in ['date','modified','link']:print(k,p.get(k))
-              print('LINKS',json.dumps(p.get('_links',{}),ensure_ascii=False)[:5000])
-              c=p.get('content',{}).get('rendered',''); print(clean(c)[:45000])
+          api='https://www.spaziotennis.com/wp-json/wp/v2/posts/139834'
+          st,f,b=get(api); print('API',st,len(b),f)
+          j=json.loads(b); c=j['content']['rendered']
+          print('\n===== RAW RENDERED CONTENT =====\n',c[:100000])
+          for needle in ['Darderi','CANCUN','ALTERNATES','KINGSTON','qual','entry']:
+            print('\nNEEDLE',needle)
+            for m in list(re.finditer(needle,c,re.I))[:15]: print(c[max(0,m.start()-1800):m.start()+5000])
+          print('\n===== TAGS/ATTRS =====')
+          for tag in re.findall(r'<[^>]+>',c):
+            if re.search(r'class=|id=|data-|href=|src=|shortcode|entry|challenger|altern',tag,re.I): print(tag[:2500])
+          page=j['link']; st,f,p=get(page); print('\nPAGE',st,len(p),f)
+          print('\n===== PAGE ENDPOINT HINTS =====')
+          for pat in [r'<script[^>]+src=["\']([^"\']+)',r'<link[^>]+href=["\']([^"\']+)',r'https?://[^"\'<>\s]+',r'wp-content/plugins/[^/"\']+']:
+            vals=[]
+            for m in re.finditer(pat,p,re.I):
+              v=m.group(1) if m.lastindex else m.group(0)
+              if any(x in v.lower() for x in ['plugin','entry','tennis','ajax','api','json','script','wp-']): vals.append(v)
+            for v in list(dict.fromkeys(vals))[:250]: print(v)
+          for term in ['admin-ajax','wp-json','ajax','entry-list','shortcode','alternates','Darderi']:
+            for m in list(re.finditer(term,p,re.I))[:10]: print('\nCTX',term,p[max(0,m.start()-1200):m.start()+3000])
           PY
       - name: Commit output
         run: |
-          git config user.name "github-actions[bot]]"
+          git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/canal-week33.txt
-          git commit -m "Save CanalTennis Week 33 recon" || exit 0
+          git add research/spazio-backend-trace.txt
+          git commit -m "Save Spazio entry backend trace" || exit 0
           git push
