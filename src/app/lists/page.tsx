@@ -11,10 +11,9 @@ import {
   getTrackedAug17Events,
   type EntryMovementLedgerRow,
   type MovementKind,
-  type TrackedAug17Event,
   type TrackedEntryRow,
 } from '@/lib/aug17-entry-history';
-import type { PublicEntryTournament } from '@/lib/spazio-entry-list-parser';
+import type { PublicEntryRow, PublicEntryTournament } from '@/lib/spazio-entry-list-parser';
 import { pool } from '@/lib/db';
 import WhereDoIStand from '@/components/WhereDoIStand';
 import styles from './page.module.css';
@@ -62,6 +61,54 @@ function keyName(name: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
+}
+
+function sortedNameKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .sort()
+    .join(' ');
+}
+
+function playerZoneRow(name: string, country: string, entryRank: number, marker: PublicEntryRow['marker'] = 'active'): PublicEntryRow {
+  return { name, country, entryRank, entryCode: null, marker, rawText: `${name} ${country} ${entryRank}` };
+}
+
+/**
+ * Spazio currently stops the visible Kingston alternate queue at Erel. The
+ * PlayerZone screenshots supplied Aug 12 prove rows 11-18 as well. Keep those
+ * original rows as last-known evidence until a public source exposes equal or
+ * deeper coverage. A public source can update them later; it cannot erase them
+ * merely by being shallower.
+ */
+function supplementPublicTournaments(tournaments: PublicEntryTournament[]): PublicEntryTournament[] {
+  const kingstonExtras = [
+    playerZoneRow('Igor Marcondes', 'BRA', 296),
+    playerZoneRow('Philip Sekulic', 'AUS', 301, 'struck'),
+    playerZoneRow('Daniel Milavsky', 'USA', 325),
+    playerZoneRow('Paul Jubb', 'GBR', 335),
+    playerZoneRow('Tyler Zink', 'USA', 343),
+    playerZoneRow('Blaise Bicknell', 'JAM', 344),
+    playerZoneRow('Mitchell Krueger', 'USA', 346),
+    playerZoneRow('Ivan Marrero Curbelo', 'ESP', 356),
+  ];
+
+  return tournaments.map((tournament) => {
+    if (tournament.slug !== 'kingston') return tournament;
+    const existing = new Set(tournament.alternates.map((row) => sortedNameKey(row.name)));
+    return {
+      ...tournament,
+      alternates: [
+        ...tournament.alternates,
+        ...kingstonExtras.filter((row) => !existing.has(sortedNameKey(row.name))),
+      ],
+    };
+  });
 }
 
 function movementKind(value: string): MovementKind {
@@ -126,7 +173,7 @@ async function loadPublicHistory(): Promise<PublicHistory> {
       ),
     ]);
     return {
-      tournaments: snapshot.rows[0]?.parsed_payload ?? [],
+      tournaments: supplementPublicTournaments(snapshot.rows[0]?.parsed_payload ?? []),
       lastCheckedAt: status.rows[0]?.last_checked_at ? new Date(status.rows[0].last_checked_at).toISOString() : null,
       lastChangedAt: status.rows[0]?.last_changed_at ? new Date(status.rows[0].last_changed_at).toISOString() : null,
       movements: movements.rows.map(dbMovementToLedger),
@@ -196,7 +243,7 @@ function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'ma
         <tbody>
           {rows.map((row, index) => (
             <tr key={`${section}-${row.name}-${index}`} className={rowClass(row, section)}>
-              <td className={styles.pos}>{row.originalLabel}</td>
+              <td className={styles.pos}>{section === 'q' ? 'Q accepted' : row.originalLabel}</td>
               <td className={styles.livePos}>{section === 'alt' && row.effectivePosition ? `ALT ${row.effectivePosition}` : '—'}</td>
               <td className={styles.playerCell}>
                 <span className={styles.playerName}>{row.name}</span>
