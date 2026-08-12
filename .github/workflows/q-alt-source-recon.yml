@@ -15,89 +15,54 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Probe and save public Q-list sources
+      - name: Inspect TickTock raw entry data
         run: |
           mkdir -p research
-          python3 - <<'PY' > research/q-alt-source-output.txt
-          import re, urllib.request, urllib.parse, html, json, datetime
-          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,application/rss+xml,*/*'}
-          EVENTS=['cancun','québec','quebec','kingston','roehampton','prague','praga','sion']
-          TERMS=EVENTS+['qualifying','qualificazioni','alternates qualificazioni','alternates','out:','in:','next:','qualifying next-in','qualalt']
-          def get(url):
+          python3 - <<'PY' > research/ticktock-raw-output.txt
+          import urllib.request,re,html,json,urllib.parse,datetime
+          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/javascript,application/json,*/*'}
+          def get(u):
             try:
-              req=urllib.request.Request(url,headers=UA)
-              with urllib.request.urlopen(req,timeout=25) as r:
-                return str(r.status),r.geturl(),r.read().decode('utf-8','replace')
+              req=urllib.request.Request(u,headers=UA)
+              with urllib.request.urlopen(req,timeout=25) as r:return r.status,r.geturl(),r.read().decode('utf-8','replace')
             except Exception as e:return 'ERR',str(e),''
-          def clean(s):
-            s=re.sub(r'<script.*?</script>',' ',s,flags=re.S|re.I)
-            s=re.sub(r'<style.*?</style>',' ',s,flags=re.S|re.I)
-            s=re.sub(r'<[^>]+>','\n',s)
-            s=html.unescape(s)
-            s=re.sub(r'[ \t]+',' ',s)
-            return re.sub(r'\n\s*\n+','\n',s)
-          def excerpts(t):
-            low=t.lower(); ranges=[]
-            for term in TERMS:
-              for m in re.finditer(re.escape(term),low):
-                a=max(0,m.start()-700); b=min(len(t),m.start()+2600)
-                ranges.append((a,b,term))
-            ranges.sort(); merged=[]
-            for a,b,term in ranges:
-              if merged and a<=merged[-1][1]+200:
-                merged[-1]=(merged[-1][0],max(merged[-1][1],b),merged[-1][2]+'|'+term)
-              else: merged.append((a,b,term))
-            return merged[:80]
           print('RUN_UTC',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          current='https://www.livetennis.it/post/469551/challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun/'
-          old='https://www.livetennis.it/post/446046/challenger-todi-cancun-barranquilla-sumter-sofia-1-e-hersonissos-3-la-situazione-aggiornata-md-e-qualificazioni/'
-          urls=[
-            ('LT_CURRENT',current),
-            ('LT_CURRENT_REST','https://www.livetennis.it/wp-json/wp/v2/posts/469551?context=view'),
-            ('LT_CURRENT_ROUTE','https://www.livetennis.it/?rest_route=/wp/v2/posts/469551'),
-            ('LT_CURRENT_FEED',current+'feed/'),
-            ('LT_CURRENT_AMP',current+'amp/'),
-            ('LT_CURRENT_JINA','https://r.jina.ai/https://www.livetennis.it/post/469551/challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun/'),
-            ('LT_OLD',old),
-            ('LT_OLD_REST','https://www.livetennis.it/wp-json/wp/v2/posts/446046?context=view'),
-            ('CHQ_TWSTALKER','https://www.twstalker.com/CHQ_Updates'),
-            ('CHQ_TWSTALKER_M','https://mobile.twstalker.com/CHQ_Updates'),
-            ('CHQ_TWSTALKER_W','https://w.twstalker.com/CHQ_Updates'),
-            ('CHQ_X','https://x.com/CHQ_Updates'),
-            ('CHQ_XCANCEL','https://xcancel.com/CHQ_Updates'),
-          ]
-          for q in ['Cancun Qualifying','Quebec City Qualifying','Kingston Qualifying','Roehampton Qualifying','Prague Qualifying','Praga Qualifying','Sion Qualifying','CHQ_Updates Cancun','CHQ_Updates Quebec','CHQ_Updates Kingston','CHQ_Updates Roehampton','CHQ_Updates Prague','CHQ_Updates Sion']:
-            urls += [(f'TWSEARCH_{q}','https://www.twstalker.com/search/'+urllib.parse.quote(q)),(f'TWSEARCHM_{q}','https://mobile.twstalker.com/search/'+urllib.parse.quote(q))]
-          for label,url in urls:
-            st,final,b=get(url)
-            print('\n\n=====SOURCE',label,'STATUS',st,'BYTES',len(b),'FINAL',final,'=====')
-            if not b: continue
-            # For REST JSON, render the HTML content field as text as well.
-            texts=[]
-            try:
-              j=json.loads(b)
-              if isinstance(j,dict):
-                for k in ['date','modified','link']:
-                  if j.get(k): print('META',k,j[k])
-                c=j.get('content',{})
-                if isinstance(c,dict) and c.get('rendered'): texts.append(clean(c['rendered']))
-            except Exception: pass
-            texts.append(clean(b))
-            emitted=set()
-            for t in texts:
-              for a,z,why in excerpts(t):
-                chunk=t[a:z].strip()
-                key=chunk[:300]
-                if key in emitted: continue
-                emitted.add(key)
-                print('\n---HIT',why,'---\n'+chunk)
-            ids=re.findall(r'(?:status/)(\d{10,})',b)
-            if ids: print('\nSTATUS_IDS',','.join(dict.fromkeys(ids)))
+          urls=['https://entries.ticktocktennis.com/atp','https://entries.ticktocktennis.com/atp.html','https://entries.ticktocktennis.com/']
+          fetched={}
+          for u in urls:
+            st,final,b=get(u); fetched[u]=b
+            print('\n===== PAGE',u,'STATUS',st,'BYTES',len(b),'FINAL',final,'=====')
+            for needle in ['qualAlt','qnext','Qualifying Next-In','Cancun','Quebec City','Kingston','Roehampton','Prague','Sion','Aug 17','2026-08-17']:
+              poss=[m.start() for m in re.finditer(re.escape(needle),b,re.I)]
+              print('NEEDLE',needle,'COUNT',len(poss),'POS',poss[:20])
+              for p in poss[:8]: print('\nCTX',needle,'\n',b[max(0,p-1000):p+6000])
+            scripts=re.findall(r'<script[^>]+src=["\']([^"\']+)',b,re.I)
+            print('\nSCRIPTS')
+            for s in scripts: print(s)
+          # fetch JS assets and search for schema/endpoints
+          base='https://entries.ticktocktennis.com/'
+          scripts=[]
+          for b in fetched.values(): scripts += re.findall(r'<script[^>]+src=["\']([^"\']+)',b,re.I)
+          seen=set()
+          for s in scripts:
+            u=urllib.parse.urljoin(base,s)
+            if u in seen: continue
+            seen.add(u)
+            st,final,b=get(u)
+            print('\n===== JS',u,'STATUS',st,'BYTES',len(b),'=====')
+            for needle in ['qualAlt','qnext','Qualifying Next-In','fetch(','json','atp','entry','week']:
+              poss=[m.start() for m in re.finditer(re.escape(needle),b,re.I)]
+              if poss: print('NEEDLE',needle,'COUNT',len(poss),'POS',poss[:15])
+              for p in poss[:8]: print('\nCTX',needle,'\n',b[max(0,p-1200):p+5000])
+            # print likely data URLs
+            for m in re.finditer(r'https?://[^"\'\s)]+|["\'][^"\']+\.(?:json|csv)[^"\']*["\']',b,re.I):
+              val=m.group(0)
+              if any(x in val.lower() for x in ['json','entry','atp','data','list']): print('URL_HINT',val[:700])
           PY
       - name: Commit recon output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/q-alt-source-output.txt
-          git commit -m "Save Q alternate source recon output" || exit 0
+          git add research/ticktock-raw-output.txt
+          git commit -m "Save TickTock raw entry recon" || exit 0
           git push
