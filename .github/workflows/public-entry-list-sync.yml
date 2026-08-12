@@ -5,6 +5,11 @@ on:
     # Offset from the top of the hour to reduce contention with other scheduled jobs.
     - cron: '17 * * * *'
   workflow_dispatch:
+  # Also run when this workflow itself changes so a new/updated poller gets an
+  # immediate baseline snapshot instead of waiting for the next hourly tick.
+  push:
+    paths:
+      - '.github/workflows/public-entry-list-sync.yml'
 
 concurrency:
   group: public-entry-list-sync
