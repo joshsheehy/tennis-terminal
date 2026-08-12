@@ -1,4 +1,15 @@
 export type EntryListDraw = 'main' | 'qualifying';
+
+/**
+ * Doubles is a separate list, not a variant of the singles one: it has its own
+ * acceptance order, its own cut, and at ATP level its own alternate queue.
+ * Without this dimension a doubles snapshot would overwrite the singles one for
+ * the same tournament and draw.
+ *
+ * Optional, defaulting to singles, so snapshots captured before doubles existed
+ * in the model keep their meaning.
+ */
+export type EntryListDiscipline = 'singles' | 'doubles';
 export type EntryListPhase = 'advance' | 'onsite';
 export type EntryListOriginalStatus = 'accepted' | 'alternate';
 export type EntryListCurrentStatus = 'accepted' | 'alternate' | 'withdrawn';
@@ -29,6 +40,8 @@ export type EntryListSnapshotEntry = {
 export type EntryListSnapshot = {
   tournamentSlug: string;
   draw: EntryListDraw;
+  /** Defaults to singles when absent. */
+  discipline?: EntryListDiscipline;
   phase: EntryListPhase;
   rankingDate?: string | null;
   publishedAt?: string | null;
@@ -46,6 +59,8 @@ export type EntryListMovementKind =
 export type EntryListMovement = {
   tournamentSlug: string;
   draw: EntryListDraw;
+  /** Defaults to singles when absent. */
+  discipline?: EntryListDiscipline;
   phase: EntryListPhase;
   kind: EntryListMovementKind;
   playerName: string;

@@ -347,7 +347,15 @@ function parseEntryRows(text: string): AcceptanceListEntry[] {
       if (!entry) entry = parseFlatRow(part, section);
       if (!entry) continue;
 
-      if (entry.section === 'unknown' && !entry.status) continue;
+      // A row with a name, nation and ranking is a list entrant even when no
+      // heading above it was recognised — which happens in the two-column
+      // layouts. Dropping it here loses the whole acceptance block; the
+      // cut-off repass below assigns the section instead.
+      // Require a nation as well as a ranking: that combination is what a real
+      // entrant row has, and it keeps stray numeric lines out.
+      if (entry.section === 'unknown' && !entry.status && !(entry.rank != null && entry.country)) {
+        continue;
+      }
       entries.push(entry);
     }
   }
@@ -387,6 +395,29 @@ export function parseAcceptanceListText(text: string): ParsedAcceptanceList {
   const isOfficialAcceptanceList = HEADER_RE.test(normalized);
   const originalCutoff = parseOriginalCutoff(normalized);
   const entries = dedupeEntries(parseEntryRows(text));
+
+  // Repair sectioning when heading detection produced no direct acceptances.
+  //
+  // These two-column PDFs sometimes carry no heading the parser recognises
+  // before the first block, so `section` keeps whatever it was last set to and
+  // every accepted player lands in the wrong bucket — Todi's qualifying list
+  // returned 20 "wildcards" and zero acceptances for a document holding
+  // neither. The cut-off is stated in the header, so it can settle this:
+  // entrants at or better than the cut are direct acceptances, worse are
+  // alternates.
+  //
+  // Deliberately conservative. It runs only when the document states a cut AND
+  // heading detection clearly failed, so documents that sectioned correctly
+  // (Todi's doubles list, which returns 13 direct acceptances) are untouched.
+  // An explicit status code always wins: a wildcard ranked inside the cut is
+  // still a wildcard.
+  if (originalCutoff !== null && !entries.some((e) => e.section === 'direct_acceptance')) {
+    for (const entry of entries) {
+      if (entry.status) continue;
+      if (entry.rank == null) continue;
+      entry.section = entry.rank <= originalCutoff ? 'direct_acceptance' : 'alternate';
+    }
+  }
 
   let parseStatus: ParsedAcceptanceList['parse_status'];
   if (!normalized || normalized.length < 40) parseStatus = 'needs_ocr';

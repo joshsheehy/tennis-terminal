@@ -157,3 +157,46 @@ describe('splitColumnarRow', () => {
     expect(splitColumnarRow(header)).toEqual([header]);
   });
 });
+
+describe('section repair from the stated cut', () => {
+  const header = 'Official Player Acceptance List\nDate:\t8/10/2026\tOriginal Cut Off:\t585\n';
+
+  it('classifies by the cut when no heading was recognised', () => {
+    // These PDFs sometimes carry no heading before the first block, leaving
+    // every accepted player in whatever bucket was last set.
+    const r = parseAcceptanceListText(
+      `${header}Michalski, Daniel\tPOL\t304\tCaniato, Carlo Alberto\tITA\t391\n` +
+        `Weis, Alexander\tITA\t587\tFilar, Karol\tPOL\t597\n`
+    );
+    expect(r.direct_acceptances.map((e) => e.rank)).toEqual([304, 391]);
+    expect(r.alternates.map((e) => e.rank)).toEqual([587, 597]);
+  });
+
+  it('leaves an explicit status code alone, even inside the cut', () => {
+    const r = parseAcceptanceListText(`${header}Someone, A\tITA\t100\tWC\n`);
+    expect(r.direct_acceptances).toHaveLength(0);
+    expect(r.wild_cards.map((e) => e.rank)).toEqual([100]);
+  });
+
+  it('is skipped once the document already has direct acceptances', () => {
+    // The repair only runs when heading detection produced none, so a document
+    // that sectioned correctly keeps its own classification.
+    const r = parseAcceptanceListText(
+      `${header}Alternates\nA, B\tITA\t900\n`
+    );
+    expect(r.alternates.map((e) => e.rank)).toEqual([900]);
+    expect(r.direct_acceptances).toHaveLength(0);
+  });
+
+  it('ignores a numeric line with no nation', () => {
+    const r = parseAcceptanceListText(`${header}Total entries\t42\n`);
+    expect(r.entries).toHaveLength(0);
+  });
+
+  it('does nothing without a stated cut', () => {
+    const r = parseAcceptanceListText(
+      'Official Player Acceptance List\nA, B\tITA\t100\n'
+    );
+    expect(r.direct_acceptances).toHaveLength(0);
+  });
+});

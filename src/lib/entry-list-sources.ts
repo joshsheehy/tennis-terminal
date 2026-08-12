@@ -12,7 +12,17 @@ export type EntryListSourceDefinition = {
   tier: EntryListSourceTier;
   priority: number;
   baseUrl: string;
-  supports: Array<'main' | 'main-alternates' | 'qualifying' | 'qualifying-alternates' | 'movement'>;
+  supports: Array<
+    | 'main'
+    | 'main-alternates'
+    | 'qualifying'
+    | 'qualifying-alternates'
+    // Doubles is its own list with its own cut and, at ATP level, its own
+    // alternate queue. Most public mirrors carry singles only.
+    | 'doubles-main'
+    | 'doubles-alternates'
+    | 'movement'
+  >;
   notes: string;
 };
 
@@ -89,12 +99,40 @@ export const ENTRY_LIST_SOURCES: EntryListSourceDefinition[] = [
   },
   {
     id: 'darts-rankings',
-    label: 'DartsRankings',
+    label: 'DartsRankings (defunct)',
     tier: 'cross-check',
-    priority: 65,
+    // Priority 0: the site no longer publishes, so it can never resolve. Kept
+    // as the reference for WHAT to build — singles main and qualifying with
+    // both alternate queues, plus doubles — not as a fetchable source.
+    priority: 0,
     baseUrl: 'https://www.dartsrankings.com/tennis/',
-    supports: ['main', 'main-alternates', 'qualifying', 'qualifying-alternates', 'movement'],
-    notes: 'Excellent historical reconstruction and cross-check. Keep Tennis Terminal provenance independent rather than copying derived state blindly.',
+    supports: [
+      'main',
+      'main-alternates',
+      'qualifying',
+      'qualifying-alternates',
+      'doubles-main',
+      'movement',
+    ],
+    notes:
+      'DEFUNCT — do not schedule fetches. This is the product target being reproduced, kept for its shape rather than its data.',
+  },
+  {
+    id: 'organizer-acceptance-pdf',
+    label: 'Organizer acceptance PDFs (MDS / MDD / QS)',
+    tier: 'tournament',
+    priority: 85,
+    baseUrl: '',
+    supports: [
+      'main',
+      'main-alternates',
+      'qualifying',
+      'qualifying-alternates',
+      'doubles-main',
+      'doubles-alternates',
+    ],
+    notes:
+      "The ATP's own acceptance documents, republished by organizers on their own sites. Filenames follow {Name}-MDS / -MDD / -QS in the upload directory and are often NOT linked from any page — Todi publishes all three but links only MDS and MDD. Verified on Todi 2026: QS carries Original Cut Off 585 with 92 ordered alternates, MDD carries cut 630 with 13 doubles acceptances. The only source confirmed to deliver qualifying alternates AND doubles. Coverage is per-organizer and patchy; treat a hit as a bonus, not a guarantee.",
   },
   {
     id: 'tournament-site-social',
