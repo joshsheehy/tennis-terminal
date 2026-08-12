@@ -229,7 +229,7 @@ export default async function ListsPage({
             </div>
             <div className={styles.sectionTitle}>Qualifying acceptance</div>
             <ListTable players={event.qualifying} prefix="Q" />
-            <div className={styles.sectionTitle}>Qualifying next-in</div>
+            <div className={styles.sectionTitle}>Qualifying alternates · awaiting verified list</div>
           </div>
         </div>
 
