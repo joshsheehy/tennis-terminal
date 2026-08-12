@@ -4,10 +4,9 @@ import { pool } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Idempotent production-safe setup for lightweight ATP acceptance-list storage.
-// Source discovery/selection lives outside this route. The production design is
-// intentionally official-source only; regional/third-party experiments are not
-// created or activated here.
+// Idempotent production-safe setup for ATP acceptance-list and movement history
+// storage. Official-source ingestion and public-source observation remain
+// separate pipelines so neither can overwrite the other's provenance.
 export async function GET() {
   await pool.query(`
     create table if not exists acceptance_list_sources (
@@ -51,6 +50,45 @@ export async function GET() {
     alter table acceptance_list_snapshots
       add column if not exists player_list_type text;
 
+    create table if not exists entry_list_source_snapshots (
+      id uuid primary key default gen_random_uuid(),
+      week_start date not null,
+      source_key text not null,
+      source_url text not null,
+      fetched_at timestamptz not null default now(),
+      content_hash text not null,
+      raw_payload text not null,
+      parsed_payload jsonb not null default '[]'::jsonb,
+      source_updated_text text,
+      created_at timestamptz not null default now(),
+      unique (week_start, source_key, content_hash)
+    );
+
+    create table if not exists entry_list_movements (
+      id uuid primary key default gen_random_uuid(),
+      week_start date not null,
+      tournament_slug text not null,
+      event_type text not null default 'singles' check (event_type in ('singles', 'doubles')),
+      player_name text not null,
+      movement_type text not null check (movement_type in (
+        'md_withdrawal', 'md_alt_to_md', 'q_to_md', 'q_withdrawal',
+        'q_alt_to_q', 'q_alt_to_md', 'q_alt_withdrawal',
+        'removed_unknown', 'reported_next'
+      )),
+      from_section text not null check (from_section in ('main', 'main_alt', 'qualifying', 'qualifying_alt', 'unknown')),
+      to_section text not null check (to_section in ('main', 'qualifying', 'out', 'unknown')),
+      entry_rank int,
+      original_position int,
+      q_spots_delta int not null default 0,
+      observed_at timestamptz not null default now(),
+      source_key text not null,
+      source_url text,
+      raw_text text,
+      evidence jsonb not null default '{}'::jsonb,
+      fingerprint text not null unique,
+      created_at timestamptz not null default now()
+    );
+
     create index if not exists acceptance_list_sources_due_idx
       on acceptance_list_sources(active, next_check_at)
       where active = true;
@@ -60,10 +98,17 @@ export async function GET() {
 
     create index if not exists acceptance_list_snapshots_source_fetched_idx
       on acceptance_list_snapshots(source_id, fetched_at desc);
+
+    create index if not exists entry_list_source_snapshots_week_idx
+      on entry_list_source_snapshots(week_start, source_key, fetched_at desc);
+
+    create index if not exists entry_list_movements_week_event_idx
+      on entry_list_movements(week_start, tournament_slug, observed_at desc);
   `);
 
-  // Preserve old proof snapshots, but make sure no organizer/federation or
-  // third-party proof source can be polled by a future generic scheduler.
+  // Preserve old proof snapshots, but make sure legacy experimental acceptance
+  // sources cannot be polled by the official PDF scheduler. The new public
+  // history poller uses its own tables and is intentionally unaffected here.
   const deactivated = await pool.query<{ id: string }>(
     `
     update acceptance_list_sources
@@ -78,5 +123,5 @@ export async function GET() {
     `
   );
 
-  return NextResponse.json({ ok: true, deactivatedNonCentralOfficialSources: deactivated.rowCount ?? 0 });
+  return NextResponse.json({ ok: true, deactivatedLegacyAcceptanceSources: deactivated.rowCount ?? 0 });
 }
