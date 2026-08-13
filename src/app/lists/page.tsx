@@ -9,7 +9,6 @@ import {
 import type { PublicEntryRow, PublicEntryTournament } from '@/lib/spazio-entry-list-parser';
 import { entryCodeLabel, rankingDisplay, routeLabel, tallyRoutes } from '@/lib/entry-codes';
 import { pool } from '@/lib/db';
-import WhereDoIStand from '@/components/WhereDoIStand';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
@@ -279,22 +278,28 @@ function DrawComposition({
   // special exempts. Counting the names and showing the held places separately
   // makes the same three numbers add up in public.
   const named = liveCount(rows, section);
-  const parts: Array<{ label: string; value: number; title: string }> = [
-    { label: 'DA', value: named, title: 'Named on the acceptance list' },
-  ];
+  const held = plan?.seHeld ?? 0;
+  // The list accounts for the draw when the players it names, plus the
+  // wildcards, qualifiers and held places, come to the draw size. Where it
+  // does, the counted number is the honest one and the held places are worth
+  // naming. Where it does not — the qualifying list is a partial Aug 10
+  // capture — the sheet's own figure is, and it still sums exactly. Either way
+  // the parts on screen add up to the total beside them.
+  const listAccountsForDraw =
+    plan?.size != null && named + (plan.wc ?? 0) + (plan.q ?? 0) + held === plan.size;
 
-  // Where the shortfall between the draw and the named players is exactly the
-  // special-exempt reserve, it IS the reserve, and naming it is what makes the
-  // parts add up. Any other shortfall gets no chip at all — a number with no
-  // established route behind it explains nothing.
-  const shortfall =
-    plan?.size != null ? plan.size - named - (plan.wc ?? 0) - (plan.q ?? 0) : null;
-  if (shortfall != null && shortfall > 0 && plan?.seHeld != null && shortfall === plan.seHeld) {
-    parts.push({
-      label: 'SE',
-      value: shortfall,
-      title: 'Places held for special exempts — players still alive in the previous week',
-    });
+  const parts: Array<{ label: string; value: number; title: string }> = [];
+  if (listAccountsForDraw || plan?.da == null) {
+    parts.push({ label: 'DA', value: named, title: 'Named on the acceptance list' });
+    if (held > 0) {
+      parts.push({
+        label: 'SE',
+        value: held,
+        title: 'Places held for special exempts — players still alive in the previous week',
+      });
+    }
+  } else {
+    parts.push({ label: 'DA', value: plan.da, title: routeLabel('DA') });
   }
 
   if (plan?.wc != null) parts.push({ label: 'WC', value: plan.wc, title: routeLabel('WC') });
@@ -417,11 +422,20 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           <div>
             <h2 className={styles.eventTitle}>{event.name}</h2>
             <div className={styles.eventSub}>{event.level} · {event.surface}</div>
-            {/* What the draw is made of, stated by the event's own detail
+            {/* What each draw is made of, stated by the event's own detail
                 sheet. It belongs to the tournament rather than to one list,
                 because it describes places that the acceptance list, the
                 qualifying draw and the wildcards all fill between them. */}
-            <DrawComposition rows={event.mainHistory} section="main" plan={plans.main_singles} />
+            <div className={styles.drawPlans}>
+              <div className={styles.drawPlan}>
+                <span className={styles.drawPlanLabel}>Main draw</span>
+                <DrawComposition rows={event.mainHistory} section="main" plan={plans.main_singles} />
+              </div>
+              <div className={styles.drawPlan}>
+                <span className={styles.drawPlanLabel}>Qualifying</span>
+                <DrawComposition rows={event.qualifyingHistory} section="q" plan={plans.qualifying} />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -452,14 +466,10 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>Qualifying</h3>
               {/* Deliberately not called "accepted". The main-draw count is the
-                  published acceptance list and lands on the same number for
-                  every event; the qualifying list is a frozen Aug 10 capture
-                  whose depth varies by event, so claiming it is the full
-                  acceptance would be asserting more than the source shows. */}
-              <div className={styles.panelSummary}>
-                <span className={styles.panelCount}>{liveCount(event.qualifyingHistory, 'q')} on the Aug 10 list</span>
-                <DrawComposition rows={event.qualifyingHistory} section="q" plan={plans.qualifying} />
-              </div>
+                  published acceptance list; the qualifying list is a frozen
+                  Aug 10 capture whose depth varies by event, so calling it the
+                  full acceptance would assert more than the source shows. */}
+              <span className={styles.panelCount}>{liveCount(event.qualifyingHistory, 'q')} on the Aug 10 list</span>
             </div>
             <HistoryTable rows={event.qualifyingHistory} section="q" />
             <div className={styles.qAltMissing}>
@@ -484,7 +494,6 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
 
       </section>
 
-      <WhereDoIStand events={activeEvents} />
     </main>
   );
 }
