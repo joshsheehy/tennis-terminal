@@ -11,69 +11,63 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Probe derived USTA Q entry-list artifacts
+      - name: Download selected USTA entry and alternate PDFs
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p research/usta-q-siblings/pdfs research/usta-q-siblings/text
+          mkdir -p research/usta-pdf-text
+          python3 -m pip -q install pypdf
           python3 - <<'PY'
-          import urllib.request, pathlib, re
-          base='https://www.usta.com'
-          events={
-            'tyler':('/content/dam/usta/pro-circuit/2026/20260601_tyler_m75/','tyler-mds-entry-list.pdf'),
-            'cary':('/content/dam/usta/pro-circuit/2026/20260629_cary_m75/','cary-2026-mds-entry-list.pdf'),
-            'lincoln':('/content/dam/usta/pro-circuit/2026/20260713_lincoln_m75/','lincoln-challenger-2026-mds-entry-list.pdf'),
-            'bloomfield':('/content/dam/usta/pro-circuit/2026/20260720_bloomfieldhills_m125/','bloomfield-hills-challenger-2026-entry-list-mds.pdf'),
-            'lexington':('/content/dam/usta/pro-circuit/2026/20260803_lexington_m75/','2026-lexington-challenger-mds-entry-list.pdf'),
-            'brownsburg':('/content/dam/usta/pro-circuit/2026/20260810_brownsburg_m75/','brownsburg-challenger-mds-entry-list.pdf'),
+          import io, urllib.request, pathlib, json
+          from pypdf import PdfReader
+          base='https://www.usta.com/content/dam/usta/pro-circuit/2026/'
+          docs={
+            'lincoln_entry':base+'20260713_lincoln_m75/lincoln-challenger-2026-mds-entry-list.pdf',
+            'lincoln_ll':base+'20260713_lincoln_m75/ll.pdf',
+            'bloomfield_entry':base+'20260720_bloomfieldhills_m125/bloomfield-hills-challenger-2026-entry-list-mds.pdf',
+            'bloomfield_ll':base+'20260720_bloomfieldhills_m125/ll.pdf',
+            'lexington_entry':base+'20260803_lexington_m75/2026-lexington-challenger-mds-entry-list.pdf',
+            'lexington_ll':base+'20260803_lexington_m75/ll.pdf',
+            'brownsburg_entry':base+'20260810_brownsburg_m75/brownsburg-challenger-mds-entry-list.pdf',
+            'brownsburg_ll':base+'20260810_brownsburg_m75/ll.pdf',
+            'tyler_entry':base+'20260601_tyler_m75/tyler-mds-entry-list.pdf',
+            'tyler_ll':base+'20260601_tyler_m75/ll.pdf',
           }
-          lines=[]
-          def variants(fn):
-              out=[fn,'ll.pdf']
-              reps=[
-                fn.replace('mds','qs'),
-                fn.replace('MDS','QS'),
-                fn.replace('entry-list-mds','entry-list-qs'),
-                fn.replace('mds-entry-list','qs-entry-list'),
-              ]
-              stem=fn[:-4] if fn.lower().endswith('.pdf') else fn
-              generic=['qs-entry-list.pdf','qualifying-entry-list.pdf','qualifying-alternates.pdf','q-alternates.pdf','qualifying-alternate-list.pdf']
-              for x in reps+generic:
-                  if x!=fn and x not in out: out.append(x)
-              return out
-          for ev,(folder,fn) in events.items():
-              for cand in variants(fn):
-                  url=base+folder+cand
-                  try:
-                      req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':base+'/en/home/pro/pro-tennis-events/usta-mens-competitive-pathway.html'})
-                      with urllib.request.urlopen(req,timeout=20) as r:
-                          b=r.read(); ct=r.headers.get('Content-Type',''); status=r.status
-                      ispdf=b.startswith(b'%PDF')
-                      lines.append(f'{ev}\t{cand}\tHTTP={status}\tBYTES={len(b)}\tTYPE={ct}\tPDF={ispdf}\t{url}')
-                      if ispdf:
-                          safe=re.sub(r'[^A-Za-z0-9_.-]+','_',cand)
-                          pathlib.Path(f'research/usta-q-siblings/pdfs/{ev}__{safe}').write_bytes(b)
-                  except Exception as e:
-                      code=getattr(e,'code','ERR')
-                      lines.append(f'{ev}\t{cand}\tHTTP={code}\t{url}')
-          pathlib.Path('research/usta-q-siblings/results.tsv').write_text('\n'.join(lines))
-          print('\n'.join(lines))
+          meta=[]
+          for name,url in docs.items():
+              try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.usta.com/en/home/pro/pro-tennis-events/usta-mens-competitive-pathway.html'})
+                  with urllib.request.urlopen(req,timeout=30) as r:
+                      b=r.read(); headers=dict(r.headers); final=r.geturl(); status=r.status
+                  item={'name':name,'url':url,'status':status,'bytes':len(b),'last_modified':headers.get('Last-Modified'),'etag':headers.get('ETag'),'final':final}
+                  if b.startswith(b'%PDF'):
+                      reader=PdfReader(io.BytesIO(b))
+                      text='\n\n'.join((p.extract_text() or '') for p in reader.pages)
+                      pathlib.Path(f'research/usta-pdf-text/{name}.txt').write_text(text,errors='replace')
+                      item['pages']=len(reader.pages); item['chars']=len(text)
+                  meta.append(item)
+                  print('\n###',name,json.dumps(item,indent=2))
+                  if 'text' in locals(): print(text[:12000])
+              except Exception as e:
+                  meta.append({'name':name,'url':url,'error':repr(e)})
+                  print('ERR',name,repr(e))
+          pathlib.Path('research/usta-pdf-text/meta.json').write_text(json.dumps(meta,indent=2))
           PY
-      - name: Extract PDF text
+      - name: Summarize relevant lines
         run: |
-          for f in research/usta-q-siblings/pdfs/*.pdf; do
-            [ -e "$f" ] || continue
-            b=$(basename "$f" .pdf)
-            pdftotext -layout "$f" "research/usta-q-siblings/text/$b.txt" || true
-          done
-          echo '=== PDF TEXT HITS ==='
-          grep -RaiEn 'qualif|alternate|entry list|withdraw|ranking|next|lucky loser' research/usta-q-siblings/text | head -n 1200 || true
-          echo '=== ALL TEXT FILE HEADERS ==='
-          for f in research/usta-q-siblings/text/*.txt; do echo "##### $f #####"; head -n 100 "$f"; done
+          {
+            echo '=== ALTERNATE / QUALIFY / WITHDRAW HITS ==='
+            grep -RaiEn 'alternate|qualif|withdraw|lucky|entry rank|ranking|acceptance|main draw' research/usta-pdf-text || true
+            echo '=== BROWNSBURG LL ==='
+            cat research/usta-pdf-text/brownsburg_ll.txt 2>/dev/null || true
+            echo '=== BROWNSBURG ENTRY ==='
+            cat research/usta-pdf-text/brownsburg_entry.txt 2>/dev/null || true
+          } > research/usta-pdf-text/summary.txt
+          head -n 1200 research/usta-pdf-text/summary.txt
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/usta-q-siblings
-          git commit -m "Save USTA Q entry-list sibling probe" || exit 0
+          git add research/usta-pdf-text
+          git commit -m "Save USTA entry and alternate PDF text" || exit 0
           git push
