@@ -458,20 +458,6 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           <div>
             <h2 className={styles.eventTitle}>{event.name}</h2>
             <div className={styles.eventSub}>{event.level} · {event.surface}</div>
-            {/* What each draw is made of, stated by the event's own detail
-                sheet. It belongs to the tournament rather than to one list,
-                because it describes places that the acceptance list, the
-                qualifying draw and the wildcards all fill between them. */}
-            <div className={styles.drawPlans}>
-              <div className={styles.drawPlan}>
-                <span className={styles.drawPlanLabel}>Main draw</span>
-                <DrawComposition rows={event.mainHistory} section="main" plan={plans.main_singles} />
-              </div>
-              <div className={styles.drawPlan}>
-                <span className={styles.drawPlanLabel}>Qualifying</span>
-                <DrawComposition rows={event.qualifyingHistory} section="q" plan={plans.qualifying} />
-              </div>
-            </div>
           </div>
         </div>
 
@@ -484,6 +470,8 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
               <h3 className={styles.panelTitle}>Main draw</h3>
               <span className={styles.panelCount}>{liveCount(event.mainHistory, 'main')} accepted</span>
             </div>
+            {/* Directly above the names it describes. */}
+            <DrawComposition rows={event.mainHistory} section="main" plan={plans.main_singles} />
             <HistoryTable rows={event.mainHistory} section="main" />
           </div>
 
@@ -507,6 +495,7 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
                   full acceptance would assert more than the source shows. */}
               <span className={styles.panelCount}>{liveCount(event.qualifyingHistory, 'q')} on the Aug 10 list</span>
             </div>
+            <DrawComposition rows={event.qualifyingHistory} section="q" plan={plans.qualifying} />
             <HistoryTable rows={event.qualifyingHistory} section="q" />
             <div className={styles.qAltMissing}>
               <strong>Qualifying alternates · awaiting verified ordered list</strong>
