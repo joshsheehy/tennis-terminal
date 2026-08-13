@@ -1,0 +1,112 @@
+[
+  {
+    "name": "lincoln_entry",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260713_lincoln_m75/lincoln-challenger-2026-mds-entry-list.pdf",
+    "status": 200,
+    "bytes": 273368,
+    "last_modified": "Tue, 23 Jun 2026 14:49:52 GMT",
+    "etag": "\"42bd8-654ecdf156400-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260713_lincoln_m75/lincoln-challenger-2026-mds-entry-list.pdf",
+    "pages": 2,
+    "chars": 3351
+  },
+  {
+    "name": "lincoln_ll",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260713_lincoln_m75/ll.pdf",
+    "status": 200,
+    "bytes": 82083,
+    "last_modified": "Tue, 14 Jul 2026 03:31:29 GMT",
+    "etag": "\"140a3-65689d7a9c640-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260713_lincoln_m75/ll.pdf",
+    "pages": 1,
+    "chars": 808
+  },
+  {
+    "name": "bloomfield_entry",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260720_bloomfieldhills_m125/bloomfield-hills-challenger-2026-entry-list-mds.pdf",
+    "status": 200,
+    "bytes": 268885,
+    "last_modified": "Wed, 08 Jul 2026 19:29:36 GMT",
+    "etag": "\"41a55-6561e871b8800-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260720_bloomfieldhills_m125/bloomfield-hills-challenger-2026-entry-list-mds.pdf",
+    "pages": 1,
+    "chars": 1912
+  },
+  {
+    "name": "bloomfield_ll",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260720_bloomfieldhills_m125/ll.pdf",
+    "status": 200,
+    "bytes": 85012,
+    "last_modified": "Mon, 20 Jul 2026 23:16:52 GMT",
+    "etag": "\"14c14-6571319f8e100-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260720_bloomfieldhills_m125/ll.pdf",
+    "pages": 1,
+    "chars": 860
+  },
+  {
+    "name": "lexington_entry",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260803_lexington_m75/2026-lexington-challenger-mds-entry-list.pdf",
+    "status": 200,
+    "bytes": 280528,
+    "last_modified": "Tue, 21 Jul 2026 13:20:14 GMT",
+    "etag": "\"447d0-6571ee2161f80-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260803_lexington_m75/2026-lexington-challenger-mds-entry-list.pdf",
+    "pages": 2,
+    "chars": 4046
+  },
+  {
+    "name": "lexington_ll",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260803_lexington_m75/ll.pdf",
+    "status": 200,
+    "bytes": 69347,
+    "last_modified": "Wed, 05 Aug 2026 00:22:30 GMT",
+    "etag": "\"10ee3-65841c4509d80-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260803_lexington_m75/ll.pdf",
+    "pages": 1,
+    "chars": 622
+  },
+  {
+    "name": "brownsburg_entry",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260810_brownsburg_m75/brownsburg-challenger-mds-entry-list.pdf",
+    "status": 200,
+    "bytes": 280631,
+    "last_modified": "Tue, 21 Jul 2026 13:35:40 GMT",
+    "etag": "\"44837-6571f1947c300-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260810_brownsburg_m75/brownsburg-challenger-mds-entry-list.pdf",
+    "pages": 2,
+    "chars": 3970
+  },
+  {
+    "name": "brownsburg_ll",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260810_brownsburg_m75/ll.pdf",
+    "status": 200,
+    "bytes": 390765,
+    "last_modified": "Wed, 06 May 2026 19:28:04 GMT",
+    "etag": "\"5f66d-6512b299f1900-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260810_brownsburg_m75/ll.pdf",
+    "pages": 1,
+    "chars": 42
+  },
+  {
+    "name": "tyler_entry",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260601_tyler_m75/tyler-mds-entry-list.pdf",
+    "status": 200,
+    "bytes": 380058,
+    "last_modified": "Wed, 27 May 2026 19:34:36 GMT",
+    "etag": "\"5cc9a-652d1b3a76b00-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260601_tyler_m75/tyler-mds-entry-list.pdf",
+    "pages": 2,
+    "chars": 3640
+  },
+  {
+    "name": "tyler_ll",
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260601_tyler_m75/ll.pdf",
+    "status": 200,
+    "bytes": 390765,
+    "last_modified": "Wed, 10 Dec 2025 03:39:43 GMT",
+    "etag": "\"5f66d-64590c7629dc0-gzip\"",
+    "final": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260601_tyler_m75/ll.pdf",
+    "pages": 1,
+    "chars": 42
+  }
+]

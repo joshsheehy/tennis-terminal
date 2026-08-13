@@ -1,0 +1,159 @@
+=== ALTERNATE / QUALIFY / WITHDRAW HITS ===
+research/usta-pdf-text/lincoln_ll.txt:2:TXT) Time Viewed Ranking (Seed)
+research/usta-pdf-text/lincoln_ll.txt:29:Lucky Loser List - MS
+research/usta-pdf-text/brownsburg_entry.txt:2:Official Player Acceptance List
+research/usta-pdf-text/brownsburg_entry.txt:6:Direct Acceptances 20
+research/usta-pdf-text/brownsburg_entry.txt:7:Date:8/10/2026 Original Cut Off:178 7/20/2026Rankings Date:
+research/usta-pdf-text/brownsburg_entry.txt:13:Qualifiers
+research/usta-pdf-text/brownsburg_entry.txt:16:Main Draw
+research/usta-pdf-text/brownsburg_entry.txt:28:Alternates
+research/usta-pdf-text/brownsburg_entry.txt:65:Official Player Acceptance List
+research/usta-pdf-text/brownsburg_entry.txt:69:Direct Acceptances 20
+research/usta-pdf-text/brownsburg_entry.txt:70:Date:8/10/2026 Original Cut Off:178 7/20/2026Rankings Date:
+research/usta-pdf-text/brownsburg_entry.txt:76:Qualifiers
+research/usta-pdf-text/brownsburg_entry.txt:79:Alternates
+research/usta-pdf-text/lexington_entry.txt:2:Official Player Acceptance List
+research/usta-pdf-text/lexington_entry.txt:6:Direct Acceptances 18
+research/usta-pdf-text/lexington_entry.txt:7:Date:8/3/2026 Original Cut Off:187 7/13/2026Rankings Date:
+research/usta-pdf-text/lexington_entry.txt:13:Qualifiers
+research/usta-pdf-text/lexington_entry.txt:16:Main Draw
+research/usta-pdf-text/lexington_entry.txt:28:Alternates
+research/usta-pdf-text/lexington_entry.txt:65:Official Player Acceptance List
+research/usta-pdf-text/lexington_entry.txt:69:Direct Acceptances 18
+research/usta-pdf-text/lexington_entry.txt:70:Date:8/3/2026 Original Cut Off:187 7/13/2026Rankings Date:
+research/usta-pdf-text/lexington_entry.txt:76:Qualifiers
+research/usta-pdf-text/lexington_entry.txt:79:Alternates
+research/usta-pdf-text/lincoln_entry.txt:2:Official Player Acceptance List
+research/usta-pdf-text/lincoln_entry.txt:6:Direct Acceptances 18
+research/usta-pdf-text/lincoln_entry.txt:7:Date:7/13/2026 Original Cut Off:300 6/22/2026Rankings Date:
+research/usta-pdf-text/lincoln_entry.txt:13:Qualifiers
+research/usta-pdf-text/lincoln_entry.txt:16:Main Draw
+research/usta-pdf-text/lincoln_entry.txt:28:Alternates
+research/usta-pdf-text/lincoln_entry.txt:65:Official Player Acceptance List
+research/usta-pdf-text/lincoln_entry.txt:69:Direct Acceptances 18
+research/usta-pdf-text/lincoln_entry.txt:70:Date:7/13/2026 Original Cut Off:300 6/22/2026Rankings Date:
+research/usta-pdf-text/lincoln_entry.txt:76:Qualifiers
+research/usta-pdf-text/lincoln_entry.txt:79:Alternates
+research/usta-pdf-text/bloomfield_entry.txt:2:Official Player Acceptance List
+research/usta-pdf-text/bloomfield_entry.txt:6:Direct Acceptances 19
+research/usta-pdf-text/bloomfield_entry.txt:7:Date:7/20/2026 Original Cut Off:179 6/29/2026Rankings Date:
+research/usta-pdf-text/bloomfield_entry.txt:13:Qualifiers
+research/usta-pdf-text/bloomfield_entry.txt:16:Main Draw
+research/usta-pdf-text/bloomfield_entry.txt:28:Alternates
+research/usta-pdf-text/tyler_entry.txt:2:Official Player Acceptance List
+research/usta-pdf-text/tyler_entry.txt:6:Direct Acceptances 19
+research/usta-pdf-text/tyler_entry.txt:7:Date:6/1/2026 Original Cut Off:307 5/11/2026Rankings Date:
+research/usta-pdf-text/tyler_entry.txt:13:Qualifiers
+research/usta-pdf-text/tyler_entry.txt:16:Main Draw
+research/usta-pdf-text/tyler_entry.txt:28:Alternates
+research/usta-pdf-text/tyler_entry.txt:65:Official Player Acceptance List
+research/usta-pdf-text/tyler_entry.txt:69:Direct Acceptances 19
+research/usta-pdf-text/tyler_entry.txt:70:Date:6/1/2026 Original Cut Off:307 5/11/2026Rankings Date:
+research/usta-pdf-text/tyler_entry.txt:76:Qualifiers
+research/usta-pdf-text/tyler_entry.txt:79:Alternates
+research/usta-pdf-text/lexington_ll.txt:4:DOUBLES ALTERNATE SIGN-IN RECORD
+research/usta-pdf-text/lexington_ll.txt:6:The following players hereby personally sign in as Alternates for eligibility for substitution to fill a
+research/usta-pdf-text/lexington_ll.txt:7:vacancy in the Main draw of the above referenced tournament.
+research/usta-pdf-text/lexington_ll.txt:8:# TEAM Source (WhatsApp, TXT) Time Viewed Ranking
+research/usta-pdf-text/bloomfield_ll.txt:2:TXT) Time Viewed Ranking (Seed)
+research/usta-pdf-text/bloomfield_ll.txt:32:Lucky Loser List - MS
+=== BROWNSBURG LL ===
+ 
+ 
+Draw and Schedule Coming Soon 
+ 
+ 
+ 
+ === BROWNSBURG ENTRY ===
+7/20/2026 12:19:55
+Official Player Acceptance List
+Brownsburg, IN, IA, U.S.A.
+Page 1 of 2
+Revision
+Direct Acceptances 20
+Date:8/10/2026 Original Cut Off:178 7/20/2026Rankings Date:
+3
+6
+2
+1
+Wild Cards
+Qualifiers
+Special Exempts
+Next Gen Accelerator
+Main Draw
+COL 136Mejia, Nicolas Sakamoto, Rei JPN 165
+BRA 137Heide, Gustavo Bolt, Alex AUS 167
+CHI 141Garin, Cristian Glinka, Daniil EST 168
+USA 146Basavareddy, Nishesh Gojo, Borna CRO 169
+GBR 147Draper, Jack Tomic, Bernard AUS 170
+ITA 149Maestrelli, Francesco Pinnington Jones, Jack GBR 171
+TUN 151Echargui, Moez Smith, Colton USA 174
+LUX 153Rodesch, Chris Blanchet, Ugo FRA 176
+GBR 155Harris, Billy Onclin, Gauthier BEL 178
+AUS 160Schoolkate, Tristan Cina, Federico ITA NG 184
+ITA 164Nardi, Luca
+Alternates
+ITA 184Cina, Federico (1)1. 33. @ Maloney, Patrick (1) USA 348
+AUT 185Schwaerzler, Joel (2)2. 34. Krueger, Mitchell (2) USA 349
+RSA 186Harris, Lloyd (2)3. 35. Marrero Curbelo, Ivan (1) ESP 369
+ESP 188Jorda Sanchis, David (2)4. 36. Johns, Garrett (1) USA 375
+SWE 197Ymer, Elias (2)5. 37. Fenty, Andrew (1) USA 397
+GBR 203Broady, Liam (1)6. 38. Winter, Edward (2) AUS 400
+GBR 204Wendelken, Harry (1)7. 39. @ Brouwer, Gijs (1) NED 415
+FRA 208Chidekh, Clement (2)8. 40. Orlov, Vladyslav (3) UKR 426
+USA 209Smith, Keegan (2)9. 41. Svajda, Trevor (2) USA 435
+TPE 210Hsu, Yu Hsiou (1)10. 42. Suresh, Dhakshineswar (1) IND 436
+FRA 212Kouame, Moise (1)11. 43. Ayeni, Alafia (3) USA 453
+GBR 215Searle, Henry (2)12. 44. Vandecasteele, Quinn (1) USA 458
+GBR 219Gill, Felix (2)13. 45. Langmo, Christian (1) USA 460
+USA 225Blanch, Darwin (2)14. 46. Tu, Li (1) AUS 464
+FRA 226Grenier, Hugo (2)15. 47. Palan, Dominik (2) CZE 465
+CHN 232Zhou, Yi (2)16. 48. Tobon, Miguel (1) COL 473
+USA 234Shick, Braden (2)17. 49. Poling, Karl (1) USA 487
+FRA 246Balshaw, Felix (1)18. 50. Hernandez, Alex (1) MEX 499
+USA 248Ilagan, Andre (1)19. 51. Bigun, Kaylan (1) USA 536
+CHI 253Soto, Matias (1)20. 52. Legout, Timo (2) FRA 557
+ECU 259Andrade, Andy (2)21. 53. Young, Gavin (1) USA 564
+JOR 261Shelbayh, Abdullah (2)22. 54. Baris, Ozan (1) USA 586
+USA 269Cassone, Murphy (2)23. 55. Miyoshi, Kenta (1) JPN 604
+ARG 273Ficovich, Juan Pablo (2)24. 56. Dickerson, Ryan (1) USA 607
+USA 296Kozlov, Stefan (2)25. 57. Purtseladze, Saba (2) GEO 623
+AUS 301Sekulic, Philip (1)26. 58. Mayo, Aidan (1) USA 634
+USA 322Martin, Andres (2)27. 59. Magadan, Alan (1) MEX 650
+MEX 323Pacheco Mendez, Rodrigo (1)28. 60. Seggerman, Ryan (2) USA 653
+USA 326Milavsky, Daniel (2)29. 61. Sheehy, Joshua (1) USA 654
+USA 328Zink, Tyler (2)30. 62. Takahashi, Yusuke (2) JPN 679
+GBR 338Jubb, Paul (1)31. 63. Vales, Amit (2) ISR 680
+JAM 347Bicknell, Blaise (2)32. 64. Vithoontien, Leo (1) JPN 690
+@ - entry protection, # - need Consent & Agreement Form
+% need Mandatory Physical / Competition Clearance Form,+ Top 30 Commitment PlayerCertified:_______________________
+
+7/20/2026 12:19:57
+Official Player Acceptance List
+Brownsburg, IN, IA, U.S.A.
+Page 2 of 2
+Revision
+Direct Acceptances 20
+Date:8/10/2026 Original Cut Off:178 7/20/2026Rankings Date:
+3
+6
+2
+1
+Wild Cards
+Qualifiers
+Special Exempts
+Next Gen Accelerator
+Alternates
+GBR 714Hurrion, Millen (1)65. 76. Okonkwo, Oliver (1) GBR 961
+JPN 737Nakagawa, Naoki (1)66. 77. Exsted, Maxwell (1) USA 979
+USA 741Forbes, Matthew (1)67. 78. Nefve, Axel (1) USA 1009
+USA 746Ganesan, Adhithya (1)68. 79. Nam, JiSung (1) KOR 1021
+JPN 762Honda, Naoya (1)69. 80. Purcell, Max (1) AUS 1032
+USA 797Kuhar, Matt (1)70. 81. Brouwer, Gijs (1) NED 1143
+MEX 809Alvarez, Luis Carlos (1)71. 82. Brown, Preston (1) USA 1161
+AUS 810Fancutt, Thomas (2)72. 83. Bernard, Alexander (1) USA 1197
+USA 863Van Loben Sels, Emon (1)73. 84. Peck, Joshua (1) CAN 1308
+USA 884Nakashima, Bryce (1)74. 85. Inui, Yuichiro (2) JPN 1503
+USA 913Maloney, Patrick (1)75. 86. Vrba, Jakub (1) CZE 1635
+@ - entry protection, # - need Consent & Agreement Form
+% need Mandatory Physical / Competition Clearance Form,+ Top 30 Commitment PlayerCertified:_______________________
