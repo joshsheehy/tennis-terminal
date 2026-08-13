@@ -271,14 +271,10 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
       <div className={styles.eventGrid} aria-label="Aug 17 tournaments">
         {trackedEvents.map((item) => {
           const on = item.slug === event.slug;
-          const md = liveCount(item.mainHistory, 'main');
-          const alt = liveCount(item.mainAltHistory, 'alt');
-          const q = liveCount(item.qualifyingHistory, 'q');
           return (
             <Link key={item.slug} href={`/lists?event=${item.slug}`} prefetch={false} className={`${styles.eventCard}${on ? ` ${styles.eventCardOn}` : ''}`}>
               <div className={styles.eventName}>{item.name}</div>
-              <div className={styles.eventMeta}>{item.level} · {item.surface} · ATP {item.atpCode}</div>
-              <div className={styles.eventCounts}><span className={styles.badge}>MD {md}</span><span className={styles.badge}>ALT {alt}</span><span className={styles.badge}>Q {q}</span></div>
+              <div className={styles.eventMeta}>{item.level} · {item.surface}</div>
             </Link>
           );
         })}
