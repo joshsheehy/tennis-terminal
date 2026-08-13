@@ -1,0 +1,1356 @@
+RUN 2026-08-13T00:35:00.318185+00:00
+
+### PAGE https://www.dartsrankings.com/tennis/split STATUS=200 LEN=16697 FINAL=https://www.dartsrankings.com/tennis/split SERVER=LiteSpeed XPOWER=PHP/7.2.34
+HEAD <!DOCTYPE html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>Split Challenger Entry List and Seeds</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="ATP Tennis Entry Lists and seeds" /><link rel="stylesheet" href="https://www.dartsrankings.com/tennis/tennisstyles212122.css"></head><body><nav class="topnav"><ul><li><a  href="https://www.dartsrankings.com/tennis/athens">Athens</a></li><li><a  href="https://www.dartsrankings.com/tennis/metz">Metz</a></li><li><div class="dropdown"><button class="dropbtn">Challengers Next Week</button><div class="dropdown-content"><a  href="https://www.dartsrankings.com/tennis/maia">Maia</a><a  href="https://www.dartsrankings.com/tennis/temuco">Temuco</a><a  href="https://www.dartsrankings.com/tennis/bogota-los-lagartos">Bogota (Los Lagartos)</a><a  href="https://www.dartsrankings.com/tennis/playford">Playford</a><a  href="https://www.dartsrankings.com/tennis/athens-challenger">Athens</a><a  href="https://www.dartsrankings.com/tennis/islamabad">Islamabad</a><a  href="https://www.dartsrankings.com/tennis/manama-2">Manama 2</a></div></div></li><li><a  href="https://www.dartsrankings.com/tennis/schedules/">Schedules</a></li><li><a class="darts" href="https://www.dartsrankings.com">Darts</a><li><li><a  href="https://www.dartsrankings.com/tennis/contactt">About</a></li> </ul></nav><div  id="menusymbol" class="symbol">    <div></div><div></div><div></div></div>  <nav id="SmallSidenav" class="sidenav"><a href=# class="symbol" id="close" return false; >Close</a><a  href="https://www.dartsrankings.com/tennis/athens">Athens</a><a  href="https://www.dartsrankings.com/tennis/metz">Metz</a><div class="dropbtnleft">Challengers Next Week &#9660;</div><div class="dropdown-contentleft"><a  href="https://www.dartsrankings.com/tennis/maia">Maia</a><a  href="https://www.dartsrankings.com/tennis/temuco">Temuco</a><a  href="https://www.dartsrankings.com/tennis/bogota-los-lagartos">Bogota (Los Lagartos)</a><a  href="https://www.dartsrankings.com/tennis/playford">Playford</a><a  href="https://www.dartsrankings.com/tennis/athens-challenger">Athens</a><a  href="https://www.dartsrankings.com/tennis/islamabad">Islamabad</a><a  href="https://www.dartsrankings.com/tennis/manama-2">Manama 2</a></div><a  href="https://www.dartsrankings.com/tennis/schedules/">Schedules</a><a class="darts" href="https://www.dartsrankings.com">Darts</a><a  href="https://www.dartsrankings.com/tennis/contactt">Contact/About</a> </nav><div class="drawmenu"><a href="#Q">Qualifying</a><br><a href="#D">Doubles</a></div><main id="content"><h1 style="text-align:center">Split</h1><section id ="MD"><h2 style="text-align:center">Main Draw</h2><div class="draw-tables"><table id = "EntriesMD" style="float: left"><caption>Entries</caption> <thead><tr><th   title="click to sort" onclick="sortTable(2,'EntriesMD')"> Seed  </th><th> Name </th><th title="click to sort" onclick="sortTable(2,'EntriesMD')"> <span class="bigtable">Seeding Ranking</span><span class="smalltable">Rk</span> </th><th title="click to sort" onclick="sortTable(3,'EntriesMD')"> <span class="bigtable">Entry Ranking</span><span class="smalltable">ER</span> </th></tr> </thead><tbody><tr ><td><b>1</b></td> <td>Zsombor Piros</td><td>109</td><td>108</td></tr><tr class='WC'><td><b>2</b></td> <td>(WC) Duje Ajdukovic</td><td>115</td><td></td></tr><tr ><td><b>3</b></td> <td>Lukas Klein</td><td>116</td><td>128</td></tr><tr ><td><b>4</b></td> <td>Quentin Halys</td><td>147</td><td>113</td></tr><tr ><td><b>5</b></td> <td>Juan Manuel Cerundolo</td><td>153</td><td>157</td></tr><tr ><td><b>6</b></td> <td>Damir Dzumhur</td><td>159</td><td>159</td></tr><tr ><td><b>7</b></td> <td>Alex Molcan</td><td>162</td><td>147</td></tr><tr ><td><b>8</b></td> <td>Filip Misolic</td><td>166</td><td>166</td></tr><tr ><td></td> <td>Benjamin Bonzi</td><td>167</td><td>168</td></tr><tr ><td></td> <td>Dino Prizmic</td><td>171</td><td>173</td></tr><tr ><td></td> <td>Jozef Kovalik</td><td>177</td><td>213</td></tr><tr ><td></td> <td>Stefano Travaglia</td><td>195</td><td>190</td></tr><tr ><td></td> <td>Nerman Fatic</td><td>202</td><td>200</td></tr><tr ><td></td> <td>Santiago Rodriguez Taverna</td><td>207</td><td>206</td></tr><tr ><td></td> <td>Billy Harris</td><td>209</td><td>181</td></tr><tr ><td></td> <td>Lukas Neumayer</td><td>210</td><td>219</td></tr><tr ><td></td> <td>Ivan Gakhov</td><td>225</td><td>176</td></tr><tr ><td></td> <td>Zdenek Kolar</td><td>229</td><td>233</td></tr><tr class='newin'><td></td> <td>Henri Squire</td><td>244</td><td>240</td></tr><tr class='newin'><td></td> <td>Maks Kasnikowski</td><td>260</td><td>260</td></tr><tr class='newin'><td></td> <td>Nicholas David Ionel</td><td>267</td><td>255</td></tr><tr class='ALT'><td></td> <td>(ALT) Timofey Skatov</td><td>277</td><td></td></tr><tr class='ALT'><td></td> <td>(ALT) Jiri Vesely</td><td>278</td><td></td></tr><tr class='ALT'><td></td> <td>(ALT) Tristan Lamasine<
+
+SCRIPTS
+sort1235.js
+https://www.dartsrankings.com/tennis/menufuntennis.js
+
+LINKS
+https://www.dartsrankings.com/tennis/tennisstyles212122.css
+
+FORM/AJAX/FETCH/API HINTS
+HINT Entry List and Seeds</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="ATP Tennis Entry Lists and seeds" /><link rel="stylesheet" href="https://www.dartsrankings.com/tennis/tennisstyles212122.css"></head><body><nav class="topnav"><ul><li><a href="https://www.dartsrankings.com/tennis/athens">Athens</a></li><li><a href="https://www.dartsrankings.com/tennis/metz">Metz</a></li><li><div class="dropdown"><button class="dropbtn">Challengers Next W
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th></tr> </thead><tbody><tr ><td><b>1</b></td> <td>Zsombor Piros</td><td>109</td><td>108</td></tr><tr class='WC'><td><b>2</b></td> <td>(WC) Duje Ajdukovic</td><td>115</td><td></td></tr><tr ><td><b>3</b></td> <td>Lukas Klein</td><td>116</td><td>128</td></tr><tr ><td><b>4</b></td> <td>Quentin Halys</td><td>147</td><td>113</td></tr><tr ><td><b>5</b></td> <td>Juan Manuel Cerundolo</td><td>153</td><td>157</td></tr><tr ><td><b>6</b></td> <td>Damir Dz
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th> </tr></thead><tbody><tr><td>1</td><td>Enrico Dalla Valle</td><td>254</td><td>261</td></tr><tr class='ALT'><td>2</td><td>Timofey Skatov</td><td>277</td><td>273</td></tr><tr class='ALT'><td>3</td><td>Tristan Lamasine</td><td>286</td><td>277</td></tr><tr class='ALT'><td>4</td><td>Jiri Vesely</td><td>278</td><td>284</td></tr><tr><td>5</td><td class='multiple-da' title='Currently accepted into:&#xA;&#xA;Madrid Challenger Q'>Nikolas Sanchez Izqui
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th></tr></thead><tbody><tr class='out'><td></td> <td>Borna Gojo</td><td>120</td><td>119</td></tr><tr class='lateout'><td></td> <td>Mate Valkusz</td><td>214</td><td>214</td></tr><tr class='out'><td></td> <td>Marco Cecchinato</td><td>219</td><td>216</td></tr><tr class='out'><td></td> <td>Dennis Novak</td><td>218</td><td>218</td></tr><tr class='lateout'><td></td> <td>(SE)</td><td></td><td></td></tr><tr class='lateout'><td></td> <td>(SE)</td><td></
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th></tr> </thead><tbody><tr ><td><b>1</b></td> <td>Filip Cristian Jianu</td><td>293</td><td>311</td></tr><tr ><td><b>2</b></td> <td>Michael Vrbensky</td><td>316</td><td>320</td></tr><tr ><td><b>3</b></td> <td>Felix Gill</td><td>326</td><td>334</td></tr><tr ><td><b>4</b></td> <td>Mathys Erhard</td><td>330</td><td>330</td></tr><tr ><td><b>5</b></td> <td>Michael Geerts</td><td>339</td><td>296</td></tr><tr ><td><b>6</b></td> <td>Elmer Moller</td><t
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th> </tr></thead><tbody><tr><td>1</td><td>Carlos Gimeno Valero</td><td>503</td><td>507</td></tr><tr><td>2</td><td>Tom Gentzsch</td><td>546</td><td>544</td></tr><tr><td>3</td><td>Maximus Jones</td><td>552</td><td>555</td></tr><tr><td>4</td><td>Georgii Kravchenko</td><td>580</td><td>562</td></tr><tr><td>5</td><td>Tommaso Compagnucci</td><td>590</td><td>594</td></tr><tr class='ALT'><td>6</td><td>Neil Oberleitner</td><td>642</td><td>595</td></tr><t
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th></tr></thead><tbody><tr class='out'><td></td> <td>Dimitar Kuzmanov</td><td>233</td><td>238</td></tr><tr class='out'><td></td> <td>Maks Kasnikowski</td><td>260</td><td>260</td></tr><tr class='lateout'><td></td> <td>Timofey Skatov</td><td>277</td><td>273</td></tr><tr class='lateout'><td></td> <td>Tristan Lamasine</td><td>286</td><td>277</td></tr><tr class='lateout'><td></td> <td>Jiri Vesely</td><td>278</td><td>284</td></tr><tr class='out'><td>
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th></tr> </thead><tbody><tr class='OS'><td><b>1</b></td> <td>(OS) Vijay Sundar Prashanth / Reese Stalder</td><td>166</td><td></td></tr><tr ><td><b>2</b></td> <td>Andre Goransson / Sem Verbeek</td><td>167</td><td>167</td></tr><tr class='OS'><td><b>3</b></td> <td>(OS) Jonathan Eysseric / Bart Stevens</td><td>196</td><td></td></tr><tr ><td><b>4</b></td> <td>Roman Jebavy / Philipp Oswald</td><td>215</td><td>215</td></tr><tr ><td></td> <td>Dan Added
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th> </tr></thead><tbody></tbody></table><table id = "WithdrawalsD" ><caption>Withdrawals</caption><thead><tr><th> </th><th> Names </th><th> <span class="bigtable">Seeding Ranking</span><span class="smalltable">Rk</span> </th><th> <span class="bigtable">Entry Ranking</span><span class="smalltable">ER</span> </th></tr></thead><tbody><tr class='out'><td></td> <td>Marco Cecchinato / Stefano Travaglia</td><td>1429</td><td>414</td></tr></tbody></tab
+HINT Qualifying</a><br><a href="#D">Doubles</a></div><main id="content"><h1 style="text-align:center">Split</h1><section id ="MD"><h2 style="text-align:center">Main Draw</h2><div class="draw-tables"><table id = "EntriesMD" style="float: left"><caption>Entries</caption> <thead><tr><th title="click to sort" onclick="sortTable(2,'EntriesMD')"> Seed </th><th> Name </th><th title="click to sort" onclick="sortTable(2,'EntriesMD')"> <span class="bigtable">Seeding Ranking</span><span class="smalltable">Rk</span> </
+HINT Qualifying</h2><div class="draw-tables"><table id = "EntriesQ" style="float: left"><caption>Entries</caption> <thead><tr><th title="click to sort" onclick="sortTable(2,'EntriesQ')"> Seed </th><th> Name </th><th title="click to sort" onclick="sortTable(2,'EntriesQ')"> <span class="bigtable">Seeding Ranking</span><span class="smalltable">Rk</span> </th><th title="click to sort" onclick="sortTable(3,'EntriesQ')"> <span class="bigtable">Entry Ranking</span><span class="smalltable">ER</span> </th></tr> </th
+
+### PAGE https://www.dartsrankings.com/tennis/cancun STATUS=200 LEN=14025 FINAL=https://www.dartsrankings.com/tennis/cancun SERVER=LiteSpeed XPOWER=PHP/7.2.34
+HEAD <!DOCTYPE html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>Cancun 2025 Challenger Entry List and Seeds</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="ATP Tennis Entry Lists and seeds" /><link rel="stylesheet" href="https://www.dartsrankings.com/tennis/tennisstyles212122.css"></head><body><nav class="topnav"><ul><li><a  href="https://www.dartsrankings.com/tennis/athens">Athens</a></li><li><a  href="https://www.dartsrankings.com/tennis/metz">Metz</a></li><li><div class="dropdown"><button class="dropbtn">Challengers Next Week</button><div class="dropdown-content"><a  href="https://www.dartsrankings.com/tennis/maia">Maia</a><a  href="https://www.dartsrankings.com/tennis/temuco">Temuco</a><a  href="https://www.dartsrankings.com/tennis/bogota-los-lagartos">Bogota (Los Lagartos)</a><a  href="https://www.dartsrankings.com/tennis/playford">Playford</a><a  href="https://www.dartsrankings.com/tennis/athens-challenger">Athens</a><a  href="https://www.dartsrankings.com/tennis/islamabad">Islamabad</a><a  href="https://www.dartsrankings.com/tennis/manama-2">Manama 2</a></div></div></li><li><a  href="https://www.dartsrankings.com/tennis/schedules/">Schedules</a></li><li><a class="darts" href="https://www.dartsrankings.com">Darts</a><li><li><a  href="https://www.dartsrankings.com/tennis/contactt">About</a></li> </ul></nav><div  id="menusymbol" class="symbol">    <div></div><div></div><div></div></div>  <nav id="SmallSidenav" class="sidenav"><a href=# class="symbol" id="close" return false; >Close</a><a  href="https://www.dartsrankings.com/tennis/athens">Athens</a><a  href="https://www.dartsrankings.com/tennis/metz">Metz</a><div class="dropbtnleft">Challengers Next Week &#9660;</div><div class="dropdown-contentleft"><a  href="https://www.dartsrankings.com/tennis/maia">Maia</a><a  href="https://www.dartsrankings.com/tennis/temuco">Temuco</a><a  href="https://www.dartsrankings.com/tennis/bogota-los-lagartos">Bogota (Los Lagartos)</a><a  href="https://www.dartsrankings.com/tennis/playford">Playford</a><a  href="https://www.dartsrankings.com/tennis/athens-challenger">Athens</a><a  href="https://www.dartsrankings.com/tennis/islamabad">Islamabad</a><a  href="https://www.dartsrankings.com/tennis/manama-2">Manama 2</a></div><a  href="https://www.dartsrankings.com/tennis/schedules/">Schedules</a><a class="darts" href="https://www.dartsrankings.com">Darts</a><a  href="https://www.dartsrankings.com/tennis/contactt">Contact/About</a> </nav><div class="drawmenu"><a href="#Q">Qualifying</a></div><main id="content"><h1 style="text-align:center">Cancun</h1><section id ="MD"><h2 style="text-align:center">Main Draw</h2><div class="draw-tables"><table id = "EntriesMD" ><caption>Entries</caption> <thead><tr><th   title="click to sort" onclick="sortTable(2,'EntriesMD')"> Seed  </th><th> Name </th><th title="click to sort" onclick="sortTable(2,'EntriesMD')"> <span class="bigtable">Seeding Ranking</span><span class="smalltable">Rk</span> </th><th title="click to sort" onclick="sortTable(3,'EntriesMD')"> <span class="bigtable">Entry Ranking</span><span class="smalltable">ER</span> </th></tr> </thead><tbody><tr class='WC'><td><b>1</b></td> <td>(WC) Daniel Altmaier</td><td>60</td><td></td></tr><tr ><td><b>2</b></td> <td>Arthur Cazaux</td><td>76</td><td>100</td></tr><tr ><td><b>3</b></td> <td>Jesper de Jong</td><td>79</td><td>83</td></tr><tr ><td><b>4</b></td> <td>Juan Manuel Cerundolo</td><td>86</td><td>81</td></tr><tr ><td><b>5</b></td> <td>Tristan Schoolkate</td><td>97</td><td>104</td></tr><tr ><td><b>6</b></td> <td>Alejandro Tabilo</td><td>103</td><td>106</td></tr><tr ><td><b>7</b></td> <td>Liam Draxl</td><td>114</td><td>115</td></tr><tr ><td><b>8</b></td> <td>Dalibor Svrcina</td><td>115</td><td>120</td></tr><tr ><td></td> <td>Francesco Passaro</td><td>118</td><td>121</td></tr><tr ><td></td> <td>Hugo Gaston</td><td>123</td><td>99</td></tr><tr class='newin'><td></td> <td>Matteo Gigante</td><td>126</td><td>127</td></tr><tr class='ALT'><td></td> <td>(ALT) Yannick Hanfmann</td><td>132</td><td></td></tr><tr class='ALT'><td></td> <td>(ALT) Thiago Agustin Tirante</td><td>135</td><td></td></tr><tr class='newin'><td></td> <td>Andrea Pellegrino</td><td>139</td><td>128</td></tr><tr class='ALT'><td></td> <td>(ALT) Ignacio Buse</td><td>140</td><td></td></tr><tr class='ALT'><td></td> <td>(ALT) Jan-Lennard Struff</td><td>143</td><td></td></tr><tr ><td></td> <td>Daniel Elahi Galan</td><td>144</td><td>125</td></tr><tr ><td></td> <td>Roman Andres Burruchaga</td><td>145</td><td>124</td></tr><tr class='newin'><td></td> <td>Dusan Lajovic</td><td>146</td><td>129</td></tr><tr class='WC'><td></td> <td>(WC) Stan Wawrinka</td><td>152</td><td></td></tr><tr class='ALT'><td></td> <td>(ALT) Coleman Wong</td><td>177</td><td></td></tr><tr class='ALT'><td></td> <td>(ALT) Marco Trungelliti</td><td>182</td><td></td></tr><tr ><td></td> <td>Rodrigo Pacheco Mendez</td><td>224</td><td>220<
+
+SCRIPTS
+sort1235.js
+https://www.dartsrankings.com/tennis/menufuntennis.js
+
+LINKS
+https://www.dartsrankings.com/tennis/tennisstyles212122.css
+
+FORM/AJAX/FETCH/API HINTS
+HINT Entry List and Seeds</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="ATP Tennis Entry Lists and seeds" /><link rel="stylesheet" href="https://www.dartsrankings.com/tennis/tennisstyles212122.css"></head><body><nav class="topnav"><ul><li><a href="https://www.dartsrankings.com/tennis/athens">Athens</a></li><li><a href="https://www.dartsrankings.com/tennis/metz">Metz</a></li><li><div class="dropdown"><button class="dropbtn">Challengers Next W
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th></tr> </thead><tbody><tr class='WC'><td><b>1</b></td> <td>(WC) Daniel Altmaier</td><td>60</td><td></td></tr><tr ><td><b>2</b></td> <td>Arthur Cazaux</td><td>76</td><td>100</td></tr><tr ><td><b>3</b></td> <td>Jesper de Jong</td><td>79</td><td>83</td></tr><tr ><td><b>4</b></td> <td>Juan Manuel Cerundolo</td><td>86</td><td>81</td></tr><tr ><td><b>5</b></td> <td>Tristan Schoolkate</td><td>97</td><td>104</td></tr><tr ><td><b>6</b></td> <td>Alejan
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th> </tr></thead><tbody><tr class='ALT'><td>1</td><td>Thiago Agustin Tirante</td><td>135</td><td>130</td></tr><tr class='ALT'><td>2</td><td>Ignacio Buse</td><td>140</td><td>133</td></tr><tr class='ALT'><td>3</td><td>Yannick Hanfmann</td><td>132</td><td>141</td></tr><tr class='ALT'><td>4</td><td>Jan-Lennard Struff</td><td>143</td><td>152</td></tr><tr class='ALT'><td>5</td><td>Marco Trungelliti</td><td>182</td><td>169</td></tr><tr class='ALT'><td
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th></tr></thead><tbody><tr class='lateout'><td></td> <td>Tristan Boyer</td><td>116</td><td>126</td></tr><tr class='lateout'><td></td> <td>Luca Nardi</td><td>98</td><td>96</td></tr><tr class='lateout'><td></td> <td>Roberto Carballes Baena</td><td>87</td><td>85</td></tr><tr class='lateout'><td></td> <td>Valentin Royer</td><td>104</td><td>113</td></tr><tr class='out'><td></td> <td>Laslo Djere</td><td>69</td><td>68</td></tr><tr class='lateout'><td>
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th></tr> </thead><tbody><tr class='newin'><td><b>1</b></td> <td>Alexis Galarneau</td><td>174</td><td>198</td></tr><tr class='newin'><td><b>2</b></td> <td>Beibit Zhukayev</td><td>206</td><td>218</td></tr><tr class='newin'><td><b>3</b></td> <td>Rio Noguchi</td><td>210</td><td>213</td></tr><tr class='newin'><td><b>4</b></td> <td>Naoki Nakagawa</td><td>350</td><td>343</td></tr><tr class='newin'><td><b>5</b></td> <td>Pablo Llamas Ruiz</td><td>360</t
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th> </tr></thead><tbody><tr><td>1</td><td class='multiple-da' title='Currently accepted into:&#xA;&#xA;Sumter Q'>Karl Poling</td><td>630</td><td>632</td></tr><tr><td>2</td><td>Ramkumar Ramanathan</td><td>634</td><td>633</td></tr><tr><td>3</td><td>Isaiah Strode</td><td>714</td><td>714</td></tr><tr><td>4</td><td class='multiple-da' title='Currently accepted into:&#xA;&#xA;Sumter MD'>Kaylan Bigun</td><td>807</td><td>821</td></tr><tr><td>5</td><td>
+HINT Entry Ranking</span><span class="smalltable">ER</span> </th></tr></thead><tbody><tr class='lateout'><td></td> <td>Terence Atmane</td><td>136</td><td>136</td></tr><tr class='out'><td></td> <td class='multiple-da' title='Currently accepted into:&#xA;&#xA;Sumter MD'>Lukas Klein</td><td>122</td><td>147</td></tr><tr class='lateout'><td></td> <td class="moved-into-md">Ignacio Buse</td><td>140</td><td>133</td></tr><tr class='out'><td></td> <td class="moved-into-md">Andrea Pellegrino</td><td>139</td><td>128<
+HINT Qualifying</a></div><main id="content"><h1 style="text-align:center">Cancun</h1><section id ="MD"><h2 style="text-align:center">Main Draw</h2><div class="draw-tables"><table id = "EntriesMD" ><caption>Entries</caption> <thead><tr><th title="click to sort" onclick="sortTable(2,'EntriesMD')"> Seed </th><th> Name </th><th title="click to sort" onclick="sortTable(2,'EntriesMD')"> <span class="bigtable">Seeding Ranking</span><span class="smalltable">Rk</span> </th><th title="click to sort" onclick="sortTabl
+HINT Qualifying</h2><div class="draw-tables"><table id = "EntriesQ" ><caption>Entries</caption> <thead><tr><th title="click to sort" onclick="sortTable(2,'EntriesQ')"> Seed </th><th> Name </th><th title="click to sort" onclick="sortTable(2,'EntriesQ')"> <span class="bigtable">Seeding Ranking</span><span class="smalltable">Rk</span> </th><th title="click to sort" onclick="sortTable(3,'EntriesQ')"> <span class="bigtable">Entry Ranking</span><span class="smalltable">ER</span> </th></tr> </thead><tbody><tr clas
+
+### PAGE https://www.dartsrankings.com/robots.txt STATUS=ERR LEN=0 FINAL=<HTTPError 404: 'Not Found'> SERVER=None XPOWER=None
+
+### PAGE https://www.dartsrankings.com/sitemap.xml STATUS=ERR LEN=0 FINAL=<HTTPError 404: 'Not Found'> SERVER=None XPOWER=None
+
+### PAGE https://www.dartsrankings.com/tennis STATUS=200 LEN=4239 FINAL=https://www.dartsrankings.com/tennis/ SERVER=LiteSpeed XPOWER=PHP/7.2.34
+
+### ASSETS 3
+
+ASSET https://www.dartsrankings.com/tennis/tennisstyles212122.css STATUS 200 LEN 8849 FINAL https://www.dartsrankings.com/tennis/tennisstyles212122.css
+KW alternate COUNT 20
+{
+  max-width: 600px;
+}
+
+#colours td {
+  padding: 0.5rem;
+}
+
+@media (max-width: 1100px) {
+  .topnav {
+    display: none;
+  }
+  #content {
+    margin-top: 0.5rem;
+  }
+}
+
+@media (min-width: 1101px) {
+  #menusymbol, .sidenav {
+    display: none;
+  }
+  thead th:nth-child(1) {
+    width: 16%;
+  }
+  thead th:nth-child(2) {
+    width: 50%;
+  }
+  thead th:nth-child(3) {
+    width: 17%;
+  }
+  thead th:nth-child(4) {
+    width: 17%;
+  }
+  #EntriesD thead th:nth-child(1), #AlternatesD thead th:nth-child(1), #WithdrawalsD thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #Withdrawa
+  }
+  #content {
+    margin-top: 0.5rem;
+  }
+}
+
+@media (min-width: 1101px) {
+  #menusymbol, .sidenav {
+    display: none;
+  }
+  thead th:nth-child(1) {
+    width: 16%;
+  }
+  thead th:nth-child(2) {
+    width: 50%;
+  }
+  thead th:nth-child(3) {
+    width: 17%;
+  }
+  thead th:nth-child(4) {
+    width: 17%;
+  }
+  #EntriesD thead th:nth-child(1), #AlternatesD thead th:nth-child(1), #WithdrawalsD thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD
+ }
+  thead th:nth-child(1) {
+    width: 16%;
+  }
+  thead th:nth-child(2) {
+    width: 50%;
+  }
+  thead th:nth-child(3) {
+    width: 17%;
+  }
+  thead th:nth-child(4) {
+    width: 17%;
+  }
+  #EntriesD thead th:nth-child(1), #AlternatesD thead th:nth-child(1), #WithdrawalsD thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-c
+ width: 17%;
+  }
+  thead th:nth-child(4) {
+    width: 17%;
+  }
+  #EntriesD thead th:nth-child(1), #AlternatesD thead th:nth-child(1), #WithdrawalsD thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #
+d(1), #WithdrawalsD thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #WithdrawalsDQ td:nth-child(2){
+    font-size: x-small;
+  }
+}
+
+#EntriesMD th:nth-child(1), #EntriesMD th:nth-child(3), #EntriesMD
+), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #WithdrawalsDQ td:nth-child(2){
+    font-size: x-small;
+  }
+}
+
+#EntriesMD th:nth-child(1), #EntriesMD th:nth-child(3), #EntriesMD th:nth-child(4), #EntriesQ th:nth-child(1), #EntriesQ th:nth-child(3), #EntriesQ th:nth-child(4),#EntriesD th:nth-child(3), #EntriesD 
+#WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #WithdrawalsDQ td:nth-child(2){
+    font-size: x-small;
+  }
+}
+
+#EntriesMD th:nth-child(1), #EntriesMD th:nth-child(3), #EntriesMD th:nth-child(4), #EntriesQ th:nth-child(1), #EntriesQ th:nth-child(3), #EntriesQ th:nth-child(4),#EntriesD th:nth-child(3), #EntriesD th:nth-child(4),#EntriesDQ th:nth-child(3), #EntriesDQ th:nth-child(4) {
+  cursor: pointer;
+}
+
+.noclick {
+  cursor: auto;
+}
+
+.d
+thdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #WithdrawalsDQ td:nth-child(2){
+    font-size: x-small;
+  }
+}
+
+#EntriesMD th:nth-child(1), #EntriesMD th:nth-child(3), #EntriesMD th:nth-child(4), #EntriesQ th:nth-child(1), #EntriesQ th:nth-child(3), #EntriesQ th:nth-child(4),#EntriesD th:nth-child(3), #EntriesD th:nth-child(4),#EntriesDQ th:nth-child(3), #EntriesDQ th:nth-child(4) {
+  cursor: pointer;
+}
+
+.noclick {
+  cursor: auto;
+}
+
+.drawmenu {
+    margin-top:1rem;
+    position:absolute;
+}
+
+.drawmenu a{
+    margin:0.3rem 1rem;
+    display:inline-block;
+    fon
+KW withdraw COUNT 20
+s td {
+  padding: 0.5rem;
+}
+
+@media (max-width: 1100px) {
+  .topnav {
+    display: none;
+  }
+  #content {
+    margin-top: 0.5rem;
+  }
+}
+
+@media (min-width: 1101px) {
+  #menusymbol, .sidenav {
+    display: none;
+  }
+  thead th:nth-child(1) {
+    width: 16%;
+  }
+  thead th:nth-child(2) {
+    width: 50%;
+  }
+  thead th:nth-child(3) {
+    width: 17%;
+  }
+  thead th:nth-child(4) {
+    width: 17%;
+  }
+  #EntriesD thead th:nth-child(1), #AlternatesD thead th:nth-child(1), #WithdrawalsD thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@
+.5rem;
+  }
+}
+
+@media (min-width: 1101px) {
+  #menusymbol, .sidenav {
+    display: none;
+  }
+  thead th:nth-child(1) {
+    width: 16%;
+  }
+  thead th:nth-child(2) {
+    width: 50%;
+  }
+  thead th:nth-child(3) {
+    width: 17%;
+  }
+  thead th:nth-child(4) {
+    width: 17%;
+  }
+  #EntriesD thead th:nth-child(1), #AlternatesD thead th:nth-child(1), #WithdrawalsD thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nt
+idth: 16%;
+  }
+  thead th:nth-child(2) {
+    width: 50%;
+  }
+  thead th:nth-child(3) {
+    width: 17%;
+  }
+  thead th:nth-child(4) {
+    width: 17%;
+  }
+  #EntriesD thead th:nth-child(1), #AlternatesD thead th:nth-child(1), #WithdrawalsD thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2),
+ild(4) {
+    width: 17%;
+  }
+  #EntriesD thead th:nth-child(1), #AlternatesD thead th:nth-child(1), #WithdrawalsD thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #WithdrawalsDQ td:nth-child(2){
+    
+d(1) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(2), #AlternatesD thead th:nth-child(2), #WithdrawalsD thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #WithdrawalsDQ td:nth-child(2){
+    font-size: x-small;
+  }
+}
+
+#EntriesMD th:nth-child(1), #EntriesMD th:nth-child(3), #EntriesMD th:nth-child(4), #EntriesQ th:nth-ch
+) {
+    width: 70%;
+  }
+  #EntriesD thead th:nth-child(3), #AlternatesD thead th:nth-child(3), #WithdrawalsD thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #WithdrawalsDQ td:nth-child(2){
+    font-size: x-small;
+  }
+}
+
+#EntriesMD th:nth-child(1), #EntriesMD th:nth-child(3), #EntriesMD th:nth-child(4), #EntriesQ th:nth-child(1), #EntriesQ th:nth-child(3), #EntriesQ th:nth-child(4),#EntriesD th:nth-child(3), #EntriesD th:nth-child(4),#EntriesDQ th:nth-chi
+
+    width: 10%;
+  }
+  #EntriesD thead th:nth-child(4), #AlternatesD thead th:nth-child(4), #WithdrawalsD thead th:nth-child(4) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #WithdrawalsDQ td:nth-child(2){
+    font-size: x-small;
+  }
+}
+
+#EntriesMD th:nth-child(1), #EntriesMD th:nth-child(3), #EntriesMD th:nth-child(4), #EntriesQ th:nth-child(1), #EntriesQ th:nth-child(3), #EntriesQ th:nth-child(4),#EntriesD th:nth-child(3), #EntriesD th:nth-child(4),#EntriesDQ th:nth-child(3), #EntriesDQ th:nth-child(4) {
+  cursor: pointer;
+}
+
+.noclick {
+  cursor: auto;
+}
+
+.drawmenu {
+    margin-top:1rem;
+    
+   width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(1), #AlternatesDQ thead th:nth-child(1), #WithdrawalsDQ thead th:nth-child(1) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(2), #AlternatesDQ thead th:nth-child(2), #WithdrawalsDQ thead th:nth-child(2) {
+    width: 70%;
+  }
+  #EntriesDQ thead th:nth-child(3), #AlternatesDQ thead th:nth-child(3), #WithdrawalsDQ thead th:nth-child(3) {
+    width: 10%;
+  }
+  #EntriesDQ thead th:nth-child(4), #AlternatesDQ thead th:nth-child(4), #WithdrawalsDQ thead th:nth-child(4) {
+    width: 10%;
+  }
+  .smalltable {
+    display: none;
+  }
+  .bigtable {
+    display: inline;
+  }
+  .PR {
+    display: inline;
+  }
+}
+
+@media (min-width: 700px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1200px) {
+  #EntriesMD, #AlternatesMD, #WithdrawalsMD, #EntriesQ, #AlternatesQ, #WithdrawalsQ {
+    width: 30%;
+  }
+  #Tournaments {
+    width: 60%;
+  }
+  #Tournaments td, #Tournaments th {
+    font-size: large;
+  }
+}
+
+@media (min-width: 850px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 44%;
+  }
+}
+
+@media (min-width: 1350px) {
+  #EntriesD, #AlternatesD, #WithdrawalsD,#EntriesDQ, #AlternatesDQ, #WithdrawalsDQ {
+    width: 30%;
+  }
+}
+
+@media (max-width: 410px) {
+  #EntriesD th:nth-child(2), #EntriesD td:nth-child(2), #AlternatesD th:nth-child(2), #AlternatesD td:nth-child(2), #WithdrawalsD th:nth-child(2), #WithdrawalsD td:nth-child(2),
+  #EntriesDQ th:nth-child(2), #EntriesDQ td:nth-child(2), #AlternatesDQ th:nth-child(2), #AlternatesDQ td:nth-child(2), #WithdrawalsDQ th:nth-child(2), #WithdrawalsDQ td:nth-child(2){
+    font-size: x-small;
+  }
+}
+
+#EntriesMD th:nth-child(1), #EntriesMD th:nth-child(3), #EntriesMD th:nth-child(4), #EntriesQ th:nth-child(1), #EntriesQ th:nth-child(3), #EntriesQ th:nth-child(4),#EntriesD th:nth-child(3), #EntriesD th:nth-child(4),#EntriesDQ th:nth-child(3), #EntriesDQ th:nth-child(4) {
+  cursor: pointer;
+}
+
+.noclick {
+  cursor: auto;
+}
+
+.drawmenu {
+    margin-top:1rem;
+    position:absolute;
+}
+
+.drawmenu a{
+    margin:0.3rem 1rem;
+    display:inline-block;
+    font-size:1.2rem;
+    font-family:Georg
+
+ASSET https://www.dartsrankings.com/tennis/sort1235.js STATUS 200 LEN 1224 FINAL https://www.dartsrankings.com/tennis/sort1235.js
+
+ASSET https://www.dartsrankings.com/tennis/menufuntennis.js STATUS 200 LEN 1128 FINAL https://www.dartsrankings.com/tennis/menufuntennis.js
+
+### COMMON PUBLIC PROBES
+https://www.dartsrankings.com/api ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/api/tennis ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/api/tournaments ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/tennis/api ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/data ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/data/tennis.json ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/tennis/data.json ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/tennis/tournaments.json ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/assets ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/manifest.json ERR 0 <HTTPError 404: 'Not Found'> None 
+https://www.dartsrankings.com/.well-known/assetlinks.json ERR 0 <HTTPError 404: 'Not Found'> None 
+
+### CDX all ERR 0 TimeoutError('The read operation timed out')
+
+
+### CDX api ERR 0 <HTTPError 503: 'Service Unavailable'>
+
+
+### CDX json 200 3 https://web.archive.org/cdx/search/cdx?url=www.dartsrankings.com/*.json*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode&limit=3000
+[]
+
+
+### CDX js 200 3 https://web.archive.org/cdx/search/cdx?url=www.dartsrankings.com/*.js*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode&limit=3000
+[]
+
