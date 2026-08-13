@@ -1,0 +1,211 @@
+=== ENTRY ALTERNATES ===
+28:Alternates
+29-ITA 184Cina, Federico (1)1. 33. @ Maloney, Patrick (1) USA 348
+30-AUT 185Schwaerzler, Joel (2)2. 34. Krueger, Mitchell (2) USA 349
+31-RSA 186Harris, Lloyd (2)3. 35. Marrero Curbelo, Ivan (1) ESP 369
+32-ESP 188Jorda Sanchis, David (2)4. 36. Johns, Garrett (1) USA 375
+33-SWE 197Ymer, Elias (2)5. 37. Fenty, Andrew (1) USA 397
+34-GBR 203Broady, Liam (1)6. 38. Winter, Edward (2) AUS 400
+35-GBR 204Wendelken, Harry (1)7. 39. @ Brouwer, Gijs (1) NED 415
+36-FRA 208Chidekh, Clement (2)8. 40. Orlov, Vladyslav (3) UKR 426
+37-USA 209Smith, Keegan (2)9. 41. Svajda, Trevor (2) USA 435
+38-TPE 210Hsu, Yu Hsiou (1)10. 42. Suresh, Dhakshineswar (1) IND 436
+39-FRA 212Kouame, Moise (1)11. 43. Ayeni, Alafia (3) USA 453
+40-GBR 215Searle, Henry (2)12. 44. Vandecasteele, Quinn (1) USA 458
+41-GBR 219Gill, Felix (2)13. 45. Langmo, Christian (1) USA 460
+42-USA 225Blanch, Darwin (2)14. 46. Tu, Li (1) AUS 464
+43-FRA 226Grenier, Hugo (2)15. 47. Palan, Dominik (2) CZE 465
+44-CHN 232Zhou, Yi (2)16. 48. Tobon, Miguel (1) COL 473
+45-USA 234Shick, Braden (2)17. 49. Poling, Karl (1) USA 487
+46-FRA 246Balshaw, Felix (1)18. 50. Hernandez, Alex (1) MEX 499
+47-USA 248Ilagan, Andre (1)19. 51. Bigun, Kaylan (1) USA 536
+48-CHI 253Soto, Matias (1)20. 52. Legout, Timo (2) FRA 557
+49-ECU 259Andrade, Andy (2)21. 53. Young, Gavin (1) USA 564
+50-JOR 261Shelbayh, Abdullah (2)22. 54. Baris, Ozan (1) USA 586
+51-USA 269Cassone, Murphy (2)23. 55. Miyoshi, Kenta (1) JPN 604
+52-ARG 273Ficovich, Juan Pablo (2)24. 56. Dickerson, Ryan (1) USA 607
+53-USA 296Kozlov, Stefan (2)25. 57. Purtseladze, Saba (2) GEO 623
+54-AUS 301Sekulic, Philip (1)26. 58. Mayo, Aidan (1) USA 634
+55-USA 322Martin, Andres (2)27. 59. Magadan, Alan (1) MEX 650
+56-MEX 323Pacheco Mendez, Rodrigo (1)28. 60. Seggerman, Ryan (2) USA 653
+57-USA 326Milavsky, Daniel (2)29. 61. Sheehy, Joshua (1) USA 654
+58-USA 328Zink, Tyler (2)30. 62. Takahashi, Yusuke (2) JPN 679
+59-GBR 338Jubb, Paul (1)31. 63. Vales, Amit (2) ISR 680
+60-JAM 347Bicknell, Blaise (2)32. 64. Vithoontien, Leo (1) JPN 690
+61-@ - entry protection, # - need Consent & Agreement Form
+62-% need Mandatory Physical / Competition Clearance Form,+ Top 30 Commitment PlayerCertified:_______________________
+63-7/20/2026 12:19:57
+64-Official Player Acceptance List
+65-Brownsburg, IN, IA, U.S.A.
+66-Page 2 of 2
+67-Revision
+68-Direct Acceptances 20
+69-Date:8/10/2026 Original Cut Off:178 7/20/2026Rankings Date:
+70-3
+71-6
+72-2
+73-1
+74-Wild Cards
+75-Qualifiers
+76-Special Exempts
+77-Next Gen Accelerator
+78:Alternates
+79-GBR 714Hurrion, Millen (1)65. 76. Okonkwo, Oliver (1) GBR 961
+80-JPN 737Nakagawa, Naoki (1)66. 77. Exsted, Maxwell (1) USA 979
+81-USA 741Forbes, Matthew (1)67. 78. Nefve, Axel (1) USA 1009
+82-USA 746Ganesan, Adhithya (1)68. 79. Nam, JiSung (1) KOR 1021
+83-JPN 762Honda, Naoya (1)69. 80. Purcell, Max (1) AUS 1032
+84-USA 797Kuhar, Matt (1)70. 81. Brouwer, Gijs (1) NED 1143
+85-MEX 809Alvarez, Luis Carlos (1)71. 82. Brown, Preston (1) USA 1161
+86-AUS 810Fancutt, Thomas (2)72. 83. Bernard, Alexander (1) USA 1197
+87-USA 863Van Loben Sels, Emon (1)73. 84. Peck, Joshua (1) CAN 1308
+88-USA 884Nakashima, Bryce (1)74. 85. Inui, Yuichiro (2) JPN 1503
+89-USA 913Maloney, Patrick (1)75. 86. Vrba, Jakub (1) CZE 1635
+90-@ - entry protection, # - need Consent & Agreement Form
+91-% need Mandatory Physical / Competition Clearance Form,+ Top 30 Commitment PlayerCertified:_______________________
+=== Q DRAW ALT / WITHDRAW / LDA ===
+3-Brownsburg, IA, U.S.A.
+4-10 August — 16 August 2026 | USD 107 000 | Hard | Challenger
+5-75
+6:Qualifying Singles
+7:   1 Alt1 BOYER, Tristan USA
+8-2 WC FORBES, Matthew USA
+9-3 DICKERSON, RyanUSA
+10-4 12MAYO, Aidan USA
+11:5 Alt PUTTERGILL, CalumAUS
+12:6 Alt KING, Evan USA
+13-7 WC DIEVENEY, Eli USA
+14-8 7 FENTY, Andrew USA
+15-9 3 WINTER, Edward AUS
+16:10 Alt MOSEJCZUK, DominickUSA
+17-11 WC MANNING, William USA
+18-12 10YOUNG, Gavin USA
+19-13 4 JUBB, Paul GBR
+20:14 Alt RAI, Ajeet NZL
+21:15 Alt ALVARADO, Patricio ECU
+22-16 9 VANDECASTEELE, Q… USA
+23-17 5 JOHNS, Garrett USA
+24:18 Alt CHANDRASEKAR, Ani… IND
+25:19 Alt KITTAY, Benjamin USA
+26-20 8 ROTTGERING, MeesNED
+27-21 6 SURESH, Dhakshines… IND
+28-22 WC GODOY, Sebastian USA
+29:23 Alt HILDERBRAND, Trey USA
+30-24 11KIM, Aidan USA
+31:Qualifying Round 1 Qualifying Round 2 Qualifier
+32:Last Direct Acceptance
+33-MAYO, Aidan (634)
+34-ATP Supervisor
+35-Brad Taylor
+--
+50-10 Young, Gavin 552
+51-11 Kim, Aidan 584
+52-12 Mayo, Aidan 625
+53:Alternates
+54:T. Boyer (Alt)
+55:C. Puttergill (Alt)
+56:P. Alvarado (Alt)
+57:B. Kittay (Alt)
+58:T. Hilderbrand (Alt)
+59:E. King (Alt)
+60:D. Mosejczuk (Alt)
+61:A. Rai (Alt)
+62:A. Chandrasekar (Alt)
+63:Withdrawals
+64-I. Marrero Curbelo ()
+65-K. Miyoshi ()
+66-A. Rubio Fierros ()
+=== FULL Q TEXT ===
+$ 265 0 pts$ 530 2 pts$ 0 4 pts
+Indiana Hardcourt Championships
+Brownsburg, IA, U.S.A.
+10 August — 16 August 2026 | USD 107 000 | Hard | Challenger
+75
+Qualifying Singles
+   1 Alt1 BOYER, Tristan USA
+2 WC FORBES, Matthew USA
+3 DICKERSON, RyanUSA
+4 12MAYO, Aidan USA
+5 Alt PUTTERGILL, CalumAUS
+6 Alt KING, Evan USA
+7 WC DIEVENEY, Eli USA
+8 7 FENTY, Andrew USA
+9 3 WINTER, Edward AUS
+10 Alt MOSEJCZUK, DominickUSA
+11 WC MANNING, William USA
+12 10YOUNG, Gavin USA
+13 4 JUBB, Paul GBR
+14 Alt RAI, Ajeet NZL
+15 Alt ALVARADO, Patricio ECU
+16 9 VANDECASTEELE, Q… USA
+17 5 JOHNS, Garrett USA
+18 Alt CHANDRASEKAR, Ani… IND
+19 Alt KITTAY, Benjamin USA
+20 8 ROTTGERING, MeesNED
+21 6 SURESH, Dhakshines… IND
+22 WC GODOY, Sebastian USA
+23 Alt HILDERBRAND, Trey USA
+24 11KIM, Aidan USA
+Qualifying Round 1 Qualifying Round 2 Qualifier
+Last Direct Acceptance
+MAYO, Aidan (634)
+ATP Supervisor
+Brad Taylor
+Released
+08/10/2026 23:50:49
+Seeded Players
+Player Rank
+1 Boyer, Tristan 168
+2 Zink, Tyler 320
+3 Winter, Edward 348
+4 Jubb, Paul 375
+5 Johns, Garrett 381
+6 Suresh, Dhakshineswar 393
+7 Fenty, Andrew 394
+8 Rottgering, Mees 416
+ Player Rank
+9 Vandecasteele, Quinn 471
+10 Young, Gavin 552
+11 Kim, Aidan 584
+12 Mayo, Aidan 625
+Alternates
+T. Boyer (Alt)
+C. Puttergill (Alt)
+P. Alvarado (Alt)
+B. Kittay (Alt)
+T. Hilderbrand (Alt)
+E. King (Alt)
+D. Mosejczuk (Alt)
+A. Rai (Alt)
+A. Chandrasekar (Alt)
+Withdrawals
+I. Marrero Curbelo ()
+K. Miyoshi ()
+A. Rubio Fierros ()
+T. Legout ()
+Retirements/W.O.
+A. Chandrasekar (Heat Illness)
+T. Boyer1
+62 16 62 A. Mayo12
+62 62A. Mayo12
+64 63
+E. King
+61 63 A. Fenty7
+61 64A. Fenty7
+64 61
+E. Winter3
+63 764 E. Winter3
+62 62G. Young10
+62 64
+A. Rai
+36 63 63 Q. Vandecasteele9
+63 62Q. Vandecasteele9
+63 61
+G. Johns5
+60 40 RET M. Rottgering8
+63 63M. Rottgering8
+62 63
+D. Suresh6
+63 63 D. Suresh6
+762 764A. Kim11
+64 75

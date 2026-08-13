@@ -1,0 +1,23 @@
+{
+  "entry": {
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260810_brownsburg_m75/brownsburg-challenger-mds-entry-list.pdf",
+    "bytes": 280631,
+    "last_modified": "Tue, 21 Jul 2026 13:35:40 GMT",
+    "pages": 2,
+    "chars": 3969
+  },
+  "qs": {
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260810_brownsburg_m75/qs.pdf",
+    "bytes": 142602,
+    "last_modified": "Tue, 11 Aug 2026 04:02:45 GMT",
+    "pages": 1,
+    "chars": 1826
+  },
+  "ll": {
+    "url": "https://www.usta.com/content/dam/usta/pro-circuit/2026/20260810_brownsburg_m75/ll.pdf",
+    "bytes": 390765,
+    "last_modified": "Wed, 06 May 2026 19:28:04 GMT",
+    "pages": 1,
+    "chars": 42
+  }
+}
