@@ -8,127 +8,56 @@ permissions:
 jobs:
   discover:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Probe forums archives syndicators Darts and ATP Q pages
+      - name: Inspect current Week 33 forum thread and seagull sources
         run: |
           python3 -m pip install --quiet requests beautifulsoup4
           mkdir -p research/q-alt-deep
-          python3 - <<'PY' > research/q-alt-deep/trace.txt
-          import requests,re,json,html,datetime,time,urllib.parse
+          python3 - <<'PY' > research/q-alt-deep/week33-forum.txt
+          import requests,re,html,datetime,urllib.parse
           from bs4 import BeautifulSoup
-          UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36'
-          S=requests.Session(); S.headers.update({'User-Agent':UA,'Accept':'text/html,application/xhtml+xml,application/json,application/xml;q=0.9,*/*;q=0.8'})
-          def get(u, timeout=25):
-            try:
-              r=S.get(u,timeout=timeout,allow_redirects=True)
-              return r.status_code,r.url,r.text,dict(r.headers)
-            except Exception as e:return 'ERR',repr(e),'',{}
-          def block(label,u,terms=(),limit=20000):
-            st,final,s,h=get(u)
-            print(f'\n===== {label} STATUS={st} LEN={len(s)} FINAL={final} =====')
-            if terms:
-              low=s.lower(); anyhit=False
-              for term in terms:
-                for m in list(re.finditer(re.escape(term.lower()),low))[:25]:
-                  anyhit=True; print('\n--',term,'--\n',re.sub(r'\s+',' ',s[max(0,m.start()-700):m.start()+3500])[:4500])
-              if not anyhit: print(s[:min(limit,7000)])
-            else: print(s[:limit])
-            return st,final,s,h
+          S=requests.Session(); S.headers.update({'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36'})
+          base='https://britishtennis.activeboard.com/t73108826/entry-week-33-17082026/'
           print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
-
-          # 1) British Tennis Forum live category/index and likely recent pages.
-          print('\n######## BRITISH TENNIS FORUM ########')
-          forum_urls=[
-            'https://britishtennis.activeboard.com/f198530/gb-entries-and-rankings/',
-            'https://www.britishtennis.activeboard.com/f198530/gb-entries-and-rankings/',
-            'https://britishtennis.activeboard.com/',
-          ]
-          for i,u in enumerate(forum_urls):
-            st,final,s,h=block('FORUM_'+str(i),u,['entry week 33','17/08/2026','entry week 32','10/08/2026','roehampton','seagull'],40000)
-            # print all current-looking topic links
-            for m in re.finditer(r'href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',s,re.I|re.S):
-              txt=re.sub('<[^>]+>',' ',m.group(2)); txt=html.unescape(re.sub(r'\s+',' ',txt)).strip()
-              if re.search(r'Entry Week|Roehampton|Week 33|17/08|2026',txt,re.I): print('FORUMLINK',urllib.parse.urljoin(final,m.group(1)),txt)
-
-          # 2) Wayback CDX for the retired feed host + historical old LiveTennis widget pages.
-          print('\n######## WAYBACK FEED URL SPACE ########')
-          cdx_queries=[
-            'https://web.archive.org/cdx/search/cdx?url=feed.livetennis.it/livetennis/*&output=json&fl=timestamp,original,statuscode,mimetype,digest&filter=statuscode:200&collapse=urlkey&filter=timestamp:2020-&limit=5000',
-            'https://web.archive.org/cdx/search/cdx?url=feed.livetennis.it/*&output=json&fl=timestamp,original,statuscode,mimetype,digest&filter=statuscode:200&collapse=urlkey&limit=5000',
-            'https://web.archive.org/cdx/search/cdx?url=www.livetennis.it/*entrylist*&output=json&fl=timestamp,original,statuscode,mimetype&filter=statuscode:200&collapse=urlkey&limit=5000',
-          ]
-          for i,u in enumerate(cdx_queries):
-            st,final,s,h=block('CDX_'+str(i),u,(),60000)
-            if st==200:
-              for line in s.splitlines()[:1000]:
-                if re.search(r'entry|qual|chall|feed|list',line,re.I): print('CDXLINE',line[:4000])
-
-          # 3) Darts current raw HTML, routes, sitemaps/scripts. Different path guesses.
-          print('\n######## DARTS ########')
-          darts_urls=[
-            'https://www.dartsrankings.com/tennis/contactt',
-            'https://www.dartsrankings.com/tennis/cancun',
-            'https://www.dartsrankings.com/tennis/roehampton',
-            'https://www.dartsrankings.com/tennis/kingston',
-            'https://www.dartsrankings.com/tennis/quebec-city',
-            'https://www.dartsrankings.com/tennis/prague',
-            'https://www.dartsrankings.com/tennis/sion',
-            'https://www.dartsrankings.com/robots.txt',
-            'https://www.dartsrankings.com/sitemap.xml',
-            'https://www.dartsrankings.com/tennis/sitemap.xml',
-          ]
-          for i,u in enumerate(darts_urls):
-            st,final,s,h=block('DARTS_'+str(i),u,['Qualifying','Alternates','Cancun','Roehampton','Quebec','Kingston','Sion','Prague'],26000)
-            if s:
-              for m in re.finditer(r'<script[^>]+src=["\']([^"\']+)',s,re.I): print('DARTSSCRIPT',urllib.parse.urljoin(final,m.group(1)))
-              for m in re.finditer(r'(?:fetch|axios|XMLHttpRequest|\.ajax|api)[^\n<]{0,800}',s,re.I): print('DARTSAPIHINT',re.sub(r'\s+',' ',m.group(0))[:1000])
-
-          # 4) ATP public Q tournament object HTML: inspect scripts/hydration and discover Q IDs.
-          print('\n######## ATP Q OBJECTS ########')
-          atp_urls=[
-            'https://www.atptour.com/en/tournaments/cancun/3010/overview',
-            'https://www.atptour.com/en/tournaments/prague/3815/overview',
-          ]
-          for i,u in enumerate(atp_urls):
-            st,final,s,h=block('ATPQ_'+str(i),u,['3010','3815','PlayerList','playerList','tournamentDetails','api','qualifying','Cancun Q','Prague Q'],16000)
-            for m in re.finditer(r'<script[^>]+src=["\']([^"\']+)',s,re.I): print('ATPSCRIPT',urllib.parse.urljoin(final,m.group(1)))
-            for m in re.finditer(r'.{0,250}(?:PlayerList|playerList|api/|tournamentDetails|tournamentId|TournamentId|3010|3815).{0,700}',s,re.I|re.S): print('ATPHINT',re.sub(r'\s+',' ',m.group(0))[:1300])
-
-          # Search ATP site HTML through its public internal search pages / likely names for Q objects.
-          for name in ['quebec-city','kingston','roehampton','sion']:
-            for tid in range(3095,3140):
-              # only HEAD-ish small subset based known main IDs neighborhood; stop fast if title says Q.
-              if tid not in ([3102,3104,3105,3106,3120,3122,3124,3125,3132,3134,3135]): continue
-              u=f'https://www.atptour.com/en/tournaments/{name}/{tid}/overview'
-              st,final,s,h=get(u)
-              mt=re.search(r'<title>(.*?)</title>',s,re.I|re.S)
-              title=re.sub(r'\s+',' ',html.unescape(mt.group(1))).strip() if mt else ''
-              if st==200 and (re.search(r' Q\b|Qualif',title,re.I) or re.search(r'>[^<]* Q<',s,re.I)):
-                print('QOBJECT HIT',name,tid,title,final)
-
-          # 5) Syndicator WordPress APIs for Aug 2026 pre-draw entry-list posts.
-          print('\n######## SYNDICATOR WP ########')
-          for base in ['https://ventidisport.it','https://sportingnews.it','https://sportlife.cloud']:
-            urls=[
-              base+'/wp-json/wp/v2/posts?after=2026-08-01T00:00:00&before=2026-08-14T23:59:59&per_page=100',
-              base+'/wp-json/wp/v2/search?search=challenger&per_page=100',
-              base+'/wp-json/wp/v2/search?search=cancun&per_page=100',
-              base+'/wp-json/wp/v2/search?search=roehampton&per_page=100',
-              base+'/feed/',
-            ]
-            for j,u in enumerate(urls):
-              st,final,s,h=get(u)
-              if st==200 and re.search(r'cancun|quebec|kingston|roehampton|praga|sion|challenger|qualif|entry list',s,re.I):
-                print('\nWP',base,j,'LEN',len(s),final)
-                for m in list(re.finditer(r'cancun|quebec|kingston|roehampton|praga|sion|challenger|qualif|entry list',s,re.I))[:80]:
-                  print(re.sub(r'\s+',' ',s[max(0,m.start()-450):m.start()+1800])[:2400])
+          for page in range(1,6):
+            u=base+(f'?page={page}' if page>1 else '')
+            try:r=S.get(u,timeout=25); s=r.text
+            except Exception as e: print('ERR',page,e); continue
+            print('\n===== PAGE',page,'STATUS',r.status_code,'LEN',len(s),'URL',r.url,'=====')
+            soup=BeautifulSoup(s,'html.parser')
+            # Extract post containers with author/date/body as robustly as possible.
+            posts=[]
+            for node in soup.find_all(['table','div']):
+              txt=' '.join(node.stripped_strings)
+              if len(txt)<30: continue
+              if any(k.lower() in txt.lower() for k in ['roehampton','quebec city','kingston','q alt','qualifying','alternate','live-tennis','ticktock','otherlists','chq_updates','darts']):
+                # only moderately sized likely post nodes
+                if len(txt)<12000: posts.append((txt,str(node)))
+            # dedupe text and print most detailed matches
+            seen=set()
+            for txt,node in posts:
+              key=txt[:300]
+              if key in seen: continue
+              seen.add(key)
+              print('\nPOSTLIKE',txt[:10000])
+              for m in re.finditer(r'href=["\']([^"\']+)',node,re.I):
+                link=html.unescape(m.group(1))
+                if re.search(r'tennis|x\.com|twitter|darts|ticktock|livetennis|live-tennis|otherlists|chq|entry',link,re.I): print(' LINK',urllib.parse.urljoin(r.url,link))
+            # exact contexts
+            for term in ['Roehampton','Quebec City','Kingston','alt','Q Alt','qualifying','live-tennis','TickTock','OtherLists','CHQ_Updates','Darts']:
+              for m in list(re.finditer(re.escape(term),s,re.I))[:30]:
+                print('\nCTX',term,re.sub(r'\s+',' ',s[max(0,m.start()-900):m.start()+4500])[:5600])
+            # discover pagination/posts IDs
+            for a in soup.find_all('a',href=True):
+              tx=' '.join(a.stripped_strings); href=urllib.parse.urljoin(r.url,a['href'])
+              if re.search(r'lastPostAnchor|page=|post|permalink',href,re.I) and ('73108826' in href): print('THREADLINK',tx,href)
           PY
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/q-alt-deep/trace.txt
-          git commit -m "Save deep Q-alt source discovery trace" || exit 0
+          git add research/q-alt-deep/week33-forum.txt
+          git commit -m "Save Week 33 forum alt-position trace" || exit 0
           git push
