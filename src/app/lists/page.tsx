@@ -38,6 +38,7 @@ type DrawPlan = {
   da: number | null;
   wc: number | null;
   q: number | null;
+  seHeld: number | null;
   priorCutoff: number | null;
 };
 type DrawPlans = Record<string, { main_singles?: DrawPlan; qualifying?: DrawPlan; main_doubles?: DrawPlan }>;
@@ -51,9 +52,11 @@ async function loadDrawPlans(): Promise<DrawPlans> {
       direct_acceptances: number | null;
       wild_cards: number | null;
       qualifiers: number | null;
+      special_exempts_held: number | null;
       prior_cutoff: number | null;
     }>(
-      `select atp_code, draw, draw_size, direct_acceptances, wild_cards, qualifiers, prior_cutoff
+      `select atp_code, draw, draw_size, direct_acceptances, wild_cards, qualifiers,
+              special_exempts_held, prior_cutoff
        from tournament_detail_sheets
        where week_start = $1::date`,
       [WEEK_START]
@@ -65,6 +68,7 @@ async function loadDrawPlans(): Promise<DrawPlans> {
         da: row.direct_acceptances,
         wc: row.wild_cards,
         q: row.qualifiers,
+        seHeld: row.special_exempts_held,
         priorCutoff: row.prior_cutoff,
       };
     }
@@ -243,23 +247,47 @@ function DrawComposition({
   /** The event's own detail sheet, absent until the sheet has been synced. */
   plan?: DrawPlan;
 }) {
-  // What the sheet says the draw is built from. Authoritative and per event —
-  // a Challenger 125 here runs a 28 main draw while the 75s and 50s run 32, so
-  // none of this can be inferred from the level.
-  const planned: Array<{ label: string; value: number; title: string }> = [];
-  if (plan) {
-    if (plan.da != null) planned.push({ label: 'DA', value: plan.da, title: routeLabel('DA') });
-    if (plan.wc != null) planned.push({ label: 'WC', value: plan.wc, title: routeLabel('WC') });
-    if (plan.q != null) planned.push({ label: 'Q', value: plan.q, title: 'Places filled from the qualifying draw' });
+  // The draw size, wildcards and qualifiers come from the sheet — authoritative
+  // and per event, since a Challenger 125 here runs a 28 main draw while the
+  // 75s and 50s run 32.
+  //
+  // DA is counted from the list instead of taken from the sheet's column. The
+  // sheet states 23 DA at Kingston while the acceptance list names 21, which
+  // reads as an error until you see that two of those places are being held for
+  // special exempts. Counting the names and showing the held places separately
+  // makes the same three numbers add up in public.
+  const named = liveCount(rows, section);
+  const parts: Array<{ label: string; value: number; title: string }> = [
+    { label: 'DA', value: named, title: 'Named on the acceptance list' },
+  ];
+
+  const accountedFor =
+    plan?.size != null ? plan.size - named - (plan.wc ?? 0) - (plan.q ?? 0) : null;
+  if (accountedFor != null && accountedFor > 0) {
+    // Where the shortfall is exactly the special-exempt reserve, it IS the
+    // reserve. Otherwise say only that the places are open, rather than
+    // labelling them with a route that has not been established.
+    const isSpecialExempt = plan?.seHeld != null && accountedFor === plan.seHeld;
+    parts.push({
+      label: isSpecialExempt ? 'SE' : 'open',
+      value: accountedFor,
+      title: isSpecialExempt
+        ? 'Places held for special exempts — players still alive in the previous week'
+        : 'Places in the draw that the list has not named yet',
+    });
   }
 
-  // What the published list actually contains, which is where the accelerator
-  // routes show up — the sheet folds them into its DA figure.
-  const filled = tallyRoutes(
+  if (plan?.wc != null) parts.push({ label: 'WC', value: plan.wc, title: routeLabel('WC') });
+  if (plan?.q != null) {
+    parts.push({ label: 'Q', value: plan.q, title: 'Places filled from the qualifying draw' });
+  }
+
+  // The accelerator routes, which the sheet folds inside its DA column.
+  const accelerators = tallyRoutes(
     rows.map((row) => ({ code: row.entryCode, departed: hasDeparted(row, section) }))
   ).filter((tally) => tally.live > 0 && tally.route !== 'DA');
 
-  if (planned.length === 0 && filled.length === 0) return null;
+  if (named === 0 && plan?.size == null) return null;
   return (
     <ul className={styles.composition}>
       {plan?.size != null ? (
@@ -267,12 +295,12 @@ function DrawComposition({
           <b>{plan.size}</b> draw
         </li>
       ) : null}
-      {planned.map((item) => (
+      {parts.map((item) => (
         <li key={item.label} className={styles.compositionItem} title={item.title}>
           <b>{item.value}</b> {item.label}
         </li>
       ))}
-      {filled.map((tally) => (
+      {accelerators.map((tally) => (
         <li key={tally.route} className={styles.compositionItem} title={routeLabel(tally.route)}>
           <b>{tally.live}</b> {tally.route}
         </li>

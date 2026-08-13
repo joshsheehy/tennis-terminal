@@ -30,7 +30,10 @@ export type DetailSheetDraw = {
   wildCards: number | null;
   qualifiers: number | null;
   specialExempts: number | null;
+  /** Places held for special exempts, whether or not any are taken yet. */
+  specialExemptsHeld: number | null;
   nextGen: number | null;
+  nextGenHeld: number | null;
   /** The "2025 Cut Offs" column: last year's cut for this draw. */
   priorCutoff: number | null;
   /** The cells as printed, because some are "a/b" and the sheet never says why. */
@@ -57,10 +60,24 @@ const ROW_LABELS: Array<[RegExp, DetailSheetDrawKind]> = [
  * other columns add up with. "-", "N/A" and Excel's "#N/A" all mean absent.
  */
 export function parseSheetCell(cell: string): number | null {
+  return parseSheetPair(cell).value;
+}
+
+/**
+ * Both halves of a cell printed as "a/b".
+ *
+ * The second number matters. SE reads "0/2" and NG reads "0/3": none taken so
+ * far, that many places held. Those held places are why an acceptance list can
+ * name 21 players against a stated 23 DA — the draw is not short, it is holding
+ * two places back. Dropping the second number made that gap look like an error.
+ */
+export function parseSheetPair(cell: string): { value: number | null; of: number | null } {
   const text = cell.trim();
-  if (!text || text === '-' || /^#?N\/A$/i.test(text)) return null;
-  const match = text.match(/^(\d+)/);
-  return match ? Number(match[1]) : null;
+  if (!text || text === '-' || /^#?N\/A$/i.test(text)) return { value: null, of: null };
+  const pair = text.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (pair) return { value: Number(pair[1]), of: Number(pair[2]) };
+  const single = text.match(/^(\d+)/);
+  return { value: single ? Number(single[1]) : null, of: null };
 }
 
 function splitCells(line: string): string[] {
@@ -105,7 +122,9 @@ export function parseDetailSheetText(text: string): DetailSheet {
     if (!kind || seen.has(kind)) continue;
 
     const tail = cells.slice(-7);
-    const [size, da, wc, q, se, ng, cut] = tail.map(parseSheetCell);
+    const [size, da, wc, q, cut] = [tail[0], tail[1], tail[2], tail[3], tail[6]].map(parseSheetCell);
+    const se = parseSheetPair(tail[4]);
+    const ng = parseSheetPair(tail[5]);
     // A draws row always states a size. Anything without one is prose that
     // happened to start with the same words.
     if (size == null) continue;
@@ -117,8 +136,10 @@ export function parseDetailSheetText(text: string): DetailSheet {
       directAcceptances: da,
       wildCards: wc,
       qualifiers: q,
-      specialExempts: se,
-      nextGen: ng,
+      specialExempts: se.value,
+      specialExemptsHeld: se.of,
+      nextGen: ng.value,
+      nextGenHeld: ng.of,
       priorCutoff: cut,
       raw: tail.join(' | '),
     });

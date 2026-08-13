@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { drawAddsUp, parseDetailSheetText, parseSheetCell } from './detail-sheet-parser';
+import { drawAddsUp, parseDetailSheetText, parseSheetCell, parseSheetPair } from './detail-sheet-parser';
 
 // Rows exactly as they extract from the posted PDFs for the Aug 17, 2026 week.
 const PRAGUE = [
@@ -39,6 +39,20 @@ describe('parseSheetCell', () => {
   });
 });
 
+describe('parseSheetPair', () => {
+  // The held count is what explains a 21-name acceptance list under a stated
+  // 23 DA: two of those places are being kept for special exempts.
+  it('keeps both halves, so held places are not lost', () => {
+    expect(parseSheetPair('0/2')).toEqual({ value: 0, of: 2 });
+    expect(parseSheetPair('23/18')).toEqual({ value: 23, of: 18 });
+  });
+
+  it('has nothing held where the cell is a single number or a dash', () => {
+    expect(parseSheetPair('14')).toEqual({ value: 14, of: null });
+    expect(parseSheetPair('-')).toEqual({ value: null, of: null });
+  });
+});
+
 describe('parseDetailSheetText', () => {
   it('reads the three draws with their sizes and routes', () => {
     const sheet = parseDetailSheetText(PRAGUE);
@@ -52,7 +66,9 @@ describe('parseDetailSheetText', () => {
       wildCards: 3,
       qualifiers: 6,
       specialExempts: 0,
+      specialExemptsHeld: 2,
       nextGen: 0,
+      nextGenHeld: 3,
       priorCutoff: 548,
     });
 

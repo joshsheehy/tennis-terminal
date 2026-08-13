@@ -128,7 +128,9 @@ export async function GET() {
       wild_cards int,
       qualifiers int,
       special_exempts int,
+      special_exempts_held int,
       next_gen int,
+      next_gen_held int,
       prior_cutoff int,
       raw_cells text,
       source_url text not null,
@@ -136,6 +138,10 @@ export async function GET() {
       fetched_at timestamptz not null default now(),
       primary key (week_start, atp_code, draw)
     );
+
+    -- Added after the table shipped: the held half of the SE and NG cells.
+    alter table tournament_detail_sheets add column if not exists special_exempts_held int;
+    alter table tournament_detail_sheets add column if not exists next_gen_held int;
 
     create index if not exists acceptance_list_sources_due_idx
       on acceptance_list_sources(active, next_check_at)

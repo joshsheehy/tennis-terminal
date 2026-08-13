@@ -84,16 +84,18 @@ async function storeDraw(atpCode: string, draw: DetailSheetDraw) {
   await pool.query(
     `insert into tournament_detail_sheets (
        week_start, atp_code, draw, draw_size, direct_acceptances, wild_cards,
-       qualifiers, special_exempts, next_gen, prior_cutoff, raw_cells,
-       source_url, adds_up, fetched_at
-     ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+       qualifiers, special_exempts, special_exempts_held, next_gen, next_gen_held,
+       prior_cutoff, raw_cells, source_url, adds_up, fetched_at
+     ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now())
      on conflict (week_start, atp_code, draw) do update
      set draw_size = excluded.draw_size,
          direct_acceptances = excluded.direct_acceptances,
          wild_cards = excluded.wild_cards,
          qualifiers = excluded.qualifiers,
          special_exempts = excluded.special_exempts,
+         special_exempts_held = excluded.special_exempts_held,
          next_gen = excluded.next_gen,
+         next_gen_held = excluded.next_gen_held,
          prior_cutoff = excluded.prior_cutoff,
          raw_cells = excluded.raw_cells,
          adds_up = excluded.adds_up,
@@ -107,7 +109,9 @@ async function storeDraw(atpCode: string, draw: DetailSheetDraw) {
       draw.wildCards,
       draw.qualifiers,
       draw.specialExempts,
+      draw.specialExemptsHeld,
       draw.nextGen,
+      draw.nextGenHeld,
       draw.priorCutoff,
       draw.raw,
       sheetUrl(atpCode),
