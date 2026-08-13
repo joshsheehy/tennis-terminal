@@ -298,12 +298,15 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
             <HistoryTable rows={event.mainHistory} section="main" />
           </div>
 
+          {/* No count and no composition here. An alternate has not been
+              accepted into anything, so there is nothing to break down by entry
+              route — and the real queue runs deeper than the public sources
+              publish, so any total would understate it. */}
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>Main-draw alternates</h3>
-              <span className={styles.panelCount}>{liveCount(event.mainAltHistory, 'alt')} waiting</span>
+              <span className={styles.panelCount}>deeper than shown</span>
             </div>
-            <DrawComposition rows={event.mainAltHistory} section="alt" />
             <HistoryTable rows={event.mainAltHistory} section="alt" />
           </div>
 
