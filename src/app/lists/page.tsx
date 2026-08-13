@@ -11,13 +11,14 @@ import {
   type TrackedEntryRow,
 } from '@/lib/aug17-entry-history';
 import type { PublicEntryRow, PublicEntryTournament } from '@/lib/spazio-entry-list-parser';
+import { codeBreakdown, entryCodeLabel, rankingDisplay } from '@/lib/entry-codes';
 import { pool } from '@/lib/db';
 import WhereDoIStand from '@/components/WhereDoIStand';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
   title: 'Entry Lists — Aug 17, 2026',
-  description: 'Live movement and entry-list planning view for the ATP Challenger week of August 17, 2026.',
+  description: 'Entry lists for the ATP Challenger week of August 17, 2026.',
   robots: { index: false, follow: false },
 };
 
@@ -189,6 +190,21 @@ function liveCount(rows: TrackedEntryRow[], section: Section) {
 }
 
 /**
+ * The size of a list plus what filled it beyond the ranking cut.
+ *
+ * There is no fixed acceptance number to check against: the accelerator
+ * pathways differ by Challenger level — Next Gen runs across the levels, while
+ * the junior and college pathways exist only at 50 and 75 — and wildcards and
+ * protected rankings vary event by event. So the composition is reported from
+ * the list itself rather than asserted from a constant.
+ */
+function listSummary(rows: TrackedEntryRow[], section: Section, noun: string) {
+  const live = rows.filter((row) => !hasDeparted(row, section));
+  const breakdown = codeBreakdown(live.map((row) => row.entryCode));
+  return [`${live.length} ${noun}`, ...breakdown.map((item) => `${item.count} ${item.code}`)].join(' · ');
+}
+
+/**
  * One player per line: name, country code, entry rank.
  *
  * Only the alternate list carries a number, because there the number is the
@@ -212,9 +228,13 @@ function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'ma
             {position ? <span className={styles.pos}>{position}</span> : null}
             <span className={styles.playerName}>{row.name}</span>
             {row.country ? <span className={styles.country}>{row.country}</span> : null}
-            {/* A wildcard's listed number is not an ATP ranking, so the code
-                replaces it rather than sitting beside a misleading figure. */}
-            <span className={styles.rank}>{row.entryCode ?? row.rank ?? ''}</span>
+            {/* Junior and college accelerator numbers come from the ITF junior
+                and ITA collegiate rankings, so the code stands in for them.
+                Next Gen and protected rankings are real ATP rankings and keep
+                their number. */}
+            <span className={styles.rank} title={entryCodeLabel(row.entryCode) ?? undefined}>
+              {rankingDisplay(row.rank, row.entryCode)}
+            </span>
           </li>
         );
       })}
@@ -276,7 +296,7 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>Main draw</h3>
-              <span className={styles.panelCount}>{liveCount(event.mainHistory, 'main')} accepted</span>
+              <span className={styles.panelCount}>{listSummary(event.mainHistory, 'main', 'accepted')}</span>
             </div>
             <HistoryTable rows={event.mainHistory} section="main" />
           </div>
@@ -284,7 +304,7 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>Main-draw alternates</h3>
-              <span className={styles.panelCount}>{liveCount(event.mainAltHistory, 'alt')} waiting</span>
+              <span className={styles.panelCount}>{listSummary(event.mainAltHistory, 'alt', 'waiting')}</span>
             </div>
             <HistoryTable rows={event.mainAltHistory} section="alt" />
           </div>
@@ -297,7 +317,7 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
                   every event; the qualifying list is a frozen Aug 10 capture
                   whose depth varies by event, so claiming it is the full
                   acceptance would be asserting more than the source shows. */}
-              <span className={styles.panelCount}>{liveCount(event.qualifyingHistory, 'q')} on the Aug 10 list</span>
+              <span className={styles.panelCount}>{listSummary(event.qualifyingHistory, 'q', 'on the Aug 10 list')}</span>
             </div>
             <HistoryTable rows={event.qualifyingHistory} section="q" />
             <div className={styles.qAltMissing}>
