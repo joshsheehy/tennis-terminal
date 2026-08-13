@@ -11,67 +11,61 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Reverse engineer public DartsRankings data layer
+      - name: Trace USTA Challenger entry-list artifacts
         run: |
           mkdir -p research
-          python3 - <<'PY' > research/dartsrankings-data-trace.txt
-          import urllib.request, urllib.parse, json, re, datetime, socket
-          from html import unescape
+          python3 - <<'PY' > research/usta-challenger-entry-trace.txt
+          import urllib.request, urllib.parse, json, re, datetime
           UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,*/*'}
-          def get(url,timeout=25):
+          def get(url,timeout=30):
             try:
               req=urllib.request.Request(url,headers=UA)
               with urllib.request.urlopen(req,timeout=timeout) as r:
-                return r.status,r.geturl(),r.read().decode('utf-8','replace'),dict(r.headers)
-            except Exception as e:return 'ERR',repr(e),'',{}
+                return r.status,r.geturl(),r.read(),dict(r.headers)
+            except Exception as e:return 'ERR',repr(e),b'',{}
+          page='https://www.usta.com/en/home/pro/pro-tennis-events/usta-mens-competitive-pathway.html'
+          st,final,data,h=get(page); body=data.decode('utf-8','replace')
           print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          for u in ['https://www.dartsrankings.com/tennis/split','https://www.dartsrankings.com/tennis/cancun','https://www.dartsrankings.com/robots.txt','https://www.dartsrankings.com/sitemap.xml','https://www.dartsrankings.com/tennis']:
-            st,final,b,h=get(u)
-            print(f'\n### PAGE {u} STATUS={st} LEN={len(b)} FINAL={final} SERVER={h.get("Server")} XPOWER={h.get("X-Powered-By")}')
-            if '/tennis/' in u:
-              print('HEAD',b[:5000])
-              print('\nSCRIPTS')
-              for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',b,re.I): print(src)
-              print('\nLINKS')
-              for href in re.findall(r'<link[^>]+href=["\']([^"\']+)',b,re.I): print(href)
-              print('\nFORM/AJAX/FETCH/API HINTS')
-              pats=[r'fetch\([^)]{0,500}',r'axios.{0,500}',r'XMLHttpRequest.{0,500}',r'ajax.{0,500}',r'api[/\w?&=.-]{0,500}',r'__NEXT_DATA__.{0,1000}',r'/_next/[^"\']+',r'/_nuxt/[^"\']+',r'firebase.{0,1000}',r'supabase.{0,1000}',r'graphql.{0,500}',r'entry.{0,500}',r'qualifying.{0,500}']
-              for pat in pats:
-                vals=[]
-                for m in re.finditer(pat,b,re.I|re.S):
-                  s=re.sub(r'\s+',' ',m.group(0))
-                  if s not in vals: vals.append(s)
-                for s in vals[:40]: print('HINT',s[:1500])
-          # Pull every same-origin JS/CSS found on the Split page and grep for data endpoints/schema names.
-          st,final,b,h=get('https://www.dartsrankings.com/tennis/split')
-          assets=[]
-          for x in re.findall(r'(?:src|href)=["\']([^"\']+\.(?:js|css)(?:\?[^"\']*)?)',b,re.I):
-            if x.startswith('//'): x='https:'+x
-            elif x.startswith('/'): x='https://www.dartsrankings.com'+x
-            elif not x.startswith('http'): x='https://www.dartsrankings.com/tennis/'+x
-            if x not in assets: assets.append(x)
-          print('\n### ASSETS',len(assets))
-          for u in assets:
-            st,final,a,h=get(u); print('\nASSET',u,'STATUS',st,'LEN',len(a),'FINAL',final)
-            for kw in ['fetch','ajax','api','qualifying','alternate','withdraw','entry ranking','firebase','supabase','json','csv','tennis']:
-              ps=[m.start() for m in re.finditer(re.escape(kw),a,re.I)]
+          print('PAGE',st,len(data),final,h.get('Content-Type'))
+          for needle in ['Bloomfield Hills','Lincoln','Cary','Entry List','Alternates/Lucky Losers','M125','M75']:
+            ps=[m.start() for m in re.finditer(re.escape(needle),body,re.I)]
+            print('\nNEEDLE',needle,'COUNT',len(ps),'FIRST',ps[:20])
+            for p in ps[:10]: print(body[max(0,p-2000):p+6000])
+          print('\n### URLS / DATA ATTRS')
+          for pat in [r'https?://[^\s"\'<>]+',r'(?:href|src|data-[\w-]+)=["\'][^"\']+["\']']:
+            vals=[]
+            for m in re.finditer(pat,body,re.I):
+              s=m.group(0)
+              if re.search(r'entry|alternate|pro.?circuit|competitive|tournament|api|json|calendar|bloomfield|lincoln|cary',s,re.I) and s not in vals: vals.append(s)
+            for s in vals[:500]: print(s[:3000])
+          print('\n### SCRIPTS')
+          scripts=[]
+          for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',body,re.I):
+            if src.startswith('//'): src='https:'+src
+            elif src.startswith('/'): src='https://www.usta.com'+src
+            elif not src.startswith('http'): src=urllib.parse.urljoin(page,src)
+            if src not in scripts: scripts.append(src)
+            print(src)
+          for src in scripts:
+            if not ('usta' in src.lower() or 'adobe' in src.lower()): continue
+            st2,f2,d2,h2=get(src); text=d2.decode('utf-8','replace')
+            print('\n### SCRIPT',src,st2,len(d2),f2)
+            for kw in ['Entry List','Alternates/Lucky Losers','Bloomfield Hills','competitive-pathway','pro circuit','api','graphql','json','calendar','tournament']:
+              ps=[m.start() for m in re.finditer(re.escape(kw),text,re.I)]
               if ps:
                 print('KW',kw,'COUNT',len(ps))
-                for p in ps[:8]: print(a[max(0,p-500):p+1800])
-          # Probe common static/data endpoints, based only on public website conventions.
-          probes=['/api','/api/tennis','/api/tournaments','/tennis/api','/data','/data/tennis.json','/tennis/data.json','/tennis/tournaments.json','/assets','/manifest.json','/.well-known/assetlinks.json']
-          print('\n### COMMON PUBLIC PROBES')
-          for p in probes:
-            u='https://www.dartsrankings.com'+p; st,final,x,h=get(u); print(u,st,len(x),final,h.get('Content-Type'),x[:1000].replace('\n',' '))
-          # Wayback URL inventory for dartsrankings tennis/data/api/javascript paths.
-          for label,pattern in [('all','www.dartsrankings.com/tennis/*'),('api','www.dartsrankings.com/*api*'),('json','www.dartsrankings.com/*.json*'),('js','www.dartsrankings.com/*.js*')]:
-            u='https://web.archive.org/cdx/search/cdx?url='+urllib.parse.quote(pattern,safe='/*')+'&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode&limit=3000'
-            st,final,x,h=get(u,35); print('\n### CDX',label,st,len(x),final); print(x[:120000])
+                for p in ps[:10]: print(text[max(0,p-1200):p+4000])
+          # Try common AEM data renderings and page model endpoints.
+          print('\n### PAGE MODEL PROBES')
+          base=page[:-5]
+          probes=[page+'.model.json',base+'.model.json',base+'.infinity.json',base+'.1.json',base+'.json',base+'.content.json']
+          for u in probes:
+            st2,f2,d2,h2=get(u); print('\nPROBE',u,st2,len(d2),f2,h2.get('Content-Type')); print(d2[:30000].decode('utf-8','replace'))
           PY
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/dartsrankings-data-trace.txt
-          git commit -m "Save DartsRankings data trace" || exit 0
+          git add research/usta-challenger-entry-trace.txt
+          git commit -m "Save USTA Challenger entry trace" || exit 0
           git push
