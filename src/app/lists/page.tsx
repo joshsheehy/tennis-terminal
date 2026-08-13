@@ -43,24 +43,46 @@ type DrawPlan = {
 };
 type DrawPlans = Record<string, { main_singles?: DrawPlan; qualifying?: DrawPlan; main_doubles?: DrawPlan }>;
 
-async function loadDrawPlans(): Promise<DrawPlans> {
+type DrawPlanRow = {
+  atp_code: string;
+  draw: 'qualifying' | 'main_singles' | 'main_doubles';
+  draw_size: number | null;
+  direct_acceptances: number | null;
+  wild_cards: number | null;
+  qualifiers: number | null;
+  special_exempts_held: number | null;
+  prior_cutoff: number | null;
+};
+
+const DRAW_PLAN_SELECT = `atp_code, draw, draw_size, direct_acceptances, wild_cards, qualifiers,
+              prior_cutoff`;
+
+/**
+ * A column added after the table shipped must not take the draw structure off
+ * the page while production waits for the setup endpoint to run. Ask for the
+ * new column, and fall back to the columns that have always existed.
+ */
+async function queryDrawPlans() {
   try {
-    const { rows } = await pool.query<{
-      atp_code: string;
-      draw: 'qualifying' | 'main_singles' | 'main_doubles';
-      draw_size: number | null;
-      direct_acceptances: number | null;
-      wild_cards: number | null;
-      qualifiers: number | null;
-      special_exempts_held: number | null;
-      prior_cutoff: number | null;
-    }>(
-      `select atp_code, draw, draw_size, direct_acceptances, wild_cards, qualifiers,
-              special_exempts_held, prior_cutoff
+    return await pool.query<DrawPlanRow>(
+      `select ${DRAW_PLAN_SELECT}, special_exempts_held
        from tournament_detail_sheets
        where week_start = $1::date`,
       [WEEK_START]
     );
+  } catch {
+    return pool.query<DrawPlanRow>(
+      `select ${DRAW_PLAN_SELECT}, null::int as special_exempts_held
+       from tournament_detail_sheets
+       where week_start = $1::date`,
+      [WEEK_START]
+    );
+  }
+}
+
+async function loadDrawPlans(): Promise<DrawPlans> {
+  try {
+    const { rows } = await queryDrawPlans();
     const plans: DrawPlans = {};
     for (const row of rows) {
       (plans[row.atp_code] ??= {})[row.draw] = {
