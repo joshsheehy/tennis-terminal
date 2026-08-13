@@ -11,61 +11,26 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Trace USTA Challenger entry-list artifacts
+      - name: Capture public USTA page and discover data endpoints
+        shell: bash
         run: |
-          mkdir -p research
-          python3 - <<'PY' > research/usta-challenger-entry-trace.txt
-          import urllib.request, urllib.parse, json, re, datetime
-          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,*/*'}
-          def get(url,timeout=30):
-            try:
-              req=urllib.request.Request(url,headers=UA)
-              with urllib.request.urlopen(req,timeout=timeout) as r:
-                return r.status,r.geturl(),r.read(),dict(r.headers)
-            except Exception as e:return 'ERR',repr(e),b'',{}
-          page='https://www.usta.com/en/home/pro/pro-tennis-events/usta-mens-competitive-pathway.html'
-          st,final,data,h=get(page); body=data.decode('utf-8','replace')
-          print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          print('PAGE',st,len(data),final,h.get('Content-Type'))
-          for needle in ['Bloomfield Hills','Lincoln','Cary','Entry List','Alternates/Lucky Losers','M125','M75']:
-            ps=[m.start() for m in re.finditer(re.escape(needle),body,re.I)]
-            print('\nNEEDLE',needle,'COUNT',len(ps),'FIRST',ps[:20])
-            for p in ps[:10]: print(body[max(0,p-2000):p+6000])
-          print('\n### URLS / DATA ATTRS')
-          for pat in [r'https?://[^\s"\'<>]+',r'(?:href|src|data-[\w-]+)=["\'][^"\']+["\']']:
-            vals=[]
-            for m in re.finditer(pat,body,re.I):
-              s=m.group(0)
-              if re.search(r'entry|alternate|pro.?circuit|competitive|tournament|api|json|calendar|bloomfield|lincoln|cary',s,re.I) and s not in vals: vals.append(s)
-            for s in vals[:500]: print(s[:3000])
-          print('\n### SCRIPTS')
-          scripts=[]
-          for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',body,re.I):
-            if src.startswith('//'): src='https:'+src
-            elif src.startswith('/'): src='https://www.usta.com'+src
-            elif not src.startswith('http'): src=urllib.parse.urljoin(page,src)
-            if src not in scripts: scripts.append(src)
-            print(src)
-          for src in scripts:
-            if not ('usta' in src.lower() or 'adobe' in src.lower()): continue
-            st2,f2,d2,h2=get(src); text=d2.decode('utf-8','replace')
-            print('\n### SCRIPT',src,st2,len(d2),f2)
-            for kw in ['Entry List','Alternates/Lucky Losers','Bloomfield Hills','competitive-pathway','pro circuit','api','graphql','json','calendar','tournament']:
-              ps=[m.start() for m in re.finditer(re.escape(kw),text,re.I)]
-              if ps:
-                print('KW',kw,'COUNT',len(ps))
-                for p in ps[:10]: print(text[max(0,p-1200):p+4000])
-          # Try common AEM data renderings and page model endpoints.
-          print('\n### PAGE MODEL PROBES')
-          base=page[:-5]
-          probes=[page+'.model.json',base+'.model.json',base+'.infinity.json',base+'.1.json',base+'.json',base+'.content.json']
-          for u in probes:
-            st2,f2,d2,h2=get(u); print('\nPROBE',u,st2,len(d2),f2,h2.get('Content-Type')); print(d2[:30000].decode('utf-8','replace'))
-          PY
+          set -euxo pipefail
+          mkdir -p research/usta-assets
+          URL='https://www.usta.com/en/home/pro/pro-tennis-events/usta-mens-competitive-pathway.html'
+          curl -A 'Mozilla/5.0' -L --fail --max-time 30 "$URL" -o research/usta-competitive-pathway.html
+          wc -c research/usta-competitive-pathway.html | tee research/usta-discovery.txt
+          grep -Eio '<script[^>]+src=["'"'][^"'"']+' research/usta-competitive-pathway.html | sed -E 's/.*src=["'"']//g' | sort -u >> research/usta-discovery.txt || true
+          printf '\n=== KEYWORDS ===\n' >> research/usta-discovery.txt
+          grep -Ein 'Bloomfield|Lincoln|Cary|Entry List|Alternates|Lucky Losers|api|graphql|json|calendar|tournament' research/usta-competitive-pathway.html >> research/usta-discovery.txt || true
+          printf '\n=== URL-LIKE STRINGS ===\n' >> research/usta-discovery.txt
+          grep -Eo 'https?://[^"'"' <>]+' research/usta-competitive-pathway.html | sort -u >> research/usta-discovery.txt || true
+          printf '\n=== JS ENDPOINT STRINGS ===\n' >> research/usta-discovery.txt
+          grep -Eo '[/A-Za-z0-9_.?&=%:-]{8,}(api|calendar|tournament|event|entry|alternate)[/A-Za-z0-9_.?&=%:-]*' research/usta-competitive-pathway.html | sort -u >> research/usta-discovery.txt || true
+          cat research/usta-discovery.txt
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/usta-challenger-entry-trace.txt
-          git commit -m "Save USTA Challenger entry trace" || exit 0
+          git add research/usta-competitive-pathway.html research/usta-discovery.txt
+          git commit -m "Save raw USTA pathway source" || exit 0
           git push
