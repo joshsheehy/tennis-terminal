@@ -11,63 +11,44 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Download selected USTA entry and alternate PDFs
+      - name: Parse Brownsburg entry list and qualifying draw
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p research/usta-pdf-text
+          mkdir -p research/brownsburg-reconstruct
           python3 -m pip -q install pypdf
           python3 - <<'PY'
-          import io, urllib.request, pathlib, json
+          import io,json,re,urllib.request,pathlib
           from pypdf import PdfReader
-          base='https://www.usta.com/content/dam/usta/pro-circuit/2026/'
-          docs={
-            'lincoln_entry':base+'20260713_lincoln_m75/lincoln-challenger-2026-mds-entry-list.pdf',
-            'lincoln_ll':base+'20260713_lincoln_m75/ll.pdf',
-            'bloomfield_entry':base+'20260720_bloomfieldhills_m125/bloomfield-hills-challenger-2026-entry-list-mds.pdf',
-            'bloomfield_ll':base+'20260720_bloomfieldhills_m125/ll.pdf',
-            'lexington_entry':base+'20260803_lexington_m75/2026-lexington-challenger-mds-entry-list.pdf',
-            'lexington_ll':base+'20260803_lexington_m75/ll.pdf',
-            'brownsburg_entry':base+'20260810_brownsburg_m75/brownsburg-challenger-mds-entry-list.pdf',
-            'brownsburg_ll':base+'20260810_brownsburg_m75/ll.pdf',
-            'tyler_entry':base+'20260601_tyler_m75/tyler-mds-entry-list.pdf',
-            'tyler_ll':base+'20260601_tyler_m75/ll.pdf',
-          }
-          meta=[]
-          for name,url in docs.items():
-              try:
-                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.usta.com/en/home/pro/pro-tennis-events/usta-mens-competitive-pathway.html'})
-                  with urllib.request.urlopen(req,timeout=30) as r:
-                      b=r.read(); headers=dict(r.headers); final=r.geturl(); status=r.status
-                  item={'name':name,'url':url,'status':status,'bytes':len(b),'last_modified':headers.get('Last-Modified'),'etag':headers.get('ETag'),'final':final}
-                  if b.startswith(b'%PDF'):
-                      reader=PdfReader(io.BytesIO(b))
-                      text='\n\n'.join((p.extract_text() or '') for p in reader.pages)
-                      pathlib.Path(f'research/usta-pdf-text/{name}.txt').write_text(text,errors='replace')
-                      item['pages']=len(reader.pages); item['chars']=len(text)
-                  meta.append(item)
-                  print('\n###',name,json.dumps(item,indent=2))
-                  if 'text' in locals(): print(text[:12000])
-              except Exception as e:
-                  meta.append({'name':name,'url':url,'error':repr(e)})
-                  print('ERR',name,repr(e))
-          pathlib.Path('research/usta-pdf-text/meta.json').write_text(json.dumps(meta,indent=2))
+          base='https://www.usta.com/content/dam/usta/pro-circuit/2026/20260810_brownsburg_m75/'
+          docs={'entry':'brownsburg-challenger-mds-entry-list.pdf','qs':'qs.pdf','ll':'ll.pdf'}
+          out={}
+          for k,f in docs.items():
+              url=base+f
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.usta.com/'})
+              with urllib.request.urlopen(req,timeout=30) as r:
+                  b=r.read(); hd=dict(r.headers)
+              reader=PdfReader(io.BytesIO(b)); text='\n'.join((p.extract_text() or '') for p in reader.pages)
+              pathlib.Path(f'research/brownsburg-reconstruct/{k}.txt').write_text(text)
+              out[k]={'url':url,'bytes':len(b),'last_modified':hd.get('Last-Modified'),'pages':len(reader.pages),'chars':len(text)}
+              print('\n###',k,json.dumps(out[k],indent=2)); print(text[:30000])
+          pathlib.Path('research/brownsburg-reconstruct/meta.json').write_text(json.dumps(out,indent=2))
           PY
-      - name: Summarize relevant lines
+      - name: Build comparison excerpts
         run: |
           {
-            echo '=== ALTERNATE / QUALIFY / WITHDRAW HITS ==='
-            grep -RaiEn 'alternate|qualif|withdraw|lucky|entry rank|ranking|acceptance|main draw' research/usta-pdf-text || true
-            echo '=== BROWNSBURG LL ==='
-            cat research/usta-pdf-text/brownsburg_ll.txt 2>/dev/null || true
-            echo '=== BROWNSBURG ENTRY ==='
-            cat research/usta-pdf-text/brownsburg_entry.txt 2>/dev/null || true
-          } > research/usta-pdf-text/summary.txt
-          head -n 1200 research/usta-pdf-text/summary.txt
+            echo '=== ENTRY ALTERNATES ==='
+            grep -n -A140 '^Alternates' research/brownsburg-reconstruct/entry.txt || true
+            echo '=== Q DRAW ALT / WITHDRAW / LDA ==='
+            grep -niE -C3 'Alt|Alternates|Withdraw|Last Direct|Moved to Main|Qualifying' research/brownsburg-reconstruct/qs.txt || true
+            echo '=== FULL Q TEXT ==='
+            cat research/brownsburg-reconstruct/qs.txt
+          } > research/brownsburg-reconstruct/comparison.txt
+          head -n 1600 research/brownsburg-reconstruct/comparison.txt
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/usta-pdf-text
-          git commit -m "Save USTA entry and alternate PDF text" || exit 0
+          git add research/brownsburg-reconstruct
+          git commit -m "Save Brownsburg Q reconstruction comparison" || exit 0
           git push
