@@ -5,7 +5,6 @@
 
 import { unstable_cache } from 'next/cache';
 import { pool } from './db';
-import { loadFieldStrength, type StrengthByDraw } from './field-strength-swings';
 import { getAtpWeekForSeason } from './atp-week';
 import { CURRENT_SEASON } from './seasons';
 import {
@@ -76,9 +75,6 @@ export type SwingsPageData = {
   /** Beta cut projections for the viewed season's upcoming events, keyed by
    * slug then draw key — freshest horizon per draw. */
   cutProjections: Record<string, CutProjectionsByDraw>;
-  /** Field strength per slug: this season against last, 0-100 within the
-   * event's own level. Drives the info popover. */
-  fieldStrength: Record<string, StrengthByDraw>;
 };
 
 export type CutSeriesByDraw = {
@@ -93,12 +89,6 @@ export type CutProjectionsByDraw = {
   q?: CutProjection;
   d?: CutProjection;
 };
-
-const getCachedFieldStrength = unstable_cache(
-  async (year: number) => loadFieldStrength(pool, year),
-  ['swings-fieldstrength'],
-  { revalidate: 300 }
-);
 
 const getCachedEvents = unstable_cache(
   async (year: number) => loadSwingEventsForYear(pool, year),
@@ -290,7 +280,7 @@ export async function getSwingsPageData(
   groups: LevelGroup[] = DEFAULT_LEVEL_SCOPE,
   config: SwingConfig = DEFAULT_SWING_CONFIG
 ): Promise<SwingsPageData> {
-  const [all, cutRefs, cutSeries, cutProjections, fieldStrength] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year), getCachedCutProjections(year), getCachedFieldStrength(year)]);
+  const [all, cutRefs, cutSeries, cutProjections] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year), getCachedCutProjections(year)]);
   const groupSet = new Set(groups);
   const scoped = all.filter((e) => {
     const g = levelGroup(e.level);
@@ -361,5 +351,5 @@ export async function getSwingsPageData(
   const currentWeek =
     year === CURRENT_SEASON ? getAtpWeekForSeason(new Date(), year) ?? 1 : 1;
 
-  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries, cutProjections, fieldStrength };
+  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries, cutProjections };
 }

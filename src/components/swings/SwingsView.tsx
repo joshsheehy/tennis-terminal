@@ -7,15 +7,6 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw } from '@/lib/swings-page-data';
-import type { StrengthByDraw } from '@/lib/field-strength-swings';
-import {
-  BAND_LABEL,
-  BAND_FIELD_LABEL,
-  BAND_COLOR,
-  entryMeaning,
-  isScorableLevel,
-  projectionTooUncertain,
-} from '@/lib/field-strength';
 import { LevelGroup, levelRank } from '@/lib/swings';
 import {
   CandidateTier,
@@ -714,7 +705,6 @@ export default function SwingsView({
           event={infoEvent.event}
           series={data.cutSeries[infoEvent.event.slug]}
           refs={data.cutRefs[infoEvent.event.slug]}
-          strengthByDraw={data.fieldStrength[infoEvent.event.slug]}
           year={data.year}
           backTo={returnHref()}
           onAdd={
@@ -1560,7 +1550,6 @@ function TournamentInfoCard({
   event,
   series,
   refs,
-  strengthByDraw,
   year,
   backTo,
   onAdd,
@@ -1569,7 +1558,6 @@ function TournamentInfoCard({
   event: SwingMapEvent;
   series: CutSeriesByDraw | undefined;
   refs: SwingsPageData['cutRefs'][string] | undefined;
-  strengthByDraw: StrengthByDraw | undefined;
   year: number;
   /** This view + current chain, so the tournament page can send you back here. */
   backTo: string;
@@ -1589,11 +1577,6 @@ function TournamentInfoCard({
   const [drawKey, setDrawKey] = useState<keyof CutSeriesByDraw>(drawChoices[0].key);
   const draw = drawChoices.find((d) => d.key === drawKey) ?? drawChoices[0];
   const points = series?.[draw.key] ?? [];
-  const strength = strengthByDraw?.[draw.key];
-  // ITF events have no cut data collected, so there is nothing to score and the
-  // block is hidden outright rather than showing an empty placeholder.
-  const showStrength = isScorableLevel(event.level);
-  const tooUncertain = projectionTooUncertain(strength?.low ?? null, strength?.high ?? null);
 
   // Latest reference cut for the active draw (2026 stops reference last year).
   const singlesRef = refs?.singles;
@@ -1648,54 +1631,6 @@ function TournamentInfoCard({
           refLine
         ) : (
           <p className="tinfo-line tinfo-line--muted">No {draw.label.toLowerCase()} cut history on record yet.</p>
-        )}
-        {!showStrength ? null : strength &&
-          strength.score != null &&
-          strength.delta != null &&
-          strength.band &&
-          !tooUncertain ? (
-          <div className="tinfo-beta tinfo-beta--live">
-            <span style={{ color: BAND_COLOR[strength.band], fontWeight: 700 }}>
-              {BAND_LABEL[strength.band]}
-            </span>{' '}
-            <span>
-              than {year - 1} · {BAND_FIELD_LABEL[strength.band]} · strength{' '}
-              {strength.priorScore} → {strength.basis === 'projected' ? '~' : ''}
-              {strength.score}
-              {strength.basis === 'projected' &&
-              strength.low != null &&
-              strength.high != null
-                ? ` (${strength.low}–${strength.high})`
-                : ''}{' '}
-              out of 100
-            </span>
-          </div>
-        ) : strength && tooUncertain ? (
-          <p className="tinfo-beta">
-            Field strength · <span>too uncertain to call for this draw yet</span>
-            {strength.priorScore != null ? (
-              <span>
-                {' '}
-                · {year - 1} was {strength.priorScore}/100
-              </span>
-            ) : null}
-          </p>
-        ) : strength && strength.score != null ? (
-          <p className={strength.basis === 'projected' ? 'tinfo-beta' : 'tinfo-beta tinfo-beta--live'}>
-            Field strength ·{' '}
-            <strong>
-              {strength.basis === 'projected' ? '~' : ''}
-              {strength.score}/100
-            </strong>{' '}
-            <span>
-              for this level — {entryMeaning(strength.score)} · no {year - 1} cut to compare
-              {strength.basis === 'projected' ? ' · projected, not measured' : ''}
-            </span>
-          </p>
-        ) : (
-          <p className="tinfo-beta">
-            Field strength · <span>no cut on record for this draw</span>
-          </p>
         )}
         {onAdd && (
           <button type="button" className="tinfo-open tinfo-add" onClick={onAdd}>
