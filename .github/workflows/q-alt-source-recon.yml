@@ -8,60 +8,87 @@ permissions:
 jobs:
   recon:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Trace historical LiveTennis Challenger Q widgets
+      - name: Trace archived LiveTennis entry-list feed
         run: |
           mkdir -p research
-          python3 - <<'PY' > research/livetennis-q-widget-trace.txt
-          import urllib.request,re,json,datetime,html
+          python3 - <<'PY' > research/livetennis-feed-archive-trace.txt
+          import urllib.request, urllib.parse, json, re, datetime, socket
           UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,*/*'}
-          urls={
-            'historic_2024':'https://www.livetennis.it/post/413047/challenger-175-torino-e-bordeaux-e-challenger-75-oeiras-4-taipei-e-tunisi-la-situazione-aggiornata-md-e-qualificazioni/',
-            'historic_2025':'https://www.livetennis.it/post/446046/challenger-todi-cancun-barranquilla-sumter-sofia-1-e-hersonissos-3-la-situazione-aggiornata-md-e-qualificazioni/',
-            'current_2026':'https://www.livetennis.it/post/469551/challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun/',
-          }
-          def get(url):
+          def get(url, timeout=30):
             try:
               req=urllib.request.Request(url,headers=UA)
-              with urllib.request.urlopen(req,timeout=25) as r:
+              with urllib.request.urlopen(req,timeout=timeout) as r:
                 return r.status,r.geturl(),r.read().decode('utf-8','replace'),dict(r.headers)
             except Exception as e:
               return 'ERR',repr(e),'',{}
           print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          for label,url in urls.items():
-            st,final,body,headers=get(url)
-            print(f'\n\n######## {label} STATUS={st} LEN={len(body)} FINAL={final} ########')
-            print('CONTENT-TYPE',headers.get('Content-Type'))
-            for needle in ['Challenger Torino 175 (Q)','Challenger Cancun (Q)','Alternates','Data entry list','Ultimo agg.','469551','413047','446046']:
-              hits=list(re.finditer(re.escape(needle),body,re.I))
-              print('NEEDLE',needle,'HITS',len(hits))
-              for m in hits[:3]:
-                print(body[max(0,m.start()-1200):m.start()+5000])
-            print('\n-- forms / ajax / data attrs / comments --')
-            for pat in [r'<!--.*?-->',r'<script[^>]*src=["\']([^"\']+)',r'<iframe[^>]*src=["\']([^"\']+)',r'(?:href|src)=["\']([^"\']*(?:entry|ajax|qual|challenger)[^"\']*)',r'data-[\w-]+=["\'][^"\']+["\']']:
-              vals=[]
-              for m in re.finditer(pat,body,re.I|re.S):
-                v=m.group(1) if m.lastindex else m.group(0)
-                if v not in vals: vals.append(v)
-              for v in vals[:250]: print(v[:3000])
-          print('\n\n######## WORDPRESS / API PROBES ########')
-          probes=[
-            'https://www.livetennis.it/wp-json/',
-            'https://www.livetennis.it/wp-json/wp/v2/posts/413047',
-            'https://www.livetennis.it/wp-json/wp/v2/posts/446046',
-            'https://www.livetennis.it/wp-json/wp/v2/posts/469551',
-            'https://www.livetennis.it/wp-json/wp/v2/search?search=Challenger%20Cancun',
-            'https://www.livetennis.it/wp-admin/admin-ajax.php',
+          for host in ['feed.livetennis.it','www.livetennis.it','livetennis.it']:
+            try: print('DNS',host,socket.gethostbyname_ex(host))
+            except Exception as e: print('DNS_ERR',host,repr(e))
+
+          print('\n### CERTIFICATE SUBDOMAINS')
+          st,final,b,h=get('https://crt.sh/?q=%25.livetennis.it&output=json')
+          print('CRT',st,len(b),final)
+          try:
+            rows=json.loads(b); names=sorted({n.strip() for x in rows for n in x.get('name_value','').split('\n') if n.strip()})
+            for n in names: print(n)
+          except Exception as e: print('CRT_PARSE_ERR',repr(e),b[:2000])
+
+          queries=[
+            ('feed_all','http://web.archive.org/cdx/search/cdx?url=feed.livetennis.it/*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode,digest&limit=2000'),
+            ('feed_livetennis','http://web.archive.org/cdx/search/cdx?url=feed.livetennis.it/livetennis/*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode,digest&limit=2000'),
+            ('entrylist_urls','http://web.archive.org/cdx/search/cdx?url=www.livetennis.it/*entrylist*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode&limit=2000'),
+            ('entry_list_urls','http://web.archive.org/cdx/search/cdx?url=www.livetennis.it/*entry-list*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode&limit=2000'),
           ]
-          for u in probes:
-            st,final,b,h=get(u); print('\nPROBE',u,'STATUS',st,'LEN',len(b),'FINAL',final); print(b[:12000])
+          archived=[]
+          for label,url in queries:
+            st,final,b,h=get(url)
+            print(f'\n### CDX {label} STATUS={st} LEN={len(b)} FINAL={final}')
+            print(b[:120000])
+            try:
+              arr=json.loads(b)
+              if len(arr)>1:
+                hdr=arr[0]
+                for row in arr[1:]:
+                  d=dict(zip(hdr,row)); archived.append(d)
+            except: pass
+
+          # Fetch representative archived feed snapshots, prioritizing /livetennis/ root and URLs with entry/list terms.
+          candidates=[]
+          for d in archived:
+            o=d.get('original',''); ts=d.get('timestamp','')
+            if 'feed.livetennis.it' in o and (o.rstrip('/').endswith('/livetennis') or re.search(r'entry|list|challeng|qual',o,re.I)):
+              candidates.append((ts,o))
+          seen=set(); uniq=[]
+          for x in sorted(candidates, reverse=True):
+            if x[1] not in seen: seen.add(x[1]); uniq.append(x)
+          print('\n### ARCHIVE CANDIDATES',len(uniq))
+          for ts,o in uniq[:80]: print(ts,o)
+          for ts,o in uniq[:20]:
+            wb='https://web.archive.org/web/'+ts+'id_/'+o
+            st,final,b,h=get(wb)
+            print(f'\n### SNAPSHOT {ts} {o} STATUS={st} LEN={len(b)} FINAL={final}')
+            for needle in ['entrylist_box','resetAlternates','Challenger','Qualific','Alternates','feed.livetennis','entry list']:
+              poss=[m.start() for m in re.finditer(re.escape(needle),b,re.I)]
+              print('NEEDLE',needle,'COUNT',len(poss),'FIRST',poss[:10])
+              for p in poss[:3]: print(b[max(0,p-800):p+3000])
+            urls=re.findall(r'https?://[^\s"\'<>]+',b)
+            interesting=[]
+            for u in urls:
+              if re.search(r'entry|list|ajax|feed|qual|challeng',u,re.I) and u not in interesting: interesting.append(u)
+            for u in interesting[:100]: print('URL_HINT',u[:1000])
+
+          print('\n### LIVE PUBLIC FILES')
+          for u in ['https://www.livetennis.it/robots.txt','https://www.livetennis.it/sitemap.xml','https://www.livetennis.it/sitemap_index.xml','http://feed.livetennis.it/livetennis/','https://feed.livetennis.it/livetennis/']:
+            st,final,b,h=get(u); print('\nLIVE',u,'STATUS',st,'LEN',len(b),'FINAL',final); print(b[:30000])
           PY
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/livetennis-q-widget-trace.txt
-          git commit -m "Save LiveTennis Q widget trace" || exit 0
+          git add research/livetennis-feed-archive-trace.txt
+          git commit -m "Save LiveTennis feed archive trace" || exit 0
           git push
