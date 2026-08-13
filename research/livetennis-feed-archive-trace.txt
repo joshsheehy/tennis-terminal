@@ -1,0 +1,2213 @@
+RUN 2026-08-13T00:27:51.373887+00:00
+DNS feed.livetennis.it ('paolobegmail.feedproxy.ghs.google.com', ['feed.livetennis.it'], ['142.251.16.121'])
+DNS www.livetennis.it ('www.livetennis.it', [], ['109.74.194.252'])
+DNS livetennis.it ('livetennis.it', [], ['109.74.194.252'])
+
+### CERTIFICATE SUBDOMAINS
+CRT ERR 0 TimeoutError('The read operation timed out')
+CRT_PARSE_ERR JSONDecodeError('Expecting value: line 1 column 1 (char 0)') 
+
+### CDX feed_all STATUS=ERR LEN=0 FINAL=TimeoutError('timed out')
+
+
+### CDX feed_livetennis STATUS=200 LEN=175 FINAL=http://web.archive.org/cdx/search/cdx?url=feed.livetennis.it/livetennis/*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode,digest&limit=2000
+[["timestamp","original","mimetype","statuscode","digest"],
+["20090211042448","http://feed.livetennis.it:80/livetennis/","text/xml","200","DK7XUP2JWTHICMSYL3Z667GEW64UR2OF"]]
+
+
+### CDX entrylist_urls STATUS=ERR LEN=0 FINAL=TimeoutError('timed out')
+
+
+### CDX entry_list_urls STATUS=ERR LEN=0 FINAL=URLError(ConnectionRefusedError(111, 'Connection refused'))
+
+
+### ARCHIVE CANDIDATES 1
+20090211042448 http://feed.livetennis.it:80/livetennis/
+
+### SNAPSHOT 20090211042448 http://feed.livetennis.it:80/livetennis/ STATUS=200 LEN=56215 FINAL=https://web.archive.org/web/20090211042448id_/http://feed.livetennis.it:80/livetennis/
+NEEDLE entrylist_box COUNT 0 FIRST []
+NEEDLE resetAlternates COUNT 0 FIRST []
+NEEDLE Challenger COUNT 18 FIRST [5436, 12001, 12147, 12293, 12531, 12682, 12942, 13240, 13355, 13701]
+pegnato nel torneo <b>ATP di Buenos Aires</b>.</p>
+]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11538/atp-costa-do-sauipe-delusione-starace-lazzurro-fuori-al-primo-turno/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>Risultati Italiani nei Future di questa settimana (escluso Bari): Arnaboldi al secondo turno a Cartagena</title>
+		<link>http://www.livetennis.it/post/11474/risultati-italiani-nei-future-di-questa-settimana-escluso-bari-torroni-elimina-ianni-a-panama</link>
+		<comments>http://www.livetennis.it/post/11474/risultati-italiani-nei-future-di-questa-settimana-escluso-bari-torroni-elimina-ianni-a-panama#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 22:38:07 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[Challenger/Fut.]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[Grassi]]></category>
+
+		<category><![CDATA[Ianni]]></category>
+
+		<category><![CDATA[Lorenzi]]></category>
+
+		<category><![CDATA[Torresi]]></category>
+
+		<category><![CDATA[Torroni]]></category>
+
+		<category><![CDATA[Volante]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11474</guid>
+		<description><![CDATA[I risultati dei giocatori italiani impegnati questa settimana nel circuito Future.
+
+
+
+
+  Panama -  	$10,000 - Terra - 1° Turno
+Federico TORRESI (ITA) (1) Vs Rylan RIZZA (USA)
+Leandro SAVELLI (ARG) Vs Lorenzo GIUSTINO (ITA)
+Gaston GIUSSANI (ARG) Vs Matteo VOLANTE (ITA)
+Giulio TORRONI (ITA) Vs Stefano IANNI (ITA) (8) 36 62 64
+Rafael CAMILO (BRA) Vs Claudio GRASSI [...]]]></description>
+			<content:encoded><![CDATA[I risultati dei giocatori italiani impegnati questa settimana nel circuito Future.<br />
+<br />
+<br />
+<br />
+<br />
+<b> <img src="/pics/flags/pa.gif" alt="pa" /> Panama -  	$10,000 - Terra - 1° Turno</b><br />
+Federico TORRESI (ITA) (1) Vs Rylan RIZZA (USA)<br />
+Leandro SAVELLI (ARG) Vs Lorenzo GIUSTINO (ITA)<br />
+Gaston GIUSSANI (ARG) Vs Matteo VOLANTE (ITA)<br />
+Giulio TORRONI (ITA) Vs Stefano IANNI (ITA) (8) <b>36 62 64</b><br />
+Rafael CAMILO (BRA) Vs Claudio GRASSI (ITA) (4)<br />
+<br />
+<b>2° Turno</b><br />
+Giulio TORRONI (ITA) Vs German GAICH (ARG) <br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<b> <img src="/pics/flags/co.gif" alt="co" /> Cartagena -  	$15,000 - cemento - 1° Turno</b><br />
+Guillermo RIVERA-ARANGUIZ (CHI) Vs Luigi D&#8217;AGORD (ITA) <br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<b> <img src="/pics/flags/fr.gif" alt="fr" /> Bressuire - $10,000 +H - cemento - 1° Turno</b><br />
+Thomas FABBIANO (ITA) (8) Vs Pierre METENIER (FRA)<br />
+<br />
+<br />
+<br />
+<br />
+<b><img src="/pics/flags/ci.gif" alt="ci" /> Abidjan - $15,000 +H  - cemento - 1° Turno</b><br />
+Paolo LORENZI (ITA) (1) Vs Vladislav BONDARENKO (UKR) <b>62 63</b><br />
+<br />
+<b>2° Turno</b><br />
+Paolo LORENZI (ITA) (1) Vs Evgeny DONSKOY (RUS) <br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<b><img src="/pics/flags/es.gif" alt="es" /> Cartagena 1 - $10,000 - terra - 1° Turno</b><br />
+Cesar FERRER-VICTORIA (ESP) (4) Vs Stefano VALENTI (ITA) <b>64 26 63</b><br />
+ Andrea ARNABOLDI (ITA) (2) Vs Cedrik-Marcel STEBE (GER) <b>61 63</b><br />
+<br />
+<b>2° Turno</b><br />
+Guillermo ALCORTA-OLARRA (ESP) Vs Andrea ARNABOLDI (ITA) (2)<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<b><img src="/pics/flags/hr.gif" alt="hr" /> Zagabria -	$15,000 - Cemento - 1° Turno</b><br />
+Stefano GALVANI (ITA) (2) vs Mikhail LEDOVSKIKH (RUS) <b>61 64</b><br />
+<br />
+<b>2° Turno</b><br />
+Jan MINAR (CZE) Vs Stefano GALVANI (ITA) (2)<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<b><img src="/pics/flags/eg.gif" alt="eg" /> Cairo - $10,000 - terra - 1° Turno</b><br />
+Marco SIMONI (ITA) Vs Andrei MLENDEA (ROU) (6) <b>62 64</b><br />
+Miljan ZEKIC (SRB) Vs Riccar
+>
+<b>Mallorca <img src="/pics/flags/es.gif" alt="es" /> - $10,000 - Terra - 1° Turno</b><br />
+Anastasia GRYMALSKA (ITA) Vs Ana TIMOTIC (SRB) (7)<br />
+Federica DI SARRA (ITA) Vs Alice MORONI (ITA) (6) <b>61 63</b><br />
+Valentine CONFALONIERI (ITA) Vs Neda KOZIC (SRB) (8) <b>62 62</b><br />
+Martina CAREGARO (ITA) Vs Jasmin STEINHERR (GER) <b>36 63 61</b><br />
+<br />
+<b>2° Turno</b><br />
+Federica DI SARRA (ITA) Vs Li XI (CHN)<br />
+Valentine CONFALONIERI (ITA) Vs Mariya MALKHASYAN (UKR)<br />
+Martina CAREGARO (ITA) Vs Laura THORPE (FRA) (2)<br />
+<br />
+]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11487/risultati-italiane-nei-tornei-itf-di-questa-settimana-nathalie-vierin-presente-nel-ricco-torneo-colombiano/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>Challenger Bergamo: Entry list, Flavio Cipolla iscritto. Andrea Stoppini vicino al main draw</title>
+		<link>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw</link>
+		<comments>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 19:58:27 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[Challenger/Fut.]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[Entry List]]></category>
+
+		<category><![CDATA[Challenger Bergamo]]></category>
+
+		<category><![CDATA[Cipolla]]></category>
+
+		<category><![CDATA[Stoppini]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11524</guid>
+		<description><![CDATA[Questa l&#8217;entry list del torneo challenger di Bergamo (€106,500, cemento) che inizierà il prossimo 02 Marzo.
+
+Flavio Cipolla è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. Andrea Stoppini è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.
+
+Entry list challenger di Bergamo in [...]]]></description>
+			<content:encoded><![CDATA[Questa l&#8217;entry list del torneo challenger di <b>Bergamo (€106,500, cemento)</b> che inizierà il prossimo 02 Marzo.<br />
+<br />
+<b>Flavio Cipolla</b> è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. <b>Andrea Stoppini</b> è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.<br />
+<br />
+<b>Entry list challenger di Bergamo in programma dal 2 al 08 marzo 2009</b><br />
+Beck, Karol	SVK	137	 <br />
+ 	Kendrick, Robert	USA	98<br />
+ 	 	Becker, Benjamin	GER	123	 	<br />
+ 	Kim, Kevin	USA	109<br />
+ 	 	Berrer, Michael	GER	116	 	 <br />
+	Kudryavtsev, Alexandre	RUS	195<br />
+ 	 	Bogdanovic, Alex	GBR	185	 <br />
+	 	Kukushkin, Mikhail	KAZ	150<br />
+ 	 	Bozoljac, Ilia	SRB	136	 	 <br />
+	Minar, Ivo	CZE	95<br />
+ 	 	Brands, Daniel	GER	145	 <br />
+	 	Phau, Bjorn	GER	100<br />
+ 	 <b>	Cipolla, Flavio	ITA	126	 </b><br />
+		Rosol, Lukas	CZE	176<br />
+ 	 	Dorsch, Benedikt	GER	170	 <br />
+	 	Santoro, Fabrice	FRA	61<br />
+ 	 	Elgin, Michail	RUS	142	 	<br />
+	Schukin, Yuri	KAZ	184<br />
+ 	 	Evans, Brendan	USA	153	 	<br />
+ 	Snobel, Pavel	CZE	159<br />
+ 	 	Golubev, Andrey	KAZ	120	 <br />
+	 	Stadler, Simon	GER	144<br />
+23. (SE)<br />
+24. (SE)<br />
+25. (Q)<br />
+26. (Q)<br />
+27. (Q)<br />
+28. (Q)<br />
+29. (WC)<br />
+30. (WC)<br />
+31. (WC)<br />
+32. (WC)<br />
+<br />
+<b>I primi 20 Alternates</b><br />
+1.	 	Amritraj, Prakash	IND	199<br />
+2.	 	Smeets, Robert	AUS	203	<br />
+3.	 	De Chaunac, Sebastien	FRA	204	<br />
+4.	 	<b>Stoppini, Andrea	ITA</b>	209	<br />
+5.	 	Bachinger, Matthias	GER	211	<br />
+6.		Mayer, Florian	GER	213		 	<br />
+7.	 	Ilhan, Marsel	TUR	214		 	<br />
+8.	 	Kindlmann, Dieter	GER	219	
+br />
+Federica DI SARRA (ITA) Vs Alice MORONI (ITA) (6) <b>61 63</b><br />
+Valentine CONFALONIERI (ITA) Vs Neda KOZIC (SRB) (8) <b>62 62</b><br />
+Martina CAREGARO (ITA) Vs Jasmin STEINHERR (GER) <b>36 63 61</b><br />
+<br />
+<b>2° Turno</b><br />
+Federica DI SARRA (ITA) Vs Li XI (CHN)<br />
+Valentine CONFALONIERI (ITA) Vs Mariya MALKHASYAN (UKR)<br />
+Martina CAREGARO (ITA) Vs Laura THORPE (FRA) (2)<br />
+<br />
+]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11487/risultati-italiane-nei-tornei-itf-di-questa-settimana-nathalie-vierin-presente-nel-ricco-torneo-colombiano/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>Challenger Bergamo: Entry list, Flavio Cipolla iscritto. Andrea Stoppini vicino al main draw</title>
+		<link>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw</link>
+		<comments>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 19:58:27 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[Challenger/Fut.]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[Entry List]]></category>
+
+		<category><![CDATA[Challenger Bergamo]]></category>
+
+		<category><![CDATA[Cipolla]]></category>
+
+		<category><![CDATA[Stoppini]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11524</guid>
+		<description><![CDATA[Questa l&#8217;entry list del torneo challenger di Bergamo (€106,500, cemento) che inizierà il prossimo 02 Marzo.
+
+Flavio Cipolla è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. Andrea Stoppini è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.
+
+Entry list challenger di Bergamo in [...]]]></description>
+			<content:encoded><![CDATA[Questa l&#8217;entry list del torneo challenger di <b>Bergamo (€106,500, cemento)</b> che inizierà il prossimo 02 Marzo.<br />
+<br />
+<b>Flavio Cipolla</b> è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. <b>Andrea Stoppini</b> è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.<br />
+<br />
+<b>Entry list challenger di Bergamo in programma dal 2 al 08 marzo 2009</b><br />
+Beck, Karol	SVK	137	 <br />
+ 	Kendrick, Robert	USA	98<br />
+ 	 	Becker, Benjamin	GER	123	 	<br />
+ 	Kim, Kevin	USA	109<br />
+ 	 	Berrer, Michael	GER	116	 	 <br />
+	Kudryavtsev, Alexandre	RUS	195<br />
+ 	 	Bogdanovic, Alex	GBR	185	 <br />
+	 	Kukushkin, Mikhail	KAZ	150<br />
+ 	 	Bozoljac, Ilia	SRB	136	 	 <br />
+	Minar, Ivo	CZE	95<br />
+ 	 	Brands, Daniel	GER	145	 <br />
+	 	Phau, Bjorn	GER	100<br />
+ 	 <b>	Cipolla, Flavio	ITA	126	 </b><br />
+		Rosol, Lukas	CZE	176<br />
+ 	 	Dorsch, Benedikt	GER	170	 <br />
+	 	Santoro, Fabrice	FRA	61<br />
+ 	 	Elgin, Michail	RUS	142	 	<br />
+	Schukin, Yuri	KAZ	184<br />
+ 	 	Evans, Brendan	USA	153	 	<br />
+ 	Snobel, Pavel	CZE	159<br />
+ 	 	Golubev, Andrey	KAZ	120	 <br />
+	 	Stadler, Simon	GER	144<br />
+23. (SE)<br />
+24. (SE)<br />
+25. (Q)<br />
+26. (Q)<br />
+27. (Q)<br />
+28. (Q)<br />
+29. (WC)<br />
+30. (WC)<br />
+31. (WC)<br />
+32. (WC)<br />
+<br />
+<b>I primi 20 Alternates</b><br />
+1.	 	Amritraj, Prakash	IND	199<br />
+2.	 	Smeets, Robert	AUS	203	<br />
+3.	 	De Chaunac, Sebastien	FRA	204	<br />
+4.	 	<b>Stoppini, Andrea	ITA</b>	209	<br />
+5.	 	Bachinger, Matthias	GER	211	<br />
+6.		Mayer, Florian	GER	213		 	<br />
+7.	 	Ilhan, Marsel	TUR	214		 	<br />
+8.	 	Kindlmann, Dieter	GER	219		<br />
+9.	 	<b>Crugnola, Marco	ITA</b>	220		<br />
+10.	 	<b>Ghedin, Riccardo	ITA</b>	245<br />
+11.		Alund, Martin	ARG	248	49.		<br />
+12.	 	<b>Ga
+NEEDLE Qualific COUNT 18 FIRST [19223, 19344, 19489, 22425, 22821, 23918, 24169, 38566, 38683, 40855]
+la fine finisce 67 76 76 per il giocatore napoletano. TRUSENDI vince facile con PIROZZI, come la testa di serie n.5 Gillermo Olaso (ESP) contro la WC di casa Angiulli (il circolo ospitante). [...]]]></description>
+			<content:encoded><![CDATA[Battaglia di 4 ORE E MEZZA tra i due &#8220;Alessandro&#8221; ACCARDO e PICCARI nel primo turno del future di <b>BARI ($15,000, terra rossa)</b>.<br />
+Alla fine finisce 67 76 76 per il giocatore napoletano. TRUSENDI vince facile con PIROZZI, come la testa di serie n.5 Gillermo Olaso (ESP) contro la WC di casa Angiulli (il circolo ospitante). che supera il sedicenne leccese Giammarco Micolani (ITA) 63 61, l&#8217;azzurro pone resistenza fino al 43 del primo set.<br />
+<br />
+Unico altro straniero rimasto è la t.s.4 Yannick Mertens (BEL) che batte il qualificato Filippo Leonardi 63 64.<br />
+Daniele Bracciali vince senza tanti patemi (e nemmeno tanto impegno) contro il qualificato Oradini 64 62 il punteggio.<br />
+Lo aspetta al secondo turno Luca Vanni (7) che dopo aver perso il primo set vince facile contro il qualificato Luca Rovetta 36 62 60. <b>Grazie a guy la sgrosce - Calda46 e xyz</b><br />
+<br />
+<b>Il Main Draw</b><br />
+(1) Marco Crugnola (ITA) vs Photos Kallias (CYP) <b>63 64</b><br />
+Matteo Viola (ITA) vs (WC) Roberto D’Adamo (ITA) <b>63 61</b><br />
+(WC) Daniele Bracciali (ITA) vs (q) Giacomo Oradini (ITA) <b>64 62</b><br />
+(7) Luca Vanni (ITA) vs (q) Luca Rovetta (ITA) <b>36 62 60</b><br />
+<br />
+(3) Denis Pavlovs (LAT) vs (q) Nicola Ghedin (ITA) <b>26 62 16</b><br />
+Alberto Giraudo (ITA) vs Massimo Capone (ITA) <b>62 75</b><br />
+Walter Trusendi (ITA) vs (q) Giacomo Pirozzi (ITA) <b>61 62</b><br />
+(6) Francesco Piccari (ITA) vs Mattia Livraghi (ITA) <b>36 46</b><br />
+<br />
+(8) Marc Sieber (GER) vs Giulio Di Meo (ITA) <b>64 67 57</b><br />
+(q) Federico Raffaelli (ITA) vs (WC) Francesco Garzelli (ITA) <b>62 60</b><br />
+Alessandro Accardo (ITA) vs (q) Alessandro Piccari (ITA) <b>67 76 76</b><br />
+(4) Yannick Mertens (BEL) vs (q) Filippo Leonardi (ITA) <b>63 64</b><br />
+<br />
+(5) Gillermo Olaso (ESP) vs (WC) Giammarco Micolani (ITA) <b>63 61</b><br />
+(Rp) Daniele Giorgini (ITA) vs Marco Viola (ITA) <b>62 63</b><br />
+Leonardo Azzaro (ITA) vs (q) Paolo Beninca (ITA) <b>61 63</b><br />
+(2) Simone Vagnozzi (ITA) vs Alxander Jakupovic (GRE) <b>67 (5) 26</b><br />
+<br />
+<br />
+<b>2° Turno</b><br />
+Marco CRUGNOLA (ITA) (1) Vs Matteo VIOLA (ITA)<br />
+Daniele BRACCIALI (ITA) Vs Luca VANNI (ITA) (7)<br />
+Nicola GHEDIN (ITA) Vs Alberto GIRAUDO (ITA)<br />
+Walter TRUSENDI (ITA) Vs Mattia LIVRAGHI (ITA)<br />
+<br />
+Giulio DI MEO (ITA) Vs Federico RAFFAELLI (ITA)<br />
+Alessandro ACCARDO (ITA) Vs Yannick MERTENS (BEL) (4)<br />
+Guillermo OLASO (ESP) (5) Vs Daniele GIORGINI (ITA)<br />
+Leonardo AZZARO (ITA) Vs Alexander JAKUPOVIC (GRE) ]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11501/italia-f1-bari-trusendi-vanni-al-secondo-turno-alessandro-accardo-dopo-4-ore-e-mezza-supera-a-piccari/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>I “Numeri di Vitas” sulla partita di questa notte di Fabio Fognini a Costa do Sauipe</title>
+		<link>http://www.livetennis.it/post/11509/i-numeri-di-vitas-sulla-partita-di-questa-notte-di-fabio-fognini-a-costa-do-sauipe</link>
+		<comments>http://www.livetennis.it/post/11509/i-numeri-di-vitas-sulla-partita-di-questa-notte-di-fabio-fognini-a-costa-do-sauipe#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 16:35:10 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[ATP]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[ATP Costa do Sauipe]]></category>
+
+		<category><![CDATA[Fognini]]></category>
+
+		<category><![CDATA[Zampieri]]></category>
+
+
+rmo Olaso (ESP) contro la WC di casa Angiulli (il circolo ospitante). [...]]]></description>
+			<content:encoded><![CDATA[Battaglia di 4 ORE E MEZZA tra i due &#8220;Alessandro&#8221; ACCARDO e PICCARI nel primo turno del future di <b>BARI ($15,000, terra rossa)</b>.<br />
+Alla fine finisce 67 76 76 per il giocatore napoletano. TRUSENDI vince facile con PIROZZI, come la testa di serie n.5 Gillermo Olaso (ESP) contro la WC di casa Angiulli (il circolo ospitante). che supera il sedicenne leccese Giammarco Micolani (ITA) 63 61, l&#8217;azzurro pone resistenza fino al 43 del primo set.<br />
+<br />
+Unico altro straniero rimasto è la t.s.4 Yannick Mertens (BEL) che batte il qualificato Filippo Leonardi 63 64.<br />
+Daniele Bracciali vince senza tanti patemi (e nemmeno tanto impegno) contro il qualificato Oradini 64 62 il punteggio.<br />
+Lo aspetta al secondo turno Luca Vanni (7) che dopo aver perso il primo set vince facile contro il qualificato Luca Rovetta 36 62 60. <b>Grazie a guy la sgrosce - Calda46 e xyz</b><br />
+<br />
+<b>Il Main Draw</b><br />
+(1) Marco Crugnola (ITA) vs Photos Kallias (CYP) <b>63 64</b><br />
+Matteo Viola (ITA) vs (WC) Roberto D’Adamo (ITA) <b>63 61</b><br />
+(WC) Daniele Bracciali (ITA) vs (q) Giacomo Oradini (ITA) <b>64 62</b><br />
+(7) Luca Vanni (ITA) vs (q) Luca Rovetta (ITA) <b>36 62 60</b><br />
+<br />
+(3) Denis Pavlovs (LAT) vs (q) Nicola Ghedin (ITA) <b>26 62 16</b><br />
+Alberto Giraudo (ITA) vs Massimo Capone (ITA) <b>62 75</b><br />
+Walter Trusendi (ITA) vs (q) Giacomo Pirozzi (ITA) <b>61 62</b><br />
+(6) Francesco Piccari (ITA) vs Mattia Livraghi (ITA) <b>36 46</b><br />
+<br />
+(8) Marc Sieber (GER) vs Giulio Di Meo (ITA) <b>64 67 57</b><br />
+(q) Federico Raffaelli (ITA) vs (WC) Francesco Garzelli (ITA) <b>62 60</b><br />
+Alessandro Accardo (ITA) vs (q) Alessandro Piccari (ITA) <b>67 76 76</b><br />
+(4) Yannick Mertens (BEL) vs (q) Filippo Leonardi (ITA) <b>63 64</b><br />
+<br />
+(5) Gillermo Olaso (ESP) vs (WC) Giammarco Micolani (ITA) <b>63 61</b><br />
+(Rp) Daniele Giorgini (ITA) vs Marco Viola (ITA) <b>62 63</b><br />
+Leonardo Azzaro (ITA) vs (q) Paolo Beninca (ITA) <b>61 63</b><br />
+(2) Simone Vagnozzi (ITA) vs Alxander Jakupovic (GRE) <b>67 (5) 26</b><br />
+<br />
+<br />
+<b>2° Turno</b><br />
+Marco CRUGNOLA (ITA) (1) Vs Matteo VIOLA (ITA)<br />
+Daniele BRACCIALI (ITA) Vs Luca VANNI (ITA) (7)<br />
+Nicola GHEDIN (ITA) Vs Alberto GIRAUDO (ITA)<br />
+Walter TRUSENDI (ITA) Vs Mattia LIVRAGHI (ITA)<br />
+<br />
+Giulio DI MEO (ITA) Vs Federico RAFFAELLI (ITA)<br />
+Alessandro ACCARDO (ITA) Vs Yannick MERTENS (BEL) (4)<br />
+Guillermo OLASO (ESP) (5) Vs Daniele GIORGINI (ITA)<br />
+Leonardo AZZARO (ITA) Vs Alexander JAKUPOVIC (GRE) ]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11501/italia-f1-bari-trusendi-vanni-al-secondo-turno-alessandro-accardo-dopo-4-ore-e-mezza-supera-a-piccari/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>I “Numeri di Vitas” sulla partita di questa notte di Fabio Fognini a Costa do Sauipe</title>
+		<link>http://www.livetennis.it/post/11509/i-numeri-di-vitas-sulla-partita-di-questa-notte-di-fabio-fognini-a-costa-do-sauipe</link>
+		<comments>http://www.livetennis.it/post/11509/i-numeri-di-vitas-sulla-partita-di-questa-notte-di-fabio-fognini-a-costa-do-sauipe#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 16:35:10 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[ATP]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[ATP Costa do Sauipe]]></category>
+
+		<category><![CDATA[Fognini]]></category>
+
+		<category><![CDATA[Zampieri]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11509</guid>
+		<description><![CDATA[Il cagionevole FOGNINI, per
+EZZA tra i due &#8220;Alessandro&#8221; ACCARDO e PICCARI nel primo turno del future di <b>BARI ($15,000, terra rossa)</b>.<br />
+Alla fine finisce 67 76 76 per il giocatore napoletano. TRUSENDI vince facile con PIROZZI, come la testa di serie n.5 Gillermo Olaso (ESP) contro la WC di casa Angiulli (il circolo ospitante). che supera il sedicenne leccese Giammarco Micolani (ITA) 63 61, l&#8217;azzurro pone resistenza fino al 43 del primo set.<br />
+<br />
+Unico altro straniero rimasto è la t.s.4 Yannick Mertens (BEL) che batte il qualificato Filippo Leonardi 63 64.<br />
+Daniele Bracciali vince senza tanti patemi (e nemmeno tanto impegno) contro il qualificato Oradini 64 62 il punteggio.<br />
+Lo aspetta al secondo turno Luca Vanni (7) che dopo aver perso il primo set vince facile contro il qualificato Luca Rovetta 36 62 60. <b>Grazie a guy la sgrosce - Calda46 e xyz</b><br />
+<br />
+<b>Il Main Draw</b><br />
+(1) Marco Crugnola (ITA) vs Photos Kallias (CYP) <b>63 64</b><br />
+Matteo Viola (ITA) vs (WC) Roberto D’Adamo (ITA) <b>63 61</b><br />
+(WC) Daniele Bracciali (ITA) vs (q) Giacomo Oradini (ITA) <b>64 62</b><br />
+(7) Luca Vanni (ITA) vs (q) Luca Rovetta (ITA) <b>36 62 60</b><br />
+<br />
+(3) Denis Pavlovs (LAT) vs (q) Nicola Ghedin (ITA) <b>26 62 16</b><br />
+Alberto Giraudo (ITA) vs Massimo Capone (ITA) <b>62 75</b><br />
+Walter Trusendi (ITA) vs (q) Giacomo Pirozzi (ITA) <b>61 62</b><br />
+(6) Francesco Piccari (ITA) vs Mattia Livraghi (ITA) <b>36 46</b><br />
+<br />
+(8) Marc Sieber (GER) vs Giulio Di Meo (ITA) <b>64 67 57</b><br />
+(q) Federico Raffaelli (ITA) vs (WC) Francesco Garzelli (ITA) <b>62 60</b><br />
+Alessandro Accardo (ITA) vs (q) Alessandro Piccari (ITA) <b>67 76 76</b><br />
+(4) Yannick Mertens (BEL) vs (q) Filippo Leonardi (ITA) <b>63 64</b><br />
+<br />
+(5) Gillermo Olaso (ESP) vs (WC) Giammarco Micolani (ITA) <b>63 61</b><br />
+(Rp) Daniele Giorgini (ITA) vs Marco Viola (ITA) <b>62 63</b><br />
+Leonardo Azzaro (ITA) vs (q) Paolo Beninca (ITA) <b>61 63</b><br />
+(2) Simone Vagnozzi (ITA) vs Alxander Jakupovic (GRE) <b>67 (5) 26</b><br />
+<br />
+<br />
+<b>2° Turno</b><br />
+Marco CRUGNOLA (ITA) (1) Vs Matteo VIOLA (ITA)<br />
+Daniele BRACCIALI (ITA) Vs Luca VANNI (ITA) (7)<br />
+Nicola GHEDIN (ITA) Vs Alberto GIRAUDO (ITA)<br />
+Walter TRUSENDI (ITA) Vs Mattia LIVRAGHI (ITA)<br />
+<br />
+Giulio DI MEO (ITA) Vs Federico RAFFAELLI (ITA)<br />
+Alessandro ACCARDO (ITA) Vs Yannick MERTENS (BEL) (4)<br />
+Guillermo OLASO (ESP) (5) Vs Daniele GIORGINI (ITA)<br />
+Leonardo AZZARO (ITA) Vs Alexander JAKUPOVIC (GRE) ]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11501/italia-f1-bari-trusendi-vanni-al-secondo-turno-alessandro-accardo-dopo-4-ore-e-mezza-supera-a-piccari/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>I “Numeri di Vitas” sulla partita di questa notte di Fabio Fognini a Costa do Sauipe</title>
+		<link>http://www.livetennis.it/post/11509/i-numeri-di-vitas-sulla-partita-di-questa-notte-di-fabio-fognini-a-costa-do-sauipe</link>
+		<comments>http://www.livetennis.it/post/11509/i-numeri-di-vitas-sulla-partita-di-questa-notte-di-fabio-fognini-a-costa-do-sauipe#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 16:35:10 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[ATP]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[ATP Costa do Sauipe]]></category>
+
+		<category><![CDATA[Fognini]]></category>
+
+		<category><![CDATA[Zampieri]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11509</guid>
+		<description><![CDATA[Il cagionevole FOGNINI, per la seconda volta consecutiva affronta un giocatore proveniente dal tabellone di qualificazione (DECOUD LL a VINA DEL MAR).
+E soprattutto affront
+NEEDLE Alternates COUNT 1 FIRST [14677]
+in	USA	109<br />
+ 	 	Berrer, Michael	GER	116	 	 <br />
+	Kudryavtsev, Alexandre	RUS	195<br />
+ 	 	Bogdanovic, Alex	GBR	185	 <br />
+	 	Kukushkin, Mikhail	KAZ	150<br />
+ 	 	Bozoljac, Ilia	SRB	136	 	 <br />
+	Minar, Ivo	CZE	95<br />
+ 	 	Brands, Daniel	GER	145	 <br />
+	 	Phau, Bjorn	GER	100<br />
+ 	 <b>	Cipolla, Flavio	ITA	126	 </b><br />
+		Rosol, Lukas	CZE	176<br />
+ 	 	Dorsch, Benedikt	GER	170	 <br />
+	 	Santoro, Fabrice	FRA	61<br />
+ 	 	Elgin, Michail	RUS	142	 	<br />
+	Schukin, Yuri	KAZ	184<br />
+ 	 	Evans, Brendan	USA	153	 	<br />
+ 	Snobel, Pavel	CZE	159<br />
+ 	 	Golubev, Andrey	KAZ	120	 <br />
+	 	Stadler, Simon	GER	144<br />
+23. (SE)<br />
+24. (SE)<br />
+25. (Q)<br />
+26. (Q)<br />
+27. (Q)<br />
+28. (Q)<br />
+29. (WC)<br />
+30. (WC)<br />
+31. (WC)<br />
+32. (WC)<br />
+<br />
+<b>I primi 20 Alternates</b><br />
+1.	 	Amritraj, Prakash	IND	199<br />
+2.	 	Smeets, Robert	AUS	203	<br />
+3.	 	De Chaunac, Sebastien	FRA	204	<br />
+4.	 	<b>Stoppini, Andrea	ITA</b>	209	<br />
+5.	 	Bachinger, Matthias	GER	211	<br />
+6.		Mayer, Florian	GER	213		 	<br />
+7.	 	Ilhan, Marsel	TUR	214		 	<br />
+8.	 	Kindlmann, Dieter	GER	219		<br />
+9.	 	<b>Crugnola, Marco	ITA</b>	220		<br />
+10.	 	<b>Ghedin, Riccardo	ITA</b>	245<br />
+11.		Alund, Martin	ARG	248	49.		<br />
+12.	 	<b>Galvani, Stefano	ITA</b>	249		<br />
+13.	 	Poch-Gradin, Carlos	ESP	251		<br />
+14.	 	Desein, Niels	BEL	253	52.		<br />
+15.	 	Lammer, Michael	SUI	257		<br />
+16.		Reister, Julian	GER	260	<br />
+17.	 	Koning, Michel	NED	262	<br />
+18.	 	Meffert, Dominik	GER	266		<br />
+19.		Satschko, Alex	GER	272<br />
+20.	 	<b>Vagnozzi, Simone	ITA</b>	275	<br />
+28.	 	<b>Burzi, Enrico	ITA</b>	308]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>ATP Rotterdam: Doppio, Seppi-Bolelli al secondo turno</title>
+		<link>http://www.livetennis.it/post/11513/atp-rotterdam-doppio-seppi-bolelli-al-secondo-turno</link>
+		<comments>http://www.livetennis.it/post/11513/atp-rotterdam-doppio-seppi-bolelli-al-secondo-turno#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 17:51:34 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[ATP]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[ATP Rotterdam]]></category>
+
+		<category><![CDATA[Bolelli]]></category>
+
+		<category><![CDATA[Seppi]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11513</guid>
+		<description><![CDATA[Andreas Seppi e Simone Bolelli superano il primo turno nel torneo di doppio a Rotterdam (€1,445,000, cemento).
+La coppia italiana, non compresa tra le teste di serie, ha sconfitto per 63 46 10-3, il duo composto da Damm-Lindstedt.
+
+Al secondo turno sfideranno Nestor-Zimonjic, primi giocatori del seeding.]]></description>
+			<content:encoded><![CDATA[<b>Andreas Seppi e Simone Bolelli</b> superano il primo turno nel torneo di doppio a <b>Rotterdam (€1,445,000, cemento)</b>.<br />
+La coppia italiana, non compresa tra le teste di serie, ha sconfitto per 63 46 10-3, il duo composto da <b>Damm-Lindstedt</b>.<br />
+<br />
+Al secondo turno sfideranno <b>Nestor-Zimonjic</b>, primi giocatori del seeding.]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11513/atp-rotterdam-doppio-seppi-bolelli-al-secondo-turno/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>Italia F1 - Bari: Trusendi e Vanni al secondo turno. Alessandro Accardo dopo 4 ore e mezza supera A. Piccari. Ok Bracciali. Out F. Piccari e Simone Vagnozzi</title>
+		<link>http://www.livetennis.it/post/11501/italia-f1-bari-trusendi-vanni-al-secondo-turno-alessandro-accardo-dopo-4-ore-e-mezza-supera-a-piccari</link>
+		<
+NEEDLE feed.livetennis COUNT 8 FIRST [188, 904, 1123, 1378, 1656, 1926, 2209, 2537]
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" media="screen" href="/~d/styles/rss2italianfull.xsl"?><?xml-stylesheet type="text/css" media="screen" href="http://feed.livetennis.it/~d/styles/itemcontent.css"?><rss xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:sy="http://purl.org/rss/1.0/modules/syndication/" version="2.0">
+
+<channel>
+	<title>LiveTennis.it</title>
+	
+	<link>http://www.livetennis.it</link>
+	<description>Il portale italiano del Tennis</description>
+	<pubDate>Wed, 11 Feb 2009 00:53:21 +0000</pubDate>
+	
+	<language>en</language>
+	<sy:updatePeriod>hourly</sy:updatePeriod>
+	<sy:updateFrequency>1</sy:updateFrequency>
+			<atom10:link xmlns:atom10="http://www.w3.org/2005/Atom" rel="self" href="http://feed.livetennis.it/livetennis" type="application/rss+xml" /><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.newsgator.com/ngs/subscriber/subext.aspx?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://www.newsgator.com/images/ngsub1.gif">Subscribe with NewsGator</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.bloglines.com/sub/http://feed.livetennis.it/livetennis" src="http://www.bloglines.com/images/sub_modern11.gif">Subscribe with Bloglines</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.netvibes.com/subscribe.php?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://www.netvibes.com/img/add2netvibes.gif">Subscribe with Netvibes</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://fusion.google.com/add?feedurl=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://buttons.googlesyndication.com/fusion/add.gif">Subscribe with Google</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.pageflakes.com/subscribe.aspx?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://www.pageflakes.com/ImageFile.ashx?instanceId=Static_4&amp;fileName=ATP_blu_91x17.gif">Subscribe with Pageflakes</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://add.my.yahoo.com/content?lg=it&amp;url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://eur.i1.yimg.com/eur.yimg.com/i/it/my/mioya1.gif">Subscribe with Mio Yahoo!</feedburner:feedFlare><item>
+		<title>ATP Costa do Sauipe: Delusione Starace. L’azzurro fuori al primo turno</title>
+		<link>http://www.livetennis.it/post/11538/atp-costa-do-sauipe-delusione-starace-lazzurro-fuori-al-primo-turno</link>
+		<comments>http://www.livetennis.it/post/11538/atp-costa-do-sauipe-delusione-starace-lazzurro-fuori-al-primo-turno#comments</comments>
+		<pubDate>Wed, 11 Feb 2009 00:47:27 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[ATP]]></category>
+
+		<cate
+/rss2italianfull.xsl"?><?xml-stylesheet type="text/css" media="screen" href="http://feed.livetennis.it/~d/styles/itemcontent.css"?><rss xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:sy="http://purl.org/rss/1.0/modules/syndication/" version="2.0">
+
+<channel>
+	<title>LiveTennis.it</title>
+	
+	<link>http://www.livetennis.it</link>
+	<description>Il portale italiano del Tennis</description>
+	<pubDate>Wed, 11 Feb 2009 00:53:21 +0000</pubDate>
+	
+	<language>en</language>
+	<sy:updatePeriod>hourly</sy:updatePeriod>
+	<sy:updateFrequency>1</sy:updateFrequency>
+			<atom10:link xmlns:atom10="http://www.w3.org/2005/Atom" rel="self" href="http://feed.livetennis.it/livetennis" type="application/rss+xml" /><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.newsgator.com/ngs/subscriber/subext.aspx?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://www.newsgator.com/images/ngsub1.gif">Subscribe with NewsGator</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.bloglines.com/sub/http://feed.livetennis.it/livetennis" src="http://www.bloglines.com/images/sub_modern11.gif">Subscribe with Bloglines</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.netvibes.com/subscribe.php?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://www.netvibes.com/img/add2netvibes.gif">Subscribe with Netvibes</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://fusion.google.com/add?feedurl=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://buttons.googlesyndication.com/fusion/add.gif">Subscribe with Google</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.pageflakes.com/subscribe.aspx?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://www.pageflakes.com/ImageFile.ashx?instanceId=Static_4&amp;fileName=ATP_blu_91x17.gif">Subscribe with Pageflakes</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://add.my.yahoo.com/content?lg=it&amp;url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://eur.i1.yimg.com/eur.yimg.com/i/it/my/mioya1.gif">Subscribe with Mio Yahoo!</feedburner:feedFlare><item>
+		<title>ATP Costa do Sauipe: Delusione Starace. L’azzurro fuori al primo turno</title>
+		<link>http://www.livetennis.it/post/11538/atp-costa-do-sauipe-delusione-starace-lazzurro-fuori-al-primo-turno</link>
+		<comments>http://www.livetennis.it/post/11538/atp-costa-do-sauipe-delusione-starace-lazzurro-fuori-al-primo-turno#comments</comments>
+		<pubDate>Wed, 11 Feb 2009 00:47:27 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[ATP]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[ATP Costa do Sauipe]]></category>
+
+		<category><![CDATA[Bellucci]]></category>
+
+		<category><![CDATA[Starace]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11538</guid>
+		<description><![CDATA[Potito Starace a sorpresa esce di scena al primo turno nel torneo ATP di Costa do Sauipe  ($562,500, terra).
+Il tennista di Cervinara, testa di serie n.8, è stato battuto dal brasiliano Thomaz Bellucci, classe 1987, n.84 del mondo, con il risultato di 63 64 in 1 ora e 23 minuti di gioco.
+Starace nel primo [...]]]></description>
+			<content:encoded><![CDATA[<p><b>Potito Starace</b> a sorpresa esce di scena al primo turno nel t
+edweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:sy="http://purl.org/rss/1.0/modules/syndication/" version="2.0">
+
+<channel>
+	<title>LiveTennis.it</title>
+	
+	<link>http://www.livetennis.it</link>
+	<description>Il portale italiano del Tennis</description>
+	<pubDate>Wed, 11 Feb 2009 00:53:21 +0000</pubDate>
+	
+	<language>en</language>
+	<sy:updatePeriod>hourly</sy:updatePeriod>
+	<sy:updateFrequency>1</sy:updateFrequency>
+			<atom10:link xmlns:atom10="http://www.w3.org/2005/Atom" rel="self" href="http://feed.livetennis.it/livetennis" type="application/rss+xml" /><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.newsgator.com/ngs/subscriber/subext.aspx?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://www.newsgator.com/images/ngsub1.gif">Subscribe with NewsGator</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.bloglines.com/sub/http://feed.livetennis.it/livetennis" src="http://www.bloglines.com/images/sub_modern11.gif">Subscribe with Bloglines</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.netvibes.com/subscribe.php?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://www.netvibes.com/img/add2netvibes.gif">Subscribe with Netvibes</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://fusion.google.com/add?feedurl=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://buttons.googlesyndication.com/fusion/add.gif">Subscribe with Google</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://www.pageflakes.com/subscribe.aspx?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://www.pageflakes.com/ImageFile.ashx?instanceId=Static_4&amp;fileName=ATP_blu_91x17.gif">Subscribe with Pageflakes</feedburner:feedFlare><feedburner:feedFlare xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0" href="http://add.my.yahoo.com/content?lg=it&amp;url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis" src="http://eur.i1.yimg.com/eur.yimg.com/i/it/my/mioya1.gif">Subscribe with Mio Yahoo!</feedburner:feedFlare><item>
+		<title>ATP Costa do Sauipe: Delusione Starace. L’azzurro fuori al primo turno</title>
+		<link>http://www.livetennis.it/post/11538/atp-costa-do-sauipe-delusione-starace-lazzurro-fuori-al-primo-turno</link>
+		<comments>http://www.livetennis.it/post/11538/atp-costa-do-sauipe-delusione-starace-lazzurro-fuori-al-primo-turno#comments</comments>
+		<pubDate>Wed, 11 Feb 2009 00:47:27 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[ATP]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[ATP Costa do Sauipe]]></category>
+
+		<category><![CDATA[Bellucci]]></category>
+
+		<category><![CDATA[Starace]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11538</guid>
+		<description><![CDATA[Potito Starace a sorpresa esce di scena al primo turno nel torneo ATP di Costa do Sauipe  ($562,500, terra).
+Il tennista di Cervinara, testa di serie n.8, è stato battuto dal brasiliano Thomaz Bellucci, classe 1987, n.84 del mondo, con il risultato di 63 64 in 1 ora e 23 minuti di gioco.
+Starace nel primo [...]]]></description>
+			<content:encoded><![CDATA[<p><b>Potito Starace</b> a sorpresa esce di scena al primo turno nel torneo <b>ATP di Costa do Sauipe  ($562,500, terra)</b>.<br />
+Il tennista di Cervinara, testa di serie n.8, è stato battuto dal brasiliano <b>Thomaz Bellucci</b>, classe 1987, n.84 del mondo, con il risultato di 63 64 i
+NEEDLE entry list COUNT 6 FIRST [12021, 12633, 12920, 13229, 13333, 13690]
+rc="/pics/flags/es.gif" alt="es" /> - $10,000 - Terra - 1° Turno</b><br />
+Anastasia GRYMALSKA (ITA) Vs Ana TIMOTIC (SRB) (7)<br />
+Federica DI SARRA (ITA) Vs Alice MORONI (ITA) (6) <b>61 63</b><br />
+Valentine CONFALONIERI (ITA) Vs Neda KOZIC (SRB) (8) <b>62 62</b><br />
+Martina CAREGARO (ITA) Vs Jasmin STEINHERR (GER) <b>36 63 61</b><br />
+<br />
+<b>2° Turno</b><br />
+Federica DI SARRA (ITA) Vs Li XI (CHN)<br />
+Valentine CONFALONIERI (ITA) Vs Mariya MALKHASYAN (UKR)<br />
+Martina CAREGARO (ITA) Vs Laura THORPE (FRA) (2)<br />
+<br />
+]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11487/risultati-italiane-nei-tornei-itf-di-questa-settimana-nathalie-vierin-presente-nel-ricco-torneo-colombiano/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>Challenger Bergamo: Entry list, Flavio Cipolla iscritto. Andrea Stoppini vicino al main draw</title>
+		<link>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw</link>
+		<comments>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 19:58:27 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[Challenger/Fut.]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[Entry List]]></category>
+
+		<category><![CDATA[Challenger Bergamo]]></category>
+
+		<category><![CDATA[Cipolla]]></category>
+
+		<category><![CDATA[Stoppini]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11524</guid>
+		<description><![CDATA[Questa l&#8217;entry list del torneo challenger di Bergamo (€106,500, cemento) che inizierà il prossimo 02 Marzo.
+
+Flavio Cipolla è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. Andrea Stoppini è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.
+
+Entry list challenger di Bergamo in [...]]]></description>
+			<content:encoded><![CDATA[Questa l&#8217;entry list del torneo challenger di <b>Bergamo (€106,500, cemento)</b> che inizierà il prossimo 02 Marzo.<br />
+<br />
+<b>Flavio Cipolla</b> è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. <b>Andrea Stoppini</b> è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.<br />
+<br />
+<b>Entry list challenger di Bergamo in programma dal 2 al 08 marzo 2009</b><br />
+Beck, Karol	SVK	137	 <br />
+ 	Kendrick, Robert	USA	98<br />
+ 	 	Becker, Benjamin	GER	123	 	<br />
+ 	Kim, Kevin	USA	109<br />
+ 	 	Berrer, Michael	GER	116	 	 <br />
+	Kudryavtsev, Alexandre	RUS	195<br />
+ 	 	Bogdanovic, Alex	GBR	185	 <br />
+	 	Kukushkin, Mikhail	KAZ	150<br />
+ 	 	Bozoljac, Ilia	SRB	136	 	 <br />
+	Minar, Ivo	CZE	95<br />
+ 	 	Brands, Daniel	GER	145	 <br />
+	 	Phau, Bjorn	GER	100<br />
+ 	 <b>	Cipolla, Flavio	ITA	126	 </b><br />
+		Rosol, Lukas	CZE	176<br />
+ 	 	Dorsch, Benedikt	GER	170	 <br />
+	 	Santoro, Fabrice	FRA	61<br />
+ 	 	Elgin, Michail	RUS	142	 	<br />
+	Schukin, Yuri	KAZ	184<br />
+ 	 	Evans, Brendan	USA	153	 	<br />
+ 	Snobel, Pavel	CZE	159<br />
+ 	 	Golubev, Andrey	KAZ	120	 <br />
+	 	Stadler, Simon	GER	144<br />
+23. (SE)<br />
+24. (SE)<br />
+25. (Q)<br />
+26. (Q)<br />
+27. (Q)<br />
+28. (Q)<br />
+29. (WC)<br />
+30. (WC)<br />
+31. (WC)<br />
+32. (WC)<br />
+<br />
+<b>I primi 20 Alternates</b><br />
+1.	 	Amritraj, Prakash	IND	199<br />
+2.	 	Smeets, Robert	AUS	203	<br />
+3.	 	De Chaunac, Sebastien	FRA	204	<br />
+4.	 	<b>Stoppini, Andrea	ITA</b>	209	<br />
+5.	 	Bachinger, Matthias	GER	211	<br />
+6.		Mayer, Florian	GER	213		 	<br />
+7.	 	Ilhan, Marsel	TUR	214		 	<br />
+8.	 	Kindlmann, Dieter	GER	219		<br />
+9.	 	<b>Crug
+t/11487/risultati-italiane-nei-tornei-itf-di-questa-settimana-nathalie-vierin-presente-nel-ricco-torneo-colombiano/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>Challenger Bergamo: Entry list, Flavio Cipolla iscritto. Andrea Stoppini vicino al main draw</title>
+		<link>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw</link>
+		<comments>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 19:58:27 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[Challenger/Fut.]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[Entry List]]></category>
+
+		<category><![CDATA[Challenger Bergamo]]></category>
+
+		<category><![CDATA[Cipolla]]></category>
+
+		<category><![CDATA[Stoppini]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11524</guid>
+		<description><![CDATA[Questa l&#8217;entry list del torneo challenger di Bergamo (€106,500, cemento) che inizierà il prossimo 02 Marzo.
+
+Flavio Cipolla è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. Andrea Stoppini è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.
+
+Entry list challenger di Bergamo in [...]]]></description>
+			<content:encoded><![CDATA[Questa l&#8217;entry list del torneo challenger di <b>Bergamo (€106,500, cemento)</b> che inizierà il prossimo 02 Marzo.<br />
+<br />
+<b>Flavio Cipolla</b> è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. <b>Andrea Stoppini</b> è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.<br />
+<br />
+<b>Entry list challenger di Bergamo in programma dal 2 al 08 marzo 2009</b><br />
+Beck, Karol	SVK	137	 <br />
+ 	Kendrick, Robert	USA	98<br />
+ 	 	Becker, Benjamin	GER	123	 	<br />
+ 	Kim, Kevin	USA	109<br />
+ 	 	Berrer, Michael	GER	116	 	 <br />
+	Kudryavtsev, Alexandre	RUS	195<br />
+ 	 	Bogdanovic, Alex	GBR	185	 <br />
+	 	Kukushkin, Mikhail	KAZ	150<br />
+ 	 	Bozoljac, Ilia	SRB	136	 	 <br />
+	Minar, Ivo	CZE	95<br />
+ 	 	Brands, Daniel	GER	145	 <br />
+	 	Phau, Bjorn	GER	100<br />
+ 	 <b>	Cipolla, Flavio	ITA	126	 </b><br />
+		Rosol, Lukas	CZE	176<br />
+ 	 	Dorsch, Benedikt	GER	170	 <br />
+	 	Santoro, Fabrice	FRA	61<br />
+ 	 	Elgin, Michail	RUS	142	 	<br />
+	Schukin, Yuri	KAZ	184<br />
+ 	 	Evans, Brendan	USA	153	 	<br />
+ 	Snobel, Pavel	CZE	159<br />
+ 	 	Golubev, Andrey	KAZ	120	 <br />
+	 	Stadler, Simon	GER	144<br />
+23. (SE)<br />
+24. (SE)<br />
+25. (Q)<br />
+26. (Q)<br />
+27. (Q)<br />
+28. (Q)<br />
+29. (WC)<br />
+30. (WC)<br />
+31. (WC)<br />
+32. (WC)<br />
+<br />
+<b>I primi 20 Alternates</b><br />
+1.	 	Amritraj, Prakash	IND	199<br />
+2.	 	Smeets, Robert	AUS	203	<br />
+3.	 	De Chaunac, Sebastien	FRA	204	<br />
+4.	 	<b>Stoppini, Andrea	ITA</b>	209	<br />
+5.	 	Bachinger, Matthias	GER	211	<br />
+6.		Mayer, Florian	GER	213		 	<br />
+7.	 	Ilhan, Marsel	TUR	214		 	<br />
+8.	 	Kindlmann, Dieter	GER	219		<br />
+9.	 	<b>Crugnola, Marco	ITA</b>	220		<br />
+10.	 	<b>Ghedin, Riccardo	ITA</b>	245<br />
+11.		Alund, Martin	ARG	248	49.		<br />
+12.	 	<b>Galvani, Stefano	ITA</b>	249		<br />
+13.	 	Poch-Gradin, Carlos	ESP	251		<br />
+14.	 	Desein, Niels	BEL	253	52.		<br />
+15.	 	Lammer, Michael	SUI	257		<br />
+16.		Reister, Julian	GER	260	<br />
+17.	 	Koning, Michel	NED	262	<br />
+18.	 	Meffert, Dominik	GER	266		<br />
+19.		Satschko, Alex	GER	272<br />
+20.	 	<b>Vagnozzi, Simone	ITA</b>	275	<br />
+28.	 	<b>Burzi, Enrico	ITA</b>	308]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list
+w.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw</link>
+		<comments>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw#comments</comments>
+		<pubDate>Tue, 10 Feb 2009 19:58:27 +0000</pubDate>
+		<dc:creator>LiveTennis.it Staff</dc:creator>
+		
+		<category><![CDATA[Challenger/Fut.]]></category>
+
+		<category><![CDATA[Copertina]]></category>
+
+		<category><![CDATA[Entry List]]></category>
+
+		<category><![CDATA[Challenger Bergamo]]></category>
+
+		<category><![CDATA[Cipolla]]></category>
+
+		<category><![CDATA[Stoppini]]></category>
+
+		<guid isPermaLink="false">http://www.livetennis.it/?p=11524</guid>
+		<description><![CDATA[Questa l&#8217;entry list del torneo challenger di Bergamo (€106,500, cemento) che inizierà il prossimo 02 Marzo.
+
+Flavio Cipolla è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. Andrea Stoppini è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.
+
+Entry list challenger di Bergamo in [...]]]></description>
+			<content:encoded><![CDATA[Questa l&#8217;entry list del torneo challenger di <b>Bergamo (€106,500, cemento)</b> che inizierà il prossimo 02 Marzo.<br />
+<br />
+<b>Flavio Cipolla</b> è al momento l&#8217;unico giocatore italiano che sarà ai nastri di partenza nel torneo lombardo. <b>Andrea Stoppini</b> è vicino ad entrare nel main draw. Il tennista trentino è out di solo 4 posti.<br />
+<br />
+<b>Entry list challenger di Bergamo in programma dal 2 al 08 marzo 2009</b><br />
+Beck, Karol	SVK	137	 <br />
+ 	Kendrick, Robert	USA	98<br />
+ 	 	Becker, Benjamin	GER	123	 	<br />
+ 	Kim, Kevin	USA	109<br />
+ 	 	Berrer, Michael	GER	116	 	 <br />
+	Kudryavtsev, Alexandre	RUS	195<br />
+ 	 	Bogdanovic, Alex	GBR	185	 <br />
+	 	Kukushkin, Mikhail	KAZ	150<br />
+ 	 	Bozoljac, Ilia	SRB	136	 	 <br />
+	Minar, Ivo	CZE	95<br />
+ 	 	Brands, Daniel	GER	145	 <br />
+	 	Phau, Bjorn	GER	100<br />
+ 	 <b>	Cipolla, Flavio	ITA	126	 </b><br />
+		Rosol, Lukas	CZE	176<br />
+ 	 	Dorsch, Benedikt	GER	170	 <br />
+	 	Santoro, Fabrice	FRA	61<br />
+ 	 	Elgin, Michail	RUS	142	 	<br />
+	Schukin, Yuri	KAZ	184<br />
+ 	 	Evans, Brendan	USA	153	 	<br />
+ 	Snobel, Pavel	CZE	159<br />
+ 	 	Golubev, Andrey	KAZ	120	 <br />
+	 	Stadler, Simon	GER	144<br />
+23. (SE)<br />
+24. (SE)<br />
+25. (Q)<br />
+26. (Q)<br />
+27. (Q)<br />
+28. (Q)<br />
+29. (WC)<br />
+30. (WC)<br />
+31. (WC)<br />
+32. (WC)<br />
+<br />
+<b>I primi 20 Alternates</b><br />
+1.	 	Amritraj, Prakash	IND	199<br />
+2.	 	Smeets, Robert	AUS	203	<br />
+3.	 	De Chaunac, Sebastien	FRA	204	<br />
+4.	 	<b>Stoppini, Andrea	ITA</b>	209	<br />
+5.	 	Bachinger, Matthias	GER	211	<br />
+6.		Mayer, Florian	GER	213		 	<br />
+7.	 	Ilhan, Marsel	TUR	214		 	<br />
+8.	 	Kindlmann, Dieter	GER	219		<br />
+9.	 	<b>Crugnola, Marco	ITA</b>	220		<br />
+10.	 	<b>Ghedin, Riccardo	ITA</b>	245<br />
+11.		Alund, Martin	ARG	248	49.		<br />
+12.	 	<b>Galvani, Stefano	ITA</b>	249		<br />
+13.	 	Poch-Gradin, Carlos	ESP	251		<br />
+14.	 	Desein, Niels	BEL	253	52.		<br />
+15.	 	Lammer, Michael	SUI	257		<br />
+16.		Reister, Julian	GER	260	<br />
+17.	 	Koning, Michel	NED	262	<br />
+18.	 	Meffert, Dominik	GER	266		<br />
+19.		Satschko, Alex	GER	272<br />
+20.	 	<b>Vagnozzi, Simone	ITA</b>	275	<br />
+28.	 	<b>Burzi, Enrico	ITA</b>	308]]></content:encoded>
+			<wfw:commentRss>http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw/feed</wfw:commentRss>
+		</item>
+		<item>
+		<title>ATP Rotterdam: Doppio, Seppi-Bolelli al secondo turno</title>
+		<link>http://www.livetennis.it/post/11513/atp-rotterdam-doppio-seppi-bolelli-al-secondo-turno</link>
+		<com
+URL_HINT http://feed.livetennis.it/~d/styles/itemcontent.css
+URL_HINT http://feed.livetennis.it/livetennis
+URL_HINT http://rssnamespace.org/feedburner/ext/1.0
+URL_HINT http://www.newsgator.com/ngs/subscriber/subext.aspx?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis
+URL_HINT http://www.bloglines.com/sub/http://feed.livetennis.it/livetennis
+URL_HINT http://www.netvibes.com/subscribe.php?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis
+URL_HINT http://fusion.google.com/add?feedurl=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis
+URL_HINT http://www.pageflakes.com/subscribe.aspx?url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis
+URL_HINT http://add.my.yahoo.com/content?lg=it&amp;url=http%3A%2F%2Ffeed.livetennis.it%2Flivetennis
+URL_HINT http://www.livetennis.it/post/11538/atp-costa-do-sauipe-delusione-starace-lazzurro-fuori-al-primo-turno/feed
+URL_HINT http://www.livetennis.it/post/11474/risultati-italiani-nei-future-di-questa-settimana-escluso-bari-torroni-elimina-ianni-a-panama/feed
+URL_HINT http://www.livetennis.it/post/11487/risultati-italiane-nei-tornei-itf-di-questa-settimana-nathalie-vierin-presente-nel-ricco-torneo-colombiano/feed
+URL_HINT http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw
+URL_HINT http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw#comments
+URL_HINT http://www.livetennis.it/post/11524/challenger-bergamo-entry-list-flavio-cipolla-iscritto-andrea-stoppini-vicino-al-main-draw/feed
+URL_HINT http://www.livetennis.it/post/11513/atp-rotterdam-doppio-seppi-bolelli-al-secondo-turno/feed
+URL_HINT http://www.livetennis.it/post/11501/italia-f1-bari-trusendi-vanni-al-secondo-turno-alessandro-accardo-dopo-4-ore-e-mezza-supera-a-piccari/feed
+URL_HINT http://www.livetennis.it/post/11509/i-numeri-di-vitas-sulla-partita-di-questa-notte-di-fabio-fognini-a-costa-do-sauipe/feed
+URL_HINT http://www.livetennis.it/post/11498/atp-rotterdam-grigor-dimitrov-batte-tomas-berdych-e-vince-la-prima-partita-in-un-main-draw-del-circuito-maggiore/feed
+URL_HINT http://www.livetennis.it/post/11484/future-abidjan-2-buona-la-prima-per-paolo-lorenzi/feed
+URL_HINT http://www.livetennis.it/post/11478/esibizione-san-jose-un-pete-sampras-in-ottima-forma-perde-al-tiebreak-set-contro-tommy-haas/feed
+URL_HINT http://www.livetennis.it/post/11469/roger-federer-dichiara-di-essere-favorevole-ai-nuovi-controlli-antidoping/feed
+URL_HINT http://www.livetennis.it/post/11466/classifica-wta-italiane-flavia-pennetta-ad-un-passo-dalla-storia-del-tennis-italiano/feed
+URL_HINT http://www.livetennis.it/post/11459/i-numeri-di-vitas-sulla-partita-di-andrea-stoppini-e-alcune-curiosita-italiche-del-torneo-di-san-jose/feed
+URL_HINT http://www.livetennis.it/post/11455/atp-rotterdam-andreas-seppi-fatica-ma-alla-fine-batte-thiemo-de-bakker-al-tiebreak-del-terzo-set/feed
+URL_HINT http://www.livetennis.it/post/11446/atp-rotterdam-giochera-mercoledi-alle-ore-1930-simone-bolelli-contro-rafael-nadal-intanto-lo-spagnolo-esce-di-scena-nel-doppio/feed
+URL_HINT http://www.livetennis.it/post/11439/i-numeri-di-vitas-sulle-partita-di-potito-starace-a-costa-do-sauipe/feed
+URL_HINT http://www.livetennis.it/post/11426/italia-f1-bari-crugnola-al-secondo-turno-bene-di-meo-e-nicola-ghedin/feed
+URL_HINT http://www.livetennis.it/post/11422/wta-parigi-qualificazioni-maria-elena-camerin-esce-di-scena-al-turno-decisivo
+URL_HINT http://www.livetennis.it/post/11422/wta-parigi-qualificazioni-maria-elena-camerin-esce-di-scena-al-turno-decisivo#comments
+URL_HINT http://www.livetennis.it/post/11422/wta-parigi-qualificazioni-maria-elena-camerin-esce-di-scena-al-turno-decisivo/feed
+URL_HINT http://www.livetennis.it/post/11417/classifica-atp-entry-system-italiani-andreas-seppi-perde-tre-posizioni
+URL_HINT http://www.livetennis.it/post/11417/classifica-atp-entry-system-italiani-andreas-seppi-perde-tre-posizioni#comments
+URL_HINT http://www.livetennis.it/post/11417/classifica-atp-entry-system-italiani-andreas-seppi-perde-tre-posizioni/feed
+URL_HINT http://www.livetennis.it/post/11410/wta-pattaya-city-mara-santangelo-si-ritira-contro-la-cinese-peng/feed
+
+### LIVE PUBLIC FILES
+
+LIVE https://www.livetennis.it/robots.txt STATUS 200 LEN 504 FINAL https://www.livetennis.it/robots.txt
+User-agent: *
+Disallow: /wpress/wp-comments-post.php
+Disallow: /profile/
+Disallow: /wpress/
+Disallow: /post/102160/italiane-nei-tornei-itf-i-risultati-delle-azzurre-78/
+Disallow: /onl/
+Disallow: /forum/viewtopic.php
+
+User-agent: msnbot
+Crawl-delay: 15
+
+User-agent: bingbot
+Crawl-delay: 15
+
+Sitemap: http://www.livetennis.it/sitemap.xml
+
+User-agent: Yandex
+Disallow: /
+User-agent: Sosospider
+Disallow: /
+User-agent: Baidu
+Disallow: /
+User-agent: YandexImages
+Disallow: /
+User-agent: AhrefsBot
+Disallow: /
+
+
+LIVE https://www.livetennis.it/sitemap.xml STATUS 200 LEN 33473 FINAL https://www.livetennis.it/sitemap.xml
+<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet type="text/xsl" href="https://www.livetennis.it/wp/wp-content/plugins/google-sitemap-generator/sitemap.xsl"?><!-- sitemap-generator-url="http://www.arnebrachhold.de" sitemap-generator-version="4.0.8" -->
+<!-- generated-on="13/08/26 0:29" -->
+<sitemapindex xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/siteindex.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-misc.xml</loc>
+		<lastmod>2026-08-12T20:59:02+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-externals.xml</loc>
+		<lastmod>2026-08-12T20:59:02+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2026-08.xml</loc>
+		<lastmod>2026-08-12T20:59:02+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2026-07.xml</loc>
+		<lastmod>2026-08-01T06:38:40+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2026-06.xml</loc>
+		<lastmod>2026-07-01T05:02:08+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2026-05.xml</loc>
+		<lastmod>2026-07-17T11:15:37+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2026-04.xml</loc>
+		<lastmod>2026-05-01T00:06:37+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2026-03.xml</loc>
+		<lastmod>2026-03-31T22:02:25+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2026-02.xml</loc>
+		<lastmod>2026-07-29T07:24:17+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2026-01.xml</loc>
+		<lastmod>2026-02-01T06:58:11+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-12.xml</loc>
+		<lastmod>2026-01-04T14:05:47+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-11.xml</loc>
+		<lastmod>2025-11-30T21:51:00+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-10.xml</loc>
+		<lastmod>2025-11-01T07:52:50+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-09.xml</loc>
+		<lastmod>2026-03-19T17:24:21+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-08.xml</loc>
+		<lastmod>2025-09-07T09:56:56+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-07.xml</loc>
+		<lastmod>2025-07-31T20:20:09+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-06.xml</loc>
+		<lastmod>2025-07-01T09:17:57+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-05.xml</loc>
+		<lastmod>2025-06-01T07:41:59+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-04.xml</loc>
+		<lastmod>2025-09-19T08:34:54+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-03.xml</loc>
+		<lastmod>2025-10-31T22:12:58+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-02.xml</loc>
+		<lastmod>2025-03-01T07:27:11+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2025-01.xml</loc>
+		<lastmod>2025-02-01T18:23:00+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-12.xml</loc>
+		<lastmod>2024-12-31T22:25:22+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-11.xml</loc>
+		<lastmod>2024-11-30T17:49:44+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-10.xml</loc>
+		<lastmod>2024-11-01T07:14:24+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-09.xml</loc>
+		<lastmod>2024-10-11T05:51:15+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-08.xml</loc>
+		<lastmod>2024-09-01T07:28:45+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-07.xml</loc>
+		<lastmod>2024-08-01T10:15:46+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-06.xml</loc>
+		<lastmod>2024-06-30T16:12:44+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-05.xml</loc>
+		<lastmod>2024-06-01T10:53:32+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-04.xml</loc>
+		<lastmod>2024-05-01T06:04:35+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-03.xml</loc>
+		<lastmod>2024-04-01T10:23:51+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-02.xml</loc>
+		<lastmod>2024-03-01T07:40:27+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2024-01.xml</loc>
+		<lastmod>2024-02-01T06:58:15+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-12.xml</loc>
+		<lastmod>2024-01-03T13:34:55+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-11.xml</loc>
+		<lastmod>2023-11-30T22:03:27+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-10.xml</loc>
+		<lastmod>2023-10-31T22:03:27+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-09.xml</loc>
+		<lastmod>2023-09-30T18:14:53+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-08.xml</loc>
+		<lastmod>2023-08-31T21:33:33+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-07.xml</loc>
+		<lastmod>2023-08-31T05:48:46+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-06.xml</loc>
+		<lastmod>2023-07-01T05:46:41+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-05.xml</loc>
+		<lastmod>2023-05-31T20:50:16+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-04.xml</loc>
+		<lastmod>2023-08-28T08:43:44+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-03.xml</loc>
+		<lastmod>2023-08-28T08:46:44+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-02.xml</loc>
+		<lastmod>2023-03-01T07:45:22+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2023-01.xml</loc>
+		<lastmod>2023-02-01T06:30:06+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-12.xml</loc>
+		<lastmod>2022-12-31T22:54:53+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-11.xml</loc>
+		<lastmod>2023-10-04T16:37:45+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-10.xml</loc>
+		<lastmod>2022-11-01T12:41:52+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-09.xml</loc>
+		<lastmod>2022-10-01T06:40:49+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-08.xml</loc>
+		<lastmod>2022-08-31T21:22:03+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-07.xml</loc>
+		<lastmod>2022-07-31T23:14:15+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-06.xml</loc>
+		<lastmod>2022-07-01T06:54:43+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-05.xml</loc>
+		<lastmod>2022-05-31T23:31:01+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-04.xml</loc>
+		<lastmod>2022-04-30T22:45:36+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-03.xml</loc>
+		<lastmod>2022-04-01T08:01:53+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-02.xml</loc>
+		<lastmod>2022-03-18T16:31:06+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2022-01.xml</loc>
+		<lastmod>2022-02-01T09:10:58+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-12.xml</loc>
+		<lastmod>2021-12-31T19:10:18+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-11.xml</loc>
+		<lastmod>2021-12-01T12:43:15+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-10.xml</loc>
+		<lastmod>2021-11-01T07:37:11+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-09.xml</loc>
+		<lastmod>2021-10-01T00:36:18+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-08.xml</loc>
+		<lastmod>2021-09-01T00:54:53+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-07.xml</loc>
+		<lastmod>2021-08-01T08:01:04+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-06.xml</loc>
+		<lastmod>2021-07-01T08:53:39+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-05.xml</loc>
+		<lastmod>2021-06-01T07:39:01+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-04.xml</loc>
+		<lastmod>2021-05-01T07:31:20+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-03.xml</loc>
+		<lastmod>2021-04-01T08:04:01+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-02.xml</loc>
+		<lastmod>2021-02-28T23:54:30+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2021-01.xml</loc>
+		<lastmod>2021-01-31T20:41:53+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-12.xml</loc>
+		<lastmod>2020-12-31T15:13:32+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-11.xml</loc>
+		<lastmod>2020-12-01T06:42:29+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-10.xml</loc>
+		<lastmod>2020-11-01T08:13:42+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-09.xml</loc>
+		<lastmod>2020-10-02T20:16:01+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-08.xml</loc>
+		<lastmod>2020-08-31T17:12:08+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-07.xml</loc>
+		<lastmod>2020-07-31T20:08:45+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-06.xml</loc>
+		<lastmod>2023-11-04T08:04:42+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-05.xml</loc>
+		<lastmod>2020-06-01T06:37:06+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-04.xml</loc>
+		<lastmod>2020-05-01T06:27:27+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-03.xml</loc>
+		<lastmod>2025-02-09T14:35:43+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-02.xml</loc>
+		<lastmod>2020-03-01T09:41:36+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2020-01.xml</loc>
+		<lastmod>2020-02-01T11:35:50+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-12.xml</loc>
+		<lastmod>2019-12-31T18:08:17+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-11.xml</loc>
+		<lastmod>2019-12-21T10:05:18+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-10.xml</loc>
+		<lastmod>2019-11-01T08:20:27+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-09.xml</loc>
+		<lastmod>2022-11-11T15:02:33+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-08.xml</loc>
+		<lastmod>2019-09-01T13:26:17+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-07.xml</loc>
+		<lastmod>2020-04-21T11:29:06+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-06.xml</loc>
+		<lastmod>2019-09-26T07:56:51+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-05.xml</loc>
+		<lastmod>2019-06-01T13:47:09+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-04.xml</loc>
+		<lastmod>2019-05-01T20:18:12+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-03.xml</loc>
+		<lastmod>2019-04-01T08:05:22+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-02.xml</loc>
+		<lastmod>2019-02-28T23:35:16+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2019-01.xml</loc>
+		<lastmod>2019-01-31T23:35:51+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-12.xml</loc>
+		<lastmod>2018-12-31T22:52:00+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-11.xml</loc>
+		<lastmod>2018-12-01T03:16:58+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-10.xml</loc>
+		<lastmod>2018-11-01T15:51:42+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-09.xml</loc>
+		<lastmod>2018-10-01T07:53:06+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-08.xml</loc>
+		<lastmod>2018-09-01T12:25:39+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-07.xml</loc>
+		<lastmod>2018-08-01T09:53:46+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-06.xml</loc>
+		<lastmod>2018-07-01T12:45:36+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-05.xml</loc>
+		<lastmod>2018-06-01T09:24:57+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-04.xml</loc>
+		<lastmod>2018-04-30T20:13:05+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-03.xml</loc>
+		<lastmod>2018-03-31T21:56:23+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-02.xml</loc>
+		<lastmod>2018-03-01T10:39:46+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2018-01.xml</loc>
+		<lastmod>2020-03-03T09:47:51+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-12.xml</loc>
+		<lastmod>2017-12-31T17:25:27+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-11.xml</loc>
+		<lastmod>2017-12-01T07:48:33+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-10.xml</loc>
+		<lastmod>2017-11-01T08:05:56+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-09.xml</loc>
+		<lastmod>2017-10-23T20:39:11+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-08.xml</loc>
+		<lastmod>2017-09-01T13:33:48+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-07.xml</loc>
+		<lastmod>2017-07-31T21:58:59+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-06.xml</loc>
+		<lastmod>2017-06-30T20:22:35+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-05.xml</loc>
+		<lastmod>2017-06-21T16:16:27+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-04.xml</loc>
+		<lastmod>2017-05-06T11:59:33+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-03.xml</loc>
+		<lastmod>2017-04-02T18:22:29+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-02.xml</loc>
+		<lastmod>2018-02-03T18:23:28+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2017-01.xml</loc>
+		<lastmod>2018-01-31T11:20:07+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-12.xml</loc>
+		<lastmod>2017-01-01T00:54:13+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-11.xml</loc>
+		<lastmod>2016-11-30T21:21:11+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-10.xml</loc>
+		<lastmod>2016-10-31T23:54:41+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-09.xml</loc>
+		<lastmod>2016-10-01T07:32:23+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-08.xml</loc>
+		<lastmod>2016-09-01T12:54:57+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-07.xml</loc>
+		<lastmod>2016-07-31T22:08:39+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-06.xml</loc>
+		<lastmod>2018-03-03T16:30:40+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-05.xml</loc>
+		<lastmod>2016-06-01T13:02:30+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-04.xml</loc>
+		<lastmod>2016-04-30T21:28:29+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-03.xml</loc>
+		<lastmod>2016-03-31T22:45:57+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-02.xml</loc>
+		<lastmod>2017-02-10T09:43:03+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2016-01.xml</loc>
+		<lastmod>2017-02-10T09:45:51+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-12.xml</loc>
+		<lastmod>2015-12-31T23:56:18+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-11.xml</loc>
+		<lastmod>2015-12-03T17:41:39+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-10.xml</loc>
+		<lastmod>2017-02-10T09:47:11+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-09.xml</loc>
+		<lastmod>2015-10-01T20:33:57+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-08.xml</loc>
+		<lastmod>2015-09-01T15:09:37+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-07.xml</loc>
+		<lastmod>2015-08-20T23:02:15+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-06.xml</loc>
+		<lastmod>2015-07-01T10:59:05+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-05.xml</loc>
+		<lastmod>2015-06-01T09:18:51+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-04.xml</loc>
+		<lastmod>2015-04-30T17:53:59+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-03.xml</loc>
+		<lastmod>2015-04-01T15:15:22+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-02.xml</loc>
+		<lastmod>2015-03-17T19:24:38+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2015-01.xml</loc>
+		<lastmod>2016-01-11T15:28:35+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-12.xml</loc>
+		<lastmod>2016-02-05T10:40:21+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-11.xml</loc>
+		<lastmod>2015-11-12T12:38:11+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-10.xml</loc>
+		<lastmod>2018-03-03T16:33:51+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-09.xml</loc>
+		<lastmod>2014-10-16T08:46:51+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-08.xml</loc>
+		<lastmod>2014-09-16T12:12:50+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-07.xml</loc>
+		<lastmod>2014-08-01T07:16:22+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-06.xml</loc>
+		<lastmod>2014-07-01T12:10:41+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-05.xml</loc>
+		<lastmod>2018-03-03T16:31:38+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-04.xml</loc>
+		<lastmod>2014-04-30T23:45:26+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-03.xml</loc>
+		<lastmod>2014-04-07T07:44:04+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-02.xml</loc>
+		<lastmod>2014-03-01T08:55:07+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2014-01.xml</loc>
+		<lastmod>2014-02-01T09:15:55+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-12.xml</loc>
+		<lastmod>2015-01-03T22:49:38+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-11.xml</loc>
+		<lastmod>2013-12-01T20:32:20+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-10.xml</loc>
+		<lastmod>2014-10-19T08:26:50+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-09.xml</loc>
+		<lastmod>2013-10-01T06:31:25+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-08.xml</loc>
+		<lastmod>2013-09-22T09:34:03+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-07.xml</loc>
+		<lastmod>2013-11-17T18:58:01+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-06.xml</loc>
+		<lastmod>2013-07-01T10:47:15+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-05.xml</loc>
+		<lastmod>2013-06-01T12:03:03+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-04.xml</loc>
+		<lastmod>2013-05-01T12:05:08+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-03.xml</loc>
+		<lastmod>2013-04-01T09:47:49+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-02.xml</loc>
+		<lastmod>2014-12-30T13:57:40+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2013-01.xml</loc>
+		<lastmod>2013-12-28T22:38:09+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-12.xml</loc>
+		<lastmod>2013-01-01T21:46:20+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-11.xml</loc>
+		<lastmod>2012-12-01T07:38:23+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-10.xml</loc>
+		<lastmod>2013-10-21T09:32:10+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-09.xml</loc>
+		<lastmod>2012-10-01T08:10:36+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-08.xml</loc>
+		<lastmod>2012-09-01T15:36:16+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-07.xml</loc>
+		<lastmod>2012-07-31T22:42:32+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-06.xml</loc>
+		<lastmod>2012-08-25T17:11:02+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-05.xml</loc>
+		<lastmod>2012-07-09T17:54:11+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-04.xml</loc>
+		<lastmod>2012-12-10T12:08:07+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-03.xml</loc>
+		<lastmod>2012-08-01T09:50:46+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-02.xml</loc>
+		<lastmod>2013-02-20T22:16:41+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2012-01.xml</loc>
+		<lastmod>2014-12-30T12:12:28+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-12.xml</loc>
+		<lastmod>2012-01-01T01:09:18+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-11.xml</loc>
+		<lastmod>2012-04-20T08:58:02+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-10.xml</loc>
+		<lastmod>2012-01-22T11:42:40+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-09.xml</loc>
+		<lastmod>2011-10-01T08:17:33+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-08.xml</loc>
+		<lastmod>2011-09-01T06:43:09+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-07.xml</loc>
+		<lastmod>2011-08-01T10:34:32+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-06.xml</loc>
+		<lastmod>2011-07-01T08:56:27+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-05.xml</loc>
+		<lastmod>2011-10-11T13:50:46+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-04.xml</loc>
+		<lastmod>2011-05-01T11:15:07+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-03.xml</loc>
+		<lastmod>2011-05-07T23:05:44+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-02.xml</loc>
+		<lastmod>2012-02-02T09:34:41+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2011-01.xml</loc>
+		<lastmod>2013-02-20T19:38:04+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-12.xml</loc>
+		<lastmod>2011-12-21T13:53:34+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-11.xml</loc>
+		<lastmod>2011-01-15T09:10:18+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-10.xml</loc>
+		<lastmod>2010-11-02T12:34:52+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-09.xml</loc>
+		<lastmod>2010-10-01T17:55:06+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-08.xml</loc>
+		<lastmod>2010-09-02T13:25:12+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-07.xml</loc>
+		<lastmod>2010-08-02T18:34:10+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-06.xml</loc>
+		<lastmod>2010-07-25T23:24:26+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-05.xml</loc>
+		<lastmod>2010-06-02T09:10:27+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-04.xml</loc>
+		<lastmod>2010-05-02T15:58:16+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-03.xml</loc>
+		<lastmod>2010-10-28T12:33:20+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-02.xml</loc>
+		<lastmod>2011-01-29T10:32:19+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2010-01.xml</loc>
+		<lastmod>2011-01-20T15:19:24+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-12.xml</loc>
+		<lastmod>2010-01-17T20:50:30+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-11.xml</loc>
+		<lastmod>2011-01-15T09:42:46+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-10.xml</loc>
+		<lastmod>2011-01-15T09:33:20+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-09.xml</loc>
+		<lastmod>2009-10-01T14:43:04+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-08.xml</loc>
+		<lastmod>2009-10-18T09:13:43+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-07.xml</loc>
+		<lastmod>2010-01-09T10:44:26+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-06.xml</loc>
+		<lastmod>2010-01-13T19:13:32+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-05.xml</loc>
+		<lastmod>2009-06-01T19:49:02+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-04.xml</loc>
+		<lastmod>2009-05-03T19:31:46+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-03.xml</loc>
+		<lastmod>2009-05-02T14:07:55+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-02.xml</loc>
+		<lastmod>2009-03-01T16:18:30+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2009-01.xml</loc>
+		<lastmod>2010-07-07T07:35:14+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>https://www.livetennis.it/sitemap-pt-post-2008-12.xml</loc>
+		<lastmod>2009-01-02T13:52:34+00:00</lastmod>
+	</sitemap>
+	<sitemap>
+		<loc>http
+
+LIVE https://www.livetennis.it/sitemap_index.xml STATUS ERR LEN 0 FINAL <HTTPError 404: 'Not Found'>
+
+
+LIVE http://feed.livetennis.it/livetennis/ STATUS 200 LEN 32393 FINAL http://feed.livetennis.it/livetennis/
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"
+	xmlns:slash="http://purl.org/rss/1.0/modules/slash/"
+	>
+
+<channel>
+	<title>LiveTennis.it</title>
+	<atom:link href="https://www.livetennis.it/feed/" rel="self" type="application/rss+xml" />
+	<link>https://www.livetennis.it</link>
+	<description>Il portale italiano del Tennis</description>
+	<lastBuildDate>Wed, 12 Aug 2026 20:59:02 +0000</lastBuildDate>
+	<language>it-IT</language>
+	<sy:updatePeriod>hourly</sy:updatePeriod>
+	<sy:updateFrequency>1</sy:updateFrequency>
+	<generator>https://wordpress.org/?v=4.7.2</generator>
+	<item>
+		<title>Masters 1000 Montreal e WTA 1000 Toronto: I risultati completi con il dettaglio delle Semifinali. Jodar vs Shelton possibile finale al maschile (LIVE)</title>
+		<link>https://www.livetennis.it/post/469577/masters-1000-montreal-e-wta-1000-toronto-i-risultati-completi-con-il-dettaglio-delle-semifinali-jodar-vs-shelton-possibile-finale-al-maschile-live/</link>
+		<comments>https://www.livetennis.it/post/469577/masters-1000-montreal-e-wta-1000-toronto-i-risultati-completi-con-il-dettaglio-delle-semifinali-jodar-vs-shelton-possibile-finale-al-maschile-live/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 20:22:19 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[WTA]]></category>
+		<category><![CDATA[Masters 1000 Montreal]]></category>
+		<category><![CDATA[Masters 1000 Montreal 2026]]></category>
+		<category><![CDATA[WTA 1000 Toronto]]></category>
+		<category><![CDATA[WTA 1000 Toronto 2026]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469577</guid>
+		<description><![CDATA[&#x1f1e8;&#x1f1e6; Masters 1000 Montreal Montreal, Canada &#160;·&#160; 12 Agosto 2026 &#9728; 18°C Prevalentemente sereno, poi parzialmente soleggiato &#160;·&#160; Picco 23°C CIELO Sereno nelle prime ore, poi prevalentemente o parzialmente soleggiato fino al primo pomeriggio PIOGGIA Assente nelle ore disponibili CAMPO Cemento CEMENTO Andamento della giornata — 12 Agosto 03:00 &#9728; 17° 04:00 &#9728; 17° 05:00 [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469577/masters-1000-montreal-e-wta-1000-toronto-i-risultati-completi-con-il-dettaglio-delle-semifinali-jodar-vs-shelton-possibile-finale-al-maschile-live/feed/</wfw:commentRss>
+		<slash:comments>28</slash:comments>
+		</item>
+		<item>
+		<title>Cecchinato ai quarti di Todi, vinto il derby con Forti: “Sono cresciuto dopo l’esordio”. Romano cede a Torres dopo 3 ore di match</title>
+		<link>https://www.livetennis.it/post/469600/cecchinato-ai-quarti-di-todi-vinto-il-derby-con-forti-sono-cresciuto-dopo-lesordio-romano-cede-a-torres-dopo-3-ore-di-match/</link>
+		<comments>https://www.livetennis.it/post/469600/cecchinato-ai-quarti-di-todi-vinto-il-derby-con-forti-sono-cresciuto-dopo-lesordio-romano-cede-a-torres-dopo-3-ore-di-match/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 17:26:51 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[Challenger]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Challenger Todi]]></category>
+		<category><![CDATA[Challenger Todi 2026]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469600</guid>
+		<description><![CDATA[Marco Cecchinato è il primo italiano a staccare il pass per i quarti di finale degli Internazionali di Tennis Città di Todi &#124; Sidernestor Tennis Cup. L’ex numero 16 del mondo si è aggiudicato con un netto 6-1 6-3 il derby contro un ritrovato Francesco Forti, che nelle ultime settimane ha messo nel mirino la [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469600/cecchinato-ai-quarti-di-todi-vinto-il-derby-con-forti-sono-cresciuto-dopo-lesordio-romano-cede-a-torres-dopo-3-ore-di-match/feed/</wfw:commentRss>
+		<slash:comments>2</slash:comments>
+		</item>
+		<item>
+		<title>La Lilium Cup 2026 domani mette in campo i quarti di finale dei singolari, dopo la conclusione delle fasi a girone</title>
+		<link>https://www.livetennis.it/post/469598/la-lilium-cup-2026-domani-mette-in-campo-i-quarti-di-finale-dei-singolari-dopo-la-conclusione-delle-fasi-a-girone/</link>
+		<comments>https://www.livetennis.it/post/469598/la-lilium-cup-2026-domani-mette-in-campo-i-quarti-di-finale-dei-singolari-dopo-la-conclusione-delle-fasi-a-girone/#respond</comments>
+		<pubDate>Wed, 12 Aug 2026 17:18:55 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Junior]]></category>
+		<category><![CDATA[Mondo Junior]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469598</guid>
+		<description><![CDATA[Giornata importante quella odierna per la Lilium Cup 2026, J30 Itf under 18, in corso di svolgimento sui campi del Country Club Cuneo. In programma c’erano infatti gli ultimi match (terza tornata), sia nel singolare maschile che in quello femminile, delle due fasi a gironi, nel rispetto del nuovo regolamento caldeggiato dall’Itf e abbracciato dall’organizzazione [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469598/la-lilium-cup-2026-domani-mette-in-campo-i-quarti-di-finale-dei-singolari-dopo-la-conclusione-delle-fasi-a-girone/feed/</wfw:commentRss>
+		<slash:comments>0</slash:comments>
+		</item>
+		<item>
+		<title>Fritz convive con il dolore al ginocchio: «Odio arrendermi. Se non rischio di peggiorare, provo a giocare». Poi avverte sui rischi del calendario</title>
+		<link>https://www.livetennis.it/post/469596/fritz-convive-con-il-dolore-al-ginocchio-odio-arrendermi-se-non-rischio-di-peggiorare-provo-a-giocare-poi-avverte-sui-rischi-del-calendario/</link>
+		<comments>https://www.livetennis.it/post/469596/fritz-convive-con-il-dolore-al-ginocchio-odio-arrendermi-se-non-rischio-di-peggiorare-provo-a-giocare-poi-avverte-sui-rischi-del-calendario/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 16:25:49 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Masters 1000 Cincinnati]]></category>
+		<category><![CDATA[Masters 1000 Cincinnati 2026]]></category>
+		<category><![CDATA[Taylor Fritz]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469596</guid>
+		<description><![CDATA[Taylor Fritz si presenta al Masters 1000 di Cincinnati con una condizione fisica migliore rispetto a quella mostrata pochi giorni fa in Canada, ma continua a dover gestire la tendinopatia al ginocchio destro che ne sta condizionando il rendimento dalla parte conclusiva del 2025. Durante il Media Day del torneo dell’Ohio, lo statunitense ha parlato [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469596/fritz-convive-con-il-dolore-al-ginocchio-odio-arrendermi-se-non-rischio-di-peggiorare-provo-a-giocare-poi-avverte-sui-rischi-del-calendario/feed/</wfw:commentRss>
+		<slash:comments>2</slash:comments>
+		</item>
+		<item>
+		<title>Fery vola dai Challenger al bye, Kokkinakis riparte da n.434, Stubbs punge Sabalenka e Zverev attacca il calendario nuovamente. Sette settimane in Nord America sono troppe</title>
+		<link>https://www.livetennis.it/post/469587/fery-vola-dai-challenger-al-bye-kokkinakis-riparte-da-n-434-stubbs-punge-sabalenka-e-zverev-attacca-il-calendario-nuovamente-sette-settimane-in-nord-america-sono-troppe/</link>
+		<comments>https://www.livetennis.it/post/469587/fery-vola-dai-challenger-al-bye-kokkinakis-riparte-da-n-434-stubbs-punge-sabalenka-e-zverev-attacca-il-calendario-nuovamente-sette-settimane-in-nord-america-sono-troppe/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 15:57:18 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Generica]]></category>
+		<category><![CDATA[Alexander Zverev]]></category>
+		<category><![CDATA[Arthur Fery]]></category>
+		<category><![CDATA[Rennae Stubbs]]></category>
+		<category><![CDATA[Thanasi Kokkinakis]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469587</guid>
+		<description><![CDATA[Il tennis non vive soltanto di risultati. Tra scalate rapidissime nel ranking, ritorni inattesi, polemiche sul calendario e dichiarazioni destinate a far discutere, sono diverse le storie curiose che arrivano dai circuiti ATP e WTA. Una delle più sorprendenti riguarda Arthur Fery. Soltanto poche settimane fa il britannico era fuori dalla Top 150 ATP e [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469587/fery-vola-dai-challenger-al-bye-kokkinakis-riparte-da-n-434-stubbs-punge-sabalenka-e-zverev-attacca-il-calendario-nuovamente-sette-settimane-in-nord-america-sono-troppe/feed/</wfw:commentRss>
+		<slash:comments>3</slash:comments>
+		</item>
+		<item>
+		<title>Combined Cincinnati: I risultati completi con il dettaglio del Turno Decisivo di Qualificazione. In campo Lucrezia Stefanini (LIVE)</title>
+		<link>https://www.livetennis.it/post/469579/combined-cincinnati-i-risultati-completi-con-il-dettaglio-del-turno-decisivo-di-qualificazione-in-campo-lucrezia-stefanini-live/</link>
+		<comments>https://www.livetennis.it/post/469579/combined-cincinnati-i-risultati-completi-con-il-dettaglio-del-turno-decisivo-di-qualificazione-in-campo-lucrezia-stefanini-live/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 15:35:49 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[WTA]]></category>
+		<category><![CDATA[Masters 1000 Cincinnati]]></category>
+		<category><![CDATA[Masters 1000 Cincinnati 2026]]></category>
+		<category><![CDATA[WTA 1000 Cincinnati]]></category>
+		<category><![CDATA[WTA 1000 Cincinnati 2026]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469579</guid>
+		<description><![CDATA[&#x1f1fa;&#x1f1f8; Combined Cincinnati Cincinnati, USA &#160;·&#160; 12 Agosto 2026 &#127785; 20°C Nuvoloso, temporali e nebbia in giornata &#160;·&#160; Picco 29°C CIELO Nuvoloso al rilevamento, con temporali alternati a nebbia e nuvole intermittenti PIOGGIA Temporali indicati alle 03:00, 05:00, 09:00 e 11:00 CAMPO Cemento CEMENTO Andamento della giornata — 12 Agosto 03:00 &#127785; 20° 04:00 &#9925; [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469579/combined-cincinnati-i-risultati-completi-con-il-dettaglio-del-turno-decisivo-di-qualificazione-in-campo-lucrezia-stefanini-live/feed/</wfw:commentRss>
+		<slash:comments>1</slash:comments>
+		</item>
+		<item>
+		<title>Bublik e Venus Williams, la coppia più curiosa degli US Open: “Non le ho praticamente mai parlato”</title>
+		<link>https://www.livetennis.it/post/469594/bublik-e-venus-williams-la-coppia-piu-curiosa-degli-us-open-non-le-ho-praticamente-mai-parlato/</link>
+		<comments>https://www.livetennis.it/post/469594/bublik-e-venus-williams-la-coppia-piu-curiosa-degli-us-open-non-le-ho-praticamente-mai-parlato/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 14:59:53 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Generica]]></category>
+		<category><![CDATA[Alexander Bublik]]></category>
+		<category><![CDATA[Curiosità]]></category>
+		<category><![CDATA[Venus Williams]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469594</guid>
+		<description><![CDATA[Tra le coppie più sorprendenti annunciate per il doppio misto degli US Open 2026 ce n&#8217;è una che sembra costruita appositamente per attirare l&#8217;attenzione: Alexander Bublik e Venus Williams. L&#8217;accoppiata tra il kazako e la leggenda statunitense è stata confermata ufficialmente dal torneo di New York. A rendere la storia ancora più particolare è stato [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469594/bublik-e-venus-williams-la-coppia-piu-curiosa-degli-us-open-non-le-ho-praticamente-mai-parlato/feed/</wfw:commentRss>
+		<slash:comments>2</slash:comments>
+		</item>
+		<item>
+		<title>Sinner e Alcaraz, dubbi verso gli US Open: un ex medico ATP parla del ginocchio dell&#8217;azzurro, Clerc consiglia allo spagnolo di non giocare a New York</title>
+		<link>https://www.livetennis.it/post/469589/sinner-e-alcaraz-dubbi-verso-gli-us-open-un-ex-medico-atp-parla-del-ginocchio-dellazzurro-clerc-consiglia-allo-spagnolo-di-non-giocare-a-new-york/</link>
+		<comments>https://www.livetennis.it/post/469589/sinner-e-alcaraz-dubbi-verso-gli-us-open-un-ex-medico-atp-parla-del-ginocchio-dellazzurro-clerc-consiglia-allo-spagnolo-di-non-giocare-a-new-york/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 12:13:59 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Generica]]></category>
+		<category><![CDATA[Carlos Alcaraz]]></category>
+		<category><![CDATA[Jannik Sinner]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469589</guid>
+		<description><![CDATA[A poche settimane dagli US Open, le condizioni fisiche di Jannik Sinner e Carlos Alcaraz continuano inevitabilmente ad attirare l&#8217;attenzione. I due grandi protagonisti del tennis mondiale hanno rinunciato a Cincinnati per problemi differenti e nelle ultime ore sono arrivate due valutazioni interessanti: quella dell&#8217;ex medico ATP Giovanni Di Giacomo sul ginocchio dell&#8217;italiano e il [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469589/sinner-e-alcaraz-dubbi-verso-gli-us-open-un-ex-medico-atp-parla-del-ginocchio-dellazzurro-clerc-consiglia-allo-spagnolo-di-non-giocare-a-new-york/feed/</wfw:commentRss>
+		<slash:comments>30</slash:comments>
+		</item>
+		<item>
+		<title>Masters 1000 Cincinnati: Il Tabellone Principale. Sette gli azzurri al via</title>
+		<link>https://www.livetennis.it/post/469567/masters-1000-cincinnati-il-tabellone-principale-sette-gli-azzurri-al-via/</link>
+		<comments>https://www.livetennis.it/post/469567/masters-1000-cincinnati-il-tabellone-principale-sette-gli-azzurri-al-via/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 10:42:10 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Masters 1000 Cincinnati]]></category>
+		<category><![CDATA[Masters 1000 Cincinnati 2026]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469567</guid>
+		<description><![CDATA[Masters 1000 Cincinnati &#8211; Tabellone Principale (parte alta) &#8211; hard (1) Alexander Zverev vs Bye Cameron Norrie vs Dino Prizmic Marton Fucsovics vs Terence Atmane Bye vs (26) Tomas Martin Etcheverry (18) Tommy Paul vs Bye Corentin Moutet vs Hubert Hurkacz Qualifier vs Adolfo Daniel Vallejo Bye vs (15) Valentin Vacherot (12) Rafael Jodar vs [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469567/masters-1000-cincinnati-il-tabellone-principale-sette-gli-azzurri-al-via/feed/</wfw:commentRss>
+		<slash:comments>36</slash:comments>
+		</item>
+		<item>
+		<title>Federer scende sotto il miliardo: il crollo in Borsa di On riduce il valore della sua quota</title>
+		<link>https://www.livetennis.it/post/469585/federer-scende-sotto-il-miliardo-il-crollo-in-borsa-di-on-riduce-il-valore-della-sua-quota/</link>
+		<comments>https://www.livetennis.it/post/469585/federer-scende-sotto-il-miliardo-il-crollo-in-borsa-di-on-riduce-il-valore-della-sua-quota/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 07:10:39 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Generica]]></category>
+		<category><![CDATA[Roger Federer]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469585</guid>
+		<description><![CDATA[Roger Federer avrebbe temporaneamente perso lo status di miliardario. Il brusco calo in Borsa di On Holding, azienda svizzera di abbigliamento e calzature sportive nella quale l’ex numero uno del mondo possiede una partecipazione stimata intorno al 3%, avrebbe fatto scendere il suo patrimonio netto sotto la soglia del miliardo di dollari. Secondo le stime [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469585/federer-scende-sotto-il-miliardo-il-crollo-in-borsa-di-on-riduce-il-valore-della-sua-quota/feed/</wfw:commentRss>
+		<slash:comments>20</slash:comments>
+		</item>
+		<item>
+		<title>Jódar e Shelton dopo le semifinali a Montreal: «Il ranking è secondario». Ben elogia Rafa: «Ha una risposta tra le migliori al mondo» (Video)</title>
+		<link>https://www.livetennis.it/post/469583/jodar-e-shelton-dopo-le-semifinali-a-montreal-il-ranking-e-secondario-ben-elogia-rafa-ha-una-risposta-tra-le-migliori-al-mondo-video/</link>
+		<comments>https://www.livetennis.it/post/469583/jodar-e-shelton-dopo-le-semifinali-a-montreal-il-ranking-e-secondario-ben-elogia-rafa-ha-una-risposta-tra-le-migliori-al-mondo-video/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 06:58:46 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Ben Shelton]]></category>
+		<category><![CDATA[Rafael Jodar]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469583</guid>
+		<description><![CDATA[Rafael Jódar e Ben Shelton sono due dei grandi protagonisti del Masters 1000 di Montreal. Lo spagnolo ha superato Arthur Fils per 7-6(5) 6-3, raggiungendo per la prima volta la semifinale di un torneo di questa categoria, mentre il campione in carica ha dominato Jakub Mensik con un netto 6-3 6-1. In conferenza stampa, Jódar [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469583/jodar-e-shelton-dopo-le-semifinali-a-montreal-il-ranking-e-secondario-ben-elogia-rafa-ha-una-risposta-tra-le-migliori-al-mondo-video/feed/</wfw:commentRss>
+		<slash:comments>27</slash:comments>
+		</item>
+		<item>
+		<title>WTA 1000 Cincinnati: Il Tabellone Principale. Presenza di Elisabetta Cocciaretto</title>
+		<link>https://www.livetennis.it/post/469572/wta-1000-cincinnati-il-tabellone-principale-presenza-di-elisabetta-cocciaretto/</link>
+		<comments>https://www.livetennis.it/post/469572/wta-1000-cincinnati-il-tabellone-principale-presenza-di-elisabetta-cocciaretto/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 06:56:22 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[WTA]]></category>
+		<category><![CDATA[WTA 1000 Cincinnati]]></category>
+		<category><![CDATA[WTA 1000 Cincinnati 2026]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469572</guid>
+		<description><![CDATA[WTA 1000 Cincinnati &#8211; Tabellone Principale (parte alta) &#8211; hard (1) Aryna Sabalenka vs Bye Qualifier vs Talia Gibson Xinyu Wang vs Qualifier Bye vs (31) Donna Vekic (23) Barbora Krejcikova vs Bye Sara Bejlek vs Karolina Pliskova Qualifier vs Qualifier Bye vs (16) Ekaterina Alexandrova (11) Naomi Osaka vs Bye Jessica Bouzas Maneiro vs [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469572/wta-1000-cincinnati-il-tabellone-principale-presenza-di-elisabetta-cocciaretto/feed/</wfw:commentRss>
+		<slash:comments>27</slash:comments>
+		</item>
+		<item>
+		<title>Challenger Todi, Amburgo, Brownsburg e Astana: I risultati completi con il dettaglio del Day 3 (LIVE)</title>
+		<link>https://www.livetennis.it/post/469581/challenger-todi-amburgo-brownsburg-e-astana-i-risultati-completi-con-il-dettaglio-del-day-3-live/</link>
+		<comments>https://www.livetennis.it/post/469581/challenger-todi-amburgo-brownsburg-e-astana-i-risultati-completi-con-il-dettaglio-del-day-3-live/#respond</comments>
+		<pubDate>Wed, 12 Aug 2026 06:49:38 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[Challenger]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Circuito Challenger]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469581</guid>
+		<description><![CDATA[&#x1f1ee;&#x1f1f9; Challenger 75 Todi Todi, Italia &#160;·&#160; 12 Agosto 2026 &#127785; 24°C Soleggiato, caldo e temporali nel pomeriggio &#160;·&#160; Picco 35°C CIELO Nuvole intermittenti e tratti soleggiati, poi temporali alle 16:00 PIOGGIA Temporali indicati alle 16:00 CAMPO Terra Battuta TERRA BATTUTA Andamento della giornata — 12 Agosto 09:00 &#9925; 21° 10:00 &#9925; 22° 11:00 &#9729; [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469581/challenger-todi-amburgo-brownsburg-e-astana-i-risultati-completi-con-il-dettaglio-del-day-3-live/feed/</wfw:commentRss>
+		<slash:comments>0</slash:comments>
+		</item>
+		<item>
+		<title>Italiani in Campo (ATP-WTA-Challenger): I risultati completi con il dettaglio del 12 Agosto 2026</title>
+		<link>https://www.livetennis.it/post/469574/italiani-in-campo-atp-wta-challenger-i-risultati-completi-con-il-dettaglio-del-12-agosto-2026/</link>
+		<comments>https://www.livetennis.it/post/469574/italiani-in-campo-atp-wta-challenger-i-risultati-completi-con-il-dettaglio-del-12-agosto-2026/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 06:13:14 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Challenger]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[WTA]]></category>
+		<category><![CDATA[Italiani in campo]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469574</guid>
+		<description><![CDATA[CH 75 Brownsburg &#8211; hard R32 Schoolkate &#8211; Cina 4° inc. ore 16:00 CH 75 Hamburg &#8211; terra R16 Brancaccio &#8211; Moeller Non prima 14:30 CH 75 Todi &#8211; terra R16 Cecchinato &#8211; Forti Inizio 15:30 R16 Romano &#8211; Torres Inizio 15:00 R16 Crivellaro /Mecarelli &#8211; Barrena /Kicker Non prima 16:30 R16 Carou /Rodriguez &#8211; [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469574/italiani-in-campo-atp-wta-challenger-i-risultati-completi-con-il-dettaglio-del-12-agosto-2026/feed/</wfw:commentRss>
+		<slash:comments>35</slash:comments>
+		</item>
+		<item>
+		<title>Montreal incorona la nuova generazione: Jódar vola in semifinale, Shelton domina Mensik</title>
+		<link>https://www.livetennis.it/post/469569/montreal-incorona-la-nuova-generazione-jodar-vola-in-semifinale-shelton-domina-mensik/</link>
+		<comments>https://www.livetennis.it/post/469569/montreal-incorona-la-nuova-generazione-jodar-vola-in-semifinale-shelton-domina-mensik/#comments</comments>
+		<pubDate>Wed, 12 Aug 2026 05:44:03 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Ben Shelton]]></category>
+		<category><![CDATA[Masters 1000 Montreal]]></category>
+		<category><![CDATA[Masters 1000 Montreal 2026]]></category>
+		<category><![CDATA[Rafael Jodar]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469569</guid>
+		<description><![CDATA[Il Masters 1000 di Montreal continua a parlare il linguaggio della nuova generazione. Rafael Jódar ha raggiunto la prima semifinale della carriera in un torneo di questa categoria superando Arthur Fils per 7-6(5) 6-3. Nel penultimo atto affronterà Brandon Nakashima, giustiziere di Luciano Darderi, mentre l’altra semifinale sarà un derby statunitense tra Ben Shelton e [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469569/montreal-incorona-la-nuova-generazione-jodar-vola-in-semifinale-shelton-domina-mensik/feed/</wfw:commentRss>
+		<slash:comments>28</slash:comments>
+		</item>
+		<item>
+		<title>Combined Cincinnati: I risultati completi con il dettaglio del Primo Turno di Qualificazione. Stefanini al turno decisivo. Out Maestrelli</title>
+		<link>https://www.livetennis.it/post/469538/combined-cincinnati-i-risultati-completi-con-il-dettaglio-del-primo-turno-di-qualificazione-stefanini-al-turno-decisivo-out-maestrelli/</link>
+		<comments>https://www.livetennis.it/post/469538/combined-cincinnati-i-risultati-completi-con-il-dettaglio-del-primo-turno-di-qualificazione-stefanini-al-turno-decisivo-out-maestrelli/#respond</comments>
+		<pubDate>Tue, 11 Aug 2026 21:28:03 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[WTA]]></category>
+		<category><![CDATA[Masters 1000 Cincinnati]]></category>
+		<category><![CDATA[Masters 1000 Cincinnati 2026]]></category>
+		<category><![CDATA[WTA 1000 Cincinnati]]></category>
+		<category><![CDATA[WTA 1000 Cincinnati 2026]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469538</guid>
+		<description><![CDATA[&#x1f1fa;&#x1f1f8; Combined Cincinnati Cincinnati, USA &#160;·&#160; 11 Agosto 2026 &#127785; 27°C Parzialmente nuvoloso, temporali in mattinata &#160;·&#160; Picco 29°C CIELO Nuvole intermittenti nelle prime ore, poi nuvoloso e prevalentemente nuvoloso PIOGGIA Temporali indicati alle 05:00, 06:00, 08:00 e 12:00 CAMPO Cemento CEMENTO Andamento della giornata — 11 Agosto 03:00 &#9925; 25° 04:00 &#9925; 24° 05:00 [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469538/combined-cincinnati-i-risultati-completi-con-il-dettaglio-del-primo-turno-di-qualificazione-stefanini-al-turno-decisivo-out-maestrelli/feed/</wfw:commentRss>
+		<slash:comments>0</slash:comments>
+		</item>
+		<item>
+		<title>Darderi si ferma ai quarti a Montreal: Nakashima domina e raggiunge la sua prima semifinale Masters 1000</title>
+		<link>https://www.livetennis.it/post/469558/darderi-si-ferma-ai-quarti-a-montreal-nakashima-domina-e-raggiunge-la-sua-prima-semifinale-masters-1000/</link>
+		<comments>https://www.livetennis.it/post/469558/darderi-si-ferma-ai-quarti-a-montreal-nakashima-domina-e-raggiunge-la-sua-prima-semifinale-masters-1000/#comments</comments>
+		<pubDate>Tue, 11 Aug 2026 18:33:34 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Luciano Darderi]]></category>
+		<category><![CDATA[Masters 1000 Montreal]]></category>
+		<category><![CDATA[Masters 1000 Montreal 2026]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469558</guid>
+		<description><![CDATA[Termina nei quarti di finale la corsa di Luciano Darderi al Masters 1000 di Montreal. L’azzurro, apparso nervoso e poco preciso fin dai primi game, è stato sconfitto da Brandon Nakashima con il punteggio di 6-2, 6-3 dopo un’ora e 17 minuti. Lo statunitense, numero 31 del ranking ATP e in passato arrivato fino alla [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469558/darderi-si-ferma-ai-quarti-a-montreal-nakashima-domina-e-raggiunge-la-sua-prima-semifinale-masters-1000/feed/</wfw:commentRss>
+		<slash:comments>37</slash:comments>
+		</item>
+		<item>
+		<title>Rune vede la luce dopo il lungo stop: niente US Open, possibile rientro in Coppa Davis</title>
+		<link>https://www.livetennis.it/post/469565/rune-vede-la-luce-dopo-il-lungo-stop-niente-us-open-possibile-rientro-in-coppa-davis/</link>
+		<comments>https://www.livetennis.it/post/469565/rune-vede-la-luce-dopo-il-lungo-stop-niente-us-open-possibile-rientro-in-coppa-davis/#comments</comments>
+		<pubDate>Tue, 11 Aug 2026 18:29:48 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[ATP]]></category>
+		<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Generica]]></category>
+		<category><![CDATA[Holger Rune]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469565</guid>
+		<description><![CDATA[Holger Rune comincia finalmente a intravedere la conclusione del lungo percorso di recupero. Il danese non disputa una partita ufficiale dall’ottobre 2025, quando si ruppe il tendine d’Achille sinistro durante la semifinale del torneo di Stoccolma contro Ugo Humbert. L’infortunio rese necessario un intervento chirurgico e lo costrinse a rivedere più volte i programmi per [&#8230;]]]></description>
+		<wfw:commentRss>https://www.livetennis.it/post/469565/rune-vede-la-luce-dopo-il-lungo-stop-niente-us-open-possibile-rientro-in-coppa-davis/feed/</wfw:commentRss>
+		<slash:comments>10</slash:comments>
+		</item>
+		<item>
+		<title>La Lilium Cup 2026 prosegue al Country Club Cuneo con i match dei gironi</title>
+		<link>https://www.livetennis.it/post/469563/la-lilium-cup-2026-prosegue-al-country-club-cuneo-con-i-match-dei-gironi/</link>
+		<comments>https://www.livetennis.it/post/469563/la-lilium-cup-2026-prosegue-al-country-club-cuneo-con-i-match-dei-gironi/#respond</comments>
+		<pubDate>Tue, 11 Aug 2026 18:22:54 +0000</pubDate>
+		<dc:creator><![CDATA[LiveTennis.it Staff]]></dc:creator>
+				<category><![CDATA[Copertina]]></category>
+		<category><![CDATA[Junior]]></category>
+		<category><![CDATA[Mondo Junior]]></category>
+
+		<guid isPermaLink="false">https://www.livetennis.it/?p=469563</guid>
+		<description><![CDATA[Non siamo a Montreal ma anche a Cuneo tra i protagonisti delle prime giornate di gara della Lilium Cup 2026 c’è “Giove Pluvio”. La pioggia è comparsa in
+
+LIVE https://feed.livetennis.it/livetennis/ STATUS ERR LEN 0 FINAL URLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1000)'))
+
