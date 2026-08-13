@@ -11,31 +11,66 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Probe USTA public calendar content fragment
+      - name: Fetch USTA event JSON and linked artifacts
         shell: bash
         run: |
-          set -u
-          mkdir -p research/usta-fragment
-          BASE='https://www.usta.com'
-          JS="$BASE/etc.clientlibs/usta/clientlibs/clientlib-calendar.min.3ec344e76e289e9beee95931aa80d727.js"
-          curl -A 'Mozilla/5.0' -LsS --max-time 30 "$JS" -o research/usta-fragment/calendar.js
-          echo '=== CALENDAR JS SIZE ===' > research/usta-fragment/trace.txt
-          wc -c research/usta-fragment/calendar.js >> research/usta-fragment/trace.txt
-          echo '=== CALENDAR JS HINTS ===' >> research/usta-fragment/trace.txt
-          grep -Eo '.{0,180}(contentFragmentsPath|content-fragments|model\.json|infinity\.json|graphql|\.json|fetch\(|axios|XMLHttpRequest).{0,500}' research/usta-fragment/calendar.js >> research/usta-fragment/trace.txt || true
-          PATH_ENC='/content/dam/usta/content-fragments/events/national/2026-usta-men%27s-competitive-pathway-calendar'
-          for SUF in '' '.json' '.model.json' '.infinity.json' '.1.json' '.2.json' '.content.json'; do
-            OUT="research/usta-fragment/fragment$(echo "$SUF" | tr '/.' '__')"
-            [ -n "$SUF" ] || OUT='research/usta-fragment/fragment-root'
-            CODE=$(curl -A 'Mozilla/5.0' -LsS --max-time 30 -o "$OUT" -w '%{http_code}' "$BASE$PATH_ENC$SUF" || true)
-            echo "FRAGMENT $SUF HTTP=$CODE BYTES=$(wc -c < "$OUT" 2>/dev/null || echo 0)" >> research/usta-fragment/trace.txt
-            grep -Eio '.{0,400}(Bloomfield Hills|Lincoln|Cary|Entry List|Alternates|Lucky Losers|entryList|alternate|href|url).{0,1200}' "$OUT" >> research/usta-fragment/trace.txt 2>/dev/null || true
-          done
-          cat research/usta-fragment/trace.txt
+          set -euxo pipefail
+          mkdir -p research/usta-events/files
+          python3 - <<'PY'
+          import json, re, urllib.parse, urllib.request, pathlib, html
+          base='https://www.usta.com'
+          path="/content/dam/usta/content-fragments/events/national/2026-usta-men's-competitive-pathway-calendar"
+          url=base+'/usta/events?'+urllib.parse.urlencode({'dataPagePath':path,'source':'contentFragments'})
+          req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Accept':'application/json,text/plain,*/*','Referer':base+'/en/home/pro/pro-tennis-events/usta-mens-competitive-pathway.html'})
+          with urllib.request.urlopen(req,timeout=30) as r:
+              raw=r.read(); print('EVENTS_URL',r.geturl(),'HTTP',r.status,'BYTES',len(raw),'TYPE',r.headers.get('Content-Type'))
+          pathlib.Path('research/usta-events/events.json').write_bytes(raw)
+          data=json.loads(raw)
+          events=data.get('events',data if isinstance(data,list) else [])
+          print('EVENT_COUNT',len(events))
+          target=[]
+          for e in events:
+              blob=json.dumps(e,ensure_ascii=False)
+              if any(x.lower() in blob.lower() for x in ['bloomfield','lincoln','cary','challenger']):
+                  target.append(e)
+                  print('\n=== EVENT ===\n',json.dumps(e,ensure_ascii=False,indent=2))
+          pathlib.Path('research/usta-events/target-events.json').write_text(json.dumps(target,ensure_ascii=False,indent=2))
+          # Extract any linked documents from target events, including HTML in descriptions.
+          urls=[]
+          for e in target:
+              blob=html.unescape(json.dumps(e,ensure_ascii=False))
+              for u in re.findall(r'https?://[^\s"<>]+|(?:href=)?["\']?(/content/dam/usta/[^\s"\'<>]+)',blob,re.I):
+                  if isinstance(u,tuple): u=next((x for x in u if x),'')
+                  u=u.replace('href=','').strip('"\'')
+                  if u.startswith('/'): u=base+u
+                  if u and u not in urls: urls.append(u)
+              for u in re.findall(r'(?:href|src)=\\?["\']([^"\']+)',blob,re.I):
+                  u=u.replace('\\/','/')
+                  if u.startswith('/'): u=base+u
+                  if u.startswith('http') and u not in urls: urls.append(u)
+          print('\nLINKS',len(urls))
+          for i,u in enumerate(urls):
+              print(i,u)
+              try:
+                  req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0','Referer':base+'/'})
+                  with urllib.request.urlopen(req,timeout=30) as r:
+                      b=r.read(); ct=r.headers.get('Content-Type','')
+                      print('  ->',r.status,len(b),ct,r.geturl())
+                  ext='.pdf' if b.startswith(b'%PDF') else '.txt'
+                  pathlib.Path(f'research/usta-events/files/{i:02d}{ext}').write_bytes(b)
+              except Exception as ex: print('  ERR',repr(ex))
+          pathlib.Path('research/usta-events/links.txt').write_text('\n'.join(urls))
+          PY
+      - name: Inspect downloaded artifacts
+        run: |
+          echo '=== FILES ==='
+          find research/usta-events -maxdepth 2 -type f -printf '%p %s bytes\n'
+          echo '=== TEXT HINTS ==='
+          grep -RaiEn 'entry list|alternate|qualif|lucky loser|Bloomfield|Lincoln|Cary' research/usta-events --exclude='*.pdf' | head -n 1000 || true
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/usta-fragment
-          git commit -m "Save USTA calendar fragment trace" || exit 0
+          git add research/usta-events
+          git commit -m "Save USTA pro circuit event artifacts" || exit 0
           git push
