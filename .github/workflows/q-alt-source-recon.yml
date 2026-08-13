@@ -11,84 +11,67 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Trace archived LiveTennis entry-list feed
+      - name: Reverse engineer public DartsRankings data layer
         run: |
           mkdir -p research
-          python3 - <<'PY' > research/livetennis-feed-archive-trace.txt
+          python3 - <<'PY' > research/dartsrankings-data-trace.txt
           import urllib.request, urllib.parse, json, re, datetime, socket
+          from html import unescape
           UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,*/*'}
-          def get(url, timeout=30):
+          def get(url,timeout=25):
             try:
               req=urllib.request.Request(url,headers=UA)
               with urllib.request.urlopen(req,timeout=timeout) as r:
                 return r.status,r.geturl(),r.read().decode('utf-8','replace'),dict(r.headers)
-            except Exception as e:
-              return 'ERR',repr(e),'',{}
+            except Exception as e:return 'ERR',repr(e),'',{}
           print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          for host in ['feed.livetennis.it','www.livetennis.it','livetennis.it']:
-            try: print('DNS',host,socket.gethostbyname_ex(host))
-            except Exception as e: print('DNS_ERR',host,repr(e))
-
-          print('\n### CERTIFICATE SUBDOMAINS')
-          st,final,b,h=get('https://crt.sh/?q=%25.livetennis.it&output=json')
-          print('CRT',st,len(b),final)
-          try:
-            rows=json.loads(b); names=sorted({n.strip() for x in rows for n in x.get('name_value','').split('\n') if n.strip()})
-            for n in names: print(n)
-          except Exception as e: print('CRT_PARSE_ERR',repr(e),b[:2000])
-
-          queries=[
-            ('feed_all','http://web.archive.org/cdx/search/cdx?url=feed.livetennis.it/*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode,digest&limit=2000'),
-            ('feed_livetennis','http://web.archive.org/cdx/search/cdx?url=feed.livetennis.it/livetennis/*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode,digest&limit=2000'),
-            ('entrylist_urls','http://web.archive.org/cdx/search/cdx?url=www.livetennis.it/*entrylist*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode&limit=2000'),
-            ('entry_list_urls','http://web.archive.org/cdx/search/cdx?url=www.livetennis.it/*entry-list*&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode&limit=2000'),
-          ]
-          archived=[]
-          for label,url in queries:
-            st,final,b,h=get(url)
-            print(f'\n### CDX {label} STATUS={st} LEN={len(b)} FINAL={final}')
-            print(b[:120000])
-            try:
-              arr=json.loads(b)
-              if len(arr)>1:
-                hdr=arr[0]
-                for row in arr[1:]:
-                  d=dict(zip(hdr,row)); archived.append(d)
-            except: pass
-
-          # Fetch representative archived feed snapshots, prioritizing /livetennis/ root and URLs with entry/list terms.
-          candidates=[]
-          for d in archived:
-            o=d.get('original',''); ts=d.get('timestamp','')
-            if 'feed.livetennis.it' in o and (o.rstrip('/').endswith('/livetennis') or re.search(r'entry|list|challeng|qual',o,re.I)):
-              candidates.append((ts,o))
-          seen=set(); uniq=[]
-          for x in sorted(candidates, reverse=True):
-            if x[1] not in seen: seen.add(x[1]); uniq.append(x)
-          print('\n### ARCHIVE CANDIDATES',len(uniq))
-          for ts,o in uniq[:80]: print(ts,o)
-          for ts,o in uniq[:20]:
-            wb='https://web.archive.org/web/'+ts+'id_/'+o
-            st,final,b,h=get(wb)
-            print(f'\n### SNAPSHOT {ts} {o} STATUS={st} LEN={len(b)} FINAL={final}')
-            for needle in ['entrylist_box','resetAlternates','Challenger','Qualific','Alternates','feed.livetennis','entry list']:
-              poss=[m.start() for m in re.finditer(re.escape(needle),b,re.I)]
-              print('NEEDLE',needle,'COUNT',len(poss),'FIRST',poss[:10])
-              for p in poss[:3]: print(b[max(0,p-800):p+3000])
-            urls=re.findall(r'https?://[^\s"\'<>]+',b)
-            interesting=[]
-            for u in urls:
-              if re.search(r'entry|list|ajax|feed|qual|challeng',u,re.I) and u not in interesting: interesting.append(u)
-            for u in interesting[:100]: print('URL_HINT',u[:1000])
-
-          print('\n### LIVE PUBLIC FILES')
-          for u in ['https://www.livetennis.it/robots.txt','https://www.livetennis.it/sitemap.xml','https://www.livetennis.it/sitemap_index.xml','http://feed.livetennis.it/livetennis/','https://feed.livetennis.it/livetennis/']:
-            st,final,b,h=get(u); print('\nLIVE',u,'STATUS',st,'LEN',len(b),'FINAL',final); print(b[:30000])
+          for u in ['https://www.dartsrankings.com/tennis/split','https://www.dartsrankings.com/tennis/cancun','https://www.dartsrankings.com/robots.txt','https://www.dartsrankings.com/sitemap.xml','https://www.dartsrankings.com/tennis']:
+            st,final,b,h=get(u)
+            print(f'\n### PAGE {u} STATUS={st} LEN={len(b)} FINAL={final} SERVER={h.get("Server")} XPOWER={h.get("X-Powered-By")}')
+            if '/tennis/' in u:
+              print('HEAD',b[:5000])
+              print('\nSCRIPTS')
+              for src in re.findall(r'<script[^>]+src=["\']([^"\']+)',b,re.I): print(src)
+              print('\nLINKS')
+              for href in re.findall(r'<link[^>]+href=["\']([^"\']+)',b,re.I): print(href)
+              print('\nFORM/AJAX/FETCH/API HINTS')
+              pats=[r'fetch\([^)]{0,500}',r'axios.{0,500}',r'XMLHttpRequest.{0,500}',r'ajax.{0,500}',r'api[/\w?&=.-]{0,500}',r'__NEXT_DATA__.{0,1000}',r'/_next/[^"\']+',r'/_nuxt/[^"\']+',r'firebase.{0,1000}',r'supabase.{0,1000}',r'graphql.{0,500}',r'entry.{0,500}',r'qualifying.{0,500}']
+              for pat in pats:
+                vals=[]
+                for m in re.finditer(pat,b,re.I|re.S):
+                  s=re.sub(r'\s+',' ',m.group(0))
+                  if s not in vals: vals.append(s)
+                for s in vals[:40]: print('HINT',s[:1500])
+          # Pull every same-origin JS/CSS found on the Split page and grep for data endpoints/schema names.
+          st,final,b,h=get('https://www.dartsrankings.com/tennis/split')
+          assets=[]
+          for x in re.findall(r'(?:src|href)=["\']([^"\']+\.(?:js|css)(?:\?[^"\']*)?)',b,re.I):
+            if x.startswith('//'): x='https:'+x
+            elif x.startswith('/'): x='https://www.dartsrankings.com'+x
+            elif not x.startswith('http'): x='https://www.dartsrankings.com/tennis/'+x
+            if x not in assets: assets.append(x)
+          print('\n### ASSETS',len(assets))
+          for u in assets:
+            st,final,a,h=get(u); print('\nASSET',u,'STATUS',st,'LEN',len(a),'FINAL',final)
+            for kw in ['fetch','ajax','api','qualifying','alternate','withdraw','entry ranking','firebase','supabase','json','csv','tennis']:
+              ps=[m.start() for m in re.finditer(re.escape(kw),a,re.I)]
+              if ps:
+                print('KW',kw,'COUNT',len(ps))
+                for p in ps[:8]: print(a[max(0,p-500):p+1800])
+          # Probe common static/data endpoints, based only on public website conventions.
+          probes=['/api','/api/tennis','/api/tournaments','/tennis/api','/data','/data/tennis.json','/tennis/data.json','/tennis/tournaments.json','/assets','/manifest.json','/.well-known/assetlinks.json']
+          print('\n### COMMON PUBLIC PROBES')
+          for p in probes:
+            u='https://www.dartsrankings.com'+p; st,final,x,h=get(u); print(u,st,len(x),final,h.get('Content-Type'),x[:1000].replace('\n',' '))
+          # Wayback URL inventory for dartsrankings tennis/data/api/javascript paths.
+          for label,pattern in [('all','www.dartsrankings.com/tennis/*'),('api','www.dartsrankings.com/*api*'),('json','www.dartsrankings.com/*.json*'),('js','www.dartsrankings.com/*.js*')]:
+            u='https://web.archive.org/cdx/search/cdx?url='+urllib.parse.quote(pattern,safe='/*')+'&output=json&filter=statuscode:200&collapse=urlkey&fl=timestamp,original,mimetype,statuscode&limit=3000'
+            st,final,x,h=get(u,35); print('\n### CDX',label,st,len(x),final); print(x[:120000])
           PY
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/livetennis-feed-archive-trace.txt
-          git commit -m "Save LiveTennis feed archive trace" || exit 0
+          git add research/dartsrankings-data-trace.txt
+          git commit -m "Save DartsRankings data trace" || exit 0
           git push
