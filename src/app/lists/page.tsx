@@ -213,10 +213,6 @@ function hasDeparted(row: TrackedEntryRow, section: Section) {
   );
 }
 
-function rowClass(row: TrackedEntryRow, section: Section) {
-  return hasDeparted(row, section) ? styles.departedRow : undefined;
-}
-
 /**
  * How many players this list actually holds. Struck rows stay visible for
  * provenance but are not on the list any more, so they never count — the same
@@ -286,27 +282,34 @@ function DrawComposition({
 }
 
 /**
- * One player per line: name, country code, entry rank.
+ * One player per line: number, name, country code, entry rank.
  *
- * Only the alternate list carries a number, because there the number is the
- * whole point — it is the queue position, and it counts live, moving up as
- * players above leave. Main draw and qualifying are plain lists.
+ * The number counts only players still on the list, so a withdrawal does not
+ * consume one — read straight down and the last number is how many are in.
+ * A struck row keeps its place but loses its number, because it is no longer
+ * one of the players who will be in the draw.
+ *
+ * On the alternate list the number is the live queue position, which is the
+ * same rule seen from the other side: it moves up as players above leave.
  *
  * The old "MD 12" / "ALT 9" labels repeated the heading on every row and, being
  * two words, wrapped inside the number column — which is what put each
  * main-draw player on two lines.
  */
 function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'main' | 'alt' | 'q' }) {
+  let placeNumber = 0;
   return (
     <ol className={styles.entryList}>
       {rows.map((row, index) => {
-        const position = section === 'alt' ? row.effectivePosition ?? '' : '';
+        const departed = hasDeparted(row, section);
+        if (!departed && section !== 'alt') placeNumber += 1;
+        const position = section === 'alt' ? row.effectivePosition ?? '' : departed ? '' : placeNumber;
         return (
           <li
             key={`${section}-${row.name}-${index}`}
-            className={[styles.entryRow, rowClass(row, section)].filter(Boolean).join(' ')}
+            className={[styles.entryRow, departed ? styles.departedRow : null].filter(Boolean).join(' ')}
           >
-            {position ? <span className={styles.pos}>{position}</span> : null}
+            <span className={styles.pos}>{position}</span>
             <span className={styles.playerName}>{row.name}</span>
             {row.country ? <span className={styles.country}>{row.country}</span> : null}
             {/* Junior and college accelerator numbers come from the ITF junior
@@ -363,7 +366,15 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
 
       <section>
         <div className={styles.eventHeader}>
-          <div><h2 className={styles.eventTitle}>{event.name}</h2><div className={styles.eventSub}>{event.level} · {event.surface}</div></div>
+          <div>
+            <h2 className={styles.eventTitle}>{event.name}</h2>
+            <div className={styles.eventSub}>{event.level} · {event.surface}</div>
+            {/* What the draw is made of, stated by the event's own detail
+                sheet. It belongs to the tournament rather than to one list,
+                because it describes places that the acceptance list, the
+                qualifying draw and the wildcards all fill between them. */}
+            <DrawComposition rows={event.mainHistory} section="main" plan={plans.main_singles} />
+          </div>
         </div>
 
         {/* Each list runs top to bottom in its own block, one after the other.
@@ -373,10 +384,7 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>Main draw</h3>
-              <div className={styles.panelSummary}>
-                <span className={styles.panelCount}>{liveCount(event.mainHistory, 'main')} accepted</span>
-                <DrawComposition rows={event.mainHistory} section="main" plan={plans.main_singles} />
-              </div>
+              <span className={styles.panelCount}>{liveCount(event.mainHistory, 'main')} accepted</span>
             </div>
             <HistoryTable rows={event.mainHistory} section="main" />
           </div>

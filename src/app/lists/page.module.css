@@ -18,7 +18,7 @@
 
 /* How the draw was filled, sitting beside the total it breaks down. */
 .panelSummary { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.composition { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.composition { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 10px 0 0; padding: 0; }
 .compositionTotal { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 .compositionItem { border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .compositionItem b { color: var(--text-strong); font-variant-numeric: tabular-nums; }
@@ -28,7 +28,7 @@
 .entryList { list-style: none; margin: 0; padding: 0; }
 .entryRow { display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); font-size: 13px; white-space: nowrap; }
 .entryRow:last-child { border-bottom: 0; }
-.pos { flex: 0 0 auto; min-width: 22px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.pos { flex: 0 0 24px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; text-align: right; }
 .playerName { font-weight: 650; overflow: hidden; text-overflow: ellipsis; }
 .country { flex: 0 0 auto; color: var(--muted); font-size: 11px; letter-spacing: .03em; }
 .rank { flex: 0 0 auto; margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
