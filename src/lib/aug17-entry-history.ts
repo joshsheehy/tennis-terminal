@@ -4,6 +4,7 @@ import {
   type EntryListPlayer,
 } from './aug17-entry-lists';
 import type { PublicEntryTournament } from './spazio-entry-list-parser';
+import { displayName, samePlayer } from './player-name';
 
 export type TrackedEntryState = 'active' | 'withdrawn' | 'promoted-main' | 'removed-unknown';
 export type MovementKind =
@@ -151,8 +152,12 @@ function insertMissing(base: EntryListPlayer[], inserts: Array<{ before: string;
 
 function canonicalPlayer(event: Aug17EntryList, name: string, country: string | null, rank: number | null): EntryListPlayer {
   const candidates = [...event.main, ...event.mainNext, ...event.qualifying, ...(EXTRA_ALT[event.slug] ?? []), ...(EXTRA_Q[event.slug] ?? [])];
-  const found = candidates.find((item) => key(item.name) === key(name));
-  return found ?? player(name, country ?? '', rank);
+  // samePlayer rather than an exact key: the source prints "Gómez, Federico"
+  // where our data holds "Federico Agustin Gomez", and an exact match silently
+  // fails on the middle name — leaving the row with the source's spelling and
+  // no canonical rank or country.
+  const found = candidates.find((item) => samePlayer(item.name, name));
+  return found ?? player(displayName(name), country ?? '', rank);
 }
 
 /**
@@ -224,25 +229,37 @@ function fallbackQ(event: Aug17EntryList): EntryListPlayer[] {
   return Array.from(new Map([...extras, ...event.qualifying].map((item) => [key(item.name), item])).values());
 }
 
-function codeMap(rows: PublicEntryTournament['main']) {
-  return new Map(
-    rows.filter((row) => row.entryCode).map((row) => [key(row.name), row.entryCode as string] as const)
+/**
+ * Canonical rows plus the markers and codes that belong to them.
+ *
+ * The maps are keyed off the CANONICAL name, not the source's. Keying them off
+ * the source spelling while the rows carry the canonical one is how a
+ * withdrawal goes missing: the row renders, the lookup misses, and the player
+ * quietly stays in the draw.
+ */
+function alignRows(event: Aug17EntryList, rows: PublicEntryTournament['main']) {
+  const base = rows.map((row) => canonicalPlayer(event, row.name, row.country, row.entryRank));
+  const markers = new Map(rows.map((row, index) => [key(base[index].name), row.marker] as const));
+  const codes = new Map(
+    rows
+      .map((row, index) => [row, base[index]] as const)
+      .filter(([row]) => row.entryCode)
+      .map(([row, canonical]) => [key(canonical.name), row.entryCode as string] as const)
   );
+  return { base, markers, codes };
 }
 
 function rowsFromPublic(event: Aug17EntryList, block: PublicEntryTournament | undefined) {
   if (!block) return null;
-  const mainMarkers = new Map(block.main.map((row) => [key(row.name), row.marker] as const));
-  const altMarkers = new Map(block.alternates.map((row) => [key(row.name), row.marker] as const));
-  const mainBase = block.main.map((row) => canonicalPlayer(event, row.name, row.country, row.entryRank));
-  const altBase = block.alternates.map((row) => canonicalPlayer(event, row.name, row.country, row.entryRank));
+  const main = alignRows(event, block.main);
+  const alternates = alignRows(event, block.alternates);
   return {
-    mainBase,
-    altBase,
-    mainMarkers,
-    altMarkers,
-    mainCodes: codeMap(block.main),
-    altCodes: codeMap(block.alternates),
+    mainBase: main.base,
+    altBase: alternates.base,
+    mainMarkers: main.markers,
+    altMarkers: alternates.markers,
+    mainCodes: main.codes,
+    altCodes: alternates.codes,
   };
 }
 

@@ -8,6 +8,7 @@ import {
 } from '@/lib/aug17-entry-history';
 import type { PublicEntryRow, PublicEntryTournament } from '@/lib/spazio-entry-list-parser';
 import { entryCodeLabel, rankingDisplay, routeLabel, tallyRoutes } from '@/lib/entry-codes';
+import { displayName, nameBuckets, samePlayer } from '@/lib/player-name';
 import { pool } from '@/lib/db';
 import styles from './page.module.css';
 
@@ -186,12 +187,30 @@ async function loadPublicHistory(): Promise<PublicHistory> {
   }
 }
 
-function buildAppearanceIndex(events: Aug17EntryList[]): Map<string, Appearance[]> {
-  const index = new Map<string, Appearance[]>();
+type IndexedAppearance = Appearance & { name: string };
+
+/**
+ * Every appearance in the week, bucketed by name part.
+ *
+ * Buckets only narrow the candidates; `samePlayer` decides. An exact key would
+ * miss a player the moment two sources spell him differently — "Gómez,
+ * Federico" against "Federico Agustin Gomez" — and the miss is silent, so the
+ * cross-entry simply would not appear.
+ */
+function buildAppearanceIndex(events: Aug17EntryList[]): Map<string, IndexedAppearance[]> {
+  const index = new Map<string, IndexedAppearance[]>();
   const add = (event: Aug17EntryList, players: Aug17EntryList['main'], kind: Appearance['kind']) => {
     players.forEach((player, i) => {
-      const key = keyName(player.name);
-      index.set(key, [...(index.get(key) ?? []), { event: event.name, eventSlug: event.slug, kind, position: i + 1 }]);
+      const appearance: IndexedAppearance = {
+        name: player.name,
+        event: event.name,
+        eventSlug: event.slug,
+        kind,
+        position: i + 1,
+      };
+      for (const bucket of nameBuckets(player.name)) {
+        index.set(bucket, [...(index.get(bucket) ?? []), appearance]);
+      }
     });
   };
   events.forEach((event) => {
@@ -205,10 +224,27 @@ function buildAppearanceIndex(events: Aug17EntryList[]): Map<string, Appearance[
 function selectedCrossEntries(event: Aug17EntryList, events: Aug17EntryList[]) {
   const appearances = buildAppearanceIndex(events);
   const people = new Map<string, { name: string; elsewhere: Appearance[] }>();
-  [...event.main, ...event.mainNext, ...event.qualifying].forEach((player) => {
-    const elsewhere = (appearances.get(keyName(player.name)) ?? []).filter((item) => item.eventSlug !== event.slug);
-    if (elsewhere.length) people.set(keyName(player.name), { name: player.name, elsewhere });
-  });
+
+  for (const player of [...event.main, ...event.mainNext, ...event.qualifying]) {
+    // One player can sit in several buckets and appear in several lists of the
+    // same event, so collect by slug+kind before reporting.
+    const seen = new Set<string>();
+    const elsewhere: Appearance[] = [];
+    for (const bucket of nameBuckets(player.name)) {
+      for (const candidate of appearances.get(bucket) ?? []) {
+        if (candidate.eventSlug === event.slug) continue;
+        if (!samePlayer(candidate.name, player.name)) continue;
+        const seenKey = `${candidate.eventSlug}|${candidate.kind}`;
+        if (seen.has(seenKey)) continue;
+        seen.add(seenKey);
+        elsewhere.push(candidate);
+      }
+    }
+    if (elsewhere.length) {
+      people.set(keyName(player.name), { name: displayName(player.name), elsewhere });
+    }
+  }
+
   return [...people.values()].sort((a, b) => b.elsewhere.length - a.elsewhere.length || a.name.localeCompare(b.name));
 }
 
@@ -363,7 +399,7 @@ function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'ma
             className={[styles.entryRow, departed ? styles.departedRow : null].filter(Boolean).join(' ')}
           >
             <span className={styles.pos}>{position}</span>
-            <span className={styles.playerName}>{row.name}</span>
+            <span className={styles.playerName}>{displayName(row.name)}</span>
             {row.country ? <span className={styles.country}>{row.country}</span> : null}
             {/* Junior and college accelerator numbers come from the ITF junior
                 and ITA collegiate rankings, so the code stands in for them.
