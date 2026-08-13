@@ -1,0 +1,66 @@
+name: Live widget current-data probe
+on:
+  push:
+    paths: ['.github/workflows/live-widget-current-data.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare raw LiveTennis widget responses
+        run: |
+          mkdir -p research/live-widget
+          python3 - <<'PY' > research/live-widget/trace.txt
+          import urllib.request, urllib.error, re, hashlib, time, datetime
+          URLS=[
+            'https://www.livetennis.it/post/443913/challenger-trieste-braunschweig-newport-iasi-winnipeg-3-nottingham-3-la-situazione-aggiornata-md-e-qualificazioni/',
+            'https://www.livetennis.it/post/446117/challenger-sofia-2-augsburg-e-hersonissos-4-entry-list-md-e-qualificazioni/',
+            'https://www.livetennis.it/post/446046/challenger-todi-cancun-barranquilla-sumter-sofia-1-e-hersonissos-3-la-situazione-aggiornata-md-e-qualificazioni/',
+          ]
+          UAS=[
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36',
+            'bingbot/2.0 (+http://www.bing.com/bingbot.htm)',
+            'Googlebot/2.1 (+http://www.google.com/bot.html)',
+          ]
+          def get(u,ua):
+            try:
+              req=urllib.request.Request(u,headers={'User-Agent':ua,'Accept':'text/html,*/*','Cache-Control':'no-cache'})
+              with urllib.request.urlopen(req,timeout=25) as r:return r.status,r.read().decode('utf-8','replace'),dict(r.headers),r.geturl()
+            except Exception as e:return 'ERR','',{},repr(e)
+          print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
+          for url in URLS:
+            for ua in UAS:
+              st,s,h,final=get(url+'?probe='+str(int(time.time())),ua)
+              print('\n===== URL',url,'UA',ua[:12],'STATUS',st,'LEN',len(s),'SHA',hashlib.sha256(s.encode()).hexdigest()[:16],'FINAL',final,'=====')
+              print('DATE',h.get('Date'),'LASTMOD',h.get('Last-Modified'),'CACHE',h.get('Cache-Control'),'AGE',h.get('Age'),'CF',h.get('cf-cache-status'))
+              # Extract each entry-list box: title/start/update + cut/date + list ID from reset class + alternates first/last.
+              boxes=re.findall(r'<div id="entrylist_box">.*?(?=<div id="entrylist_box">|</p>\s*<hr|$)',s,re.S|re.I)
+              print('BOXES',len(boxes))
+              for b in boxes:
+                title=re.search(r'<a class="close"[^>]*>\s*([^<]+)<span>\s*Inizio torneo:\s*([^|<]+)\|\s*Ultimo agg\.:\s*([^<]+)',b,re.I)
+                head=re.search(r'<h2>Main Draw\s*<span>\(cut off:\s*([^\-<]+)-\s*Data entry list:\s*([^\-<]+)-\s*Special Exempts:\s*([^\)<]+)',b,re.I)
+                ids=re.findall(r'reset(?:Alternates)?(\d+)',b)
+                alts=[]
+                am=re.search(r'<h2>Alternates</h2>(.*?)(?:</ul>)',b,re.S|re.I)
+                if am:
+                  for m in re.finditer(r'<li[^>]*>\s*<span>(\d+)\.</span>.*?/>([^<]+?)(?:\s*\(([^)]+)\))?</li>',am.group(1),re.S|re.I):
+                    alts.append((m.group(1),re.sub(r'\s+',' ',m.group(2)).strip(),m.group(3)))
+                if title:
+                  print('BOX',title.group(1).strip(),'START',title.group(2).strip(),'UPDATED',title.group(3).strip(),'HEAD',head.groups() if head else None,'IDS',sorted(set(ids)),'ALTS',alts[:6],'LAST',alts[-3:])
+              # targeted evidence around 12/07/26 and Newport Q
+              for needle in ['12/07/26','Challenger Newport (Q)','Challenger Cancun (Q)','resetAlternates']:
+                pos=s.find(needle)
+                print('NEEDLE',needle,'POS',pos)
+                if pos>=0: print(re.sub(r'\s+',' ',s[max(0,pos-500):pos+3500])[:4500])
+          PY
+      - name: Commit output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/live-widget/trace.txt
+          git commit -m "Save reused LiveTennis widget probe" || exit 0
+          git push
