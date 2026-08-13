@@ -15,17 +15,18 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p research/usta-assets
+          mkdir -p research
           URL='https://www.usta.com/en/home/pro/pro-tennis-events/usta-mens-competitive-pathway.html'
           curl -A 'Mozilla/5.0' -L --fail --max-time 30 "$URL" -o research/usta-competitive-pathway.html
           wc -c research/usta-competitive-pathway.html | tee research/usta-discovery.txt
-          grep -Eio '<script[^>]+src=["'"'][^"'"']+' research/usta-competitive-pathway.html | sed -E 's/.*src=["'"']//g' | sort -u >> research/usta-discovery.txt || true
+          printf '\n=== SCRIPT SOURCES ===\n' >> research/usta-discovery.txt
+          grep -Eo 'src="[^"]+\.js[^" ]*"' research/usta-competitive-pathway.html | sed 's/^src="//;s/"$//' | sort -u >> research/usta-discovery.txt || true
           printf '\n=== KEYWORDS ===\n' >> research/usta-discovery.txt
           grep -Ein 'Bloomfield|Lincoln|Cary|Entry List|Alternates|Lucky Losers|api|graphql|json|calendar|tournament' research/usta-competitive-pathway.html >> research/usta-discovery.txt || true
           printf '\n=== URL-LIKE STRINGS ===\n' >> research/usta-discovery.txt
-          grep -Eo 'https?://[^"'"' <>]+' research/usta-competitive-pathway.html | sort -u >> research/usta-discovery.txt || true
-          printf '\n=== JS ENDPOINT STRINGS ===\n' >> research/usta-discovery.txt
-          grep -Eo '[/A-Za-z0-9_.?&=%:-]{8,}(api|calendar|tournament|event|entry|alternate)[/A-Za-z0-9_.?&=%:-]*' research/usta-competitive-pathway.html | sort -u >> research/usta-discovery.txt || true
+          grep -Eo 'https?://[^"<> ]+' research/usta-competitive-pathway.html | sort -u >> research/usta-discovery.txt || true
+          printf '\n=== ENDPOINT-LIKE STRINGS ===\n' >> research/usta-discovery.txt
+          grep -Eio '/[A-Za-z0-9_./?&=%:-]{4,}(api|calendar|tournament|event|entry|alternate)[A-Za-z0-9_./?&=%:-]*' research/usta-competitive-pathway.html | sort -u >> research/usta-discovery.txt || true
           cat research/usta-discovery.txt
       - name: Commit output
         run: |
