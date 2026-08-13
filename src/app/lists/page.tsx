@@ -16,7 +16,6 @@ import {
 import type { PublicEntryRow, PublicEntryTournament } from '@/lib/spazio-entry-list-parser';
 import { pool } from '@/lib/db';
 import WhereDoIStand from '@/components/WhereDoIStand';
-import { flagFor } from '@/lib/country-flag';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
@@ -229,67 +228,37 @@ function rowClass(row: TrackedEntryRow, section: 'main' | 'alt' | 'q') {
   return departed ? styles.departedRow : undefined;
 }
 
-function statusClass(row: TrackedEntryRow) {
-  if (row.state === 'active') return styles.statusActive;
-  if (row.state === 'promoted-main') return styles.statusIn;
-  if (row.state === 'withdrawn') return styles.statusOut;
-  return styles.statusUnknown;
-}
-
+/**
+ * One row per player, stacked. Three things only: position, name with its
+ * country code, and the ranking the list was drawn on. A player scanning for
+ * their own name does not need a status column — a struck row already says
+ * "gone", and everything unstruck is in.
+ */
 function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'main' | 'alt' | 'q' }) {
-  // The first alternate who has not withdrawn or been promoted is next in
-  // line. Marking it gives the eye somewhere to land, the way the red row does
-  // in the ATP app.
-  const nextInIndex =
-    section === 'alt'
-      ? rows.findIndex((r) => r.state === 'active')
-      : -1;
   return (
-    <div className={styles.tableWrap}>
-      <table className={styles.table}>
-        <thead><tr><th>#</th><th>Player</th><th className={styles.rank}>Rank</th><th>Status</th></tr></thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr
-              key={`${section}-${row.name}-${index}`}
-              className={[rowClass(row, section), index === nextInIndex ? styles.nextInRow : null]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              {/* One position column. The live alternate number is the one a
-                  player acts on, so it wins where it exists; otherwise the
-                  original label stands. Showing both side by side made every
-                  row carry a redundant column and an em dash. */}
-              <td className={styles.pos}>
-                {section === 'alt' && row.effectivePosition
-                  ? row.effectivePosition
-                  : section === 'q'
-                    ? ''
-                    : row.originalLabel}
-              </td>
-              <td className={styles.playerCell}>
-                <span className={styles.playerName}>{row.name}</span>
-                {row.country ? (
-                  <span className={styles.country} title={row.country}>
-                    {flagFor(row.country) ?? row.country}
-                  </span>
-                ) : null}
-                {row.note ? <span className={styles.note}>{row.note}</span> : null}
-                {row.detail ? <span className={styles.rowDetail}>{row.detail}</span> : null}
-              </td>
-              <td className={styles.rank}>{row.rank ?? ''}</td>
-              <td>
-                {row.statusLabel && row.statusLabel !== 'In' ? (
-                  <span className={`${styles.statusBadge} ${statusClass(row)}`}>
-                    {row.statusLabel}
-                  </span>
-                ) : null}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ol className={styles.entryList}>
+      {rows.map((row, index) => {
+        // The live alternate number is the one a player acts on, so it wins
+        // where it exists; otherwise the original label stands.
+        const position =
+          section === 'alt' && row.effectivePosition
+            ? row.effectivePosition
+            : section === 'q'
+              ? ''
+              : row.originalLabel;
+        return (
+          <li
+            key={`${section}-${row.name}-${index}`}
+            className={[styles.entryRow, rowClass(row, section)].filter(Boolean).join(' ')}
+          >
+            <span className={styles.pos}>{position}</span>
+            <span className={styles.playerName}>{row.name}</span>
+            {row.country ? <span className={styles.country}>{row.country}</span> : null}
+            <span className={styles.rank}>{row.rank ?? ''}</span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -370,24 +339,29 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
 
         <div className={styles.legend}>
           <span>Alternate numbers are live — players who left or moved up are already removed.</span>
-          <span>Struck rows stay visible so movement is auditable.</span>
+          <span>Struck-through players have pulled out.</span>
         </div>
 
-        <div className={styles.columns}>
+        {/* Each list runs top to bottom in its own block, one after the other.
+            Side-by-side columns forced both lists to scroll independently and
+            made a long main draw read as a wall rather than a list. */}
+        <div className={styles.lists}>
           <div className={styles.panel}>
-            <div className={styles.panelHead}><h3 className={styles.panelTitle}>Main draw</h3><div className={styles.panelMeta}>Original rows + current promotions</div></div>
+            <div className={styles.panelHead}><h3 className={styles.panelTitle}>Main draw</h3></div>
             <HistoryTable rows={event.mainHistory} section="main" />
-            <div className={styles.sectionTitle}>Main-draw alternates · original order</div>
+          </div>
+
+          <div className={styles.panel}>
+            <div className={styles.panelHead}><h3 className={styles.panelTitle}>Main-draw alternates</h3></div>
             <HistoryTable rows={event.mainAltHistory} section="alt" />
           </div>
 
           <div className={styles.panel}>
-            <div className={styles.panelHead}><h3 className={styles.panelTitle}>Qualifying</h3><div className={styles.panelMeta}>Frozen Aug. 10 acceptance snapshot + verified MD promotions</div></div>
-            <div className={styles.sectionTitle}>Qualifying acceptance</div>
+            <div className={styles.panelHead}><h3 className={styles.panelTitle}>Qualifying</h3></div>
             <HistoryTable rows={event.qualifyingHistory} section="q" />
             <div className={styles.qAltMissing}>
               <strong>Qualifying alternates · awaiting verified ordered list</strong>
-              <span>No ranking-based reconstruction. Once a true Q-alt queue is found, the same Orig/Live/history model will populate here automatically.</span>
+              <span>No ranking-based reconstruction. Once a true Q-alt queue is found, the same model will populate here automatically.</span>
             </div>
           </div>
         </div>

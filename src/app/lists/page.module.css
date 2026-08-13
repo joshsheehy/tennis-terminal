@@ -15,32 +15,35 @@
 .sourceLinks a, .movementTable a { color: var(--accent); }
 .legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 9px; color: var(--muted); font-size: 12px; }
 .legend b { color: var(--foreground); }
-.columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+/* One list under the next, full width. */
+.lists { display: grid; gap: 14px; }
 .panel { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--card); overflow: hidden; }
 .panelHead { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
 .panelTitle { margin: 0; font-size: 18px; }
-.panelMeta { margin-top: 3px; color: var(--muted); font-size: 11px; }
-.sectionTitle { padding: 11px 14px 7px; font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-top: 1px solid var(--border); }
 .tableWrap { width: 100%; overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .table th { text-align: left; padding: 8px 9px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .table td { padding: 9px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .table tbody tr:last-child td { border-bottom: 0; }
-.pos { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 700; }
-.livePos { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 750; color: var(--accent); }
-.playerCell { min-width: 150px; }
-.playerName { font-weight: 680; }
-.note { display: inline-block; margin-left: 5px; padding: 1px 5px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 9px; text-decoration: none !important; }
-.rowDetail { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.35; text-decoration: none !important; }
-.rank { text-align: right !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.country { white-space: nowrap; color: var(--muted); }
-.departedRow { background: color-mix(in srgb, var(--card) 88%, var(--border)); }
-.departedRow .playerName, .departedRow .rank, .departedRow .pos { text-decoration: line-through; text-decoration-thickness: 1.5px; opacity: .64; }
-.statusBadge { display: inline-flex; align-items: center; white-space: nowrap; padding: 3px 6px; border-radius: 999px; border: 1px solid var(--border); font-size: 9px; font-weight: 800; letter-spacing: .03em; }
-.statusActive { color: var(--muted); }
-.statusIn { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
-.statusOut { color: #c93e3e; border-color: color-mix(in srgb, #c93e3e 55%, var(--border)); }
-.statusUnknown { color: #a36a15; border-color: color-mix(in srgb, #a36a15 55%, var(--border)); }
+
+/* Position · name · country code · rank. The rank pins to the right edge so
+   the column of numbers stays readable down the page. */
+.entryList { list-style: none; margin: 0; padding: 0; }
+.entryRow { display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.entryRow:last-child { border-bottom: 0; }
+.pos { flex: 0 0 30px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.playerName { font-weight: 650; }
+.country { color: var(--muted); font-size: 11px; letter-spacing: .03em; }
+.rank { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* Withdrawn: a white line straight through the row, nothing else. */
+.departedRow { color: #fff; }
+.departedRow .pos, .departedRow .country, .departedRow .rank { color: #fff; }
+.departedRow .pos, .departedRow .playerName, .departedRow .country, .departedRow .rank {
+  text-decoration: line-through;
+  text-decoration-color: #fff;
+  text-decoration-thickness: 1.5px;
+}
 .qAltMissing { margin: 10px 14px 14px; padding: 12px; border: 1px dashed var(--border); border-radius: 9px; display: grid; gap: 5px; font-size: 12px; }
 .qAltMissing span { color: var(--muted); line-height: 1.45; }
 .movementPanel { margin-top: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); overflow: hidden; }
@@ -56,9 +59,9 @@
 .crossWhere { color: var(--muted); text-align: right; }
 .foot { margin: 16px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
+
 @media (max-width: 900px) {
   .eventGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .columns { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {
@@ -71,12 +74,5 @@
   .table th { font-size: 9px; }
   .crossItem { display: grid; gap: 3px; }
   .crossWhere { text-align: left; }
+  .entryRow { padding: 8px 10px; font-size: 12px; }
 }
-
-/* The live cut line: first alternate still standing. Colour plus weight, so it
-   still reads if colour is lost. */
-.nextInRow td { color: #ff6b6b; font-weight: 700; }
-.nextInRow .country { filter: none; }
-
-/* Flags carry the nation now, so the cell only needs to hold the glyph. */
-.playerCell .country { margin-left: 6px; font-size: 1.05em; letter-spacing: 0; }
