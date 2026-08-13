@@ -114,3 +114,40 @@ export function codeBreakdown(codes: Array<string | null | undefined>): Array<{ 
     .filter((code) => counts.has(code))
     .map((code) => ({ code, count: counts.get(code) as number }));
 }
+
+/**
+ * How a draw was filled, route by route.
+ *
+ * "DA" is the route with no code on the list: a player taken straight off the
+ * ranking cut. It is a route like any other here, so a draw's parts always sum
+ * to its size and the reader can see how much of it the ranking list actually
+ * decided.
+ *
+ * Departed players are tallied separately rather than dropped, so the stored
+ * history keeps a record of what left as well as what remains.
+ */
+export const DIRECT_ACCEPTANCE = 'DA';
+
+export type RouteTally = { route: string; live: number; departed: number };
+
+const ROUTE_ORDER: string[] = [DIRECT_ACCEPTANCE, 'WC', 'PR', 'SE', 'NG', 'JR', 'CO', 'Q', 'ALT'];
+
+export function routeLabel(route: string): string {
+  return route === DIRECT_ACCEPTANCE ? 'Direct acceptance — taken off the ranking cut' : entryCodeLabel(route) ?? route;
+}
+
+export function tallyRoutes(
+  entries: Array<{ code: string | null | undefined; departed: boolean }>
+): RouteTally[] {
+  const tallies = new Map<string, RouteTally>();
+  for (const entry of entries) {
+    const route = normalizeEntryCode(entry.code) ?? DIRECT_ACCEPTANCE;
+    const tally = tallies.get(route) ?? { route, live: 0, departed: 0 };
+    if (entry.departed) tally.departed += 1;
+    else tally.live += 1;
+    tallies.set(route, tally);
+  }
+  return [...tallies.values()].sort(
+    (a, b) => ROUTE_ORDER.indexOf(a.route) - ROUTE_ORDER.indexOf(b.route)
+  );
+}

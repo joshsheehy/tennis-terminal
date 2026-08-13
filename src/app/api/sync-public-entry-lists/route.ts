@@ -6,6 +6,7 @@ import {
   type PublicEntryRow,
   type PublicEntryTournament,
 } from '@/lib/spazio-entry-list-parser';
+import { tallyRoutes, type RouteTally } from '@/lib/entry-codes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -92,6 +93,29 @@ function flatten(snapshot: PublicEntryTournament[]) {
     });
   }
   return rows;
+}
+
+/**
+ * A player has left a list when the source marks them gone. What counts as gone
+ * differs by section: on the main draw only OUT and a struck row remove a
+ * player, while on the alternate queue an IN also removes them — they moved up
+ * and hold a main-draw place instead.
+ */
+function departedFrom(section: 'main' | 'main_alt', marker: PublicEntryRow['marker']) {
+  if (section === 'main') return marker === 'out' || marker === 'struck';
+  return marker !== 'active';
+}
+
+function compositionFor(tournament: PublicEntryTournament): Array<{ draw: string; tally: RouteTally }> {
+  const sections: Array<[('main' | 'main_alt'), PublicEntryRow[]]> = [
+    ['main', tournament.main],
+    ['main_alt', tournament.alternates],
+  ];
+  return sections.flatMap(([draw, rows]) =>
+    tallyRoutes(
+      rows.map((row) => ({ code: row.entryCode, departed: departedFrom(draw, row.marker) }))
+    ).map((tally) => ({ draw, tally }))
+  );
 }
 
 async function insertMovement(args: {
@@ -259,6 +283,24 @@ export async function GET(request: NextRequest) {
           [WEEK_START, SOURCE_KEY, DISPLAY_URL, hash, rawPayload, JSON.stringify(parsed), json.modified ?? null]
         );
       }
+      // The composition is recomputed on every check, not only when something
+      // changed, so a row exists for every draw from the first successful sync.
+      for (const tournament of parsed) {
+        for (const { draw, tally } of compositionFor(tournament)) {
+          await client.query(
+            `insert into entry_list_draw_composition (
+               week_start, tournament_slug, draw, entry_route,
+               live_count, departed_count, source_key, observed_at
+             ) values ($1, $2, $3, $4, $5, $6, $7, now())
+             on conflict (week_start, tournament_slug, draw, entry_route) do update
+             set live_count = excluded.live_count,
+                 departed_count = excluded.departed_count,
+                 observed_at = now()`,
+            [WEEK_START, tournament.slug, draw, tally.route, tally.live, tally.departed, SOURCE_KEY]
+          );
+        }
+      }
+
       await client.query(
         `insert into entry_list_source_status (
            week_start, source_key, source_url, last_checked_at, last_changed_at,
@@ -287,6 +329,10 @@ export async function GET(request: NextRequest) {
         slug: event.slug,
         main: event.main.length,
         alternates: event.alternates.length,
+        composition: compositionFor(event)
+          .filter((item) => item.draw === 'main')
+          .map((item) => `${item.tally.live} ${item.tally.route}`)
+          .join(' · '),
       })),
       movementsAdded: insertedMovements,
     });

@@ -5,6 +5,8 @@ import {
   entryCodeLabel,
   numberIsAtpRanking,
   rankingDisplay,
+  routeLabel,
+  tallyRoutes,
 } from './entry-codes';
 
 describe('numberIsAtpRanking', () => {
@@ -80,6 +82,48 @@ describe('codeBreakdown', () => {
 
   it('is empty when every acceptance came off the ranking list', () => {
     expect(codeBreakdown([null, null])).toEqual([]);
+  });
+});
+
+describe('tallyRoutes', () => {
+  it('counts uncoded entries as direct acceptances, so the parts sum to the draw', () => {
+    const tallies = tallyRoutes([
+      { code: null, departed: false },
+      { code: null, departed: false },
+      { code: 'JR', departed: false },
+    ]);
+    expect(tallies).toEqual([
+      { route: 'DA', live: 2, departed: 0 },
+      { route: 'JR', live: 1, departed: 0 },
+    ]);
+    expect(tallies.reduce((sum, t) => sum + t.live, 0)).toBe(3);
+  });
+
+  it('keeps departures on their own route rather than dropping them', () => {
+    expect(tallyRoutes([
+      { code: null, departed: true },
+      { code: null, departed: false },
+    ])).toEqual([{ route: 'DA', live: 1, departed: 1 }]);
+  });
+
+  it('orders direct acceptances first, then the special routes', () => {
+    const order = tallyRoutes([
+      { code: 'JR', departed: false },
+      { code: 'WC', departed: false },
+      { code: null, departed: false },
+    ]).map((t) => t.route);
+    expect(order).toEqual(['DA', 'WC', 'JR']);
+  });
+
+  it('is empty for an empty draw', () => {
+    expect(tallyRoutes([])).toEqual([]);
+  });
+});
+
+describe('routeLabel', () => {
+  it('names the direct-acceptance route, which has no code on the list', () => {
+    expect(routeLabel('DA')).toMatch(/ranking cut/);
+    expect(routeLabel('NG')).toBe('Next Gen Accelerator');
   });
 });
 

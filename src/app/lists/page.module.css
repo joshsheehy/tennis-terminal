@@ -11,14 +11,18 @@
 .eventHeader { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 12px; }
 .eventTitle { margin: 0; font-size: 28px; }
 .eventSub { margin-top: 4px; color: var(--muted); font-size: 13px; }
-.sourceLinks { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; font-size: 12px; }
-.sourceLinks a { color: var(--accent); }
 /* One list under the next, full width. */
 .lists { display: grid; gap: 14px; }
 .panel { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--card); overflow: hidden; }
 .panelHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
 .panelTitle { margin: 0; font-size: 18px; }
 .panelCount { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* How the draw was filled. Sits under the heading, above the names, so the
+   parts read as a breakdown of the total beside it. */
+.composition { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.compositionItem { border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.compositionItem b { color: var(--text-strong); font-variant-numeric: tabular-nums; }
 
 /* One player per line. nowrap everywhere, so a long name pushes the rank right
    rather than folding the row onto a second line. */
@@ -55,7 +59,6 @@
   .eventGrid { grid-template-columns: 1fr 1fr; gap: 7px; }
   .eventCard { padding: 10px; }
   .eventHeader { display: block; }
-  .sourceLinks { justify-content: flex-start; margin-top: 10px; }
   .crossItem { display: grid; gap: 3px; }
   .crossWhere { text-align: left; }
   .entryRow { padding: 8px 10px; font-size: 12px; }

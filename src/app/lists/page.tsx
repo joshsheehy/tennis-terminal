@@ -1,17 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  AUG17_MAIN_SOURCE,
-  AUG17_QUAL_SOURCE,
-  type Aug17EntryList,
-} from '@/lib/aug17-entry-lists';
+import type { Aug17EntryList } from '@/lib/aug17-entry-lists';
 import {
   activeEventForPosition,
   getTrackedAug17Events,
   type TrackedEntryRow,
 } from '@/lib/aug17-entry-history';
 import type { PublicEntryRow, PublicEntryTournament } from '@/lib/spazio-entry-list-parser';
-import { codeBreakdown, entryCodeLabel, rankingDisplay } from '@/lib/entry-codes';
+import { entryCodeLabel, rankingDisplay, routeLabel, tallyRoutes } from '@/lib/entry-codes';
 import { pool } from '@/lib/db';
 import WhereDoIStand from '@/components/WhereDoIStand';
 import styles from './page.module.css';
@@ -23,8 +19,6 @@ export const metadata: Metadata = {
 };
 
 const WEEK_START = '2026-08-17';
-const SPAZIO_URL =
-  'https://www.spaziotennis.com/trn/ent/entry-list-atp-challenger-2026-week-33-cancun-quebec-city-kingston-praga-roehampton-sion/139834';
 
 type Appearance = {
   event: string;
@@ -190,18 +184,29 @@ function liveCount(rows: TrackedEntryRow[], section: Section) {
 }
 
 /**
- * The size of a list plus what filled it beyond the ranking cut.
+ * How a list was filled, route by route.
  *
  * There is no fixed acceptance number to check against: the accelerator
  * pathways differ by Challenger level — Next Gen runs across the levels, while
  * the junior and college pathways exist only at 50 and 75 — and wildcards and
- * protected rankings vary event by event. So the composition is reported from
- * the list itself rather than asserted from a constant.
+ * protected rankings vary event by event. So the composition is read off the
+ * list itself rather than asserted from a constant, and it is shown in full so
+ * the parts visibly sum to the total.
  */
-function listSummary(rows: TrackedEntryRow[], section: Section, noun: string) {
-  const live = rows.filter((row) => !hasDeparted(row, section));
-  const breakdown = codeBreakdown(live.map((row) => row.entryCode));
-  return [`${live.length} ${noun}`, ...breakdown.map((item) => `${item.count} ${item.code}`)].join(' · ');
+function DrawComposition({ rows, section }: { rows: TrackedEntryRow[]; section: Section }) {
+  const tallies = tallyRoutes(
+    rows.map((row) => ({ code: row.entryCode, departed: hasDeparted(row, section) }))
+  ).filter((tally) => tally.live > 0);
+  if (tallies.length === 0) return null;
+  return (
+    <ul className={styles.composition}>
+      {tallies.map((tally) => (
+        <li key={tally.route} className={styles.compositionItem} title={routeLabel(tally.route)}>
+          <b>{tally.live}</b> {tally.route}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /**
@@ -281,12 +286,7 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
 
       <section>
         <div className={styles.eventHeader}>
-          <div><h2 className={styles.eventTitle}>{event.name}</h2><div className={styles.eventSub}>{event.level} · {event.surface} · ATP tournament code {event.atpCode}</div></div>
-          <div className={styles.sourceLinks}>
-            <a href={SPAZIO_URL} target="_blank" rel="noreferrer">Source ↗</a>
-            <a href={AUG17_MAIN_SOURCE.url} target="_blank" rel="noreferrer">MD cross-check ↗</a>
-            <a href={AUG17_QUAL_SOURCE.url} target="_blank" rel="noreferrer">Q snapshot ↗</a>
-          </div>
+          <div><h2 className={styles.eventTitle}>{event.name}</h2><div className={styles.eventSub}>{event.level} · {event.surface}</div></div>
         </div>
 
         {/* Each list runs top to bottom in its own block, one after the other.
@@ -296,16 +296,18 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>Main draw</h3>
-              <span className={styles.panelCount}>{listSummary(event.mainHistory, 'main', 'accepted')}</span>
+              <span className={styles.panelCount}>{liveCount(event.mainHistory, 'main')} accepted</span>
             </div>
+            <DrawComposition rows={event.mainHistory} section="main" />
             <HistoryTable rows={event.mainHistory} section="main" />
           </div>
 
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>Main-draw alternates</h3>
-              <span className={styles.panelCount}>{listSummary(event.mainAltHistory, 'alt', 'waiting')}</span>
+              <span className={styles.panelCount}>{liveCount(event.mainAltHistory, 'alt')} waiting</span>
             </div>
+            <DrawComposition rows={event.mainAltHistory} section="alt" />
             <HistoryTable rows={event.mainAltHistory} section="alt" />
           </div>
 
@@ -317,8 +319,9 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
                   every event; the qualifying list is a frozen Aug 10 capture
                   whose depth varies by event, so claiming it is the full
                   acceptance would be asserting more than the source shows. */}
-              <span className={styles.panelCount}>{listSummary(event.qualifyingHistory, 'q', 'on the Aug 10 list')}</span>
+              <span className={styles.panelCount}>{liveCount(event.qualifyingHistory, 'q')} on the Aug 10 list</span>
             </div>
+            <DrawComposition rows={event.qualifyingHistory} section="q" />
             <HistoryTable rows={event.qualifyingHistory} section="q" />
             <div className={styles.qAltMissing}>
               <strong>Qualifying alternates · awaiting verified ordered list</strong>

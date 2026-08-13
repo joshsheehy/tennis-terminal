@@ -101,6 +101,21 @@ export async function GET() {
       created_at timestamptz not null default now()
     );
 
+    -- How each draw was filled, one row per entry route. A row per route rather
+    -- than a column per route: the accelerator programmes change between
+    -- seasons, and a new code should be a new row, not a migration.
+    create table if not exists entry_list_draw_composition (
+      week_start date not null,
+      tournament_slug text not null,
+      draw text not null check (draw in ('main', 'main_alt', 'qualifying')),
+      entry_route text not null,
+      live_count int not null default 0,
+      departed_count int not null default 0,
+      source_key text not null,
+      observed_at timestamptz not null default now(),
+      primary key (week_start, tournament_slug, draw, entry_route)
+    );
+
     create index if not exists acceptance_list_sources_due_idx
       on acceptance_list_sources(active, next_check_at)
       where active = true;
@@ -116,6 +131,9 @@ export async function GET() {
 
     create index if not exists entry_list_movements_week_event_idx
       on entry_list_movements(week_start, tournament_slug, observed_at desc);
+
+    create index if not exists entry_list_draw_composition_week_idx
+      on entry_list_draw_composition(week_start, tournament_slug);
   `);
 
   // Preserve old proof snapshots, but make sure legacy experimental acceptance
