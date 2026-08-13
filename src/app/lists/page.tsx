@@ -283,19 +283,17 @@ function DrawComposition({
     { label: 'DA', value: named, title: 'Named on the acceptance list' },
   ];
 
-  const accountedFor =
+  // Where the shortfall between the draw and the named players is exactly the
+  // special-exempt reserve, it IS the reserve, and naming it is what makes the
+  // parts add up. Any other shortfall gets no chip at all — a number with no
+  // established route behind it explains nothing.
+  const shortfall =
     plan?.size != null ? plan.size - named - (plan.wc ?? 0) - (plan.q ?? 0) : null;
-  if (accountedFor != null && accountedFor > 0) {
-    // Where the shortfall is exactly the special-exempt reserve, it IS the
-    // reserve. Otherwise say only that the places are open, rather than
-    // labelling them with a route that has not been established.
-    const isSpecialExempt = plan?.seHeld != null && accountedFor === plan.seHeld;
+  if (shortfall != null && shortfall > 0 && plan?.seHeld != null && shortfall === plan.seHeld) {
     parts.push({
-      label: isSpecialExempt ? 'SE' : 'open',
-      value: accountedFor,
-      title: isSpecialExempt
-        ? 'Places held for special exempts — players still alive in the previous week'
-        : 'Places in the draw that the list has not named yet',
+      label: 'SE',
+      value: shortfall,
+      title: 'Places held for special exempts — players still alive in the previous week',
     });
   }
 
