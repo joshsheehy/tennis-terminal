@@ -43,3 +43,4 @@ jobs:
 
           call_api '/api/setup-entry-lists'
           call_api '/api/sync-public-entry-lists?week=2026-08-17'
+          call_api '/api/sync-protennis-qualifying?week=2026-08-17'
