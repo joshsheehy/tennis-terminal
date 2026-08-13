@@ -11,27 +11,31 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Capture public USTA page and discover data endpoints
+      - name: Probe USTA public calendar content fragment
         shell: bash
         run: |
-          set -euxo pipefail
-          mkdir -p research
-          URL='https://www.usta.com/en/home/pro/pro-tennis-events/usta-mens-competitive-pathway.html'
-          curl -A 'Mozilla/5.0' -L --fail --max-time 30 "$URL" -o research/usta-competitive-pathway.html
-          wc -c research/usta-competitive-pathway.html | tee research/usta-discovery.txt
-          printf '\n=== SCRIPT SOURCES ===\n' >> research/usta-discovery.txt
-          grep -Eo 'src="[^"]+\.js[^" ]*"' research/usta-competitive-pathway.html | sed 's/^src="//;s/"$//' | sort -u >> research/usta-discovery.txt || true
-          printf '\n=== KEYWORDS ===\n' >> research/usta-discovery.txt
-          grep -Ein 'Bloomfield|Lincoln|Cary|Entry List|Alternates|Lucky Losers|api|graphql|json|calendar|tournament' research/usta-competitive-pathway.html >> research/usta-discovery.txt || true
-          printf '\n=== URL-LIKE STRINGS ===\n' >> research/usta-discovery.txt
-          grep -Eo 'https?://[^"<> ]+' research/usta-competitive-pathway.html | sort -u >> research/usta-discovery.txt || true
-          printf '\n=== ENDPOINT-LIKE STRINGS ===\n' >> research/usta-discovery.txt
-          grep -Eio '/[A-Za-z0-9_./?&=%:-]{4,}(api|calendar|tournament|event|entry|alternate)[A-Za-z0-9_./?&=%:-]*' research/usta-competitive-pathway.html | sort -u >> research/usta-discovery.txt || true
-          cat research/usta-discovery.txt
+          set -u
+          mkdir -p research/usta-fragment
+          BASE='https://www.usta.com'
+          JS="$BASE/etc.clientlibs/usta/clientlibs/clientlib-calendar.min.3ec344e76e289e9beee95931aa80d727.js"
+          curl -A 'Mozilla/5.0' -LsS --max-time 30 "$JS" -o research/usta-fragment/calendar.js
+          echo '=== CALENDAR JS SIZE ===' > research/usta-fragment/trace.txt
+          wc -c research/usta-fragment/calendar.js >> research/usta-fragment/trace.txt
+          echo '=== CALENDAR JS HINTS ===' >> research/usta-fragment/trace.txt
+          grep -Eo '.{0,180}(contentFragmentsPath|content-fragments|model\.json|infinity\.json|graphql|\.json|fetch\(|axios|XMLHttpRequest).{0,500}' research/usta-fragment/calendar.js >> research/usta-fragment/trace.txt || true
+          PATH_ENC='/content/dam/usta/content-fragments/events/national/2026-usta-men%27s-competitive-pathway-calendar'
+          for SUF in '' '.json' '.model.json' '.infinity.json' '.1.json' '.2.json' '.content.json'; do
+            OUT="research/usta-fragment/fragment$(echo "$SUF" | tr '/.' '__')"
+            [ -n "$SUF" ] || OUT='research/usta-fragment/fragment-root'
+            CODE=$(curl -A 'Mozilla/5.0' -LsS --max-time 30 -o "$OUT" -w '%{http_code}' "$BASE$PATH_ENC$SUF" || true)
+            echo "FRAGMENT $SUF HTTP=$CODE BYTES=$(wc -c < "$OUT" 2>/dev/null || echo 0)" >> research/usta-fragment/trace.txt
+            grep -Eio '.{0,400}(Bloomfield Hills|Lincoln|Cary|Entry List|Alternates|Lucky Losers|entryList|alternate|href|url).{0,1200}' "$OUT" >> research/usta-fragment/trace.txt 2>/dev/null || true
+          done
+          cat research/usta-fragment/trace.txt
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/usta-competitive-pathway.html research/usta-discovery.txt
-          git commit -m "Save raw USTA pathway source" || exit 0
+          git add research/usta-fragment
+          git commit -m "Save USTA calendar fragment trace" || exit 0
           git push
