@@ -38,12 +38,7 @@ function fingerprint(parts: Array<string | number | null>): string {
   return createHash('sha256').update(parts.map((part) => String(part ?? '')).join('|')).digest('hex');
 }
 
-function rowMovement(
-  tournamentSlug: string,
-  row: PublicEntryRow,
-  section: 'main' | 'main_alt',
-  position: number
-) {
+function rowMovement(row: PublicEntryRow, section: 'main' | 'main_alt') {
   if (row.marker === 'active') return null;
   if (section === 'main_alt' && row.marker === 'in') {
     return {
@@ -218,7 +213,7 @@ export async function GET(request: NextRequest) {
 
     let insertedMovements = 0;
     for (const item of currentRows.values()) {
-      const movement = rowMovement(item.tournamentSlug, item.row, item.section, item.position);
+      const movement = rowMovement(item.row, item.section);
       if (!movement) continue;
       if (
         await insertMovement({

@@ -51,4 +51,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add research/brownsburg-reconstruct
           git commit -m "Save Brownsburg Q reconstruction comparison" || exit 0
-          git push
+          # Another push can land between checkout and here. Rebase and retry
+          # rather than failing the run over a race.
+          for attempt in 1 2 3; do
+            git push && exit 0
+            git pull --rebase origin "${GITHUB_REF_NAME}" || exit 1
+          done
+          exit 1

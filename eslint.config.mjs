@@ -20,6 +20,11 @@ const eslintConfig = [
       'coverage/**',
       'test-results/**',
       'playwright-report/**',
+      // Captured evidence from other sites — HTML, JSON and, in the USTA case,
+      // a minified webpack bundle with moment.js inside it. Linting a file we
+      // did not write and will never edit produced 658 warnings and 6 errors,
+      // which failed CI on every push.
+      'research/**',
     ],
   },
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
