@@ -41,4 +41,37 @@ describe('parseSpazioChallengerWeekHtml', () => {
     expect(event.main[0].marker).toBe('out');
     expect(event.alternates[0].marker).toBe('in');
   });
+
+  // The live page writes `<br data-start="1751" data-end="1754">`. The earlier
+  // `<br\s*\/?>` pattern only matched the bare tag, so every player in a
+  // paragraph ran together and the draw came back as a single row whose name
+  // was the whole list.
+  it('splits on br tags that carry attributes', () => {
+    const html = `
+      <h3>ENTRY LIST ATP CHALLENGER 75 KINGSTON</h3>
+      <p><span>Royer, Valentin FRA 78</span><br data-start="1751" data-end="1754"><span>Heide, Gustavo BRA 134</span><br data-start="1776" data-end="1779"><span>Martínez, Pedro ESP 148</span></p>`;
+    const [event] = parseSpazioChallengerWeekHtml(html);
+    expect(event.main.map((row) => row.name)).toEqual([
+      'Royer, Valentin',
+      'Heide, Gustavo',
+      'Martínez, Pedro',
+    ]);
+  });
+
+  it('refuses a run-together line rather than reading it as one player', () => {
+    const html = `
+      <h3>ENTRY LIST ATP CHALLENGER 75 KINGSTON</h3>
+      <p>Royer, Valentin FRA 78 Heide, Gustavo BRA 134 Martínez, Pedro ESP 148 Bueno, Gonzalo PER 160</p>`;
+    const [event] = parseSpazioChallengerWeekHtml(html) ?? [];
+    expect(event).toBeUndefined();
+  });
+
+  it('keeps the entry code, which marks a rank that is not an ATP ranking', () => {
+    const html = `
+      <h3>ENTRY LIST ATP CHALLENGER 75 KINGSTON</h3>
+      <p>Miguel, Guto BRA 11 (JR)<br data-start="1" data-end="2">Royer, Valentin FRA 78</p>`;
+    const [event] = parseSpazioChallengerWeekHtml(html);
+    expect(event.main[0].entryCode).toBe('JR');
+    expect(event.main[1].entryCode).toBeNull();
+  });
 });

@@ -16,8 +16,9 @@
 /* One list under the next, full width. */
 .lists { display: grid; gap: 14px; }
 .panel { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--card); overflow: hidden; }
-.panelHead { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
+.panelHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
 .panelTitle { margin: 0; font-size: 18px; }
+.panelCount { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* One player per line. nowrap everywhere, so a long name pushes the rank right
    rather than folding the row onto a second line. */

@@ -24,6 +24,13 @@ export type TrackedEntryRow = EntryListPlayer & {
   statusLabel: string;
   detail?: string;
   sourceLabel?: string;
+  /**
+   * Entry code from the published list — WC, JR, SE, PR. It matters for display
+   * because a wildcard's listed number is not an ATP ranking: the source gives
+   * Kingston's junior wildcards ranks 11 and 19, which would read as top-20
+   * players sitting in a Challenger 75.
+   */
+  entryCode?: string;
 };
 
 export type EntryMovementLedgerRow = {
@@ -148,18 +155,35 @@ function canonicalPlayer(event: Aug17EntryList, name: string, country: string | 
   return found ?? player(name, country ?? '', rank);
 }
 
+/**
+ * The live source wins over a seeded observation.
+ *
+ * STATUS holds hand-read PlayerZone/press observations from Aug 11-12, which
+ * exist to fill gaps when the public list has not been parsed. They go stale:
+ * Kingston's seed had Oliver Crawford promoted into the main draw, while the
+ * source now marks him OUT. Reading the seed first kept him in the draw AND put
+ * his replacement there too, so Kingston counted 22 acceptances where every
+ * other event counted 21. The seed only speaks where the source is silent.
+ */
 function stateFor(slug: string, name: string, sourceMarker?: 'active' | 'in' | 'out' | 'struck') {
-  const seeded = STATUS[slug]?.[key(name)];
-  if (seeded) return seeded;
   if (sourceMarker === 'in') return { state: 'promoted-main' as const, label: 'IN MD', detail: 'Promoted into main draw', source: 'SpazioTennis' };
   if (sourceMarker === 'out') return { state: 'withdrawn' as const, label: 'OUT', detail: 'Source explicitly marks OUT', source: 'SpazioTennis' };
   if (sourceMarker === 'struck') return { state: 'removed-unknown' as const, label: 'OUT', detail: 'Source strikes row; reason not verified', source: 'SpazioTennis' };
+  const seeded = STATUS[slug]?.[key(name)];
+  if (seeded) return seeded;
   return { state: 'active' as const, label: 'ACTIVE' };
 }
 
-function trackedRows(slug: string, rows: EntryListPlayer[], prefix: 'MD' | 'ALT' | 'Q', markers?: Map<string, 'active' | 'in' | 'out' | 'struck'>): TrackedEntryRow[] {
+function trackedRows(
+  slug: string,
+  rows: EntryListPlayer[],
+  prefix: 'MD' | 'ALT' | 'Q',
+  markers?: Map<string, 'active' | 'in' | 'out' | 'struck'>,
+  codes?: Map<string, string>
+): TrackedEntryRow[] {
   const preliminary = rows.map((item, index) => {
     const status = stateFor(slug, item.name, markers?.get(key(item.name)));
+    const code = codes?.get(key(item.name));
     return {
       ...item,
       originalPosition: index + 1,
@@ -169,6 +193,7 @@ function trackedRows(slug: string, rows: EntryListPlayer[], prefix: 'MD' | 'ALT'
       statusLabel: status.label,
       ...(status.detail ? { detail: status.detail } : {}),
       ...(status.source ? { sourceLabel: status.source } : {}),
+      ...(code ? { entryCode: code } : {}),
     } satisfies TrackedEntryRow;
   });
   if (prefix !== 'ALT') return preliminary;
@@ -199,13 +224,26 @@ function fallbackQ(event: Aug17EntryList): EntryListPlayer[] {
   return Array.from(new Map([...extras, ...event.qualifying].map((item) => [key(item.name), item])).values());
 }
 
+function codeMap(rows: PublicEntryTournament['main']) {
+  return new Map(
+    rows.filter((row) => row.entryCode).map((row) => [key(row.name), row.entryCode as string] as const)
+  );
+}
+
 function rowsFromPublic(event: Aug17EntryList, block: PublicEntryTournament | undefined) {
   if (!block) return null;
   const mainMarkers = new Map(block.main.map((row) => [key(row.name), row.marker] as const));
   const altMarkers = new Map(block.alternates.map((row) => [key(row.name), row.marker] as const));
   const mainBase = block.main.map((row) => canonicalPlayer(event, row.name, row.country, row.entryRank));
   const altBase = block.alternates.map((row) => canonicalPlayer(event, row.name, row.country, row.entryRank));
-  return { mainBase, altBase, mainMarkers, altMarkers };
+  return {
+    mainBase,
+    altBase,
+    mainMarkers,
+    altMarkers,
+    mainCodes: codeMap(block.main),
+    altCodes: codeMap(block.alternates),
+  };
 }
 
 export const AUG17_SEEDED_MOVEMENTS: EntryMovementLedgerRow[] = [
@@ -229,20 +267,34 @@ export function getTrackedAug17Events(publicTournaments: PublicEntryTournament[]
     const publicRows = rowsFromPublic(event, publicBlock);
     const mainBase = publicRows?.mainBase ?? fallbackMain(event);
     const altBase = publicRows?.altBase.length ? publicRows.altBase : fallbackAlt(event);
-    const mainHistory = trackedRows(event.slug, mainBase, 'MD', publicRows?.mainMarkers);
-    const mainAltHistory = trackedRows(event.slug, altBase, 'ALT', publicRows?.altMarkers);
+    const mainHistory = trackedRows(event.slug, mainBase, 'MD', publicRows?.mainMarkers, publicRows?.mainCodes);
+    const mainAltHistory = trackedRows(event.slug, altBase, 'ALT', publicRows?.altMarkers, publicRows?.altCodes);
 
+    // A player accepted into qualifying who then leaves the event — promoted to
+    // the main draw or withdrawn outright — must not still count as a live
+    // qualifying acceptance. Whatever the alternate list says about them is the
+    // more recent fact.
     const qBase = fallbackQ(event);
     const qualifyingHistory = trackedRows(event.slug, qBase, 'Q').map((row) => {
       const matchingAlt = mainAltHistory.find((alt) => key(alt.name) === key(row.name));
-      if (matchingAlt?.state === 'promoted-main') {
-        return { ...row, state: 'promoted-main' as const, statusLabel: 'IN MD', detail: 'Moved from Q into the main draw', sourceLabel: matchingAlt.sourceLabel };
-      }
-      return row;
+      if (!matchingAlt || matchingAlt.state === 'active') return row;
+      return {
+        ...row,
+        state: matchingAlt.state,
+        statusLabel: matchingAlt.statusLabel,
+        detail:
+          matchingAlt.state === 'promoted-main'
+            ? 'Moved from Q into the main draw'
+            : 'Left the event; no longer a qualifying acceptance',
+        sourceLabel: matchingAlt.sourceLabel,
+      };
     });
 
+    // Promoted alternates join the main draw, but only once — a player the
+    // source already lists in the main block is not added a second time.
+    const inMain = new Set(mainHistory.map((row) => key(row.name)));
     const promotedMain = mainAltHistory
-      .filter((row) => row.state === 'promoted-main')
+      .filter((row) => row.state === 'promoted-main' && !inMain.has(key(row.name)))
       .map((row) => ({ ...row, effectivePosition: null, originalLabel: `ALT ${row.originalPosition ?? '?'}` }));
 
     return {

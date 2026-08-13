@@ -159,10 +159,33 @@ function formatTime(value: string | null): string {
   }).format(new Date(value));
 }
 
-function rowClass(row: TrackedEntryRow, section: 'main' | 'alt' | 'q') {
-  const departed = row.state === 'withdrawn' || row.state === 'removed-unknown' ||
-    ((section === 'alt' || section === 'q') && row.state === 'promoted-main');
-  return departed ? styles.departedRow : undefined;
+type Section = 'main' | 'alt' | 'q';
+
+/**
+ * A row is struck when the player is no longer on this particular list: they
+ * withdrew, or — on the alternate and qualifying lists — they moved up into the
+ * main draw and hold a place there instead.
+ */
+function hasDeparted(row: TrackedEntryRow, section: Section) {
+  return (
+    row.state === 'withdrawn' ||
+    row.state === 'removed-unknown' ||
+    ((section === 'alt' || section === 'q') && row.state === 'promoted-main')
+  );
+}
+
+function rowClass(row: TrackedEntryRow, section: Section) {
+  return hasDeparted(row, section) ? styles.departedRow : undefined;
+}
+
+/**
+ * How many players this list actually holds. Struck rows stay visible for
+ * provenance but are not on the list any more, so they never count — the same
+ * predicate decides both, which is why the number can never disagree with what
+ * is on screen.
+ */
+function liveCount(rows: TrackedEntryRow[], section: Section) {
+  return rows.filter((row) => !hasDeparted(row, section)).length;
 }
 
 /**
@@ -189,7 +212,9 @@ function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'ma
             {position ? <span className={styles.pos}>{position}</span> : null}
             <span className={styles.playerName}>{row.name}</span>
             {row.country ? <span className={styles.country}>{row.country}</span> : null}
-            <span className={styles.rank}>{row.rank ?? ''}</span>
+            {/* A wildcard's listed number is not an ATP ranking, so the code
+                replaces it rather than sitting beside a misleading figure. */}
+            <span className={styles.rank}>{row.entryCode ?? row.rank ?? ''}</span>
           </li>
         );
       })}
@@ -221,9 +246,9 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
       <div className={styles.eventGrid} aria-label="Aug 17 tournaments">
         {trackedEvents.map((item) => {
           const on = item.slug === event.slug;
-          const md = item.mainHistory.filter((row) => row.state === 'active' || row.state === 'promoted-main').length;
-          const alt = item.mainAltHistory.filter((row) => row.state === 'active').length;
-          const q = item.qualifyingHistory.filter((row) => row.state === 'active').length;
+          const md = liveCount(item.mainHistory, 'main');
+          const alt = liveCount(item.mainAltHistory, 'alt');
+          const q = liveCount(item.qualifyingHistory, 'q');
           return (
             <Link key={item.slug} href={`/lists?event=${item.slug}`} prefetch={false} className={`${styles.eventCard}${on ? ` ${styles.eventCardOn}` : ''}`}>
               <div className={styles.eventName}>{item.name}</div>
@@ -249,17 +274,31 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
             made a long main draw read as a wall rather than a list. */}
         <div className={styles.lists}>
           <div className={styles.panel}>
-            <div className={styles.panelHead}><h3 className={styles.panelTitle}>Main draw</h3></div>
+            <div className={styles.panelHead}>
+              <h3 className={styles.panelTitle}>Main draw</h3>
+              <span className={styles.panelCount}>{liveCount(event.mainHistory, 'main')} accepted</span>
+            </div>
             <HistoryTable rows={event.mainHistory} section="main" />
           </div>
 
           <div className={styles.panel}>
-            <div className={styles.panelHead}><h3 className={styles.panelTitle}>Main-draw alternates</h3></div>
+            <div className={styles.panelHead}>
+              <h3 className={styles.panelTitle}>Main-draw alternates</h3>
+              <span className={styles.panelCount}>{liveCount(event.mainAltHistory, 'alt')} waiting</span>
+            </div>
             <HistoryTable rows={event.mainAltHistory} section="alt" />
           </div>
 
           <div className={styles.panel}>
-            <div className={styles.panelHead}><h3 className={styles.panelTitle}>Qualifying</h3></div>
+            <div className={styles.panelHead}>
+              <h3 className={styles.panelTitle}>Qualifying</h3>
+              {/* Deliberately not called "accepted". The main-draw count is the
+                  published acceptance list and lands on the same number for
+                  every event; the qualifying list is a frozen Aug 10 capture
+                  whose depth varies by event, so claiming it is the full
+                  acceptance would be asserting more than the source shows. */}
+              <span className={styles.panelCount}>{liveCount(event.qualifyingHistory, 'q')} on the Aug 10 list</span>
+            </div>
             <HistoryTable rows={event.qualifyingHistory} section="q" />
             <div className={styles.qAltMissing}>
               <strong>Qualifying alternates · awaiting verified ordered list</strong>

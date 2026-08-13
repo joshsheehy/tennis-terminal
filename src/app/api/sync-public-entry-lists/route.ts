@@ -240,14 +240,22 @@ export async function GET(request: NextRequest) {
       )
     ).rows[0]?.last_content_hash;
 
+    // A parser fix changes the stored rows without the source moving a byte.
+    // Keying the write on the content hash alone left a bad parse frozen in the
+    // table forever, because an unchanged source meant nothing was ever
+    // rewritten. Rewrite whenever the source OR the parse differs.
+    const reparsed = JSON.stringify(parsed) !== JSON.stringify(previous);
+
     await withTransaction(async (client) => {
-      if (changed) {
+      if (changed || reparsed) {
         await client.query(
           `insert into entry_list_source_snapshots (
              week_start, source_key, source_url, content_hash, raw_payload,
              parsed_payload, source_updated_text
            ) values ($1, $2, $3, $4, $5, $6::jsonb, $7)
-           on conflict (week_start, source_key, content_hash) do nothing`,
+           on conflict (week_start, source_key, content_hash) do update
+           set parsed_payload = excluded.parsed_payload,
+               source_updated_text = excluded.source_updated_text`,
           [WEEK_START, SOURCE_KEY, DISPLAY_URL, hash, rawPayload, JSON.stringify(parsed), json.modified ?? null]
         );
       }
@@ -273,7 +281,13 @@ export async function GET(request: NextRequest) {
       source: SOURCE_KEY,
       checkedAt: new Date().toISOString(),
       changed,
+      reparsed,
       tournaments: parsed.length,
+      rows: parsed.map((event) => ({
+        slug: event.slug,
+        main: event.main.length,
+        alternates: event.alternates.length,
+      })),
       movementsAdded: insertedMovements,
     });
   } catch (error) {

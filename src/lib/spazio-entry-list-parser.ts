@@ -45,13 +45,27 @@ function slugFromHeading(heading: string): string | null {
   return null;
 }
 
+// The source writes its line breaks as `<br data-start="1751" data-end="1754">`.
+// A `<br\s*\/?>` pattern does not match a tag carrying attributes, so every
+// player in a paragraph ran together into a single line and the whole draw came
+// back as one row whose "name" was the entire list. Match the tag, not the
+// shorthand spelling of it.
 function splitHtmlLines(value: string): string[] {
   return value
-    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<br\b[^>]*>/gi, '\n')
     .replace(/<\/(?:p|div|li|tr)>/gi, '\n')
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+// A player name is a handful of words. Anything carrying digits, or running far
+// past the longest real name, is a run-together line rather than a person —
+// reject it instead of rendering a paragraph as one entrant.
+const MAX_NAME_LENGTH = 48;
+
+function isPlausibleName(name: string): boolean {
+  return name.length > 0 && name.length <= MAX_NAME_LENGTH && !/\d/.test(name);
 }
 
 function parseRow(lineHtml: string): PublicEntryRow | null {
@@ -73,7 +87,7 @@ function parseRow(lineHtml: string): PublicEntryRow | null {
   const withoutCode = entryCodeMatch ? rawText.slice(0, entryCodeMatch.index).trim() : rawText;
 
   const ranked = withoutCode.match(/^(.*?)\s+([A-Z]{3})\s+(\d+)$/u);
-  if (ranked) {
+  if (ranked && isPlausibleName(ranked[1].trim())) {
     return {
       name: ranked[1].trim(),
       country: ranked[2],
@@ -87,7 +101,7 @@ function parseRow(lineHtml: string): PublicEntryRow | null {
   // Some mirrors occasionally omit a country code. Keep the row rather than
   // throwing it away; provenance is more important than guessing the country.
   const rankOnly = withoutCode.match(/^(.*?)\s+(\d+)$/u);
-  if (rankOnly) {
+  if (rankOnly && isPlausibleName(rankOnly[1].trim())) {
     return {
       name: rankOnly[1].trim(),
       country: null,
@@ -101,7 +115,7 @@ function parseRow(lineHtml: string): PublicEntryRow | null {
   // Junior/college rows can have no ATP rank. Preserve them as long as a name
   // and three-letter country are explicit.
   const unranked = withoutCode.match(/^(.*?)\s+([A-Z]{3})$/u);
-  if (unranked) {
+  if (unranked && isPlausibleName(unranked[1].trim())) {
     return {
       name: unranked[1].trim(),
       country: unranked[2],
