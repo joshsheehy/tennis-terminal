@@ -1,0 +1,58 @@
+name: live-tennis.eu recon
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/live-tennis-eu-recon.yml']
+permissions:
+  contents: write
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect current participation page
+        run: |
+          mkdir -p research/live-tennis-eu
+          python3 - <<'PY' > research/live-tennis-eu/trace.txt
+          import requests,re,json,html,datetime
+          from bs4 import BeautifulSoup
+          u='https://live-tennis.eu/de/atp-turnierteilnahmen'
+          r=requests.get(u,headers={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36'},timeout=30)
+          print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat(),'STATUS',r.status_code,'LEN',len(r.text),'URL',r.url)
+          s=r.text
+          print('\nSCRIPTS')
+          soup=BeautifulSoup(s,'html.parser')
+          for x in soup.find_all('script'):
+            if x.get('src'): print(x.get('src'))
+          print('\nLINKS/FORM/AJAX/API HINTS')
+          for m in re.finditer(r'.{0,220}(?:ajax|api|json|turnierteilnahmen|tournament|qualif|entry|teilnahme|fetch\(|XMLHttpRequest|\.php).{0,500}',s,re.I|re.S):
+            print(re.sub(r'\s+',' ',m.group(0))[:900])
+          print('\nTARGET ROWS RAW/TEXT')
+          targets=['Cancún','Cancun','Quebec City','Kingston','Prag','Roehampton','Sitten','Sion']
+          rows=soup.find_all('tr')
+          for row in rows:
+            txt=' '.join(row.stripped_strings)
+            if any(t.lower() in txt.lower() for t in targets):
+              print('ROW',txt)
+              print('HTML',str(row)[:4000])
+          print('\nALL PLAYER ROWS TARGET PARSED')
+          for row in rows:
+            txt=' '.join(row.stripped_strings)
+            if any(t.lower() in txt.lower() for t in targets): print(txt)
+          print('\nDATA ATTRS')
+          seen=set()
+          for tag in soup.find_all(True):
+            for k,v in tag.attrs.items():
+              if k.startswith('data-'):
+                x=(k,str(v))
+                if x not in seen:
+                  seen.add(x); print(k,v)
+          PY
+      - name: Commit output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/live-tennis-eu/trace.txt
+          git commit -m "Save live-tennis.eu participation trace" || exit 0
+          git push
