@@ -13,6 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Inspect current participation page
         run: |
+          python3 -m pip install --quiet requests beautifulsoup4
           mkdir -p research/live-tennis-eu
           python3 - <<'PY' > research/live-tennis-eu/trace.txt
           import requests,re,json,html,datetime
@@ -21,8 +22,8 @@ jobs:
           r=requests.get(u,headers={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36'},timeout=30)
           print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat(),'STATUS',r.status_code,'LEN',len(r.text),'URL',r.url)
           s=r.text
-          print('\nSCRIPTS')
           soup=BeautifulSoup(s,'html.parser')
+          print('\nSCRIPTS')
           for x in soup.find_all('script'):
             if x.get('src'): print(x.get('src'))
           print('\nLINKS/FORM/AJAX/API HINTS')
@@ -35,11 +36,7 @@ jobs:
             txt=' '.join(row.stripped_strings)
             if any(t.lower() in txt.lower() for t in targets):
               print('ROW',txt)
-              print('HTML',str(row)[:4000])
-          print('\nALL PLAYER ROWS TARGET PARSED')
-          for row in rows:
-            txt=' '.join(row.stripped_strings)
-            if any(t.lower() in txt.lower() for t in targets): print(txt)
+              print('HTML',str(row)[:5000])
           print('\nDATA ATTRS')
           seen=set()
           for tag in soup.find_all(True):
