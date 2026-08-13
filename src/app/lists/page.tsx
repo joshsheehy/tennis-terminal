@@ -6,11 +6,8 @@ import {
   type Aug17EntryList,
 } from '@/lib/aug17-entry-lists';
 import {
-  AUG17_SEEDED_MOVEMENTS,
   activeEventForPosition,
   getTrackedAug17Events,
-  type EntryMovementLedgerRow,
-  type MovementKind,
   type TrackedEntryRow,
 } from '@/lib/aug17-entry-history';
 import type { PublicEntryRow, PublicEntryTournament } from '@/lib/spazio-entry-list-parser';
@@ -38,21 +35,6 @@ type Appearance = {
 type PublicHistory = {
   tournaments: PublicEntryTournament[];
   lastCheckedAt: string | null;
-  lastChangedAt: string | null;
-  movements: EntryMovementLedgerRow[];
-};
-
-type DbMovement = {
-  tournament_slug: string;
-  player_name: string;
-  movement_type: string;
-  from_section: string;
-  to_section: string;
-  observed_at: string | Date;
-  source_key: string;
-  source_url: string | null;
-  raw_text: string | null;
-  q_spots_delta: number;
 };
 
 function keyName(name: string): string {
@@ -111,44 +93,9 @@ function supplementPublicTournaments(tournaments: PublicEntryTournament[]): Publ
   });
 }
 
-function movementKind(value: string): MovementKind {
-  const map: Record<string, MovementKind> = {
-    md_withdrawal: 'md-withdrawal',
-    md_alt_to_md: 'md-alt-to-main',
-    q_to_md: 'q-to-main',
-    q_withdrawal: 'q-withdrawal',
-    q_alt_to_q: 'q-alt-to-q',
-    q_alt_to_md: 'q-alt-to-main',
-    q_alt_withdrawal: 'q-alt-withdrawal',
-    removed_unknown: 'removed-unknown',
-  };
-  return map[value] ?? 'removed-unknown';
-}
-
-function dbMovementToLedger(row: DbMovement): EntryMovementLedgerRow {
-  const fromMap: Record<string, EntryMovementLedgerRow['fromSection']> = {
-    main: 'main', main_alt: 'main-alt', qualifying: 'qualifying', qualifying_alt: 'qualifying-alt', unknown: 'unknown',
-  };
-  const toMap: Record<string, EntryMovementLedgerRow['toSection']> = {
-    main: 'main', qualifying: 'qualifying', out: 'out', unknown: 'unknown',
-  };
-  return {
-    tournamentSlug: row.tournament_slug,
-    playerName: row.player_name,
-    kind: movementKind(row.movement_type),
-    fromSection: fromMap[row.from_section] ?? 'unknown',
-    toSection: toMap[row.to_section] ?? 'unknown',
-    observedAt: new Date(row.observed_at).toISOString(),
-    sourceLabel: row.source_key === 'spaziotennis-week33' ? 'SpazioTennis hourly sync' : row.source_key,
-    ...(row.source_url ? { sourceUrl: row.source_url } : {}),
-    detail: row.raw_text ?? `${row.from_section} → ${row.to_section}`,
-    qSpotsDelta: row.q_spots_delta ?? 0,
-  };
-}
-
 async function loadPublicHistory(): Promise<PublicHistory> {
   try {
-    const [snapshot, status, movements] = await Promise.all([
+    const [snapshot, status] = await Promise.all([
       pool.query<{ parsed_payload: PublicEntryTournament[] }>(
         `select parsed_payload
          from entry_list_source_snapshots
@@ -157,31 +104,21 @@ async function loadPublicHistory(): Promise<PublicHistory> {
          limit 1`,
         [WEEK_START]
       ),
-      pool.query<{ last_checked_at: string | Date | null; last_changed_at: string | Date | null }>(
-        `select last_checked_at, last_changed_at
+      pool.query<{ last_checked_at: string | Date | null }>(
+        `select last_checked_at
          from entry_list_source_status
          where week_start = $1::date and source_key = 'spaziotennis-week33'`,
-        [WEEK_START]
-      ),
-      pool.query<DbMovement>(
-        `select tournament_slug, player_name, movement_type, from_section, to_section,
-                observed_at, source_key, source_url, raw_text, q_spots_delta
-         from entry_list_movements
-         where week_start = $1::date
-         order by observed_at desc`,
         [WEEK_START]
       ),
     ]);
     return {
       tournaments: supplementPublicTournaments(snapshot.rows[0]?.parsed_payload ?? []),
       lastCheckedAt: status.rows[0]?.last_checked_at ? new Date(status.rows[0].last_checked_at).toISOString() : null,
-      lastChangedAt: status.rows[0]?.last_changed_at ? new Date(status.rows[0].last_changed_at).toISOString() : null,
-      movements: movements.rows.map(dbMovementToLedger),
     };
   } catch {
     // Production may render once before the idempotent setup endpoint creates the
     // new history tables. The seeded PlayerZone/public observations remain usable.
-    return { tournaments: [], lastCheckedAt: null, lastChangedAt: null, movements: [] };
+    return { tournaments: [], lastCheckedAt: null };
   }
 }
 
@@ -229,29 +166,27 @@ function rowClass(row: TrackedEntryRow, section: 'main' | 'alt' | 'q') {
 }
 
 /**
- * One row per player, stacked. Three things only: position, name with its
- * country code, and the ranking the list was drawn on. A player scanning for
- * their own name does not need a status column — a struck row already says
- * "gone", and everything unstruck is in.
+ * One player per line: name, country code, entry rank.
+ *
+ * Only the alternate list carries a number, because there the number is the
+ * whole point — it is the queue position, and it counts live, moving up as
+ * players above leave. Main draw and qualifying are plain lists.
+ *
+ * The old "MD 12" / "ALT 9" labels repeated the heading on every row and, being
+ * two words, wrapped inside the number column — which is what put each
+ * main-draw player on two lines.
  */
 function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'main' | 'alt' | 'q' }) {
   return (
     <ol className={styles.entryList}>
       {rows.map((row, index) => {
-        // The live alternate number is the one a player acts on, so it wins
-        // where it exists; otherwise the original label stands.
-        const position =
-          section === 'alt' && row.effectivePosition
-            ? row.effectivePosition
-            : section === 'q'
-              ? ''
-              : row.originalLabel;
+        const position = section === 'alt' ? row.effectivePosition ?? '' : '';
         return (
           <li
             key={`${section}-${row.name}-${index}`}
             className={[styles.entryRow, rowClass(row, section)].filter(Boolean).join(' ')}
           >
-            <span className={styles.pos}>{position}</span>
+            {position ? <span className={styles.pos}>{position}</span> : null}
             <span className={styles.playerName}>{row.name}</span>
             {row.country ? <span className={styles.country}>{row.country}</span> : null}
             <span className={styles.rank}>{row.rank ?? ''}</span>
@@ -262,30 +197,6 @@ function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'ma
   );
 }
 
-function movementLabel(kind: MovementKind) {
-  const labels: Record<MovementKind, string> = {
-    'md-withdrawal': 'MD → OUT',
-    'md-alt-to-main': 'MD ALT → MD',
-    'q-to-main': 'Q → MD',
-    'q-withdrawal': 'Q → OUT',
-    'q-alt-to-q': 'Q ALT → Q',
-    'q-alt-to-main': 'Q ALT → MD',
-    'q-alt-withdrawal': 'Q ALT → OUT',
-    'removed-unknown': 'Removed · reason pending',
-  };
-  return labels[kind];
-}
-
-function dedupeMovements(rows: EntryMovementLedgerRow[]) {
-  const seen = new Set<string>();
-  return rows.filter((row) => {
-    const key = `${row.tournamentSlug}|${keyName(row.playerName)}|${row.kind}|${row.fromSection}|${row.toSection}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 export default async function ListsPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
   const [{ event: eventParam }, publicHistory] = await Promise.all([searchParams, loadPublicHistory()]);
   const trackedEvents = getTrackedAug17Events(publicHistory.tournaments);
@@ -293,21 +204,17 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
   const event = trackedEvents.find((item) => item.slug === eventParam) ?? trackedEvents[0];
   const activeEvent = activeEventForPosition(event);
   const crossEntries = selectedCrossEntries(activeEvent, activeEvents);
-  const movements = dedupeMovements([
-    ...publicHistory.movements.filter((row) => row.tournamentSlug === event.slug),
-    ...AUG17_SEEDED_MOVEMENTS.filter((row) => row.tournamentSlug === event.slug),
-  ]).sort((a, b) => b.observedAt.localeCompare(a.observedAt));
 
   return (
     <main className="page">
       <div className={styles.hero}>
-        <p className="eyebrow">Entry lists · live movement tracker</p>
+        <p className="eyebrow">Entry lists</p>
         <h1 className="page-title">Week of Aug 17, 2026</h1>
         <p className="page-lede">
-          Original list position stays frozen. Departures remain visible. Live alternate position compresses as players above move out or into the draw.
+          Players who have pulled out stay on the list, crossed out. Alternate numbers move up as the players above them leave.
         </p>
         <div className={styles.sourceNote}>
-          <strong>Last public-source check:</strong> {formatTime(publicHistory.lastCheckedAt)}. Entry rank is the ranking attached to the published list, not today&apos;s ATP ranking. Qualifying alternates are intentionally blank until an ordered Q-alt source is verified.
+          <strong>Last checked:</strong> {formatTime(publicHistory.lastCheckedAt)}. Rank is the one attached to the published list, not today&apos;s ATP ranking.
         </div>
       </div>
 
@@ -331,15 +238,10 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
         <div className={styles.eventHeader}>
           <div><h2 className={styles.eventTitle}>{event.name}</h2><div className={styles.eventSub}>{event.level} · {event.surface} · ATP tournament code {event.atpCode}</div></div>
           <div className={styles.sourceLinks}>
-            <a href={SPAZIO_URL} target="_blank" rel="noreferrer">Movement source ↗</a>
+            <a href={SPAZIO_URL} target="_blank" rel="noreferrer">Source ↗</a>
             <a href={AUG17_MAIN_SOURCE.url} target="_blank" rel="noreferrer">MD cross-check ↗</a>
             <a href={AUG17_QUAL_SOURCE.url} target="_blank" rel="noreferrer">Q snapshot ↗</a>
           </div>
-        </div>
-
-        <div className={styles.legend}>
-          <span>Alternate numbers are live — players who left or moved up are already removed.</span>
-          <span>Struck-through players have pulled out.</span>
         </div>
 
         {/* Each list runs top to bottom in its own block, one after the other.
@@ -366,25 +268,8 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           </div>
         </div>
 
-        <details className={styles.movementPanel} open>
-          <summary>Movement history · {movements.length} tracked changes</summary>
-          {movements.length ? (
-            <div className={styles.tableWrap}>
-              <table className={`${styles.table} ${styles.movementTable}`}>
-                <thead><tr><th>Observed</th><th>Player</th><th>Movement</th><th>Effect</th><th>Source</th></tr></thead>
-                <tbody>{movements.map((movement, index) => (
-                  <tr key={`${movement.playerName}-${movement.kind}-${index}`}>
-                    <td>{formatTime(movement.observedAt)}</td>
-                    <td><strong>{movement.playerName}</strong></td>
-                    <td>{movementLabel(movement.kind)}</td>
-                    <td>{movement.qSpotsDelta > 0 ? `+${movement.qSpotsDelta} Q vacancy` : movement.detail}</td>
-                    <td>{movement.sourceUrl ? <a href={movement.sourceUrl} target="_blank" rel="noreferrer">{movement.sourceLabel} ↗</a> : movement.sourceLabel}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          ) : <p className={styles.emptyMovement}>No verified movement recorded yet.</p>}
-        </details>
+        {/* No movement ledger. A player who pulls out is struck on the list
+            itself, which is the same information in the place people look. */}
 
         {crossEntries.length > 0 ? (
           <div className={styles.cross}>
@@ -396,9 +281,6 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           </div>
         ) : null}
 
-        <p className={styles.foot}>
-          The automated public poll runs hourly and saves a new raw snapshot only when the source changes. Every explicit OUT/IN/strike is written to a deduplicated movement ledger. PlayerZone/ATP remains authoritative; public-source uncertainty is labeled rather than guessed.
-        </p>
       </section>
 
       <WhereDoIStand events={activeEvents} />
