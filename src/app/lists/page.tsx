@@ -32,6 +32,50 @@ type PublicHistory = {
   lastCheckedAt: string | null;
 };
 
+/** Draws table from each event's posted ATP detail sheet, keyed by ATP code. */
+type DrawPlan = {
+  size: number | null;
+  da: number | null;
+  wc: number | null;
+  q: number | null;
+  priorCutoff: number | null;
+};
+type DrawPlans = Record<string, { main_singles?: DrawPlan; qualifying?: DrawPlan; main_doubles?: DrawPlan }>;
+
+async function loadDrawPlans(): Promise<DrawPlans> {
+  try {
+    const { rows } = await pool.query<{
+      atp_code: string;
+      draw: 'qualifying' | 'main_singles' | 'main_doubles';
+      draw_size: number | null;
+      direct_acceptances: number | null;
+      wild_cards: number | null;
+      qualifiers: number | null;
+      prior_cutoff: number | null;
+    }>(
+      `select atp_code, draw, draw_size, direct_acceptances, wild_cards, qualifiers, prior_cutoff
+       from tournament_detail_sheets
+       where week_start = $1::date`,
+      [WEEK_START]
+    );
+    const plans: DrawPlans = {};
+    for (const row of rows) {
+      (plans[row.atp_code] ??= {})[row.draw] = {
+        size: row.draw_size,
+        da: row.direct_acceptances,
+        wc: row.wild_cards,
+        q: row.qualifiers,
+        priorCutoff: row.prior_cutoff,
+      };
+    }
+    return plans;
+  } catch {
+    // The table arrives with the setup endpoint; until then the page simply
+    // shows no draw structure rather than failing to render.
+    return {};
+  }
+}
+
 function keyName(name: string): string {
   return name
     .normalize('NFD')
@@ -193,14 +237,46 @@ function liveCount(rows: TrackedEntryRow[], section: Section) {
  * list itself rather than asserted from a constant, and it is shown in full so
  * the parts visibly sum to the total.
  */
-function DrawComposition({ rows, section }: { rows: TrackedEntryRow[]; section: Section }) {
-  const tallies = tallyRoutes(
+function DrawComposition({
+  rows,
+  section,
+  plan,
+}: {
+  rows: TrackedEntryRow[];
+  section: Section;
+  /** The event's own detail sheet, absent until the sheet has been synced. */
+  plan?: DrawPlan;
+}) {
+  // What the sheet says the draw is built from. Authoritative and per event —
+  // a Challenger 125 here runs a 28 main draw while the 75s and 50s run 32, so
+  // none of this can be inferred from the level.
+  const planned: Array<{ label: string; value: number; title: string }> = [];
+  if (plan) {
+    if (plan.da != null) planned.push({ label: 'DA', value: plan.da, title: routeLabel('DA') });
+    if (plan.wc != null) planned.push({ label: 'WC', value: plan.wc, title: routeLabel('WC') });
+    if (plan.q != null) planned.push({ label: 'Q', value: plan.q, title: 'Places filled from the qualifying draw' });
+  }
+
+  // What the published list actually contains, which is where the accelerator
+  // routes show up — the sheet folds them into its DA figure.
+  const filled = tallyRoutes(
     rows.map((row) => ({ code: row.entryCode, departed: hasDeparted(row, section) }))
-  ).filter((tally) => tally.live > 0);
-  if (tallies.length === 0) return null;
+  ).filter((tally) => tally.live > 0 && tally.route !== 'DA');
+
+  if (planned.length === 0 && filled.length === 0) return null;
   return (
     <ul className={styles.composition}>
-      {tallies.map((tally) => (
+      {plan?.size != null ? (
+        <li className={`${styles.compositionItem} ${styles.compositionTotal}`} title="Total places in the draw">
+          <b>{plan.size}</b> draw
+        </li>
+      ) : null}
+      {planned.map((item) => (
+        <li key={item.label} className={styles.compositionItem} title={item.title}>
+          <b>{item.value}</b> {item.label}
+        </li>
+      ))}
+      {filled.map((tally) => (
         <li key={tally.route} className={styles.compositionItem} title={routeLabel(tally.route)}>
           <b>{tally.live}</b> {tally.route}
         </li>
@@ -248,12 +324,17 @@ function HistoryTable({ rows, section }: { rows: TrackedEntryRow[]; section: 'ma
 }
 
 export default async function ListsPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
-  const [{ event: eventParam }, publicHistory] = await Promise.all([searchParams, loadPublicHistory()]);
+  const [{ event: eventParam }, publicHistory, drawPlans] = await Promise.all([
+    searchParams,
+    loadPublicHistory(),
+    loadDrawPlans(),
+  ]);
   const trackedEvents = getTrackedAug17Events(publicHistory.tournaments);
   const activeEvents = trackedEvents.map(activeEventForPosition);
   const event = trackedEvents.find((item) => item.slug === eventParam) ?? trackedEvents[0];
   const activeEvent = activeEventForPosition(event);
   const crossEntries = selectedCrossEntries(activeEvent, activeEvents);
+  const plans = drawPlans[event.atpCode] ?? {};
 
   return (
     <main className="page">
@@ -292,20 +373,21 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>Main draw</h3>
-              <span className={styles.panelCount}>{liveCount(event.mainHistory, 'main')} accepted</span>
+              <div className={styles.panelSummary}>
+                <span className={styles.panelCount}>{liveCount(event.mainHistory, 'main')} accepted</span>
+                <DrawComposition rows={event.mainHistory} section="main" plan={plans.main_singles} />
+              </div>
             </div>
-            <DrawComposition rows={event.mainHistory} section="main" />
             <HistoryTable rows={event.mainHistory} section="main" />
           </div>
 
-          {/* No count and no composition here. An alternate has not been
-              accepted into anything, so there is nothing to break down by entry
-              route — and the real queue runs deeper than the public sources
-              publish, so any total would understate it. */}
+          {/* Just the list. An alternate has not been accepted into anything,
+              so there is nothing to break down by entry route, and the real
+              queue runs deeper than the public sources publish — so any total
+              printed here would understate it. */}
           <div className={styles.panel}>
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>Main-draw alternates</h3>
-              <span className={styles.panelCount}>deeper than shown</span>
             </div>
             <HistoryTable rows={event.mainAltHistory} section="alt" />
           </div>
@@ -318,9 +400,11 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
                   every event; the qualifying list is a frozen Aug 10 capture
                   whose depth varies by event, so claiming it is the full
                   acceptance would be asserting more than the source shows. */}
-              <span className={styles.panelCount}>{liveCount(event.qualifyingHistory, 'q')} on the Aug 10 list</span>
+              <div className={styles.panelSummary}>
+                <span className={styles.panelCount}>{liveCount(event.qualifyingHistory, 'q')} on the Aug 10 list</span>
+                <DrawComposition rows={event.qualifyingHistory} section="q" plan={plans.qualifying} />
+              </div>
             </div>
-            <DrawComposition rows={event.qualifyingHistory} section="q" />
             <HistoryTable rows={event.qualifyingHistory} section="q" />
             <div className={styles.qAltMissing}>
               <strong>Qualifying alternates · awaiting verified ordered list</strong>

@@ -116,6 +116,27 @@ export async function GET() {
       primary key (week_start, tournament_slug, draw, entry_route)
     );
 
+    -- The ATP tournament detail sheet's draws table: the authoritative, public
+    -- statement of how each draw is built. Keyed by ATP tournament code and
+    -- draw, since a code identifies the event across sources.
+    create table if not exists tournament_detail_sheets (
+      week_start date not null,
+      atp_code text not null,
+      draw text not null check (draw in ('qualifying', 'main_singles', 'main_doubles')),
+      draw_size int,
+      direct_acceptances int,
+      wild_cards int,
+      qualifiers int,
+      special_exempts int,
+      next_gen int,
+      prior_cutoff int,
+      raw_cells text,
+      source_url text not null,
+      adds_up boolean not null default false,
+      fetched_at timestamptz not null default now(),
+      primary key (week_start, atp_code, draw)
+    );
+
     create index if not exists acceptance_list_sources_due_idx
       on acceptance_list_sources(active, next_check_at)
       where active = true;
