@@ -1,0 +1,11 @@
+RUN 2026-08-13T01:59:44.391811+00:00 STATUS 403 LEN 5626 URL https://live-tennis.eu/de/atp-turnierteilnahmen
+
+SCRIPTS
+
+LINKS/FORM/AJAX/API HINTS
+-1.2.1.1-XXMM4_O10Jjn1J1.kLmIc6p3.NZM349G1u5sutyfBP7bS3DgJF2logX.nIbd.KEQ',cITimeS: '1786586384',cN: 'vc6LO0318sBRbMu1tGsHhN',cRay: 'a2a41f465eb56807',cTplB: '0',cTplC:0,cTplO:0,cTplV:5,cType: 'managed',cUPMDTk:"/de/atp-turnierteilnahmen?__cf_chl_tk=U0cqdZHYNJiIZ3mCckvAvdnF.MreJmgUP6tRT.1qzPc-1786586384-1.0.1.1-4XMhZobSg.yjX.zHM8B3PL8yvCC4HY9QLuCIXQvMV4c",cvId: '3',cZone: 'live-tennis.eu',fa:"/de/atp-turnierteilnahmen?__cf_chl_f_tk=U0cqdZHYNJiIZ3mCckvAvdnF.MreJmgUP6tRT.1qzPc-1786586384-1.0.1.1-4XMhZobSg.yjX.zHM8B3PL8yvCC4HY9QLuCIXQvMV4c",md: 'vcNNSemtHybnz6tQQ4U3WppKMWoKugrbHgHljW0aD3I-1786586384-1.2.1.1-lIyKpCqRQKO_NJcSeQSGBYMm_kAkWlOLAFfto1l.legiCuLEOnFGx_A6dO00c2v_NFvxW6EutsS.MW84HYcxqGxWa_OEbjF3WHJUlLPYXPFJ59_YgVPn1QWgpquDw
+f('?') !== -1 ? '?' : location.search;if (window.history && window.history.replaceState) {var ogU = location.pathname + window._cf_chl_opt.cOgUQuery + window._cf_chl_opt.cOgUHash;history.replaceState(null, null,"/de/atp-turnierteilnahmen?__cf_chl_rt_tk=U0cqdZHYNJiIZ3mCckvAvdnF.MreJmgUP6tRT.1qzPc-1786586384-1.0.1.1-4XMhZobSg.yjX.zHM8B3PL8yvCC4HY9QLuCIXQvMV4c"+ window._cf_chl_opt.cOgUHash);a.onload = function() {history.replaceState(null, null, ogU);}}document.getElementsByTagName('head')[0].appendChild(a);}());</script></body></html>
+
+TARGET ROWS RAW/TEXT
+
+DATA ATTRS
