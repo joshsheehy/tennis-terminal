@@ -11,79 +11,124 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Crawl public organizer pages, CMS assets, and documents
+      - name: Trace LiveTennis feed host, widget IDs, and syndicators
         run: |
-          mkdir -p research/week33-organizers
-          python3 - <<'PY' > research/week33-organizers/trace.txt
-          import urllib.request, urllib.parse, re, json, html, pathlib, time
+          mkdir -p research/livetennis-feed
+          python3 - <<'PY' > research/livetennis-feed/trace.txt
+          import urllib.request, urllib.parse, urllib.error, re, json, html, ssl, socket, datetime
           from urllib.parse import urljoin, urlparse
-          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,*/*'}
-          seeds={
-            'cancun':['https://www.cancuncountryopen.com/','https://www.cancuncountryopen.com/jugadores?y=2026','https://www.cancuncountryopen.com/cuadro-qualy','https://cancun-country-open-431d0732c9ce.herokuapp.com/'],
-            'sion':['https://opendesion.com/','https://opendesion.com/pages/draws','https://opendesion.com/sitemap.xml','https://opendesion.com/robots.txt'],
-            'quebec':['https://www.tenniscanada.com/national-bank-challengers','https://www.tenniscanada.com/news/pro-tennis/2025/new-atp-challenger-125-coming-to-quebec-city-2026'],
-            'roehampton':['https://www.lta.org.uk/fan-zone/international/','https://www.lta.org.uk/fan-zone/international/lexus-roehampton-challenger/'],
-            'prague':['https://www.pragueopen.net/','https://www.cztenis.cz/','https://www.cztenis.cz/clanek/advantage-cars-prague-open-2026'],
-            'kingston':['http://tennisjamaica.org/','https://tennisjamaica.org/'],
-          }
-          def get(u,timeout=22):
+          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7'}
+          def get(u, method='GET'):
             try:
-              req=urllib.request.Request(u,headers=UA)
-              with urllib.request.urlopen(req,timeout=timeout) as r:
+              req=urllib.request.Request(u,headers=UA,method=method)
+              with urllib.request.urlopen(req,timeout=20) as r:
                 b=r.read(); return r.status,r.geturl(),b,dict(r.headers)
-            except Exception as e:return getattr(e,'code','ERR'),repr(e),b'',{}
-          def text(b): return b.decode('utf-8','replace')
-          KEY=re.compile(r'official player acceptance|original cut off|rankings date|entry.?list|acceptance|alternate|qualif|challenger|player.?list|pdf|document|media|upload|asset|api|json|graphql|heroku|storage|cdn',re.I)
-          for label,starts in seeds.items():
-            print('\n\n################',label.upper(),'################')
-            q=list(starts); seen=set(); assets=[]
-            # breadth-first at most 18 public pages/resources per source family
-            while q and len(seen)<18:
-              u=q.pop(0)
-              if u in seen: continue
-              seen.add(u)
-              st,final,b,h=get(u)
-              print('\n===== URL',u,'STATUS',st,'BYTES',len(b),'FINAL',final,'TYPE',h.get('Content-Type'),'=====')
-              if not b: continue
-              s=text(b)
-              # Print high-value lines/snippets
-              for m in list(KEY.finditer(s))[:50]:
-                print('HIT',re.sub(r'\s+',' ',s[max(0,m.start()-260):m.start()+700])[:1100])
-              # collect URLs/assets
-              vals=[]
-              for pat in [r'(?:href|src|action|data-[\w-]+)=["\']([^"\']+)',r'https?://[^\s"\'<>]+']:
-                for m in re.finditer(pat,s,re.I):
-                  v=m.group(1) if m.lastindex else m.group(0)
-                  v=html.unescape(v).replace('\\/','/')
-                  if v.startswith('data:') or v.startswith('#') or v.startswith('mailto:') or v.startswith('tel:'): continue
-                  x=urljoin(final,v)
-                  if x not in vals: vals.append(x)
-              for x in vals:
-                if KEY.search(x): print('URL_HINT',x)
-                p=urlparse(x)
-                if re.search(r'\.pdf(?:\?|$)',p.path,re.I) and x not in assets: assets.append(x)
-                # Same host JS/JSON/sitemap/robots/public page links only
-                if p.netloc==urlparse(final).netloc and (re.search(r'\.(?:js|json)(?:\?|$)',p.path,re.I) or 'sitemap' in p.path or 'robots' in p.path):
-                  if x not in q and x not in seen: q.append(x)
-                # Cancun Heroku assets/API paths are explicitly linked by the public site
-                if label=='cancun' and ('herokuapp.com' in p.netloc) and x not in q and x not in seen and len(q)<25:
-                  q.append(x)
-            print('\n--- PDF/DOCUMENT CANDIDATES',len(assets),'---')
-            for x in assets[:100]:
-              st,final,b,h=get(x); print('DOC',st,len(b),h.get('Content-Type'),final)
-              if b.startswith(b'%PDF'):
-                safe=re.sub(r'[^A-Za-z0-9_.-]+','_',label+'_'+x.split('/')[-1].split('?')[0])[:160]
-                pathlib.Path('research/week33-organizers/'+safe).write_bytes(b)
+            except urllib.error.HTTPError as e:
+              try:b=e.read()
+              except:b=b''
+              return e.code,e.geturl(),b,dict(e.headers)
+            except Exception as e:return 'ERR',repr(e),b'',{}
+          def dump(label,u,maxb=14000):
+            st,final,b,h=get(u)
+            s=b.decode('utf-8','replace')
+            print(f'\n===== {label} STATUS={st} BYTES={len(b)} FINAL={final} =====')
+            print('HEADERS',json.dumps({k:v for k,v in h.items() if k.lower() in ['content-type','location','server','x-powered-by','cache-control','etag','last-modified','set-cookie','via','x-cache']},ensure_ascii=False))
+            print(s[:maxb])
+            return st,final,s,h
+          print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
+          for host in ['feed.livetennis.it','www.livetennis.it','livetennis.it']:
+            try: print('DNS',host,socket.gethostbyname_ex(host))
+            except Exception as e: print('DNS_ERR',host,repr(e))
+
+          # Direct feed host/path reconnaissance. Known public attribution is /livetennis/.
+          feedpaths=[
+            'http://feed.livetennis.it/', 'https://feed.livetennis.it/',
+            'http://feed.livetennis.it/livetennis/', 'https://feed.livetennis.it/livetennis/',
+            'http://feed.livetennis.it/livetennis/rss', 'http://feed.livetennis.it/livetennis/rss.xml',
+            'http://feed.livetennis.it/livetennis/feed', 'http://feed.livetennis.it/livetennis/feed/',
+            'http://feed.livetennis.it/livetennis/index.php',
+            'http://feed.livetennis.it/robots.txt','http://feed.livetennis.it/sitemap.xml',
+          ]
+          for i,u in enumerate(feedpaths): dump('FEEDROOT_'+str(i),u,22000)
+
+          # Known historical entry-list record IDs. Try common callable patterns and compare output fingerprints.
+          ids=[4958,4959,5644,5645,5646,5649]
+          patterns=[
+            'http://feed.livetennis.it/livetennis/?id={id}',
+            'http://feed.livetennis.it/livetennis/?entrylist={id}',
+            'http://feed.livetennis.it/livetennis/?entrylist_id={id}',
+            'http://feed.livetennis.it/livetennis/entrylist/{id}',
+            'http://feed.livetennis.it/livetennis/entrylist.php?id={id}',
+            'http://feed.livetennis.it/livetennis/entrylist.php?entrylist={id}',
+            'http://feed.livetennis.it/livetennis/{id}',
+            'https://www.livetennis.it/entrylist/{id}',
+            'https://www.livetennis.it/entrylist.php?id={id}',
+            'https://www.livetennis.it/wp/entrylist.php?id={id}',
+            'https://www.livetennis.it/wp/wp-admin/admin-ajax.php?action=entrylist&id={id}',
+            'https://www.livetennis.it/wp/wp-admin/admin-ajax.php?action=get_entrylist&id={id}',
+            'https://www.livetennis.it/wp/wp-admin/admin-ajax.php?action=entry_list&id={id}',
+          ]
+          print('\n######## KNOWN ID PROBES ########')
+          seen_sig={}
+          for pat in patterns:
+            for id in ids[:2] if 'admin-ajax' not in pat else [4959]:
+              u=pat.format(id=id); st,final,b,h=get(u); s=b.decode('utf-8','replace')
+              sig=(st,len(b),re.sub(r'\s+',' ',s[:160]))
+              print('IDPROBE',id,u,'=>',st,len(b),final,'SIG',sig[2][:160])
+              if re.search(r'Alternates|entrylist_box|Data entry list|Torino|Challenger|qualif',s,re.I): print('*** HIT ***',s[:20000])
+
+          # Extract current LiveTennis article widget identifiers, form/action hints, and adjacent record IDs.
+          live='https://www.livetennis.it/post/469551/challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun/'
+          st,final,s,h=dump('CURRENT_LIVETENNIS',live,4000)
+          print('\nCURRENT WIDGET IDS')
+          for pat in [r'resetAlternates(\d+)',r'reset(\d+)',r'entrylist[^\d]{0,20}(\d+)',r'id=["\'][^"\']*(\d{4,6})[^"\']*["\']']:
+            vals=[]
+            for m in re.finditer(pat,s,re.I):
+              v=m.group(1)
+              if v not in vals: vals.append(v)
+            print(pat,vals)
+          for m in re.finditer(r'.{0,500}(?:entrylist|resetAlternates|admin-ajax|ajax|feed\.livetennis|Data entry list).{0,1500}',s,re.I|re.S):
+            print('CUR_HINT',re.sub(r'\s+',' ',m.group(0))[:2400])
+
+          # Crawl syndicators through public WP REST, feeds, sitemaps, and date/search pages.
+          sites=['https://ventidisport.it','https://sportingnews.it','https://sportlife.cloud']
+          terms=['cancun','quebec','kingston','roehampton','praga','sion','qualificazioni','challenger']
+          for base in sites:
+            print('\n######## SITE',base,'########')
+            probes=[
+              base+'/wp-json/',
+              base+'/wp-json/wp/v2/posts?after=2026-08-01T00:00:00&before=2026-08-14T23:59:59&per_page=100&_fields=id,date,modified,link,slug,title,content,excerpt',
+              base+'/feed/', base+'/2026/08/feed/', base+'/sitemap_index.xml', base+'/wp-sitemap.xml'
+            ]
+            for term in terms:
+              probes.append(base+'/wp-json/wp/v2/search?search='+urllib.parse.quote(term)+'&per_page=100')
+              probes.append(base+'/?s='+urllib.parse.quote(term))
+            for j,u in enumerate(probes):
+              st,final,b,h=get(u); ss=b.decode('utf-8','replace')
+              if st==200 and (re.search(r'cancun|quebec|kingston|roehampton|praga|sion|entrylist_box|resetAlternates|qualif',ss,re.I) or j<5):
+                print('\nSITEPROBE',u,'STATUS',st,'BYTES',len(b),'FINAL',final)
+                # Print matches with context, avoiding giant pages.
+                hits=list(re.finditer(r'cancun|quebec|kingston|roehampton|praga|sion|entrylist_box|resetAlternates|qualif',ss,re.I))
+                if hits:
+                  for m in hits[:60]: print(re.sub(r'\s+',' ',ss[max(0,m.start()-350):m.start()+1200])[:1600])
+                else: print(ss[:5000])
+
+          # Search HTML from likely current syndicator URLs guessed from LiveTennis title fragments via WP search API.
+          print('\n######## FEED ATTRIBUTION LINKS ########')
+          for base in sites:
+            st,final,b,h=get(base+'/wp-json/wp/v2/posts?search=Challenger&after=2026-07-01T00:00:00&per_page=100')
+            ss=b.decode('utf-8','replace')
+            for m in re.finditer(r'https?[^"\\< ]*feed\.livetennis\.it[^"\\< ]*',ss,re.I): print(base,html.unescape(m.group(0))[:1000])
           PY
-      - name: Grep result for ATP acceptance fingerprint
+      - name: Grep strongest findings
         run: |
-          grep -Ein -C2 'Official Player Acceptance|Original Cut Off|Rankings Date|entry.?list|alternate|qualif|pdf|api|json|heroku' research/week33-organizers/trace.txt | head -n 3500 || true
+          grep -Ein -C3 'HIT|IDPROBE|CURRENT WIDGET IDS|resetAlternates|entrylist_box|Data entry list|Cancun|Quebec|Kingston|Roehampton|Praga|Sion|feed.livetennis|qualif' research/livetennis-feed/trace.txt | head -n 6000 || true
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/week33-organizers
-          git commit -m "Save Week 33 organizer asset crawl" || exit 0
+          git add research/livetennis-feed
+          git commit -m "Save LiveTennis feed and syndicator trace" || exit 0
           for attempt in 1 2 3; do
             git push && exit 0
             git pull --rebase origin "${GITHUB_REF_NAME}" || exit 1
