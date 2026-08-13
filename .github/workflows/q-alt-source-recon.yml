@@ -11,47 +11,57 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Probe exact Week 33 qualifying PDFs slowly
+      - name: Trace historical LiveTennis Challenger Q widgets
         run: |
           mkdir -p research
-          python3 -m pip install --quiet pypdf
-          python3 - <<'PY' > research/ptl-week33-qs-status.txt
-          import urllib.request, hashlib, io, datetime, time
-          from pypdf import PdfReader
-
-          EVENTS=[
-            ('cancun',3009),
-            ('quebec-city',3103),
-            ('kingston',3121),
-            ('prague',600),
-            ('roehampton',3123),
-            ('sion',3133),
-          ]
-          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'application/pdf,*/*'}
-          print('RUN_UTC',datetime.datetime.now(datetime.timezone.utc).isoformat())
-          for idx,(slug,tid) in enumerate(EVENTS):
-            if idx: time.sleep(8)
-            url=f'https://www.protennislive.com/posting/2026/{tid}/qs.pdf'
+          python3 - <<'PY' > research/livetennis-q-widget-trace.txt
+          import urllib.request,re,json,datetime,html
+          UA={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36','Accept':'text/html,application/json,*/*'}
+          urls={
+            'historic_2024':'https://www.livetennis.it/post/413047/challenger-175-torino-e-bordeaux-e-challenger-75-oeiras-4-taipei-e-tunisi-la-situazione-aggiornata-md-e-qualificazioni/',
+            'historic_2025':'https://www.livetennis.it/post/446046/challenger-todi-cancun-barranquilla-sumter-sofia-1-e-hersonissos-3-la-situazione-aggiornata-md-e-qualificazioni/',
+            'current_2026':'https://www.livetennis.it/post/469551/challenger-cancun-quebec-city-kingston-roehampton-praga-e-sion-la-situazione-aggiornata-darderi-si-cancella-da-cancun/',
+          }
+          def get(url):
             try:
               req=urllib.request.Request(url,headers=UA)
-              with urllib.request.urlopen(req,timeout=15) as r:
-                data=r.read(); status=r.status; ctype=r.headers.get('content-type','')
-              sha=hashlib.sha256(data).hexdigest()[:16]
-              placeholder=(len(data)==2616 and sha=='eaf906597d4921ed')
-              print(f'\n===== {slug} ID={tid} STATUS={status} BYTES={len(data)} PLACEHOLDER={placeholder} TYPE={ctype} SHA={sha} URL={url} =====')
-              if data.startswith(b'%PDF'):
-                reader=PdfReader(io.BytesIO(data))
-                text='\n'.join((p.extract_text() or '') for p in reader.pages[:2])
-                print(text[:16000])
-              else:
-                print(data[:500].decode('utf-8','replace'))
+              with urllib.request.urlopen(req,timeout=25) as r:
+                return r.status,r.geturl(),r.read().decode('utf-8','replace'),dict(r.headers)
             except Exception as e:
-              print(f'\n===== {slug} ID={tid} ERR={e!r} URL={url} =====')
+              return 'ERR',repr(e),'',{}
+          print('RUN',datetime.datetime.now(datetime.timezone.utc).isoformat())
+          for label,url in urls.items():
+            st,final,body,headers=get(url)
+            print(f'\n\n######## {label} STATUS={st} LEN={len(body)} FINAL={final} ########')
+            print('CONTENT-TYPE',headers.get('Content-Type'))
+            for needle in ['Challenger Torino 175 (Q)','Challenger Cancun (Q)','Alternates','Data entry list','Ultimo agg.','469551','413047','446046']:
+              hits=list(re.finditer(re.escape(needle),body,re.I))
+              print('NEEDLE',needle,'HITS',len(hits))
+              for m in hits[:3]:
+                print(body[max(0,m.start()-1200):m.start()+5000])
+            print('\n-- forms / ajax / data attrs / comments --')
+            for pat in [r'<!--.*?-->',r'<script[^>]*src=["\']([^"\']+)',r'<iframe[^>]*src=["\']([^"\']+)',r'(?:href|src)=["\']([^"\']*(?:entry|ajax|qual|challenger)[^"\']*)',r'data-[\w-]+=["\'][^"\']+["\']']:
+              vals=[]
+              for m in re.finditer(pat,body,re.I|re.S):
+                v=m.group(1) if m.lastindex else m.group(0)
+                if v not in vals: vals.append(v)
+              for v in vals[:250]: print(v[:3000])
+          print('\n\n######## WORDPRESS / API PROBES ########')
+          probes=[
+            'https://www.livetennis.it/wp-json/',
+            'https://www.livetennis.it/wp-json/wp/v2/posts/413047',
+            'https://www.livetennis.it/wp-json/wp/v2/posts/446046',
+            'https://www.livetennis.it/wp-json/wp/v2/posts/469551',
+            'https://www.livetennis.it/wp-json/wp/v2/search?search=Challenger%20Cancun',
+            'https://www.livetennis.it/wp-admin/admin-ajax.php',
+          ]
+          for u in probes:
+            st,final,b,h=get(u); print('\nPROBE',u,'STATUS',st,'LEN',len(b),'FINAL',final); print(b[:12000])
           PY
       - name: Commit output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/ptl-week33-qs-status.txt
-          git commit -m "Save Week 33 Q PDF status" || exit 0
+          git add research/livetennis-q-widget-trace.txt
+          git commit -m "Save LiveTennis Q widget trace" || exit 0
           git push
