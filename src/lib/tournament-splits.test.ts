@@ -41,14 +41,26 @@ describe('splitReason', () => {
     expect(splitReason(rolandGarros, parisMasters)).toBeNull();
   });
 
-  it('leaves a numbered series alone, since each runs its own week', () => {
-    const one = record('oeiras-1', [[2025, 20], [2026, 20]]);
-    const two = record('oeiras-2', [[2025, 21], [2026, 21]]);
-    const four = record('oeiras-4', [[2025, 23], [2026, 23]]);
+  it('leaves a numbered series alone, even in consecutive weeks', () => {
+    const one = { ...record('oeiras-1', [[2025, 20], [2026, 20]]), name: 'Oeiras 1' };
+    const two = { ...record('oeiras-2', [[2025, 21], [2026, 21]]), name: 'Oeiras 2' };
+    const four = { ...record('oeiras-4', [[2025, 23], [2026, 23]]), name: 'Oeiras 4' };
+    expect(splitReason(one, two)).toBeNull();
     expect(splitReason(one, four)).toBeNull();
-    // Consecutive weeks are within tolerance, which is the price of tolerating
-    // a calendar that shifts; the level and city still have to agree.
-    expect(splitReason(one, two)).toBe('same-week-same-year');
+  });
+
+  // The number wins even when the weeks coincide exactly, which they do when a
+  // series shifts and two of its events land on the same week in the data.
+  it('leaves a numbered series alone when their weeks collide', () => {
+    const one = { ...record('abidjan-1', [[2026, 17]]), name: 'Abidjan 1' };
+    const two = { ...record('abidjan-2', [[2026, 17]]), name: 'Abidjan 2' };
+    expect(splitReason(one, two)).toBeNull();
+  });
+
+  it('still matches a genuine duplicate whose name happens to end in a number', () => {
+    const a = { ...record('oeiras-2', [[2026, 21]]), name: 'Oeiras 2' };
+    const b = { ...record('oeiras-2-dup', [[2026, 21]]), name: 'Oeiras 2' };
+    expect(splitReason(a, b)).toBe('same-week-same-year');
   });
 
   it('never matches across levels, whatever the weeks do', () => {
@@ -57,11 +69,17 @@ describe('splitReason', () => {
     expect(splitReason(challenger, masters)).toBeNull();
   });
 
-  it('tolerates a week of drift', () => {
-    expect(splitReason(record('a', [[2026, 39]]), record('b', [[2026, 40]]))).toBe(
+  it('requires the exact week within a year, since series run back to back', () => {
+    expect(splitReason(record('a', [[2026, 39]]), record('b', [[2026, 40]]))).toBeNull();
+    expect(splitReason(record('a', [[2026, 39]]), record('b', [[2026, 39]]))).toBe(
       'same-week-same-year'
     );
-    expect(splitReason(record('a', [[2026, 39]]), record('b', [[2026, 42]]))).toBeNull();
+  });
+
+  it('allows a week of drift across a rename, where the calendar moved', () => {
+    const before = record('moselle-open', [[2024, 44], [2025, 45]]);
+    const after = record('metz', [[2026, 43]]);
+    expect(splitReason(before, after)).toBe('renamed-same-week');
   });
 
   it('says nothing about a record with no editions', () => {

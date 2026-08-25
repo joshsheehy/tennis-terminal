@@ -32,8 +32,28 @@ export type SplitRecord = {
 
 export type SplitReason = 'same-week-same-year' | 'renamed-same-week';
 
-/** Weeks either side that still count as the same slot, for a calendar that shifts. */
-const WEEK_TOLERANCE = 1;
+// A rename can move the event a week as the calendar shifts, so the rename test
+// allows one week either side. The same-year test does not: Challenger series
+// run "City 1" and "City 2" in consecutive weeks, and treating adjacent weeks as
+// one event merged Oeiras, Tenerife, Abidjan, Brisbane and six more pairs of
+// genuinely separate tournaments.
+const RENAME_WEEK_TOLERANCE = 1;
+
+/**
+ * "Oeiras 1" and "Oeiras 2" are two tournaments, and the numbers say so.
+ *
+ * The strongest single signal in the data: a city running a series numbers its
+ * events, and two different numbers are never one event however the weeks fall.
+ */
+function differentNumberedEvents(a: SplitRecord, b: SplitRecord): boolean {
+  const seriesNumber = (record: SplitRecord) => {
+    const match = record.name.trim().match(/(?:^|[\s(])(\d{1,2})\)?$/);
+    return match ? match[1] : null;
+  };
+  const left = seriesNumber(a);
+  const right = seriesNumber(b);
+  return left !== null && right !== null && left !== right;
+}
 
 const levelsOverlap = (a: SplitRecord, b: SplitRecord) => {
   const levels = new Set(a.editions.map((e) => e.level));
@@ -42,9 +62,7 @@ const levelsOverlap = (a: SplitRecord, b: SplitRecord) => {
 
 function sameWeekSameYear(a: SplitRecord, b: SplitRecord): boolean {
   return a.editions.some((left) =>
-    b.editions.some(
-      (right) => left.year === right.year && Math.abs(left.week - right.week) <= WEEK_TOLERANCE
-    )
+    b.editions.some((right) => left.year === right.year && left.week === right.week)
   );
 }
 
@@ -53,7 +71,7 @@ function renamedSameWeek(a: SplitRecord, b: SplitRecord): boolean {
   const overlapping = b.editions.some((e) => yearsA.has(e.year));
   if (overlapping) return false;
   return a.editions.some((left) =>
-    b.editions.some((right) => Math.abs(left.week - right.week) <= WEEK_TOLERANCE)
+    b.editions.some((right) => Math.abs(left.week - right.week) <= RENAME_WEEK_TOLERANCE)
   );
 }
 
@@ -66,6 +84,7 @@ function renamedSameWeek(a: SplitRecord, b: SplitRecord): boolean {
 export function splitReason(a: SplitRecord, b: SplitRecord): SplitReason | null {
   if (a.editions.length === 0 || b.editions.length === 0) return null;
   if (!levelsOverlap(a, b)) return null;
+  if (differentNumberedEvents(a, b)) return null;
   if (sameWeekSameYear(a, b)) return 'same-week-same-year';
   if (renamedSameWeek(a, b)) return 'renamed-same-week';
   return null;
