@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { cityKeySql } from '@/lib/city-key';
+import { clusterSplits, suggestCanonical, type SplitRecord } from '@/lib/tournament-splits';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,107 +9,121 @@ export const dynamic = 'force-dynamic';
 // One event held under several tournament records.
 //
 // /api/city-dupes finds duplicate EDITIONS — two rows for the same tournament in
-// the same week of the same year. It cannot see this: a split where the 2025
-// edition sits under one tournament record and the 2026 edition under another,
-// because there is never a week where both appear.
+// the same week of the same year. It cannot see a split where the 2025 edition
+// sits under one tournament record and the 2026 edition under another, because
+// no single week contains both.
 //
-// The consequence is worse than a repeated row on the schedule. Cut history
-// hangs off the tournament, so a split event's history stops at the year it was
-// renamed — which is the one number this site exists to show. Mouilleron-le-
-// Captif ran under three records at once: "Open De Vendée" holding the 2025
-// history, and "Open de Vendée" and "Mouilleron-le-Captif" splitting 2026.
+// That case matters more than a repeated schedule row: cut history hangs off the
+// tournament, so a split event's history stops at the year it was renamed.
+// Mouilleron-le-Captif ran under three records at once — "Open De Vendée"
+// holding 2022-2026, and two others splitting 2026.
 //
-// Read-only. Merging is a judgement call about which record is canonical, so it
-// stays with /api/merge-tournaments and a human.
+// Candidates are narrowed by folded city, then decided on the calendar: see
+// src/lib/tournament-splits.ts. City alone is not evidence — Paris holds Roland
+// Garros and the Rolex Paris Masters, and Oeiras runs four Challengers.
+//
+// Read-only. Merging deletes rows and is a judgement call, so it stays with
+// /api/merge-tournaments and a human.
 
-type SplitRow = {
+type Row = {
+  tournament_id: string;
+  slug: string;
+  name: string;
+  city: string | null;
+  country: string | null;
   city_key: string;
-  tournament_count: string;
-  records: Array<{
-    tournament_id: string;
-    slug: string;
-    name: string;
-    city: string | null;
-    country: string | null;
-    years: number[];
-    edition_count: number;
-    cutoff_count: number;
-  }>;
+  editions: Array<{ year: number; week: number; level: string }>;
+  cutoff_count: number;
 };
 
 export async function GET(request: NextRequest) {
-  const minTournaments = Number(request.nextUrl.searchParams.get('min') ?? '2');
+  const reasonFilter = request.nextUrl.searchParams.get('reason');
 
-  const { rows } = await pool.query<SplitRow>(
+  const { rows } = await pool.query<Row>(
     `
-    with per_tournament as (
-      select
-        t.id as tournament_id,
-        t.slug,
-        t.name,
-        t.city,
-        t.country,
-        ${cityKeySql('t.city')} as city_key,
-        array_agg(distinct te.year order by te.year) as years,
-        count(distinct te.id)::int as edition_count,
-        (
-          select count(*)::int
-          from cutoff_snapshots cs
-          join tournament_editions te2 on te2.id = cs.tournament_edition_id
-          where te2.tournament_id = t.id
-        ) as cutoff_count
-      from tournaments t
-      join tournament_editions te on te.tournament_id = t.id
-      where t.city is not null
-        -- ITF events legitimately share a city with an ATP or Challenger stop,
-        -- and are separate tournaments however similar the address looks.
-        and te.level not ilike 'ITF%'
-      group by t.id, t.slug, t.name, t.city, t.country
-    )
     select
-      city_key,
-      count(*) as tournament_count,
+      t.id as tournament_id,
+      t.slug,
+      t.name,
+      t.city,
+      t.country,
+      ${cityKeySql('t.city')} as city_key,
       json_agg(json_build_object(
-        'tournament_id', tournament_id,
-        'slug', slug,
-        'name', name,
-        'city', city,
-        'country', country,
-        'years', years,
-        'edition_count', edition_count,
-        'cutoff_count', cutoff_count
-      ) order by cutoff_count desc, edition_count desc) as records
-    from per_tournament
-    where city_key <> ''
-    group by city_key
-    having count(*) >= $1
-    order by count(*) desc, city_key
-    `,
-    [Number.isFinite(minTournaments) && minTournaments >= 2 ? minTournaments : 2]
+        'year', te.year,
+        'week', extract(week from te.start_date)::int,
+        'level', te.level
+      )) as editions,
+      (
+        select count(*)::int
+        from cutoff_snapshots cs
+        join tournament_editions te2 on te2.id = cs.tournament_edition_id
+        where te2.tournament_id = t.id
+      ) as cutoff_count
+    from tournaments t
+    join tournament_editions te on te.tournament_id = t.id
+    where t.city is not null
+      and te.start_date is not null
+      -- ITF events legitimately share a city and a week with a Challenger stop
+      -- and are separate tournaments however alike the address looks.
+      and te.level not ilike 'ITF%'
+    group by t.id, t.slug, t.name, t.city, t.country
+    `
   );
 
-  const splits = rows.map((row) => {
-    const records = row.records;
-    // The record carrying the most history is the one worth keeping; merging
-    // into it moves the fewest cuts and breaks the fewest links.
-    const [canonical, ...others] = records;
-    return {
-      cityKey: row.city_key,
-      city: canonical.city,
-      country: canonical.country,
-      tournamentCount: Number(row.tournament_count),
-      suggestedCanonical: canonical.slug,
-      records,
-      mergeLinks: others.map(
-        (other) => `/api/merge-tournaments?from=${other.slug}&to=${canonical.slug}&apply=true`
-      ),
+  const byCity = new Map<string, SplitRecord[]>();
+  for (const row of rows) {
+    if (!row.city_key) continue;
+    const record: SplitRecord = {
+      tournamentId: row.tournament_id,
+      slug: row.slug,
+      name: row.name,
+      city: row.city,
+      country: row.country,
+      editions: row.editions ?? [],
+      cutoffCount: row.cutoff_count,
     };
-  });
+    byCity.set(row.city_key, [...(byCity.get(row.city_key) ?? []), record]);
+  }
+
+  const splits = [];
+  for (const [cityKey, records] of byCity) {
+    if (records.length < 2) continue;
+    for (const cluster of clusterSplits(records)) {
+      const canonical = suggestCanonical(cluster.records);
+      const others = cluster.records.filter((r) => r.tournamentId !== canonical.tournamentId);
+      splits.push({
+        cityKey,
+        city: canonical.city,
+        country: canonical.country,
+        reasons: cluster.reasons,
+        suggestedCanonical: canonical.slug,
+        records: cluster.records.map((r) => ({
+          slug: r.slug,
+          name: r.name,
+          city: r.city,
+          years: [...new Set(r.editions.map((e) => e.year))].sort(),
+          weeks: [...new Set(r.editions.map((e) => e.week))].sort((a, b) => a - b),
+          levels: [...new Set(r.editions.map((e) => e.level))],
+          editionCount: r.editions.length,
+          cutoffCount: r.cutoffCount,
+        })),
+        mergeLinks: others.map(
+          (other) => `/api/merge-tournaments?from=${other.slug}&to=${canonical.slug}&apply=true`
+        ),
+      });
+    }
+  }
+
+  const filtered = reasonFilter
+    ? splits.filter((split) => split.reasons.includes(reasonFilter as never))
+    : splits;
+
+  filtered.sort((a, b) => b.records.length - a.records.length || a.cityKey.localeCompare(b.cityKey));
 
   return NextResponse.json({
     ok: true,
-    splitCount: splits.length,
-    note: 'Read-only. Each mergeLink moves one record into the suggested canonical tournament; check the suggestion before running it.',
-    splits,
+    splitCount: filtered.length,
+    note: 'Read-only. Check each suggestion before running its merge link — the canonical is the record holding the most cut history, which is a heuristic, not a fact.',
+    splits: filtered,
   });
 }
