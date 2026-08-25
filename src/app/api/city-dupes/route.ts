@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, withTransaction } from '@/lib/db';
+import { cityKeySql } from '@/lib/city-key';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Finds tournament editions with matching city + calendar-week + year but different slugs.
+//
+// The city is folded through cityKeySql, which drops punctuation as well as
+// accents. Folding accents alone treated "Mouilleron-le-Captif" and "Mouilleron
+// le Captif" as two cities, so duplicates spelled either way were never seen.
 // These are typically JeffSackmann imports that share a city with a canonical entry
 // but have a different tournament name (e.g. "Baton Rouge" vs "Baton Rouge, LA",
 // or "Montpellier" vs "Open Occitanie").
@@ -25,7 +30,7 @@ export async function GET(request: NextRequest) {
   const dupeQuery = await pool.query(
     `
     select
-      translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae') as city,
+      ${cityKeySql('t.city')} as city,
       date_trunc('week', te.start_date) as cal_week,
       te.year,
       count(*) as cnt,
@@ -51,9 +56,9 @@ export async function GET(request: NextRequest) {
       -- (e.g. M15 Monastir alongside the Monastir Challenger) — never merge.
       and te.level not ilike 'ITF%'
       ${yearFilter}
-    group by translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae'), date_trunc('week', te.start_date), te.year
+    group by ${cityKeySql('t.city')}, date_trunc('week', te.start_date), te.year
     having count(*) > 1
-    order by te.year, date_trunc('week', te.start_date), translate(lower(t.city), 'áàãâäéèêëíìîïóòõôöúùûüçñắằẳẵặăấầẩẫậạảếềểễệẹẻẽịỉĩốồổỗộớờởỡợọỏơứừửữựụủưýỳỵỷỹđšśćčžźżłęąőűřůīāē', 'aaaaaeeeeiiiiooooouuuucnaaaaaaaaaaaaaeeeeeeeeiiiooooooooooooouuuuuuuuyyyyydsscczzzleaouruiae')
+    order by te.year, date_trunc('week', te.start_date), ${cityKeySql('t.city')}
     `,
     queryParams
   );
