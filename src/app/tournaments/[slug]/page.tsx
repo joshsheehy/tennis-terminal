@@ -9,6 +9,11 @@ import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { CURRENT_SEASON, EARLIEST_SEASON, isAvailableSeason } from '@/lib/seasons';
 import { backLinkFor } from '@/lib/back-link';
 import { SITE_NAME, SITE_URL } from '@/lib/brand';
+import {
+  detailSheetUrl,
+  levelGetsDetailSheet,
+  resolveTournamentPtlCode,
+} from '@/lib/tournament-links';
 
 // Look up the most recent protennislive_code we know for a slug, so the
 // CutoffTable can render a "PDF source" link even when no cuts snapshot
@@ -42,33 +47,6 @@ function fallbackPdfUrl(
 
 function isGrandSlamLevel(level: string): boolean {
   return level.toLowerCase().includes('grand slam');
-}
-
-// Official ProTennisLive tournament fact/detail sheet for a given year.
-// Pattern: /posting/{year}/{code}/ds.pdf — same code we already store for the
-// draw sheets, just a different filename. One per edition/year.
-function detailSheetUrl(code: string, year: number): string {
-  return `https://www.protennislive.com/posting/${year}/${code}/ds.pdf`;
-}
-
-// Detail sheets only exist for ATP Tour and Challenger events (ProTennisLive
-// postings). Grand Slams, ITF, and team events (Cups/Finals) have no ds.pdf.
-function isAtpTourLevel(level: string): boolean {
-  return /\batp\s*(250|500|1000)\b/i.test(level);
-}
-function levelGetsDetailSheet(level: string): boolean {
-  return isChallengerLevel(level) || isAtpTourLevel(level);
-}
-
-// Recover the ProTennisLive code for an edition. Prefer the static catalogue
-// (stable code per slug); fall back to the code embedded in the DB source_url
-// for tournaments discovered from the calendar (e.g. post-September challengers
-// that aren't in tournament-data.ts).
-function resolveProTennisLiveCode(slug: string, sourceUrl: string | null | undefined): string | null {
-  const fromCatalogue = getProtennislivCodeForSlug(slug);
-  if (fromCatalogue) return fromCatalogue;
-  const m = (sourceUrl ?? '').match(/protennislive\.com\/posting\/\d{4}\/(\d+)/i);
-  return m ? m[1] : null;
 }
 
 // Grand Slams have no protennislive draw-sheet, so the standard PTL fallback
@@ -462,6 +440,15 @@ export default async function TournamentDetailPage({
   const viewedRow = rows.find((r) => r.edition.year === year) ?? rows[0];
   const current = viewedRow.edition;
 
+  // One code for the whole tournament: the detail sheet exists per year under
+  // the same code, so every edition gets a link as long as any of them knows
+  // it. The cut snapshots are searched as well as the edition rows, since a
+  // calendar-discovered event often carries the code only there.
+  const tournamentPtlCode = resolveTournamentPtlCode(slug, [
+    ...rows.map((row) => row.edition.source_url),
+    ...rows.flatMap((row) => row.cutoffs.map((cutoff) => cutoff.source_notes)),
+  ]);
+
   // ITF events have no fixed code and each week is its own slug, so a current
   // ITF edition with no cut data (e.g. 2026, before that season's strength
   // sheet exists) can't show its own history. Pull the nearest prior-year
@@ -550,9 +537,7 @@ export default async function TournamentDetailPage({
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
         {rows.map((row, i) => {
           const prevRow = rows[i + 1] ?? null;
-          const detailCode = levelGetsDetailSheet(row.edition.level)
-            ? resolveProTennisLiveCode(row.edition.slug, row.edition.source_url)
-            : null;
+          const detailCode = levelGetsDetailSheet(row.edition.level) ? tournamentPtlCode : null;
           return (
           <div
             key={row.edition.edition_id}

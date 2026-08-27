@@ -32,16 +32,49 @@ export function getProtennisliveCodeForSlug(slug: string): string | null {
   return bestCode;
 }
 
+const PTL_CODE_IN_URL = /protennislive\.com\/posting\/\d{4}\/(\d+)/i;
+
+export function ptlCodeFromUrl(url: string | null | undefined): string | null {
+  return (url ?? '').match(PTL_CODE_IN_URL)?.[1] ?? null;
+}
+
 // Recover a ProTennisLive code: prefer the static catalogue, else the code
 // embedded in the DB source_url for calendar-discovered events.
 export function resolveProTennisLiveCode(
   slug: string,
   sourceUrl: string | null | undefined
 ): string | null {
+  return getProtennisliveCodeForSlug(slug) ?? ptlCodeFromUrl(sourceUrl);
+}
+
+/**
+ * The code for a tournament, from any URL its editions carry.
+ *
+ * The code belongs to the tournament, not to one edition — Prague is 600 every
+ * year and Open de Vendée is 6857 every year — so a code found anywhere serves
+ * every edition.
+ *
+ * Looking only at the catalogue and one edition's own source_url was too
+ * narrow. A tournament missing from the catalogue lost its detail-sheet link on
+ * every edition except whichever one happened to be imported from a
+ * ProTennisLive URL: Open de Vendée offered a sheet for 2022 and nothing for
+ * 2024, 2025 or 2026, while the same page linked the 2025 draw sheet under that
+ * very code. The cut snapshots held it and nothing looked.
+ *
+ * @param candidateUrls URLs from the tournament's editions and cut snapshots,
+ *   newest first — the most recent code is the one most likely still current.
+ */
+export function resolveTournamentPtlCode(
+  slug: string,
+  candidateUrls: Array<string | null | undefined>
+): string | null {
   const fromCatalogue = getProtennisliveCodeForSlug(slug);
   if (fromCatalogue) return fromCatalogue;
-  const m = (sourceUrl ?? '').match(/protennislive\.com\/posting\/\d{4}\/(\d+)/i);
-  return m ? m[1] : null;
+  for (const url of candidateUrls) {
+    const code = ptlCodeFromUrl(url);
+    if (code) return code;
+  }
+  return null;
 }
 
 // Official ProTennisLive fact/detail sheet: /posting/{year}/{code}/ds.pdf.
