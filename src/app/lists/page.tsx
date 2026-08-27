@@ -308,25 +308,29 @@ function DrawComposition({
   // and per event, since a Challenger 125 here runs a 28 main draw while the
   // 75s and 50s run 32.
   //
-  // DA is counted from the list instead of taken from the sheet's column. The
-  // sheet states 23 DA at Kingston while the acceptance list names 21, which
-  // reads as an error until you see that two of those places are being held for
-  // special exempts. Counting the names and showing the held places separately
-  // makes the same three numbers add up in public.
-  const named = liveCount(rows, section);
+  // Every figure here comes from the sheet, so the breakdown describes the
+  // tournament and does not move as players come and go.
+  //
+  // An earlier version counted the names on the list instead, and showed the
+  // held places only when those names happened to complete the draw exactly.
+  // That made the whole breakdown flip presentation the moment a withdrawal
+  // went unreplaced — Kingston lost its SE chip and jumped from 21 DA to 23 the
+  // hour one player pulled out. A draw's shape does not change because someone
+  // withdrew; only how much of it is filled does, and the count beside the
+  // heading says that.
+  //
+  // The sheet's DA column covers the places held for special exempts as well as
+  // the ones the ranking cut fills, which is why it reads 23 at Kingston over a
+  // 21-name list. Splitting the two makes both true and makes the parts sum to
+  // the draw.
   const held = plan?.seHeld ?? 0;
-  // The list accounts for the draw when the players it names, plus the
-  // wildcards, qualifiers and held places, come to the draw size. Where it
-  // does, the counted number is the honest one and the held places are worth
-  // naming. Where it does not — the qualifying list is a partial Aug 10
-  // capture — the sheet's own figure is, and it still sums exactly. Either way
-  // the parts on screen add up to the total beside them.
-  const listAccountsForDraw =
-    plan?.size != null && named + (plan.wc ?? 0) + (plan.q ?? 0) + held === plan.size;
-
   const parts: Array<{ label: string; value: number; title: string }> = [];
-  if (listAccountsForDraw || plan?.da == null) {
-    parts.push({ label: 'DA', value: named, title: 'Named on the acceptance list' });
+  if (plan?.da != null) {
+    parts.push({
+      label: 'DA',
+      value: plan.da - held,
+      title: 'Places filled from the ranking cut',
+    });
     if (held > 0) {
       parts.push({
         label: 'SE',
@@ -334,8 +338,6 @@ function DrawComposition({
         title: 'Places held for special exempts — players still alive in the previous week',
       });
     }
-  } else {
-    parts.push({ label: 'DA', value: plan.da, title: routeLabel('DA') });
   }
 
   if (plan?.wc != null) parts.push({ label: 'WC', value: plan.wc, title: routeLabel('WC') });
@@ -348,7 +350,7 @@ function DrawComposition({
     rows.map((row) => ({ code: row.entryCode, departed: hasDeparted(row, section) }))
   ).filter((tally) => tally.live > 0 && tally.route !== 'DA');
 
-  if (named === 0 && plan?.size == null) return null;
+  if (parts.length === 0 && accelerators.length === 0 && plan?.size == null) return null;
   return (
     <ul className={styles.composition}>
       {plan?.size != null ? (

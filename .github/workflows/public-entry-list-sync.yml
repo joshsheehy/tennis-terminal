@@ -44,3 +44,8 @@ jobs:
           call_api '/api/setup-entry-lists'
           call_api '/api/sync-public-entry-lists?week=2026-08-17'
           call_api '/api/sync-protennis-qualifying?week=2026-08-17'
+          # The detail sheets were only ever populated by hand, so a column
+          # added after the last manual run stayed empty and the draw
+          # breakdown quietly lost its special-exempt figures. Refresh them on
+          # the same schedule as everything else.
+          call_api '/api/sync-detail-sheets?week=2026-08-17'
