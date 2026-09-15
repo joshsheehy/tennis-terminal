@@ -25,6 +25,9 @@ const eslintConfig = [
       // did not write and will never edit produced 658 warnings and 6 errors,
       // which failed CI on every push.
       'research/**',
+      // MapLibre's own worker bundle, copied in at build time by
+      // scripts/copy-maplibre-worker.mjs. Minified vendor code we never edit.
+      'public/maplibre/**',
     ],
   },
   ...compat.extends('next/core-web-vitals', 'next/typescript'),

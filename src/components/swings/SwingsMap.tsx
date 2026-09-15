@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { Map as LeafletMap, LayerGroup, TileLayer } from 'leaflet';
+import type { Map as MapLibreMap, Marker as MapLibreMarker, Popup as MapLibrePopup } from 'maplibre-gl';
 import type { SwingMapEvent, SwingMapSwing } from '@/lib/swings-page-data';
 import type { CandidateTier } from '@/lib/swing-builder';
 
@@ -18,10 +18,17 @@ const TIER_COLOR: Record<CandidateTier, string> = {
   far: '#94a3b8',
 };
 
-// CARTO basemaps (OSM-derived, Latin/romanized labels worldwide). The pair is
-// theme-matched: Positron for light UI, Dark Matter for dark UI.
-const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+// OpenFreeMap: OpenStreetMap-derived vector tiles, free, with no API key and no
+// rate limit. CARTO moved its free raster basemaps behind a signup and began
+// serving tiles stamped "API KEY REQUIRED" instead of failing, so the map still
+// drew — covered in watermarks. These styles are theme-matched: Positron for
+// light UI, the dark build for dark.
+const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/positron';
+const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark';
+
+const ROUTE_SOURCE = 'swing-routes';
+const ROUTE_LAYER_SOLID = 'swing-routes-solid';
+const ROUTE_LAYER_DASHED = 'swing-routes-dashed';
 
 // Marker color/size by event level, matching the level-badge palette used on
 // the schedule (Grand Slam purple, ATP blue, Challenger amber, ITF slate).
@@ -84,8 +91,13 @@ function arcPath(points: [number, number][]): [number, number][] {
   return out;
 }
 
+/** GeoJSON wants [lng, lat]; everything upstream speaks [lat, lng]. */
+function toLngLat(points: [number, number][]): [number, number][] {
+  return points.map(([lat, lng]) => [lng, lat]);
+}
+
 // Tracks the effective theme (data-theme attribute, falling back to the OS
-// preference) so the map can swap tile sets in step with the UI.
+// preference) so the map can swap styles in step with the UI.
 function useIsDark(): boolean {
   const [dark, setDark] = useState(false);
   useEffect(() => {
@@ -137,6 +149,9 @@ type Props = {
   onPickEvent: (editionId: string) => void;
 };
 
+type RouteProps = { swingIndex: number; selected: boolean };
+type RouteFeature = GeoJSON.Feature<GeoJSON.LineString, RouteProps>;
+
 export default function SwingsMap({
   events,
   swings,
@@ -152,9 +167,12 @@ export default function SwingsMap({
   onPickEvent,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<LeafletMap | null>(null);
-  const layersRef = useRef<LayerGroup | null>(null);
-  const tileRef = useRef<TileLayer | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const markersRef = useRef<MapLibreMarker[]>([]);
+  const openPopupRef = useRef<MapLibrePopup | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mlRef = useRef<any>(null);
+  const readyRef = useRef(false);
   const onSelectRef = useRef(onSelectSwing);
   onSelectRef.current = onSelectSwing;
   const onPickRef = useRef(onPickEvent);
@@ -163,106 +181,263 @@ export default function SwingsMap({
   const isDarkRef = useRef(isDark);
   isDarkRef.current = isDark;
 
+  // The newest draw closure, so handlers registered once can still call it.
+  const drawRef = useRef<() => void>(() => {});
+
   // Create the map once.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const L = (await import('leaflet')).default;
+      const maplibregl = await import('maplibre-gl');
       if (cancelled || !containerRef.current || mapRef.current) return;
+      mlRef.current = maplibregl;
 
-      const map = L.map(containerRef.current, {
-        center: initialCenter,
+      // MapLibre works out its own worker URL from `import.meta.url`, which
+      // webpack rewrites when it bundles. The check it runs on that value then
+      // fails, the URL comes back empty, and the worker is never created — with
+      // no error. The map mounts, reports a loaded style, and quietly requests
+      // no tiles at all, which draws as a blank world. Point it at the copy
+      // scripts/copy-maplibre-worker.mjs puts in public/ instead.
+      maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
+
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style: isDarkRef.current ? STYLE_DARK : STYLE_LIGHT,
+        center: [initialCenter[1], initialCenter[0]],
         zoom: initialZoom,
-        zoomControl: false,
         attributionControl: false,
-        worldCopyJump: true,
+        maxPitch: 75,
       });
+
       // Controls live bottom-left so the floating filter/timeline cluster
       // (top) and the itinerary panel (right, desktop) never cover them.
-      L.control.zoom({ position: 'bottomleft' }).addTo(map);
-      L.control
-        .attribution({ position: 'bottomleft', prefix: false })
-        .addAttribution('&copy; OpenStreetMap &copy; CARTO')
-        .addTo(map);
-      tileRef.current = L.tileLayer(isDarkRef.current ? TILE_DARK : TILE_LIGHT, {
-        maxZoom: 20,
-        subdomains: 'abcd',
-      }).addTo(map);
-      // Map sits inside a flex pane that sizes after paint; nudge Leaflet.
-      setTimeout(() => map.invalidateSize(), 0);
+      map.addControl(
+        new maplibregl.NavigationControl({ visualizePitch: true, showCompass: true }),
+        'bottom-left'
+      );
+      map.addControl(
+        new maplibregl.AttributionControl({
+          compact: false,
+          customAttribution: '&copy; OpenStreetMap &copy; OpenFreeMap',
+        }),
+        'bottom-left'
+      );
 
       mapRef.current = map;
-      layersRef.current = L.layerGroup().addTo(map);
-      renderLayers(L);
+
+      // A style swap drops every source and layer we added, so the route
+      // layers are installed on each style load rather than once at startup.
+      map.on('style.load', () => {
+        // The tour is a global object, so the map is one too: a sphere you can
+        // spin and tilt, rather than a flattened rectangle where a Tokyo to
+        // Santiago leg runs off one edge and back on the other. Set per style
+        // load, since a style carries its own projection.
+        map.setProjection({ type: 'globe' });
+        applyLatinLabels(map);
+        installRouteLayers(map);
+        map.setSky({
+          'sky-color': isDarkRef.current ? '#0b1220' : '#9ec3e8',
+          'sky-horizon-blend': 0.5,
+          'horizon-color': isDarkRef.current ? '#1a2438' : '#e8f0f8',
+          'horizon-fog-blend': 0.6,
+          'fog-color': isDarkRef.current ? '#0b1220' : '#dbe6f0',
+          'fog-ground-blend': 0.02,
+        });
+        readyRef.current = true;
+        drawRef.current();
+      });
     })();
     return () => {
       cancelled = true;
+      readyRef.current = false;
+      openPopupRef.current?.remove();
+      openPopupRef.current = null;
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
       mapRef.current?.remove();
       mapRef.current = null;
-      tileRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Swap tile sets when the theme flips.
+  // Swap styles when the theme flips. Markers are DOM elements and survive it;
+  // the route layers are rebuilt by the style.load handler above.
   useEffect(() => {
-    tileRef.current?.setUrl(isDark ? TILE_DARK : TILE_LIGHT);
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    readyRef.current = false;
+    map.setStyle(isDark ? STYLE_DARK : STYLE_LIGHT);
   }, [isDark]);
 
   // Redraw markers + chains whenever inputs change.
   useEffect(() => {
-    (async () => {
-      const L = (await import('leaflet')).default;
-      renderLayers(L);
-    })();
+    drawRef.current = draw;
+    if (readyRef.current) draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, visibleSwingIndexes, selectedSwingIndex, builderActive, builderPath]);
+  }, [events, swings, visibleSwingIndexes, selectedSwingIndex, builderActive, builderPath]);
 
   // Re-frame the map when the focus set changes (e.g. a new week is picked).
   useEffect(() => {
-    (async () => {
-      const L = (await import('leaflet')).default;
-      const map = mapRef.current;
-      if (!map || fitPoints.length === 0) return;
-      if (fitPoints.length === 1) {
-        map.setView(fitPoints[0], Math.max(map.getZoom(), 5), { animate: true });
-        return;
-      }
-      map.fitBounds(L.latLngBounds(fitPoints), { padding: [48, 48], maxZoom: 7, animate: true });
-    })();
+    const map = mapRef.current;
+    const maplibregl = mlRef.current;
+    if (!map || !maplibregl || fitPoints.length === 0) return;
+    if (fitPoints.length === 1) {
+      map.easeTo({ center: [fitPoints[0][1], fitPoints[0][0]], zoom: Math.max(map.getZoom(), 5) });
+      return;
+    }
+    const bounds = new maplibregl.LngLatBounds();
+    for (const [lat, lng] of fitPoints) bounds.extend([lng, lat]);
+    map.fitBounds(bounds, { padding: 56, maxZoom: 7 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitNonce]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function renderLayers(L: any) {
+  /**
+   * Render place names in English, falling back to Latin script.
+   *
+   * OpenMapTiles ships each label in the local language and stacks a
+   * romanization under it, so the default style prints "Morocco" over "المغرب"
+   * and Tokyo in kanji. The previous basemap was chosen specifically so the map
+   * read in English worldwide; this keeps that, dropping to the romanized name
+   * and then the local one where no English exists.
+   */
+  function applyLatinLabels(map: MapLibreMap) {
+    for (const layer of map.getStyle()?.layers ?? []) {
+      if (layer.type !== 'symbol') continue;
+      const field = (layer.layout as { 'text-field'?: unknown } | undefined)?.['text-field'];
+      if (field === undefined) continue;
+      map.setLayoutProperty(layer.id, 'text-field', [
+        'coalesce',
+        ['get', 'name:en'],
+        ['get', 'name:latin'],
+        ['get', 'name'],
+      ]);
+    }
+  }
+
+  function installRouteLayers(map: MapLibreMap) {
+    if (map.getSource(ROUTE_SOURCE)) return;
+    map.addSource(ROUTE_SOURCE, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+    // Two layers rather than one: a dash pattern cannot be driven from feature
+    // data, and the selected route is solid while the rest stay dashed.
+    map.addLayer({
+      id: ROUTE_LAYER_DASHED,
+      type: 'line',
+      source: ROUTE_SOURCE,
+      filter: ['==', ['get', 'selected'], false],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': ROUTE_DIM,
+        'line-width': 3,
+        'line-opacity': 0.65,
+        'line-dasharray': [2, 2.6],
+      },
+    });
+    map.addLayer({
+      id: ROUTE_LAYER_SOLID,
+      type: 'line',
+      source: ROUTE_SOURCE,
+      filter: ['==', ['get', 'selected'], true],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': ROUTE, 'line-width': 4, 'line-opacity': 0.95 },
+    });
+
+    for (const layer of [ROUTE_LAYER_DASHED, ROUTE_LAYER_SOLID]) {
+      map.on('click', layer, (e) => {
+        const index = e.features?.[0]?.properties?.swingIndex;
+        if (typeof index === 'number' && index >= 0) onSelectRef.current(index);
+      });
+      map.on('mouseenter', layer, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', layer, () => {
+        map.getCanvas().style.cursor = '';
+      });
+    }
+  }
+
+  function setRoutes(features: RouteFeature[]) {
+    const source = mapRef.current?.getSource(ROUTE_SOURCE);
+    if (!source || !('setData' in source)) return;
+    (source as { setData: (data: GeoJSON.FeatureCollection) => void }).setData({
+      type: 'FeatureCollection',
+      features,
+    });
+  }
+
+  /**
+   * A marker whose content is our own HTML, so every dot keeps the styling it
+   * had before.
+   */
+  function addMarker(
+    lat: number,
+    lng: number,
+    html: string,
+    options: {
+      popupHtml?: string;
+      onClick?: () => void;
+      onPopupOpen?: (element: HTMLElement) => void;
+    } = {}
+  ) {
+    const maplibregl = mlRef.current;
     const map = mapRef.current;
-    const layers = layersRef.current;
-    if (!map || !layers) return;
-    layers.clearLayers();
+    if (!maplibregl || !map) return;
+
+    const element = document.createElement('div');
+    element.className = 'swing-dot-icon';
+    element.innerHTML = html;
+
+    const marker = new maplibregl.Marker({ element, anchor: 'center' })
+      .setLngLat([lng, lat])
+      .addTo(map);
+
+    if (options.popupHtml) {
+      const popup = new maplibregl.Popup({
+        offset: 16,
+        closeButton: true,
+        closeOnClick: true,
+        maxWidth: '280px',
+      }).setHTML(options.popupHtml);
+      marker.setPopup(popup);
+      popup.on('open', () => {
+        openPopupRef.current = popup;
+        const popupElement = popup.getElement();
+        if (popupElement) options.onPopupOpen?.(popupElement);
+      });
+    }
+
+    if (options.onClick) element.addEventListener('click', options.onClick);
+
+    markersRef.current.push(marker);
+  }
+
+  function draw() {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = [];
 
     if (builderActive) {
-      renderBuilderLayers(L, layers);
+      drawBuilder();
       return;
     }
 
-    // Chains first so dots sit on top (series have no polyline).
+    const routes: RouteFeature[] = [];
     for (const index of visibleSwingIndexes) {
       const swing = swings[index];
       if (!swing || swing.kind !== 'swing' || swing.path.length < 2) continue;
-      const selected = index === selectedSwingIndex;
-      L.polyline(
-        arcPath(swing.path.map((p) => [p.lat, p.lng] as [number, number])),
-        {
-          color: selected ? ROUTE : ROUTE_DIM,
-          weight: selected ? 4 : 3,
-          opacity: selected ? 0.95 : 0.65,
-          dashArray: selected ? undefined : '6 8',
-          lineCap: 'round',
-        }
-      )
-        .on('click', () => onSelectRef.current(index))
-        .addTo(layers);
+      routes.push({
+        type: 'Feature',
+        properties: { swingIndex: index, selected: index === selectedSwingIndex },
+        geometry: {
+          type: 'LineString',
+          coordinates: toLngLat(arcPath(swing.path.map((p) => [p.lat, p.lng] as [number, number]))),
+        },
+      });
     }
+    setRoutes(routes);
 
     // One amber marker per visible series (single city; no travel chain).
     for (const index of visibleSwingIndexes) {
@@ -270,16 +445,15 @@ export default function SwingsMap({
       if (!swing || swing.kind !== 'series' || swing.path.length === 0) continue;
       const selected = index === selectedSwingIndex;
       const size = selected ? 34 : 28;
-      const icon = L.divIcon({
-        className: 'swing-dot-icon',
-        html: `<div class="series-dot${selected ? ' swing-dot--selected' : ''}" style="--dot:#fbbf24;width:${size}px;height:${size}px">${swing.totalWeeks}w</div>`,
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-      });
-      L.marker([swing.path[0].lat, swing.path[0].lng], { icon, zIndexOffset: selected ? 1000 : 0 })
-        .on('click', () => onSelectRef.current(index))
-        .bindPopup(`<div class="swing-popup"><div class="swing-popup__name">${swing.label}</div><div class="swing-popup__meta">W${swing.startWeek}–W${swing.endWeek} · ${swing.totalWeeks} weeks · same city</div></div>`)
-        .addTo(layers);
+      addMarker(
+        swing.path[0].lat,
+        swing.path[0].lng,
+        `<div class="series-dot${selected ? ' swing-dot--selected' : ''}" style="--dot:#fbbf24;width:${size}px;height:${size}px">${swing.totalWeeks}w</div>`,
+        {
+          onClick: () => onSelectRef.current(index),
+          popupHtml: `<div class="swing-popup"><div class="swing-popup__name">${swing.label}</div><div class="swing-popup__meta">W${swing.startWeek}–W${swing.endWeek} · ${swing.totalWeeks} weeks · same city</div></div>`,
+        }
+      );
     }
 
     for (const event of events) {
@@ -291,27 +465,22 @@ export default function SwingsMap({
 
       if (inSwing) {
         const size = selected ? style.size + 4 : style.size;
-        const icon = L.divIcon({
-          className: 'swing-dot-icon',
-          html: `<div class="swing-dot${selected ? ' swing-dot--selected' : ''}" style="--dot:${style.color};--dot-text:${style.text};width:${size}px;height:${size}px;opacity:${event.dim && !selected ? 0.5 : 1}">${event.week}</div>`,
-          iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2],
-        });
-        L.marker([event.latitude, event.longitude], { icon, zIndexOffset: selected ? 1000 : 0 })
-          .on('click', () => onSelectRef.current(event.swingIndex))
-          .bindPopup(popupHtml(event))
-          .addTo(layers);
+        addMarker(
+          event.latitude,
+          event.longitude,
+          `<div class="swing-dot${selected ? ' swing-dot--selected' : ''}" style="--dot:${style.color};--dot-text:${style.text};width:${size}px;height:${size}px;opacity:${event.dim && !selected ? 0.5 : 1}">${event.week}</div>`,
+          { onClick: () => onSelectRef.current(event.swingIndex), popupHtml: popupHtml(event) }
+        );
       } else {
-        L.circleMarker([event.latitude, event.longitude], {
-          radius: Math.max(4, style.size / 5),
-          color: '#ffffff',
-          weight: 1.5,
-          fillColor: style.color,
-          fillOpacity: event.dim ? 0.35 : 0.85,
-          opacity: event.dim ? 0.4 : 0.9,
-        })
-          .bindPopup(popupHtml(event))
-          .addTo(layers);
+        // Previously a Leaflet circleMarker; the same plain dot is now a small
+        // styled div, so every marker takes one code path.
+        const size = Math.max(9, Math.round(style.size / 2.5));
+        addMarker(
+          event.latitude,
+          event.longitude,
+          `<div class="plain-dot" style="--dot:${style.color};width:${size}px;height:${size}px;opacity:${event.dim ? 0.45 : 0.9}"></div>`,
+          { popupHtml: popupHtml(event) }
+        );
       }
     }
   }
@@ -319,50 +488,45 @@ export default function SwingsMap({
   // Build mode: numbered chain stops joined by a dashed brand-green arc, plus
   // tier-colored, tappable candidate dots. Nothing else is drawn, which keeps
   // the map uncluttered.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function renderBuilderLayers(L: any, layers: any) {
-    if (builderPath.length >= 2) {
-      L.polyline(arcPath(builderPath), {
-        color: ROUTE,
-        weight: 3.5,
-        opacity: 0.9,
-        dashArray: '7 9',
-        lineCap: 'round',
-      }).addTo(layers);
-    }
+  function drawBuilder() {
+    setRoutes(
+      builderPath.length >= 2
+        ? [
+            {
+              type: 'Feature',
+              properties: { swingIndex: -1, selected: true },
+              geometry: { type: 'LineString', coordinates: toLngLat(arcPath(builderPath)) },
+            },
+          ]
+        : []
+    );
 
     for (const event of events) {
       if (event.builderRole === 'chain') {
-        const size = 30;
-        const icon = L.divIcon({
-          className: 'swing-dot-icon',
-          html: `<div class="swing-dot" style="--dot:${event.statusColor ?? ROUTE};--dot-text:#ffffff;width:${size}px;height:${size}px">${event.chainPos}</div>`,
-          iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2],
-        });
-        L.marker([event.latitude, event.longitude], { icon, zIndexOffset: 1000 })
-          .bindPopup(popupHtml(event))
-          .addTo(layers);
+        addMarker(
+          event.latitude,
+          event.longitude,
+          `<div class="swing-dot" style="--dot:${event.statusColor ?? ROUTE};--dot-text:#ffffff;width:30px;height:30px">${event.chainPos}</div>`,
+          { popupHtml: popupHtml(event) }
+        );
       } else {
         const color = event.tier ? TIER_COLOR[event.tier] : ROUTE;
-        const icon = L.divIcon({
-          className: 'swing-dot-icon',
-          html: `<div class="cand-dot" style="--dot:${color}">${event.week}</div>`,
-          iconSize: [22, 22],
-          iconAnchor: [11, 11],
-        });
         // Tapping the dot only opens the popup so you can read the tournament
         // first; adding to the swing is an explicit button inside the popup.
-        const marker = L.marker([event.latitude, event.longitude], { icon })
-          .bindPopup(popupHtml(event, true))
-          .addTo(layers);
-        marker.on('popupopen', (e: { popup: { getElement(): HTMLElement | null } }) => {
-          const btn = e.popup.getElement()?.querySelector('.swing-popup__add');
-          btn?.addEventListener('click', () => {
-            onPickRef.current(event.editionId);
-            mapRef.current?.closePopup();
-          });
-        });
+        addMarker(
+          event.latitude,
+          event.longitude,
+          `<div class="cand-dot" style="--dot:${color}">${event.week}</div>`,
+          {
+            popupHtml: popupHtml(event, true),
+            onPopupOpen: (element) => {
+              element.querySelector('.swing-popup__add')?.addEventListener('click', () => {
+                onPickRef.current(event.editionId);
+                openPopupRef.current?.remove();
+              });
+            },
+          }
+        );
       }
     }
   }
