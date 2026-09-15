@@ -368,6 +368,34 @@ export default function SwingsMap({
   }
 
   /**
+   * Open a popup on the MAP rather than on the marker.
+   *
+   * A marker-owned popup dies with its marker, and clicking a swing dot
+   * selects that swing — which re-renders, tears down every marker, and took
+   * the popup that had just opened with it. The dot appeared to do nothing.
+   * Map-owned popups outlive the redraw, which is also how the Leaflet version
+   * behaved.
+   */
+  function openPopup(lng: number, lat: number, html: string, onOpen?: (el: HTMLElement) => void) {
+    const maplibregl = mlRef.current;
+    const map = mapRef.current;
+    if (!maplibregl || !map) return;
+    openPopupRef.current?.remove();
+    const popup = new maplibregl.Popup({
+      offset: 16,
+      closeButton: true,
+      closeOnClick: true,
+      maxWidth: '280px',
+    })
+      .setLngLat([lng, lat])
+      .setHTML(html)
+      .addTo(map);
+    openPopupRef.current = popup;
+    const element = popup.getElement();
+    if (element && onOpen) onOpen(element);
+  }
+
+  /**
    * A marker whose content is our own HTML, so every dot keeps the styling it
    * had before.
    */
@@ -393,22 +421,15 @@ export default function SwingsMap({
       .setLngLat([lng, lat])
       .addTo(map);
 
-    if (options.popupHtml) {
-      const popup = new maplibregl.Popup({
-        offset: 16,
-        closeButton: true,
-        closeOnClick: true,
-        maxWidth: '280px',
-      }).setHTML(options.popupHtml);
-      marker.setPopup(popup);
-      popup.on('open', () => {
-        openPopupRef.current = popup;
-        const popupElement = popup.getElement();
-        if (popupElement) options.onPopupOpen?.(popupElement);
+    if (options.popupHtml || options.onClick) {
+      element.addEventListener('click', (event) => {
+        // Keep the click off the canvas, or closeOnClick shuts the popup in
+        // the same gesture that opened it.
+        event.stopPropagation();
+        if (options.popupHtml) openPopup(lng, lat, options.popupHtml, options.onPopupOpen);
+        options.onClick?.();
       });
     }
-
-    if (options.onClick) element.addEventListener('click', options.onClick);
 
     markersRef.current.push(marker);
   }
