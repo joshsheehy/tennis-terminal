@@ -111,6 +111,70 @@ async function checkRecentCutCoverage(year: number) {
   };
 }
 
+/**
+ * Week-by-week view of the same question, for a human rather than the gate.
+ *
+ * The pass/fail check above collapses ten weeks into one percentage, which is
+ * the right shape for a workflow step and the wrong shape for "is this week's
+ * batch in yet?". This lists each of the last eight weeks with the events still
+ * missing a singles main cut, so the answer is a glance rather than a query.
+ *
+ * Purely informational — it never contributes to `healthy`. The most recent
+ * weeks legitimately show gaps while draws are still being made.
+ */
+async function weeklyCutCoverage(year: number) {
+  const result = await pool.query<{
+    week: number | null;
+    start_date: Date | string | null;
+    slug: string;
+    level: string;
+    has_cut: boolean;
+  }>(
+    `
+    select te.week,
+           min(te.start_date) as start_date,
+           t.slug,
+           te.level,
+           exists (
+             select 1 from cutoff_snapshots cs
+             where cs.tournament_edition_id = te.id
+               and cs.event_type = 'singles'
+               and cs.draw_type = 'main'
+               and cs.last_direct_acceptance_rank is not null
+           ) as has_cut
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    where te.year = $1
+      and te.status = 'held'
+      and te.level not ilike 'ITF%'
+      and te.start_date is not null
+      and te.start_date <= current_date
+      and te.start_date >= current_date - interval '56 days'
+    group by te.id, te.week, t.slug, te.level
+    order by te.week desc, t.slug
+    `,
+    [year]
+  );
+
+  const byWeek = new Map<number, { week: number; startDate: string | null; total: number; withCut: number; missing: string[] }>();
+  for (const row of result.rows) {
+    const week = row.week ?? 0;
+    let bucket = byWeek.get(week);
+    if (!bucket) {
+      const iso = row.start_date instanceof Date
+        ? row.start_date.toISOString().slice(0, 10)
+        : row.start_date ?? null;
+      bucket = { week, startDate: iso, total: 0, withCut: 0, missing: [] };
+      byWeek.set(week, bucket);
+    }
+    bucket.total += 1;
+    if (row.has_cut) bucket.withCut += 1;
+    else bucket.missing.push(`${row.slug} (${row.level})`);
+  }
+
+  return Array.from(byWeek.values()).sort((a, b) => b.week - a.week);
+}
+
 export async function GET() {
   const year = new Date().getFullYear();
 
@@ -163,7 +227,10 @@ export async function GET() {
 
   // Discovery finding tournaments is only half the pipeline; the other half is
   // cuts actually arriving for them.
-  const cutCoverage = await checkRecentCutCoverage(year);
+  const [cutCoverage, recentWeeks] = await Promise.all([
+    checkRecentCutCoverage(year),
+    weeklyCutCoverage(year),
+  ]);
   const allChecks = [...sources, cutCoverage];
   const healthy = allChecks.every((s) => s.healthy);
 
@@ -174,6 +241,9 @@ export async function GET() {
       year,
       checkedAt: new Date().toISOString(),
       sources: allChecks,
+      // Informational, never gating: which events in each of the last eight
+      // weeks are still waiting on a cut.
+      recentWeeks,
       // Flat reason list so the workflow can echo what's wrong in one line.
       problems: allChecks.flatMap((s) => (s.healthy ? [] : [`${s.label}: ${s.problems.join('; ')}`])),
     },

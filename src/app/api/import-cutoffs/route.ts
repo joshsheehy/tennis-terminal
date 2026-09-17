@@ -53,9 +53,9 @@ type EditionTemplate = {
 };
 
 async function getEditionSlugsForYear(year: number) {
-  const result = await pool.query<{ slug: string; level: string }>(
+  const result = await pool.query<{ slug: string; level: string; start_date: Date | string | null }>(
     `
-    select t.slug, te.level
+    select t.slug, te.level, te.start_date
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     where te.year = $1
@@ -67,6 +67,20 @@ async function getEditionSlugsForYear(year: number) {
   );
 
   return result.rows;
+}
+
+// Day-of-year ordinal for a date, used only to rank targets against each other.
+// Month/day is enough: every source in one sweep is the same season, and the
+// static catalogue's dates come from a neighbouring year whose calendar slot is
+// the same week.
+function startOrdinal(raw: string | Date | null | undefined): number {
+  if (!raw) return -1;
+  const iso = raw instanceof Date
+    ? `${raw.getUTCFullYear()}-${String(raw.getUTCMonth() + 1).padStart(2, '0')}-${String(raw.getUTCDate()).padStart(2, '0')}`
+    : String(raw);
+  const parts = iso.split('-').map(Number);
+  if (parts.length < 3 || parts.slice(1).some(Number.isNaN)) return -1;
+  return parts[1] * 100 + parts[2];
 }
 
 // Extracts PTL codes from stored source URLs and existing cutoff source notes
@@ -159,7 +173,8 @@ const ATP_TOUR_LEVELS: OfficialPdfSource['level'][] = ['atp_250', 'atp_500', 'at
 function buildOfficialPdfSources(
   year: number,
   atpOnly: boolean,
-  dbFallbackCodes: Map<string, string> = new Map()
+  dbFallbackCodes: Map<string, string> = new Map(),
+  startDateBySlug: Map<string, string | Date | null> = new Map()
 ): OfficialPdfSource[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -204,7 +219,25 @@ function buildOfficialPdfSources(
     sources.push({ slug, year, code, level: 'challenger', has_doubles_qualifying: false });
   }
 
-  return sources;
+  // Most recently started event first.
+  //
+  // A sweep is bounded on both ends — 25 seconds inside the request, a page
+  // ceiling and a wall-clock budget in the nightly workflow — so it routinely
+  // stops before it reaches the end of the list. Whatever sits past that point
+  // waits for the next run. Ordering by catalogue position made that cut fall
+  // in an arbitrary place, which is how last week's tournaments could sit
+  // without a cut while the same sweep re-imported events from March that had
+  // not changed in months.
+  //
+  // Sorted this way the sweep always spends its budget on the events that just
+  // finished, and the backlog is what gets deferred. Pagination still walks the
+  // whole season, so nothing is dropped — only reordered.
+  const ordinalFor = (slug: string) => {
+    const fromDb = startOrdinal(startDateBySlug.get(slug));
+    if (fromDb >= 0) return fromDb;
+    return startOrdinal(bySlug.get(slug)?.edition.start_date ?? null);
+  };
+  return sources.sort((a, b) => ordinalFor(b.slug) - ordinalFor(a.slug) || a.slug.localeCompare(b.slug));
 }
 
 function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
@@ -487,7 +520,15 @@ export async function GET(request: NextRequest) {
     })
     .map((edition: { slug: string; level: string }) => ({ slug: edition.slug, level: edition.level }));
 
-  const officialPdfSources = buildOfficialPdfSources(requestedYear, atpOnly, dbFallbackCodes);
+  const startDateBySlug = new Map<string, string | Date | null>(
+    editionSlugs.map((e) => [e.slug, e.start_date])
+  );
+  const officialPdfSources = buildOfficialPdfSources(
+    requestedYear,
+    atpOnly,
+    dbFallbackCodes,
+    startDateBySlug
+  );
   const allTargets = buildPdfImportTargets(officialPdfSources);
   // Optional &slug=foo narrows the import to a single tournament — useful when
   // you need to re-parse one event's cuts (e.g. a row that shows obviously

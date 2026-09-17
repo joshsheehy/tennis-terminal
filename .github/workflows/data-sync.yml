@@ -109,6 +109,10 @@ jobs:
               re-project the cap from the observed per-page rate, and bound the sweep by
               wall-clock time instead. Leftovers are not lost: these imports are
               incremental, and step 9's /api/run-all sweeps up any cuts still missing.
+
+              /api/import-cutoffs also orders its targets most-recently-started first, so
+              a sweep that stops early has spent its budget on the events that just
+              finished — the ones with new cuts to collect — and deferred the backlog.
               """
               print(f'\n=== {label} ===', flush=True)
               offset = 0
