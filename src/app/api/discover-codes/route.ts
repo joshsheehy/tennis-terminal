@@ -78,12 +78,46 @@ const GENERIC_ALIAS_TOKENS = new Set([
   '100',
   '125',
   '175',
+  // Place-name articles and prefixes. On their own they identify nothing —
+  // "San" alone fits San Gregorio di Catania, San Diego and a dozen others —
+  // so a tournament whose only evidence is one of these is not evidence at
+  // all. The distinguishing part of the name still has to match.
+  'san',
+  'santa',
+  'santo',
+  'sao',
+  'saint',
+  'sankt',
+  'las',
+  'los',
+  'les',
+  'del',
+  'della',
+  'der',
+  'den',
+  'new',
+  'port',
+  'puerto',
+  'villa',
 ]);
 
 function getMeaningfulTokens(value: string) {
   return normalize(value)
     .split(' ')
     .filter((token) => token.length >= 3 && !GENERIC_ALIAS_TOKENS.has(token) && !/^\d+$/.test(token));
+}
+
+// Whole words of the PDF text, for matching tokens against.
+//
+// Token evidence used to be a substring test, which reads far more into a
+// document than is there: `includes('san')` is true of any entry list with a
+// SANCHEZ in it, and three unrelated tournaments could each claim a "name and
+// city token match" on Cancun's draw sheet. Every such phantom match counts
+// toward the ambiguity guard, so one collision is enough to make a perfectly
+// clear match look contested and be skipped — which is how Cancun sat all
+// season with no code while its posting was published and parsing fine.
+function getTextWordSet(text: string): Set<string> {
+  return new Set(normalize(text).split(' ').filter(Boolean));
 }
 
 function parseNumberParam(value: string | null, field: string) {
@@ -226,7 +260,20 @@ async function getKnownCodesForYear(year: number): Promise<number[]> {
   return Array.from(codes);
 }
 
-async function fetchPdfText(url: string) {
+// A code with no posting and a host that has stopped answering us look
+// identical if both come back as `null`, and the difference is the whole
+// answer: one means "nothing here", the other means "we are being refused".
+// protennislive.com rate-limits a burst of probes, and a scan of a few hundred
+// codes reliably trips it — after which every remaining probe fails instantly
+// and the scan reports an empty posting range for codes that serve a 160 KB
+// entry list when fetched from anywhere else. Carrying the outcome back lets
+// the caller tell those apart and say so.
+type ProbeOutcome =
+  | { kind: 'text'; text: string }
+  | { kind: 'absent' } // answered, but no usable PDF here
+  | { kind: 'refused'; detail: string }; // blocked, throttled, or unreachable
+
+async function fetchPdfText(url: string): Promise<ProbeOutcome> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
@@ -238,10 +285,13 @@ async function fetchPdfText(url: string) {
       signal: controller.signal,
     });
 
-    if (!response.ok) return null;
+    // 404 is the honest "no posting under this code". Anything else in the
+    // 4xx/5xx range is the host declining to serve us.
+    if (response.status === 404 || response.status === 410) return { kind: 'absent' };
+    if (!response.ok) return { kind: 'refused', detail: `HTTP ${response.status}` };
 
     const contentType = response.headers.get('content-type') || '';
-    if (!contentType.toLowerCase().includes('pdf')) return null;
+    if (!contentType.toLowerCase().includes('pdf')) return { kind: 'absent' };
 
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -250,9 +300,11 @@ async function fetchPdfText(url: string) {
     const pdfParse = require('pdf-parse') as PdfParseFunction;
     const parsed = await pdfParse(buffer);
 
-    return parsed.text || null;
-  } catch {
-    return null;
+    return parsed.text ? { kind: 'text', text: parsed.text } : { kind: 'absent' };
+  } catch (error) {
+    // Timeouts, aborts, resets: the request never completed, so we learned
+    // nothing about whether a posting exists.
+    return { kind: 'refused', detail: error instanceof Error ? error.message : 'fetch failed' };
   } finally {
     clearTimeout(timeout);
   }
@@ -264,6 +316,7 @@ function extractTitleSnippet(text: string) {
 
 function evaluateMatch(text: string, tournament: MissingEdition) {
   const normalizedText = normalize(text);
+  const textWords = getTextWordSet(text);
   const evidence: string[] = [];
   let score = 0;
 
@@ -271,15 +324,21 @@ function evaluateMatch(text: string, tournament: MissingEdition) {
   const cityTokens = getMeaningfulTokens(tournament.city);
   const exactNormalizedCity = normalize(tournament.city);
 
-  const nameTokenMatches = nameTokens.filter((token) => normalizedText.includes(token));
+  const nameTokenMatches = nameTokens.filter((token) => textWords.has(token));
   const hasMeaningfulNameMatch = nameTokenMatches.length > 0;
   if (hasMeaningfulNameMatch) {
     score += 2;
     evidence.push(`event-name token match: ${nameTokenMatches.join(', ')}`);
   }
 
-  const hasExactCityMatch = exactNormalizedCity.length > 0 && normalizedText.includes(exactNormalizedCity);
-  const cityTokenMatches = cityTokens.filter((token) => normalizedText.includes(token));
+  // A one-word city has to appear as a word; a multi-word city is a long
+  // enough phrase that a substring match is already unambiguous.
+  const hasExactCityMatch =
+    exactNormalizedCity.length > 0 &&
+    (exactNormalizedCity.includes(' ')
+      ? normalizedText.includes(exactNormalizedCity)
+      : textWords.has(exactNormalizedCity));
+  const cityTokenMatches = cityTokens.filter((token) => textWords.has(token));
   const hasCityTokenMatch = cityTokenMatches.length > 0;
 
   if (hasExactCityMatch) {
@@ -294,7 +353,7 @@ function evaluateMatch(text: string, tournament: MissingEdition) {
   if (!Number.isNaN(startDate.getTime())) {
     const monthDay = `${startDate.getUTCDate()}`;
     const year = `${startDate.getUTCFullYear()}`;
-    if (normalizedText.includes(monthDay) && normalizedText.includes(year)) {
+    if (textWords.has(monthDay) && textWords.has(year)) {
       if (hasMeaningfulNameMatch || hasExactCityMatch || hasCityTokenMatch) {
         score += 1;
         evidence.push('date hints found in PDF text');
@@ -431,6 +490,14 @@ export async function GET(request: NextRequest) {
     const workingUnknown: WorkingUnknown[] = [];
     let workingPdfCount = 0;
     let testedCount = 0;
+    let refusedCount = 0;
+    let consecutiveRefusals = 0;
+    const refusalSamples: string[] = [];
+    // Once the host is refusing this many probes in a row it has stopped
+    // answering us and every further code would be recorded as empty. Stop and
+    // report it rather than manufacturing a wrong answer.
+    const REFUSAL_STREAK_LIMIT = 30;
+    let blocked = false;
 
     const start = Date.now();
     let lastProcessedCode = startCode - 1;
@@ -444,12 +511,16 @@ export async function GET(request: NextRequest) {
         timedOut = true;
         break;
       }
+      if (consecutiveRefusals >= REFUSAL_STREAK_LIMIT) {
+        blocked = true;
+        break;
+      }
       const batchEnd = Math.min(endCode, code + BATCH - 1);
-      const tasks: Array<() => Promise<{ code: number; pdf_url: string; text: string | null }>> = [];
+      const tasks: Array<() => Promise<{ code: number; pdf_url: string; outcome: ProbeOutcome }>> = [];
       for (let c = code; c <= batchEnd; c += 1) {
         for (const pdfType of PDF_TYPES) {
           const pdf_url = `https://www.protennislive.com/posting/${year}/${c}/${pdfType}`;
-          tasks.push(async () => ({ code: c, pdf_url, text: await fetchPdfText(pdf_url) }));
+          tasks.push(async () => ({ code: c, pdf_url, outcome: await fetchPdfText(pdf_url) }));
         }
       }
       const results = await runWithConcurrency(tasks, concurrency);
@@ -457,14 +528,23 @@ export async function GET(request: NextRequest) {
       lastProcessedCode = batchEnd;
 
       for (const result of results) {
-        if (!result.text) continue;
+        if (result.outcome.kind === 'refused') {
+          refusedCount += 1;
+          consecutiveRefusals += 1;
+          if (refusalSamples.length < 5) {
+            refusalSamples.push(`${result.pdf_url} — ${result.outcome.detail}`);
+          }
+          continue;
+        }
+        consecutiveRefusals = 0;
+        if (result.outcome.kind !== 'text') continue;
         workingPdfCount += 1;
 
-        const titleSnippet = extractTitleSnippet(result.text);
+        const titleSnippet = extractTitleSnippet(result.outcome.text);
         const scoredMatches: Array<MatchCandidate & { scoreRank: number }> = [];
 
         for (const candidate of missing) {
-          const evaluated = evaluateMatch(result.text, candidate);
+          const evaluated = evaluateMatch(result.outcome.text, candidate);
           if (!evaluated) continue;
 
           const scoreRank = evaluated.confidence === 'high' ? 3 : evaluated.confidence === 'medium' ? 2 : 1;
@@ -568,6 +648,13 @@ export async function GET(request: NextRequest) {
       hasMore,
       testedCount,
       workingPdfCount,
+      // How much of the scan the host actually answered. A high refusedCount —
+      // and especially blocked=true — means the empty stretches of this scan
+      // say nothing about whether those codes have postings.
+      refusedCount,
+      blocked,
+      refusalSamples,
+      scanUsable: !blocked && refusedCount * 2 < testedCount,
       matches,
       workingUnknown,
       unmatchedMissingCodes: missing,

@@ -1,0 +1,199 @@
+name: ProTennisLive code sync (current season)
+
+# Gives every event of the current season its ProTennisLive code, from a
+# GitHub runner rather than from Railway.
+#
+# WHY A RUNNER: the cut importer can only build a PDF URL for a tournament
+# whose PTL code it knows. When a code is missing the only way to find it is to
+# probe the posting space, and probing is exactly what the upstream host rate-
+# limits. /api/discover-codes does that probing from Railway, and after a few
+# hundred requests protennislive.com starts refusing everything from that IP —
+# so the scan reports "no working PDFs" for codes that serve a 160 KB entry
+# list when fetched from anywhere else. It looked like an empty posting range
+# and was actually a closed door, every day, silently.
+#
+# In September 2026 that left 22 played events with no code at all, which is
+# most of why season cut coverage sat at 61%. The same precedent already exists
+# in this repo for itftennis.com (see data-sync.yml): when a source pushes back
+# on the server's IP, the fetch moves to a runner.
+#
+# The scan itself is the one already written for historical seasons —
+# scripts/scan-ptl-season.mjs — reading each posting's own header for name,
+# city, dates, surface and category. It POSTs to /api/import-ptl-postings,
+# which stores the posting URL as the edition's source_url, and from there
+# /api/import-cutoffs recovers the code by regex like any other edition.
+#
+# Weekly, not nightly: codes are allocated when an event is first posted and
+# never change afterwards, so a week's lag costs nothing. Railway makes no
+# speculative requests at all in between.
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: 'Season to scan (defaults to the current year)'
+        required: false
+        type: string
+      code_start:
+        description: 'First ProTennisLive code to probe'
+        required: false
+        default: '1'
+      code_end:
+        description: 'Last ProTennisLive code to probe'
+        required: false
+        default: '9999'
+  schedule:
+    # Mondays at 05:30 UTC — ahead of the 07:45 calendar sync and the 08:15
+    # data sync, so codes found here are already in place when the night's cut
+    # import builds its target list.
+    - cron: '30 5 * * 1'
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Scan ProTennisLive postings
+        env:
+          INPUT_YEAR: ${{ inputs.year }}
+          CODE_START: ${{ inputs.code_start || '1' }}
+          CODE_END: ${{ inputs.code_end || '9999' }}
+        run: |
+          set -euo pipefail
+          YEAR="${INPUT_YEAR:-$(date -u +%Y)}"
+          echo "Scanning ProTennisLive postings for $YEAR (codes $CODE_START-$CODE_END)"
+          echo "PTL_YEAR=$YEAR" >> "$GITHUB_ENV"
+          node scripts/scan-ptl-season.mjs "$YEAR" \
+            --start "$CODE_START" --end "$CODE_END" \
+            --concurrency 12 \
+            --emit-rows /tmp/ptl-rows.json
+          test -s /tmp/ptl-rows.json || { echo "scan produced no rows"; exit 1; }
+
+      - name: Import codes and refill cuts
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ]; then
+            echo "Missing APP_URL repository secret."
+            exit 1
+          fi
+          if [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "Missing ADMIN_SECRET repository secret."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          base = os.environ['APP_URL'].strip().rstrip('/')
+          if not base.startswith(('http://', 'https://')):
+              base = 'https://' + base
+          secret = os.environ['ADMIN_SECRET']
+
+          def request_json(path, *, data=None, method='GET', timeout=180, retries=3, required=True):
+              url = base + path
+              last_error = None
+              for attempt in range(1, retries + 1):
+                  req = urllib.request.Request(
+                      url,
+                      data=data,
+                      method=method,
+                      headers={
+                          'Accept': 'application/json',
+                          'Content-Type': 'application/json',
+                          'User-Agent': 'TennisCutsCodeSync/1.0',
+                          'X-Admin-Secret': secret,
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(req, timeout=timeout) as res:
+                          return json.loads(res.read().decode('utf-8', errors='replace'))
+                  except Exception as exc:
+                      last_error = exc
+                      print(f'{method} {url} attempt {attempt}/{retries} failed: {exc}', flush=True)
+                      if attempt < retries:
+                          time.sleep(8 * attempt)
+              if required:
+                  raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
+              return {'ok': False, 'error': str(last_error)}
+
+          payload = json.load(open('/tmp/ptl-rows.json'))
+          year = int(payload['year'])
+          rows = payload['rows']
+          print(f'=== PTL postings for {year}: {len(rows)} ===', flush=True)
+          if not rows:
+              raise RuntimeError(
+                  f'The scan found no postings for {year}. Either the posting layout changed '
+                  'or the runner itself was refused — both need a look.'
+              )
+
+          new_total = 0
+          for start in range(0, len(rows), 200):
+              chunk = {'year': year, 'rows': rows[start:start + 200]}
+              out = request_json('/api/import-ptl-postings?apply=true',
+                                 data=json.dumps(chunk).encode(), method='POST')
+              if not out.get('ok'):
+                  raise RuntimeError(f"PTL import failed: {json.dumps(out)[:400]}")
+              print(f"chunk {start}-{start + len(chunk['rows'])}: "
+                    f"upserted={out.get('upsertedCount')} new={out.get('newlyAddedCount')}", flush=True)
+              new_total += out.get('newlyAddedCount') or 0
+          print(f'{new_total} newly added tournaments', flush=True)
+
+          # Now that codes are in place, sweep the cuts. import-cutoffs orders
+          # targets most-recently-started first, so the events whose codes were
+          # just recovered are reached before the rest of the season.
+          print('\n=== Cutoff refill ===', flush=True)
+          offset = 0
+          started = time.monotonic()
+          for page in range(400):
+              if time.monotonic() - started > 2400:
+                  print('WARNING: cutoff refill hit its 40-minute budget; '
+                        'the rest rolls into the nightly sync', flush=True)
+                  break
+              data = request_json(f'/api/import-cutoffs?year={year}&limit=40&offset={offset}',
+                                  required=False)
+              print(f"page {page}: offset={offset} cuts={data.get('importedWithCutsCount')} "
+                    f"noPdf={data.get('skippedNoPdfCount')} failed={data.get('failedCount')}", flush=True)
+              if not data.get('hasMore'):
+                  break
+              next_offset = data.get('nextOffset')
+              if next_offset is None or next_offset == offset:
+                  break
+              offset = int(next_offset)
+              time.sleep(2)
+
+          for path in ('/api/dedupe-by-code?apply=true',
+                       '/api/merge-official-challenger-levels?apply=true',
+                       '/api/cleanup-mismatched-cuts?apply=true',
+                       '/api/restore-historical-status'):
+              print(f'\n=== GET {path}', flush=True)
+              print(json.dumps(request_json(path, timeout=280, required=False))[:400], flush=True)
+
+          # Report where coverage landed. This job does not gate on it — the
+          # nightly data sync owns that check — but the number belongs in the
+          # log of the job that just tried to move it.
+          health = request_json('/api/discovery-health', required=False)
+          for source in health.get('sources') or []:
+              if source.get('source') == 'cut_import':
+                  print(f"\ncut coverage: {source.get('withCut')}/{source.get('rowCount')} "
+                        f"({source.get('coveragePercent')}%)", flush=True)
+          for week in (health.get('recentWeeks') or [])[:8]:
+              missing = week.get('missing') or []
+              print(f"  week {week.get('week')} ({week.get('startDate')}): "
+                    f"{week.get('withCut')}/{week.get('total')}"
+                    + (f" missing: {', '.join(missing)}" if missing else ''), flush=True)
+          PY
