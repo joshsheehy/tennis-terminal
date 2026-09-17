@@ -60,6 +60,34 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # Prove the runner can reach the host before spending seven minutes
+      # discovering it cannot. A sweep that is being refused looks exactly like
+      # a season with no postings in it — every probe fails, every code reads as
+      # empty — so the difference has to be established against a URL we know
+      # serves a PDF, and said out loud when it does not.
+      - name: Check ProTennisLive is reachable from this runner
+        run: |
+          set -uo pipefail
+          YEAR="${INPUT_YEAR:-$(date -u +%Y)}"
+          # Szczecin. Its code has been 448 every season for years.
+          PROBE="https://www.protennislive.com/posting/$YEAR/448/mds.pdf"
+          UA='TennisCutsSeasonScan/1.0 (+https://tenniscuts.com)'
+          for method in HEAD GET; do
+            code=$(curl -sS -o /dev/null -A "$UA" -m 30 \
+              $([ "$method" = HEAD ] && echo --head) \
+              -w '%{http_code}' "$PROBE" 2>&1) || code="curl-error: $code"
+            echo "$method $PROBE -> $code"
+          done
+          status=$(curl -s -o /dev/null -A "$UA" -m 30 -w '%{http_code}' "$PROBE" || echo 000)
+          if [ "$status" != "200" ]; then
+            echo "::error::protennislive.com is not serving this runner (GET returned $status)."
+            echo "A known-good posting must return 200. Until it does, a scan would report"
+            echo "an empty season rather than a blocked one, so it is not worth running."
+            exit 1
+          fi
+        env:
+          INPUT_YEAR: ${{ inputs.year }}
+
       - name: Scan ProTennisLive postings
         env:
           INPUT_YEAR: ${{ inputs.year }}
