@@ -127,6 +127,14 @@ jobs:
                       return {'ok': True, 'hasMore': False}
                   data = request_json(path_factory(offset), required=required, timeout=timeout)
                   pages += 1
+                  # The endpoint stopped because protennislive.com stopped
+                  # serving it, not because it ran out of work. Its targets are
+                  # untouched, so pause and come back to the same offset —
+                  # hammering through the refusal is what used to leave a sweep
+                  # silently half-done.
+                  if data.get('rateLimited'):
+                      print(f'{label}: upstream refused; pausing 90s before resuming', flush=True)
+                      time.sleep(90)
                   if not data.get('hasMore'):
                       return data
                   next_offset = data.get('nextOffset')

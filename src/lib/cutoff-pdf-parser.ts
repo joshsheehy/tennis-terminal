@@ -407,7 +407,33 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
   };
 }
 
-async function fetchPdfBuffer(url: string, timeoutMs = 4000): Promise<Buffer> {
+/**
+ * The upstream host refused to serve us, as opposed to not having the file.
+ *
+ * protennislive.com rate-limits on cumulative volume, and a full sweep is
+ * exactly the shape that trips it: the first sixty-odd events fetch normally,
+ * then every remaining request comes back 429. Without this distinction the
+ * importer read all of them as "this event has no published PDF", recorded the
+ * skip, and moved on — so a sweep would quietly stop collecting cuts partway
+ * through and still report success. Callers need to pause and resume instead.
+ */
+export class UpstreamRefusedError extends Error {
+  readonly retryAfterMs: number;
+  constructor(status: number, retryAfterMs: number) {
+    super(`upstream refused the request (HTTP ${status})`);
+    this.name = 'UpstreamRefusedError';
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+export function isUpstreamRefused(error: unknown): error is UpstreamRefusedError {
+  return error instanceof UpstreamRefusedError;
+}
+
+// 12 seconds, not 4. The old ceiling was tight enough that an ordinary slow
+// response counted as a missing PDF, which is the same wrong conclusion this
+// file is otherwise careful to avoid.
+async function fetchPdfBuffer(url: string, timeoutMs = 12000): Promise<Buffer> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -420,6 +446,11 @@ async function fetchPdfBuffer(url: string, timeoutMs = 4000): Promise<Buffer> {
       cache: 'no-store',
       signal: controller.signal,
     });
+    if (response.status === 429 || response.status === 503) {
+      const header = Number(response.headers.get('retry-after'));
+      const retryAfterMs = Number.isFinite(header) && header > 0 ? header * 1000 : 60_000;
+      throw new UpstreamRefusedError(response.status, retryAfterMs);
+    }
     if (!response.ok) throw new Error(`fetch failed ${response.status}`);
     return Buffer.from(await response.arrayBuffer());
   } finally {
@@ -484,7 +515,10 @@ async function fetchPdfBufferWithFallback(pdfUrl: string, archiveFirst: boolean)
   }
   try {
     return await fetchPdfBuffer(pdfUrl);
-  } catch {
+  } catch (error) {
+    // A refusal is not a missing file, and Wayback will not have a copy of a
+    // PDF published this week. Let it through so the caller can back off.
+    if (isUpstreamRefused(error)) throw error;
     const archived = await fetchViaWayback(pdfUrl);
     if (!archived) throw new Error(`PDF unavailable (PTL + Wayback both failed) for ${pdfUrl}`);
     return archived;

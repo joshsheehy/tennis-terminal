@@ -1,7 +1,7 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
+import { fetchAndParseOfficialPdfCutoff, isUpstreamRefused } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { ANOMALY_TAG, checkRankAnomaly } from '@/lib/cutoff-anomaly';
 
@@ -556,6 +556,7 @@ export async function GET(request: NextRequest) {
   const BUDGET_MS = 25_000;
   const startedAt = Date.now();
   let budgetExceeded = false;
+  let rateLimited = false;
   let processedCount = 0;
 
   for (const target of pdfImportTargets) {
@@ -570,6 +571,7 @@ export async function GET(request: NextRequest) {
     try {
       let parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>> | null = null;
       let importedPdfUrl: string | null = null;
+      let refused = false;
       for (const pdfUrl of target.pdf_url_candidates) {
         try {
           const attempt = await fetchAndParseOfficialPdfCutoff(pdfUrl, archiveFirst);
@@ -592,9 +594,22 @@ export async function GET(request: NextRequest) {
           if (hasRank) break;
           // No rank but ALT/LL data — keep trying URLs in case a later
           // candidate actually has the LDA footer too.
-        } catch {
+        } catch (error) {
+          if (isUpstreamRefused(error)) {
+            refused = true;
+            break;
+          }
           // try next candidate URL
         }
+      }
+      if (!parsed && refused) {
+        // The host stopped serving us mid-sweep. Every remaining target would
+        // be recorded as having no published PDF, which is how a sweep used to
+        // go quiet partway through and still report success. Give the offset
+        // back unconsumed so the caller resumes here after a pause.
+        rateLimited = true;
+        processedCount -= 1;
+        break;
       }
       if (!parsed || !importedPdfUrl) {
         skippedNoPdf.push({
@@ -658,7 +673,7 @@ export async function GET(request: NextRequest) {
   // If we stopped early due to the time budget, the nextOffset reflects how far we got
   // so the caller can resume from the right position.
   const processedUpTo = offset + processedCount;
-  const hasMore = budgetExceeded ? true : processedUpTo < allTargets.length;
+  const hasMore = budgetExceeded || rateLimited ? true : processedUpTo < allTargets.length;
   const nextOffset = hasMore ? processedUpTo : null;
 
   return NextResponse.json({
@@ -672,6 +687,10 @@ export async function GET(request: NextRequest) {
     pageSize: pdfImportTargets.length,
     processedCount,
     budgetExceeded,
+    // The host stopped serving us and the sweep stopped rather than recording
+    // the rest of the page as having no PDF. The caller should wait before
+    // resuming from nextOffset; the targets it covers are untouched.
+    rateLimited,
     hasMore,
     nextOffset,
     importedWithCutsCount: importedWithCuts.length,

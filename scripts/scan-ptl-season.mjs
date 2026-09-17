@@ -22,7 +22,10 @@ const argVal = (flag, dflt) => {
 };
 const START = Number(argVal('--start', 1));
 const END = Number(argVal('--end', 9999));
-const CONCURRENCY = Number(argVal('--concurrency', 12));
+// Six, not twelve. The host's limit is cumulative, so a wide sweep spends it
+// either way, but a lower number means the pause lands before a dozen in-flight
+// requests have already been refused.
+const CONCURRENCY = Number(argVal('--concurrency', 6));
 const emitPath = argVal('--emit-rows', null);
 
 const HEADERS = {
@@ -30,14 +33,71 @@ const HEADERS = {
   Accept: 'application/pdf,*/*;q=0.8',
 };
 
-async function probe(url) {
-  try {
-    let res = await fetch(url, { method: 'HEAD', headers: HEADERS });
-    if (res.status === 405) res = await fetch(url, { headers: { ...HEADERS, Range: 'bytes=0-0' } });
-    return res.ok || res.status === 206;
-  } catch {
-    return false;
+// Probing is rate-limited upstream, and a throttled probe used to be
+// indistinguishable from a code with no posting: both came back `false`, the
+// code was recorded as empty, and the scan carried on. A full-range sweep at
+// concurrency 12 trips that limit within the first few hundred codes, so the
+// 2026 sweep reported nought postings for the entire season — including code
+// 448, which serves a 155 KB entry list to a single request from the same
+// runner a minute later.
+//
+// So: three states, not two. A 404 is the honest "nothing here". Anything else
+// is the host declining to answer, which is retried with backoff and, if it
+// still will not answer, reported as an error rather than an absence.
+const PROBE_RETRIES = 5;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// The limit is cumulative over a window, not a burst cap: forty parallel HEAD
+// requests all succeed on a fresh budget, while a steady sweep starts returning
+// 429 after roughly sixty codes. So a 429 is not a reason to give up on that
+// code — it is a reason to stop for a while. The whole scan pauses, because a
+// single worker backing off while eleven others keep hammering just spends the
+// next window's budget too.
+let rateLimitUntil = 0;
+
+async function waitForRateLimit() {
+  while (Date.now() < rateLimitUntil) {
+    await sleep(Math.min(5000, rateLimitUntil - Date.now()));
   }
+}
+
+function noteRateLimit(res, attempt) {
+  const header = Number(res.headers.get('retry-after'));
+  const waitMs = Number.isFinite(header) && header > 0
+    ? header * 1000
+    : Math.min(120_000, 15_000 * attempt);
+  const until = Date.now() + waitMs;
+  if (until > rateLimitUntil) {
+    rateLimitUntil = until;
+    console.log(`rate limited; pausing the scan for ${Math.round(waitMs / 1000)}s`);
+  }
+}
+
+async function probeOnce(url, attempt) {
+  await waitForRateLimit();
+  let res = await fetch(url, { method: 'HEAD', headers: HEADERS });
+  if (res.status === 405) res = await fetch(url, { headers: { ...HEADERS, Range: 'bytes=0-0' } });
+  if (res.ok || res.status === 206) return 'present';
+  if (res.status === 404 || res.status === 410) return 'absent';
+  if (res.status === 429 || res.status === 503) {
+    noteRateLimit(res, attempt);
+    throw new Error(`HTTP ${res.status}`);
+  }
+  throw new Error(`HTTP ${res.status}`);
+}
+
+async function probe(url) {
+  let lastError = 'unknown';
+  for (let attempt = 1; attempt <= PROBE_RETRIES; attempt += 1) {
+    try {
+      return await probeOnce(url, attempt);
+    } catch (err) {
+      lastError = err?.message ?? 'fetch failed';
+      if (attempt < PROBE_RETRIES) await sleep(1000 * attempt);
+    }
+  }
+  return `error: ${lastError}`;
 }
 
 // Positioned-text extraction of page 1 only (headers live there) — same
@@ -200,9 +260,17 @@ function parseHeader(lines, code) {
 async function scanCode(code) {
   const base = `https://www.protennislive.com/posting/${year}/${code}`;
   let url = `${base}/mds.pdf`;
-  if (!(await probe(url))) {
+  let state = await probe(url);
+  if (state !== 'present') {
+    const mainState = state;
     url = `${base}/qs.pdf`;
-    if (!(await probe(url))) return null;
+    state = await probe(url);
+    if (state !== 'present') {
+      // Only call it empty when the host actually said so for both.
+      const refusal = [mainState, state].find((s) => s.startsWith('error: '));
+      if (refusal) return { code, refused: refusal };
+      return null;
+    }
   }
   try {
     const res = await fetch(url, { headers: HEADERS });
@@ -222,17 +290,32 @@ async function main() {
   for (let c = START; c <= END; c++) codes.push(c);
   const rows = [];
   const skips = {};
+  const refusals = {};
+  let refusedCount = 0;
   let done = 0;
   let idx = 0;
+  let aborted = false;
 
   await Promise.all(
     Array.from({ length: CONCURRENCY }, async () => {
-      while (idx < codes.length) {
+      while (idx < codes.length && !aborted) {
         const code = codes[idx++];
         const result = await scanCode(code);
         done += 1;
-        if (done % 500 === 0) console.log(`...${done}/${codes.length} probed, ${rows.length} rows so far`);
+        if (done % 500 === 0) {
+          console.log(`...${done}/${codes.length} probed, ${rows.length} rows so far`
+            + (refusedCount ? `, ${refusedCount} refused` : ''));
+        }
         if (!result) continue;
+        if (result.refused) {
+          refusedCount += 1;
+          refusals[result.refused] = (refusals[result.refused] ?? 0) + 1;
+          // Past this point the host has stopped answering and every remaining
+          // code would be recorded as empty. A partial season is worse than no
+          // season: it looks like a successful scan.
+          if (refusedCount > 50 && refusedCount > done * 0.2) aborted = true;
+          continue;
+        }
         if (result.skip) {
           skips[result.skip] = (skips[result.skip] ?? 0) + 1;
           continue;
@@ -244,7 +327,21 @@ async function main() {
   );
 
   rows.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  console.log(`\nScan complete: ${rows.length} ATP/Challenger postings for ${year}; skipped:`, skips);
+  console.log(`\nScan ${aborted ? 'ABORTED' : 'complete'}: ${rows.length} ATP/Challenger `
+    + `postings for ${year}; skipped:`, skips);
+  if (refusedCount > 0) console.log(`refused probes: ${refusedCount}`, refusals);
+
+  // Emitting a hollow season would be read downstream as a real one, so refuse
+  // to write the file and say which of the two problems this is.
+  if (aborted || (rows.length === 0 && refusedCount > 0)) {
+    console.error(
+      `\nprotennislive.com stopped answering (${refusedCount} refused probes of ${done}). `
+      + 'This says nothing about which codes have postings, so no rows are emitted. '
+      + 'Retry later, or with a smaller --concurrency and a narrower --start/--end range.'
+    );
+    process.exitCode = 2;
+    return;
+  }
   if (emitPath && rows.length > 0) {
     (await import('node:fs')).writeFileSync(emitPath, JSON.stringify({ year, rows }));
     console.log(`emitted ${rows.length} rows to ${emitPath}`);
