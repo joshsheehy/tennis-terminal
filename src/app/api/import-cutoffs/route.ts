@@ -75,16 +75,29 @@ async function getEditionSlugsForYear(year: number) {
 // 2024/2025 editions that already have one PDF imported and can now be reused
 // to fill the missing draws.
 async function getCodesFromEditionSourceUrls(year: number): Promise<Map<string, string>> {
+  // Look back over previous seasons, not just this one.
+  //
+  // A ProTennisLive code belongs to the tournament and does not change from
+  // year to year — Szczecin is 448 every season. Searching only the requested
+  // year meant a new edition could recover a code only from its own row, and
+  // an edition with no cut yet has nothing to recover it from. That is exactly
+  // the edition we are trying to import, so the lookup failed precisely where
+  // it was needed: 108 of the 2026 editions were skipped as "no code" while
+  // their PDFs sat published and reachable under a code the previous season's
+  // cut snapshot already recorded.
+  //
+  // Ordered newest first so a tournament that genuinely changed code keeps its
+  // most recent one.
   const result = await pool.query<{ slug: string; source_url: string | null; source_notes: string | null }>(
     `
     select t.slug, te.source_url, cs.source_notes
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     left join cutoff_snapshots cs on cs.tournament_edition_id = te.id
-    where te.year = $1
+    where te.year between $1 - 4 and $1
       and te.status = 'held'
       and te.level not ilike 'ITF%'
-      and (te.start_date is null or te.start_date <= current_date)
+    order by te.year desc
     `,
     [year]
   );

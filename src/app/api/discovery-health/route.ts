@@ -47,6 +47,70 @@ const CHECKS: SourceCheck[] = [
   { source: 'itf_calendar_api', label: 'ITF calendar (itftennis.com API)', minRows: 20, maxStaleDays: 4 },
 ];
 
+/**
+ * Are cuts still landing for events that have already been played?
+ *
+ * Calendar freshness says discovery is alive; it says nothing about whether
+ * the cut importer is doing its job. Both can diverge, and did: through
+ * September 2026 the nightly sync ran green every night while roughly five
+ * events a week finished and never received a cut, because the importer could
+ * not resolve their ProTennisLive code. Coverage for the season fell to 61%
+ * with nothing anywhere reporting a problem.
+ *
+ * An event is only counted once its week is comfortably over — a PDF posted
+ * the day the draw is made is normal, a fortnight of silence is not.
+ */
+async function checkRecentCutCoverage(year: number) {
+  const result = await pool.query<{ total: string; with_cut: string }>(
+    `
+    select
+      count(*) as total,
+      count(*) filter (where exists (
+        select 1 from cutoff_snapshots cs
+        where cs.tournament_edition_id = te.id
+          and cs.event_type = 'singles'
+          and cs.draw_type = 'main'
+          and cs.last_direct_acceptance_rank is not null
+      )) as with_cut
+    from tournament_editions te
+    where te.year = $1
+      and te.status = 'held'
+      and te.level not ilike 'ITF%'
+      and te.start_date is not null
+      and te.start_date <= current_date - interval '14 days'
+      and te.start_date >= current_date - interval '70 days'
+    `,
+    [year]
+  );
+
+  const total = Number(result.rows[0]?.total ?? 0);
+  const withCut = Number(result.rows[0]?.with_cut ?? 0);
+  // Below this and something is systematically broken rather than a handful of
+  // events whose PDFs were never published.
+  const MIN_COVERAGE = 0.7;
+  const coverage = total === 0 ? 1 : withCut / total;
+  const problems =
+    total > 0 && coverage < MIN_COVERAGE
+      ? [
+          `only ${withCut}/${total} events played in the last 10 weeks have a singles main cut ` +
+            `(${(coverage * 100).toFixed(0)}%, expected ≥ ${MIN_COVERAGE * 100}%)`,
+        ]
+      : [];
+
+  return {
+    source: 'cut_import',
+    label: 'Cut import (played events)',
+    year,
+    rowCount: total,
+    withCut,
+    coveragePercent: Number((coverage * 100).toFixed(1)),
+    lastUpdated: null,
+    staleDays: null,
+    healthy: problems.length === 0,
+    problems,
+  };
+}
+
 export async function GET() {
   const year = new Date().getFullYear();
 
@@ -97,7 +161,11 @@ export async function GET() {
     };
   });
 
-  const healthy = sources.every((s) => s.healthy);
+  // Discovery finding tournaments is only half the pipeline; the other half is
+  // cuts actually arriving for them.
+  const cutCoverage = await checkRecentCutCoverage(year);
+  const allChecks = [...sources, cutCoverage];
+  const healthy = allChecks.every((s) => s.healthy);
 
   return NextResponse.json(
     {
@@ -105,9 +173,9 @@ export async function GET() {
       healthy,
       year,
       checkedAt: new Date().toISOString(),
-      sources,
+      sources: allChecks,
       // Flat reason list so the workflow can echo what's wrong in one line.
-      problems: sources.flatMap((s) => (s.healthy ? [] : [`${s.label}: ${s.problems.join('; ')}`])),
+      problems: allChecks.flatMap((s) => (s.healthy ? [] : [`${s.label}: ${s.problems.join('; ')}`])),
     },
     // 200 even when unhealthy: edge proxies rewrite 5xx bodies, and the caller
     // inspects the `healthy` boolean, not the HTTP status.
