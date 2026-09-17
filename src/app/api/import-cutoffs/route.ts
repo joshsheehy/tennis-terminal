@@ -232,12 +232,20 @@ function buildOfficialPdfSources(
   // Sorted this way the sweep always spends its budget on the events that just
   // finished, and the backlog is what gets deferred. Pagination still walks the
   // whole season, so nothing is dropped — only reordered.
-  const ordinalFor = (slug: string) => {
-    const fromDb = startOrdinal(startDateBySlug.get(slug));
-    if (fromDb >= 0) return fromDb;
-    return startOrdinal(bySlug.get(slug)?.edition.start_date ?? null);
-  };
-  return sources.sort((a, b) => ordinalFor(b.slug) - ordinalFor(a.slug) || a.slug.localeCompare(b.slug));
+  // An event that has not been played yet has no cut to collect, so it sorts
+  // behind every event that has — otherwise a week-42 tournament whose only
+  // known date comes from last season's catalogue row would outrank the ones
+  // that finished on Sunday. startDateBySlug holds only editions of this season
+  // that have already started, so membership in it is the test.
+  const ordinalFor = (slug: string) => startOrdinal(startDateBySlug.get(slug));
+  return sources.sort((a, b) => {
+    const left = ordinalFor(a.slug);
+    const right = ordinalFor(b.slug);
+    if (left >= 0 && right >= 0) return right - left || a.slug.localeCompare(b.slug);
+    if (left >= 0) return -1;
+    if (right >= 0) return 1;
+    return a.slug.localeCompare(b.slug);
+  });
 }
 
 function buildPdfImportTargets(sources: OfficialPdfSource[]): PdfImportTarget[] {
