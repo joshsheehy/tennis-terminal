@@ -1,5 +1,24 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { PTL_CODE_OVERRIDES } from '@/lib/ptl-code-overrides';
+
+// Events whose posting exists but whose draw sheet was never published, plus
+// the Slams, which have no ProTennisLive posting at all. Derived from the
+// override file so the two cannot drift: an entry recorded there as the
+// placeholder header is one we have confirmed by fetching it.
+const UNPUBLISHED_SHEET_SLUGS = new Set<string>([
+  ...Object.entries(PTL_CODE_OVERRIDES)
+    .filter(([, v]) => v.header.startsWith('Tournament Information Not Yet Available'))
+    .map(([slug]) => slug),
+  'us-open-new-york',
+  'us-open-qualifying-new-york',
+  'australian-open-melbourne',
+  'australian-open-qualifying-melbourne',
+  'roland-garros-paris',
+  'roland-garros-qualifying-paris',
+  'wimbledon-london',
+  'wimbledon-qualifying-london',
+]);
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,18 +80,20 @@ const CHECKS: SourceCheck[] = [
  * the day the draw is made is normal, a fortnight of silence is not.
  */
 async function checkRecentCutCoverage(year: number) {
-  const result = await pool.query<{ total: string; with_cut: string }>(
+  const result = await pool.query<{ total: string; with_cut: string; slug: string }>(
     `
     select
-      count(*) as total,
-      count(*) filter (where exists (
+      t.slug,
+      1 as total,
+      (exists (
         select 1 from cutoff_snapshots cs
         where cs.tournament_edition_id = te.id
           and cs.event_type = 'singles'
           and cs.draw_type = 'main'
           and cs.last_direct_acceptance_rank is not null
-      )) as with_cut
+      ))::int as with_cut
     from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
     where te.year = $1
       and te.status = 'held'
       and te.level not ilike 'ITF%'
@@ -83,8 +104,27 @@ async function checkRecentCutCoverage(year: number) {
     [year]
   );
 
-  const total = Number(result.rows[0]?.total ?? 0);
-  const withCut = Number(result.rows[0]?.with_cut ?? 0);
+  // Some events will never have a cut, and counting them as failures makes the
+  // alarm useless. A gate that can't reach its threshold goes red every night
+  // for something no sync can fix, and then nobody reads the emails.
+  //
+  // Only confirmed cases are excluded, and each is confirmed by evidence rather
+  // than assumption: a posting that returns the "Tournament Information Not Yet
+  // Available" placeholder (durham, centurion-3, centurion-4), and the Slams,
+  // which have no ProTennisLive posting at all — /api/import-slam-cuts is their
+  // route, so they do not belong in this check either way.
+  //
+  // They stay visible in the response rather than being silently dropped: if
+  // one of them ever does publish a sheet, that should be noticed.
+  const excluded: string[] = [];
+  const counted = result.rows.filter((row) => {
+    const unpublished = UNPUBLISHED_SHEET_SLUGS.has(row.slug);
+    if (unpublished) excluded.push(row.slug);
+    return !unpublished;
+  });
+
+  const total = counted.length;
+  const withCut = counted.filter((row) => Number(row.with_cut) === 1).length;
   // Below this and something is systematically broken rather than a handful of
   // events whose PDFs were never published.
   const MIN_COVERAGE = 0.7;
@@ -103,6 +143,8 @@ async function checkRecentCutCoverage(year: number) {
     year,
     rowCount: total,
     withCut,
+    // Events left out of the count because no draw sheet exists to import.
+    excludedUnpublished: excluded.sort(),
     coveragePercent: Number((coverage * 100).toFixed(1)),
     lastUpdated: null,
     staleDays: null,

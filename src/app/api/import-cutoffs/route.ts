@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff, isUpstreamRefused } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { PTL_CODE_OVERRIDES } from '@/lib/ptl-code-overrides';
 import { ANOMALY_TAG, checkRankAnomaly } from '@/lib/cutoff-anomaly';
 
 function getLevelForSlug(slug: string): string | null {
@@ -130,6 +131,17 @@ async function getCodesFromEditionSourceUrls(year: number): Promise<Map<string, 
         break;
       }
     }
+  }
+
+  // Last resort: hand-confirmed codes for tournaments appearing for the first
+  // time, which by definition have no earlier row to recover from. Every
+  // automatic route to those is closed — probing is rate-limited into
+  // uselessness, atptour.com refuses every address we have, and the calendar
+  // PDF carries no codes — so they are recorded once and reused forever. See
+  // ptl-code-overrides.ts. Lowest priority: anything the database knows wins,
+  // because that reflects what the event actually posted under.
+  for (const [slug, override] of Object.entries(PTL_CODE_OVERRIDES)) {
+    if (!codeBySlug.has(slug)) codeBySlug.set(slug, override.code);
   }
   return codeBySlug;
 }
