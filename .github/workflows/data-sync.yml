@@ -117,6 +117,7 @@ jobs:
               print(f'\n=== {label} ===', flush=True)
               offset = 0
               pages = 0
+              stalls = 0
               cap = max_pages
               started = time.monotonic()
               while pages < cap:
@@ -127,18 +128,28 @@ jobs:
                       return {'ok': True, 'hasMore': False}
                   data = request_json(path_factory(offset), required=required, timeout=timeout)
                   pages += 1
-                  # The endpoint stopped because protennislive.com stopped
-                  # serving it, not because it ran out of work. Its targets are
-                  # untouched, so pause and come back to the same offset —
-                  # hammering through the refusal is what used to leave a sweep
-                  # silently half-done.
-                  # The endpoint already waited out two short refusals of its
-                  # own before giving up, so reaching here means the budget is
-                  # genuinely spent rather than momentarily empty. The host
-                  # refills in well under a minute; 45s is comfortably past it.
+                  # A rate-limited page deliberately hands its offset back
+                  # unconsumed — it processed nothing, so there is nothing to
+                  # skip past. That is a stall to wait out, not the malformed
+                  # response the nextOffset guard below is for.
+                  #
+                  # Some stalls do not clear: protennislive.com gives Railway's
+                  # egress address very little budget, and a sweep can sit
+                  # refused for minutes. Give it a few tries, then leave the
+                  # rest to the runner-side cut-sync workflow, which does the
+                  # fetching from an address that has budget. Returning rather
+                  # than raising keeps the remaining sync steps running.
                   if data.get('rateLimited'):
-                      print(f'{label}: upstream refused; pausing 45s before resuming', flush=True)
+                      stalls += 1
+                      if stalls > 4:
+                          print(f'WARNING: {label} stalled at offset {offset} — upstream kept '
+                                'refusing. Leaving the rest to cut-sync.yml.', flush=True)
+                          return {'ok': True, 'hasMore': False}
+                      print(f'{label}: upstream refused; pausing 45s before retrying '
+                            f'offset {offset} (stall {stalls}/4)', flush=True)
                       time.sleep(45)
+                      continue
+                  stalls = 0
                   if not data.get('hasMore'):
                       return data
                   next_offset = data.get('nextOffset')
@@ -270,7 +281,15 @@ jobs:
               print(f'run-all has more work; attempt {attempt + 1}/60', flush=True)
               time.sleep(3)
           else:
-              raise RuntimeError('run-all still had more work after 60 attempts')
+              # Not an error any more. This loop only ever completes when every
+              # missing cut has been fetched, and Railway's address does not get
+              # enough budget from protennislive.com to do that in one sitting.
+              # cut-sync.yml fetches the stragglers from a runner; the health
+              # gate below is what decides whether coverage is actually a
+              # problem. Failing here would just mean a red job every night for
+              # something that is already being handled.
+              print('WARNING: run-all still had work after 60 attempts; '
+                    'cut-sync.yml picks up the rest', flush=True)
 
           request_json('/api/restore-historical-status')
 
