@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { fetchAndParseOfficialPdfCutoff, fetchOfficialPdfDebug } from '@/lib/cutoff-pdf-parser';
+import {
+  fetchAndParseOfficialPdfCutoff,
+  fetchOfficialPdfDebug,
+  parseOfficialPdfCutoffBuffer,
+} from '@/lib/cutoff-pdf-parser';
 import { ANOMALY_TAG, checkRankAnomaly } from '@/lib/cutoff-anomaly';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 
@@ -175,6 +179,27 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  return storeParsedCut({ slug, year, event, draw, url, parsed });
+}
+
+// Everything after the bytes have been parsed: anomaly check, upsert, response.
+// Shared by the GET (this server fetches the PDF) and POST (a GitHub runner
+// fetched it and posted it here) paths so both write cuts identically.
+async function storeParsedCut({
+  slug,
+  year,
+  event,
+  draw,
+  url,
+  parsed,
+}: {
+  slug: string;
+  year: number;
+  event: string;
+  draw: string;
+  url: string;
+  parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>>;
+}) {
   // Sanity-check the parsed LDA rank against the tournament's level. A blank
   // LDA footer can leave the parser latching onto a nearby seed bracket or
   // draw-position number — Tokyo 2024 / Paris 2025 both produced single-digit
@@ -291,4 +316,83 @@ export async function GET(request: NextRequest) {
     lucky_loser_count: parsed.lucky_loser_count,
     pdf_text_length: parsed.pdf_text_length,
   });
+}
+
+// Import a draw sheet that someone else fetched.
+//
+// protennislive.com gives Railway's egress address almost no request budget:
+// a sweep gets a dozen or so PDFs and then every request is refused, with no
+// recovery over several minutes of waiting. A GitHub runner starts from a full
+// budget. So the runner does the fetching and posts the bytes here, where the
+// parsing and the conflict policy already live.
+//
+//   POST /api/import-pdf-direct
+//   { "url": "https://www.protennislive.com/posting/2026/448/mds.pdf",
+//     "slug": "szczecin", "year": 2026, "event": "singles", "draw": "main",
+//     "pdfBase64": "JVBERi0xLjQK..." }
+//
+// `url` is recorded as the source and must still be on the allowlist — it is
+// provenance, not something this handler fetches.
+const MAX_PDF_BYTES = 12 * 1024 * 1024;
+
+export async function POST(request: NextRequest) {
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Body must be JSON' }, { status: 400 });
+  }
+
+  const url = String(body.url ?? '');
+  const slug = String(body.slug ?? '');
+  const year = Number(body.year);
+  const event = String(body.event ?? '');
+  const draw = String(body.draw ?? '');
+  const pdfBase64 = String(body.pdfBase64 ?? '');
+
+  if (!url || !slug || !Number.isInteger(year) || !event || !draw || !pdfBase64) {
+    return NextResponse.json(
+      { ok: false, error: 'Required: url, slug, year, event, draw, pdfBase64' },
+      { status: 400 }
+    );
+  }
+  if (year < 2020 || year > 2030) {
+    return NextResponse.json({ ok: false, error: 'Invalid year' }, { status: 400 });
+  }
+  if (!['singles', 'doubles'].includes(event)) {
+    return NextResponse.json({ ok: false, error: 'event must be singles or doubles' }, { status: 400 });
+  }
+  if (!['main', 'qualifying'].includes(draw)) {
+    return NextResponse.json({ ok: false, error: 'draw must be main or qualifying' }, { status: 400 });
+  }
+  if (!isAllowedPdfUrl(url)) {
+    return NextResponse.json(
+      { ok: false, error: `url must be an https PDF URL on one of: ${ALLOWED_PDF_HOSTS.join(', ')}` },
+      { status: 400 }
+    );
+  }
+
+  const buffer = Buffer.from(pdfBase64, 'base64');
+  if (buffer.length === 0 || buffer.length > MAX_PDF_BYTES) {
+    return NextResponse.json(
+      { ok: false, error: `pdfBase64 decoded to ${buffer.length} bytes (expected 1..${MAX_PDF_BYTES})` },
+      { status: 400 }
+    );
+  }
+  // Anyone can post bytes; only something that is actually a PDF gets parsed.
+  if (buffer.subarray(0, 5).toString('latin1') !== '%PDF-') {
+    return NextResponse.json({ ok: false, error: 'Body is not a PDF' }, { status: 400 });
+  }
+
+  let parsed: Awaited<ReturnType<typeof fetchAndParseOfficialPdfCutoff>>;
+  try {
+    parsed = await parseOfficialPdfCutoffBuffer(buffer);
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: `PDF parse failed: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 422 }
+    );
+  }
+
+  return storeParsedCut({ slug, year, event, draw, url, parsed });
 }

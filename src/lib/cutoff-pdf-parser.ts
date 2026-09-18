@@ -649,6 +649,38 @@ async function extractTextsWithPdfjs(buffer: Buffer): Promise<{ streamText: stri
   return { streamText: streamParts.join('\n'), layoutText: layoutParts.join('\n') };
 }
 
+/**
+ * Parse an already-fetched draw sheet.
+ *
+ * Split out from fetchAndParseOfficialPdfCutoff so the bytes can come from
+ * somewhere other than this process. protennislive.com gives Railway's egress
+ * address almost no request budget — a sweep stalls after a dozen or so
+ * fetches and does not recover — while a GitHub runner starts from a full one.
+ * So the fetching moves to a runner and the PDF is posted back here, where all
+ * of the parsing, anomaly-checking and upsert logic already lives and stays in
+ * one place.
+ */
+export async function parseOfficialPdfCutoffBuffer(
+  buffer: Buffer,
+): Promise<ParsedOfficialPdfCutoff> {
+  const pdfParse = getPdfParse();
+
+  let streamText: string;
+  let layoutText: string;
+  try {
+    streamText = (await pdfParse(buffer)).text;
+    layoutText = (await pdfParse(buffer, { pagerender: renderPageWithLayout })).text;
+  } catch {
+    ({ streamText, layoutText } = await extractTextsWithPdfjs(buffer));
+  }
+
+  const streamParsed = parseOfficialPdfCutoffText(streamText);
+  const layoutParsed = parseOfficialPdfCutoffText(layoutText);
+
+  if (!hasAnyRank(streamParsed) && !hasAnyRank(layoutParsed)) return streamParsed;
+  return mergeResults(streamParsed, layoutParsed);
+}
+
 export async function fetchAndParseOfficialPdfCutoff(
   pdfUrl: string,
   archiveFirst = false,

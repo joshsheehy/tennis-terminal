@@ -1,0 +1,229 @@
+name: Cut PDF sync (runner-fetched)
+
+# Collects the draw-sheet PDFs for events that are still missing a cut, from a
+# GitHub runner instead of from Railway.
+#
+# WHY: protennislive.com rate-limits on cumulative volume, and Railway's egress
+# address gets almost no budget from it. Measured on production — a paginated
+# cut sweep imported ten cuts, then stalled completely: five consecutive pages
+# refused, forty-five seconds of waiting between each, offset never advancing.
+# A rested address gets about forty requests before its first refusal. Railway
+# is behind a shared egress pool, so it is competing for that budget with
+# whatever else is on it.
+#
+# No amount of pacing fixes that, which makes the nightly sweep of 1200-odd
+# targets unable to finish from Railway at all. This is the same shape as the
+# ITF calendar (see data-sync.yml), which moved to a runner when itftennis.com
+# blocked Railway's IPs.
+#
+# HOW: /api/missing-cuts-report already names every edition missing a cut and
+# the candidate PDF URLs for each missing draw. The runner works that list,
+# fetches each PDF itself, and POSTs the bytes to /api/import-pdf-direct, which
+# parses and upserts them through exactly the same code path as a server-side
+# fetch. Nothing about how a cut is parsed or stored changes — only who does
+# the downloading.
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: 'Season to fill (defaults to the current year)'
+        required: false
+      limit:
+        description: 'Maximum editions to work through in one run'
+        required: false
+        default: '60'
+  schedule:
+    # Twice daily. New cuts post when a draw is made, so a morning and an
+    # evening pass keeps the lag under half a day. Runs after the 05:30 code
+    # scan so an event whose code was found today gets its cuts the same run.
+    - cron: '10 6 * * *'
+    - cron: '10 18 * * *'
+
+jobs:
+  fill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Fetch draw sheets and post them to production
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          INPUT_YEAR: ${{ inputs.year }}
+          INPUT_LIMIT: ${{ inputs.limit || '60' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ]; then echo "Missing APP_URL repository secret."; exit 1; fi
+          if [ -z "${ADMIN_SECRET:-}" ]; then echo "Missing ADMIN_SECRET repository secret."; exit 1; fi
+
+          python3 - <<'PY'
+          import base64
+          import datetime
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          base = os.environ['APP_URL'].strip().rstrip('/')
+          if not base.startswith(('http://', 'https://')):
+              base = 'https://' + base
+          secret = os.environ['ADMIN_SECRET']
+          year = int(os.environ.get('INPUT_YEAR') or datetime.date.today().year)
+          edition_limit = int(os.environ['INPUT_LIMIT'])
+
+          APP_HEADERS = {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'User-Agent': 'TennisCutsCutSync/1.0',
+              'X-Admin-Secret': secret,
+          }
+          PDF_HEADERS = {
+              'User-Agent': 'Mozilla/5.0 (compatible; TennisCutsBot/1.0)',
+              'Accept': 'application/pdf,*/*;q=0.8',
+              'Referer': 'https://www.protennislive.com/',
+          }
+
+          def app_json(path, *, data=None, method='GET', timeout=180, retries=3):
+              url = base + path
+              last = None
+              for attempt in range(1, retries + 1):
+                  req = urllib.request.Request(url, data=data, method=method, headers=APP_HEADERS)
+                  try:
+                      with urllib.request.urlopen(req, timeout=timeout) as res:
+                          return json.loads(res.read().decode('utf-8', errors='replace'))
+                  except urllib.error.HTTPError as exc:
+                      body = ''
+                      try:
+                          body = exc.read().decode('utf-8', errors='replace')[:300]
+                      except Exception:
+                          pass
+                      last = f'{exc} :: {body}'
+                  except Exception as exc:
+                      last = exc
+                  if attempt < retries:
+                      time.sleep(5 * attempt)
+              raise RuntimeError(f'{method} {url} failed after {retries} attempts: {last}')
+
+          # Hold a gap between requests so consumption stays under the refill
+          # rate. Reacting to refusals alone is not enough: the bucket refills
+          # gradually, so anything released from a pause empties it again.
+          GAP_S = 1.2
+          next_slot = [0.0]
+          paused_until = [0.0]
+
+          def fetch_pdf(url):
+              """Returns (bytes, None) | (None, 'absent') | (None, 'refused')."""
+              for attempt in range(1, 4):
+                  now = time.monotonic()
+                  wait = max(paused_until[0] - now, next_slot[0] - now, 0)
+                  if wait:
+                      time.sleep(wait)
+                  next_slot[0] = max(time.monotonic(), next_slot[0]) + GAP_S
+                  req = urllib.request.Request(url, headers=PDF_HEADERS)
+                  try:
+                      with urllib.request.urlopen(req, timeout=45) as res:
+                          return res.read(), None
+                  except urllib.error.HTTPError as exc:
+                      if exc.code in (404, 410):
+                          return None, 'absent'
+                      if exc.code in (429, 503):
+                          retry_after = exc.headers.get('Retry-After')
+                          delay = float(retry_after) if (retry_after or '').isdigit() else 15.0 * attempt
+                          paused_until[0] = time.monotonic() + delay
+                          print(f'    rate limited; pausing {delay:.0f}s', flush=True)
+                          continue
+                      return None, 'absent'
+                  except Exception:
+                      time.sleep(3 * attempt)
+              return None, 'refused'
+
+          report = app_json(f'/api/missing-cuts-report?year={year}&limit=500')
+          missing = report.get('missing') or []
+          print(f"{report.get('missingEditionCount')} editions missing cuts, "
+                f"{report.get('missingDrawCount')} draws", flush=True)
+
+          # Most recently played first: those are the cuts someone is waiting on.
+          # Editions with no candidate URLs have no known code yet — the code
+          # scan owns those, nothing to fetch here.
+          def sort_key(m):
+              return m.get('start_date') or ''
+          today = datetime.date.today().isoformat()
+          playable = [
+              m for m in missing
+              if (m.get('start_date') or '9999') <= today
+              and any((m.get('candidate_urls_by_missing_draw') or {}).values())
+          ]
+          playable.sort(key=sort_key, reverse=True)
+          print(f'{len(playable)} of them have candidate URLs to try; '
+                f'taking the {edition_limit} most recent', flush=True)
+
+          DRAW_FIELDS = {
+              'singles_main': ('singles', 'main'),
+              'singles_qualifying': ('singles', 'qualifying'),
+              'doubles_main': ('doubles', 'main'),
+              'doubles_qualifying': ('doubles', 'qualifying'),
+          }
+
+          stored = refused = absent = 0
+          deadline = time.monotonic() + 45 * 60
+          for edition in playable[:edition_limit]:
+              if time.monotonic() > deadline:
+                  print('time budget spent; the rest rolls into the next run', flush=True)
+                  break
+              slug = edition['slug']
+              print(f"\n{edition.get('start_date')} {slug} ({edition.get('level')})", flush=True)
+              for draw_key, urls in (edition.get('candidate_urls_by_missing_draw') or {}).items():
+                  if draw_key not in DRAW_FIELDS or not urls:
+                      continue
+                  event_type, draw_type = DRAW_FIELDS[draw_key]
+                  for url in urls:
+                      body, problem = fetch_pdf(url)
+                      if problem == 'refused':
+                          refused += 1
+                          print(f'  {draw_key}: refused, giving up on this draw', flush=True)
+                          break
+                      if body is None:
+                          continue
+                      payload = json.dumps({
+                          'url': url,
+                          'slug': slug,
+                          'year': int(edition.get('year') or year),
+                          'event': event_type,
+                          'draw': draw_type,
+                          'pdfBase64': base64.b64encode(body).decode('ascii'),
+                      }).encode()
+                      out = app_json('/api/import-pdf-direct', data=payload, method='POST')
+                      if out.get('hasRank'):
+                          stored += 1
+                          print(f"  {draw_key}: cut {out.get('last_direct_acceptance_rank')} "
+                                f"({out.get('last_direct_acceptance_name')})", flush=True)
+                          break
+                      print(f'  {draw_key}: {url.rsplit("/", 1)[-1]} parsed with no cut; '
+                            'trying the next candidate', flush=True)
+                  else:
+                      absent += 1
+
+          print(f'\nstored={stored} drawsWithNoUsablePdf={absent} refusedDraws={refused}', flush=True)
+
+          health = app_json('/api/discovery-health')
+          for source in health.get('sources') or []:
+              if source.get('source') == 'cut_import':
+                  print(f"\ncut coverage: {source.get('withCut')}/{source.get('rowCount')} "
+                        f"({source.get('coveragePercent')}%)", flush=True)
+          for week in health.get('recentWeeks') or []:
+              gaps = week.get('missing') or []
+              print(f"  week {week.get('week')} ({week.get('startDate')}): "
+                    f"{week.get('withCut')}/{week.get('total')}"
+                    + (f" missing: {', '.join(gaps)}" if gaps else ''), flush=True)
+
+          # Being refused throughout means this run collected nothing and the
+          # next one would do the same. Fail so it is visible rather than
+          # looking like a season with no PDFs published in it.
+          if refused and stored == 0:
+              raise RuntimeError(
+                  f'Every draw attempted was refused ({refused}). protennislive.com is not '
+                  'serving this runner either — the fetch needs another route.'
+              )
+          PY
