@@ -430,10 +430,12 @@ export function isUpstreamRefused(error: unknown): error is UpstreamRefusedError
   return error instanceof UpstreamRefusedError;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // 12 seconds, not 4. The old ceiling was tight enough that an ordinary slow
 // response counted as a missing PDF, which is the same wrong conclusion this
 // file is otherwise careful to avoid.
-async function fetchPdfBuffer(url: string, timeoutMs = 12000): Promise<Buffer> {
+async function fetchPdfBufferOnce(url: string, timeoutMs = 12000): Promise<Buffer> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -448,13 +450,39 @@ async function fetchPdfBuffer(url: string, timeoutMs = 12000): Promise<Buffer> {
     });
     if (response.status === 429 || response.status === 503) {
       const header = Number(response.headers.get('retry-after'));
-      const retryAfterMs = Number.isFinite(header) && header > 0 ? header * 1000 : 60_000;
+      const retryAfterMs = Number.isFinite(header) && header > 0 ? header * 1000 : 0;
       throw new UpstreamRefusedError(response.status, retryAfterMs);
     }
     if (!response.ok) throw new Error(`fetch failed ${response.status}`);
     return Buffer.from(await response.arrayBuffer());
   } finally {
     clearTimeout(timer);
+  }
+}
+
+// The host allows a burst of roughly forty requests and refills that budget in
+// well under a minute — measured against a known-good URL: thirty-nine
+// sequential requests went through, the fortieth was refused, and the next one
+// thirty seconds later succeeded.
+//
+// So a refusal is usually a few seconds of waiting, not a closed door, and
+// abandoning the whole page on the first one gives up far too easily. Wait it
+// out a couple of times here; only a refusal that survives that is worth
+// handing back to the caller to pause on.
+const REFUSAL_RETRIES = 2;
+const REFUSAL_WAIT_MS = 4000;
+
+async function fetchPdfBuffer(url: string, timeoutMs = 12000): Promise<Buffer> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fetchPdfBufferOnce(url, timeoutMs);
+    } catch (error) {
+      if (!isUpstreamRefused(error) || attempt >= REFUSAL_RETRIES) throw error;
+      const wait = error.retryAfterMs > 0
+        ? Math.min(error.retryAfterMs, 10_000)
+        : REFUSAL_WAIT_MS * (attempt + 1);
+      await sleep(wait);
+    }
   }
 }
 

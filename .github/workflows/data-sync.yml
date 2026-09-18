@@ -132,9 +132,13 @@ jobs:
                   # untouched, so pause and come back to the same offset —
                   # hammering through the refusal is what used to leave a sweep
                   # silently half-done.
+                  # The endpoint already waited out two short refusals of its
+                  # own before giving up, so reaching here means the budget is
+                  # genuinely spent rather than momentarily empty. The host
+                  # refills in well under a minute; 45s is comfortably past it.
                   if data.get('rateLimited'):
-                      print(f'{label}: upstream refused; pausing 90s before resuming', flush=True)
-                      time.sleep(90)
+                      print(f'{label}: upstream refused; pausing 45s before resuming', flush=True)
+                      time.sleep(45)
                   if not data.get('hasMore'):
                       return data
                   next_offset = data.get('nextOffset')
