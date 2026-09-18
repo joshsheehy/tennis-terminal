@@ -130,7 +130,26 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
        surface = excluded.surface,
        indoor = excluded.indoor,
        source = excluded.source,
-       source_url = excluded.source_url,
+       -- Never drop a ProTennisLive code that is already on the row.
+       --
+       -- The code here comes only from the static catalogue, matched by name
+       -- and city for this exact year, so a tournament that is not in that file
+       -- gets none — 103 of the 260 rows in the 2026 calendar. Code discovery
+       -- fills those in by writing the posting URL to source_url, and this
+       -- upsert then overwrote it with a code-less calendar URL the next
+       -- morning. Every discovered code was erased within a day, which is why
+       -- the cut importer could never build a URL for those events no matter
+       -- how often they were rediscovered.
+       --
+       -- The posting URL is carried forward alongside the fresh calendar URL;
+       -- readers recover the code by regex and do not care about the order.
+       source_url = case
+         when excluded.source_url ~ '/posting/\d+/\d+/' then excluded.source_url
+         when tournament_editions.source_url ~ '/posting/\d+/\d+/'
+           then excluded.source_url || ' | ' ||
+                (regexp_match(tournament_editions.source_url, '(https?://[^ |]*/posting/\d+/\d+/)'))[1]
+         else excluded.source_url
+       end,
        status = 'held',
        updated_at = now()
      returning (xmax = 0) as inserted`,
