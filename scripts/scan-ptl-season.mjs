@@ -56,17 +56,37 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // next window's budget too.
 let rateLimitUntil = 0;
 
-async function waitForRateLimit() {
-  while (Date.now() < rateLimitUntil) {
-    await sleep(Math.min(5000, rateLimitUntil - Date.now()));
+// Pace proactively rather than only reacting. Backing off after a 429 is not
+// enough on its own: the bucket refills gradually, so every worker released
+// from a pause fires immediately, empties it again and earns a longer pause
+// than the last one. Left alone that settles into waiting far more than it
+// fetches.
+//
+// Holding a minimum gap between request starts keeps consumption under the
+// refill rate, so the limit is mostly never reached. Measured at roughly one
+// request a second sustained; --gap-ms tunes it.
+const GAP_MS = Number(argVal('--gap-ms', 1200));
+let nextSlotAt = 0;
+
+async function takeSlot() {
+  for (;;) {
+    const now = Date.now();
+    const waitFor = Math.max(rateLimitUntil - now, nextSlotAt - now);
+    if (waitFor <= 0) {
+      nextSlotAt = Math.max(now, nextSlotAt) + GAP_MS;
+      return;
+    }
+    await sleep(Math.min(5000, waitFor));
   }
 }
 
 function noteRateLimit(res, attempt) {
   const header = Number(res.headers.get('retry-after'));
+  // Measured refill is well under a minute, so a short pause plus the pacing
+  // above is enough; escalating into minutes just idles the scan.
   const waitMs = Number.isFinite(header) && header > 0
     ? header * 1000
-    : Math.min(120_000, 15_000 * attempt);
+    : Math.min(45_000, 10_000 * attempt);
   const until = Date.now() + waitMs;
   if (until > rateLimitUntil) {
     rateLimitUntil = until;
@@ -75,7 +95,7 @@ function noteRateLimit(res, attempt) {
 }
 
 async function probeOnce(url, attempt) {
-  await waitForRateLimit();
+  await takeSlot();
   let res = await fetch(url, { method: 'HEAD', headers: HEADERS });
   if (res.status === 405) res = await fetch(url, { headers: { ...HEADERS, Range: 'bytes=0-0' } });
   if (res.ok || res.status === 206) return 'present';
@@ -273,6 +293,8 @@ async function scanCode(code) {
     }
   }
   try {
+    // Counts against the same budget as the probes, so it queues with them.
+    await takeSlot();
     const res = await fetch(url, { headers: HEADERS });
     if (!res.ok) return null;
     const buffer = Buffer.from(await res.arrayBuffer());
