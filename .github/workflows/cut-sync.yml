@@ -139,10 +139,47 @@ jobs:
                       time.sleep(3 * attempt)
               return None, 'refused'
 
+          # Two sources of candidate URLs, because they know different things.
+          #
+          # /api/missing-cuts-report resolves codes from the static catalogue,
+          # so it only offers URLs for tournaments that file knows about — 8 of
+          # 123 editions when this was written. /api/code-audit also recovers
+          # codes already in the database from previous seasons, which is where
+          # most of them actually are: a code belongs to the tournament and
+          # never changes, so anything that has run before already has one.
+          # That bucket was 13 more events, including most of the recent weeks
+          # that were sitting empty.
+          #
+          # Neither is a superset of the other, so take both and de-duplicate.
           report = app_json(f'/api/missing-cuts-report?year={year}&limit=500')
           missing = report.get('missing') or []
           print(f"{report.get('missingEditionCount')} editions missing cuts, "
                 f"{report.get('missingDrawCount')} draws", flush=True)
+
+          audit = app_json(f'/api/code-audit?year={year}')
+          print(f"code audit: {audit.get('summary')}", flush=True)
+          by_slug = {m['slug']: m for m in missing}
+          DRAW_FILES = {
+              'singles_main': ['mds.pdf', 'mds-1.pdf', 'md.pdf'],
+              'singles_qualifying': ['qs.pdf', 'qs-1.pdf', 'q.pdf'],
+              'doubles_main': ['mdd.pdf', 'mdd-1.pdf', 'dd.pdf'],
+          }
+          for row in audit.get('alreadyHaveCode') or []:
+              slug, code = row['slug'], row['code']
+              urls = {
+                  key: [f'https://www.protennislive.com/posting/{year}/{code}/{f}' for f in files]
+                  for key, files in DRAW_FILES.items()
+              }
+              entry = by_slug.get(slug)
+              if entry is None:
+                  by_slug[slug] = {
+                      'slug': slug, 'year': year, 'level': row.get('level'),
+                      'start_date': row.get('startDate'),
+                      'candidate_urls_by_missing_draw': urls,
+                  }
+              elif not any((entry.get('candidate_urls_by_missing_draw') or {}).values()):
+                  entry['candidate_urls_by_missing_draw'] = urls
+          missing = list(by_slug.values())
 
           # Most recently played first: those are the cuts someone is waiting on.
           # Editions with no candidate URLs have no known code yet — the code
