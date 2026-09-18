@@ -40,19 +40,24 @@ on:
       code_end:
         description: 'Last ProTennisLive code to probe (default: the slice for today)'
         required: false
-  schedule:
-    # Daily at 05:30 UTC — ahead of the 07:45 calendar sync and the 08:15 data
-    # sync, so codes found today are in place when tonight's cut import builds
-    # its target list.
-    #
-    # Daily, but each run covers only a seventh of the code space, so the whole
-    # range is still swept once a week. The host allows a burst of about forty
-    # requests and refills it in well under a minute, which works out near one
-    # request a second sustained; a full 9999-code sweep at that rate would run
-    # for hours and blow the job timeout. A seventh of it finishes inside half
-    # an hour, and a code that only turns up in Thursday's slice is still found
-    # days before its tournament's cuts matter.
-    - cron: '30 5 * * *'
+  # NO SCHEDULE — dispatch only, deliberately.
+  #
+  # The daily-slice plan above did not survive contact with the host. A scan of
+  # 250 codes hit the 120-minute job timeout and was cancelled without ever
+  # reaching the import step; a slice is 1429 codes. So a scheduled run would
+  # burn two hours being refused every morning, fail, and — worse — leave the
+  # budget drained for cut-sync.yml at 06:10, which is the workflow that
+  # actually collects cuts.
+  #
+  # Brute-force probing is also the wrong tool for the usual case. A
+  # ProTennisLive code belongs to the tournament and never changes, so an event
+  # that has run before already has its code in the database and
+  # /api/import-cutoffs recovers it by regex over the last five seasons. Only a
+  # genuinely new tournament needs discovery, and then a targeted probe around
+  # its siblings' codes costs a handful of requests rather than thousands.
+  #
+  # Kept here for that targeted use: dispatch it with a narrow code_start and
+  # code_end.
 
 jobs:
   scan:
