@@ -35,18 +35,24 @@ on:
         required: false
         type: string
       code_start:
-        description: 'First ProTennisLive code to probe'
+        description: 'First ProTennisLive code to probe (default: the slice for today)'
         required: false
-        default: '1'
       code_end:
-        description: 'Last ProTennisLive code to probe'
+        description: 'Last ProTennisLive code to probe (default: the slice for today)'
         required: false
-        default: '9999'
   schedule:
-    # Mondays at 05:30 UTC — ahead of the 07:45 calendar sync and the 08:15
-    # data sync, so codes found here are already in place when the night's cut
-    # import builds its target list.
-    - cron: '30 5 * * 1'
+    # Daily at 05:30 UTC — ahead of the 07:45 calendar sync and the 08:15 data
+    # sync, so codes found today are in place when tonight's cut import builds
+    # its target list.
+    #
+    # Daily, but each run covers only a seventh of the code space, so the whole
+    # range is still swept once a week. The host allows a burst of about forty
+    # requests and refills it in well under a minute, which works out near one
+    # request a second sustained; a full 9999-code sweep at that rate would run
+    # for hours and blow the job timeout. A seventh of it finishes inside half
+    # an hour, and a code that only turns up in Thursday's slice is still found
+    # days before its tournament's cuts matter.
+    - cron: '30 5 * * *'
 
 jobs:
   scan:
@@ -91,18 +97,36 @@ jobs:
       - name: Scan ProTennisLive postings
         env:
           INPUT_YEAR: ${{ inputs.year }}
-          CODE_START: ${{ inputs.code_start || '1' }}
-          CODE_END: ${{ inputs.code_end || '9999' }}
+          INPUT_START: ${{ inputs.code_start }}
+          INPUT_END: ${{ inputs.code_end }}
         run: |
           set -euo pipefail
           YEAR="${INPUT_YEAR:-$(date -u +%Y)}"
-          echo "Scanning ProTennisLive postings for $YEAR (codes $CODE_START-$CODE_END)"
+
+          # Today's slice: day-of-year mod 7 picks one seventh of 1-9999, so a
+          # week of runs covers the whole space and no single run outlasts the
+          # host's patience. An explicit range from a dispatch wins.
+          TOTAL=9999
+          SLICES=7
+          WIDTH=$(( (TOTAL + SLICES - 1) / SLICES ))
+          SLICE=$(( 10#$(date -u +%j) % SLICES ))
+          CODE_START="${INPUT_START:-$(( SLICE * WIDTH + 1 ))}"
+          CODE_END="${INPUT_END:-$(( (SLICE + 1) * WIDTH ))}"
+          [ "$CODE_END" -gt "$TOTAL" ] && CODE_END=$TOTAL
+
+          echo "Scanning ProTennisLive postings for $YEAR (codes $CODE_START-$CODE_END, slice $SLICE of $SLICES)"
           echo "PTL_YEAR=$YEAR" >> "$GITHUB_ENV"
+          # Concurrency 2, not 12: the limit is a small bucket, so a wide fan-out
+          # only means more requests already in flight when it empties.
           node scripts/scan-ptl-season.mjs "$YEAR" \
             --start "$CODE_START" --end "$CODE_END" \
-            --concurrency 12 \
+            --concurrency 2 \
             --emit-rows /tmp/ptl-rows.json
-          test -s /tmp/ptl-rows.json || { echo "scan produced no rows"; exit 1; }
+          # A slice with no ATP/Challenger postings in it is perfectly normal —
+          # most of the code space is ITF or unused. The scanner exits non-zero
+          # when it was refused, which is the case worth failing on, and that
+          # has already happened above under `set -e`.
+          test -s /tmp/ptl-rows.json || echo "no ATP/Challenger postings in this slice"
 
       - name: Import codes and refill cuts
         env:
@@ -159,15 +183,18 @@ jobs:
                   raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
               return {'ok': False, 'error': str(last_error)}
 
-          payload = json.load(open('/tmp/ptl-rows.json'))
-          year = int(payload['year'])
+          # Most of the code space is ITF or unused, so a slice with nothing
+          # ATP/Challenger in it writes no file at all. That is not a failure —
+          # the scanner exits non-zero when it was actually refused, and this
+          # step would not be running if it had.
+          try:
+              payload = json.load(open('/tmp/ptl-rows.json'))
+          except FileNotFoundError:
+              payload = {'year': int(os.environ.get('PTL_YEAR') or 0), 'rows': []}
+
+          year = int(payload['year']) or int(os.environ['PTL_YEAR'])
           rows = payload['rows']
           print(f'=== PTL postings for {year}: {len(rows)} ===', flush=True)
-          if not rows:
-              raise RuntimeError(
-                  f'The scan found no postings for {year}. Either the posting layout changed '
-                  'or the runner itself was refused — both need a look.'
-              )
 
           new_total = 0
           for start in range(0, len(rows), 200):
