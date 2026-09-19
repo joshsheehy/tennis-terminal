@@ -419,13 +419,20 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   challengerEvent('Vancouver', 'Vancouver', 'Canada', 2026, 30, '2026-07-27', null, 'Challenger 125', 'Hard', false, '7774', false),
   challengerEvent('Bonn', 'Bonn', 'Germany', 2026, 30, '2026-07-27', null, 'Challenger 75', 'Clay', false, '2935', false),
   challengerEvent('Liberec', 'Liberec', 'Czech Republic', 2026, 30, '2026-07-27', null, 'Challenger 75', 'Clay', false, '6795', false),
-  challengerEvent('Centurion 3', 'Centurion', 'South Africa', 2026, 30, '2026-07-27', null, 'Challenger 50', 'Hard', false, '3091', false),
+  // Centurion 3 (code 3091) cancelled — confirmed against the official ATP
+  // calendar. Removed from canonical, same as Durham above. Unlike Durham,
+  // it already has cutoff_snapshots rows attached (its entry list published
+  // before the call-off), so the stale-row sweep's cuts-exempt clause won't
+  // touch it — cancelled-editions.ts's sweep is what actually flips its
+  // status, and does so regardless of attached cuts. Removing it here only
+  // stops sync-canonical's own upsert loop from resurrecting it moments
+  // before that sweep runs on every single call.
 
   // ─── WEEK 31 (Aug 3) ─────────────────────────────────────────────────────────
   challengerEvent('Hagen', 'Hagen', 'Germany', 2026, 31, '2026-08-03', null, 'Challenger 100', 'Clay', false, '9542', false),
   challengerEvent('Grodzisk Mazowiecki', 'Grodzisk Mazowiecki', 'Poland', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, '2789', false),
   challengerEvent('Lexington, KY', 'Lexington', 'United States', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, '586', false),
-  challengerEvent('Centurion 4', 'Centurion', 'South Africa', 2026, 31, '2026-08-03', null, 'Challenger 75', 'Hard', false, '3093', false),
+  // Centurion 4 (code 3093) cancelled too — see the Centurion 3 note above.
   challengerEvent('İstanbul (Enka)', 'İstanbul', 'Turkey', 2026, 31, '2026-08-03', null, 'Challenger 50', 'Hard', false, '3111', false),
 
   // ─── WEEK 39 (Sep 28) ────────────────────────────────────────────────────────
