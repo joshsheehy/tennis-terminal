@@ -1,0 +1,66 @@
+name: Monday audit
+
+# Weekly integrity + health check: are the cuts that should exist in the
+# database, is the stored data sane, and does the site render it.
+# See the header of scripts/monday-audit.mjs for what each check does.
+#
+# Needs one repository secret, DATABASE_URL: the Railway *public* Postgres URL
+# (Railway -> Postgres service -> Variables -> DATABASE_PUBLIC_URL). The
+# internal .railway.internal host is not reachable from a GitHub runner. The
+# audit only reads, and enforces that with a read-only session.
+#
+# Telegram is optional: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to also get
+# the summary as a message. Without them the run still goes red on a critical
+# finding (GitHub emails you) and writes the full report to the run summary.
+
+on:
+  schedule:
+    # 13:00 UTC Monday = 08:00 CDT / 07:00 CST in Dallas. GitHub cron is UTC
+    # with no DST awareness, so this drifts an hour when clocks change in
+    # November and March.
+    - cron: '0 13 * * 1'
+  workflow_dispatch: # run on demand from the Actions tab
+    inputs:
+      weeks:
+        description: 'Coverage window in weeks (current week + N-1 ahead)'
+        required: false
+        default: '2'
+      grace:
+        description: 'Days to allow after an entry deadline before a missing cut counts'
+        required: false
+        default: '3'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run audit
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SITE_URL: https://tenniscuts.com
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WEEKS: ${{ inputs.weeks || '2' }}
+          GRACE: ${{ inputs.grace || '3' }}
+        run: npx tsx scripts/monday-audit.mjs --weeks="$WEEKS" --grace="$GRACE"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monday-audit-report
+          path: monday-audit-report.md
+          if-no-files-found: ignore
