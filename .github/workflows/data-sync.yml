@@ -293,6 +293,29 @@ jobs:
 
           request_json('/api/restore-historical-status')
 
+          # 9b) Re-apply cancelled/discontinued status LAST, after everything
+          # above that can set status='held'.
+          #
+          # Both import-challenger-season (step 4, JeffSackmann) and
+          # restore-historical-status (just above) do exactly that
+          # unconditionally: the former on every upsert regardless of what the
+          # official calendar says, the latter on any row that still carries a
+          # cutoff_snapshots row, cancelled or not. A cancelled event that once
+          # had cuts (Centurion 3/4, Fujairah 1 — its entry list posted before
+          # the call-off) gets its status handed right back by the very step
+          # meant to restore rows that were hidden BY MISTAKE.
+          #
+          # /api/sync-canonical's cancelled/discontinued sweeps are the correct
+          # final word — they are keyed off cancelled-editions.ts and
+          # discontinued-tournaments.ts, not off "does a cut exist" — so run it
+          # last. Fully idempotent; the catalogue re-sync it also does is
+          # redundant with step 5 but harmless.
+          print('\n=== Re-apply cancelled/discontinued status ===', flush=True)
+          canon = request_json('/api/sync-canonical', required=False, timeout=60)
+          for sweep in (canon.get('cancelledSweeps') or []) + (canon.get('discontinuedSweeps') or []):
+              if sweep.get('hiddenCount'):
+                  print(f"  re-hid {sweep['hiddenCount']}: {sweep.get('hiddenRows')}", flush=True)
+
           # 10) Beta cut projections: after the night's calendar/cut imports,
           # refresh the production prediction snapshots and score any stored
           # predictions whose actual cuts landed during this sync. Keep this in

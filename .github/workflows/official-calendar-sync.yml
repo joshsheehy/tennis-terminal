@@ -281,5 +281,23 @@ jobs:
               print(f'run-all has more work; attempt {attempt + 1}/20', flush=True)
               time.sleep(3)
 
+          # Re-apply cancelled/discontinued status LAST. restore-historical-
+          # status above restores any row that still carries a
+          # cutoff_snapshots row back to 'held' — including a cancelled one
+          # that had a published entry list before the call-off (Fujairah 1;
+          # Centurion 3/4 the same way). /api/sync-canonical's cancelled and
+          # discontinued sweeps are the correct final word, keyed off
+          # cancelled-editions.ts and discontinued-tournaments.ts rather than
+          # off whether a cutoff row exists, so they run after everything else
+          # that can set status='held'. Fully idempotent.
+          print('\n=== Re-apply cancelled/discontinued status ===', flush=True)
+          try:
+              canon = request_json('/api/sync-canonical', timeout=60, retries=1)
+              for sweep in (canon.get('cancelledSweeps') or []) + (canon.get('discontinuedSweeps') or []):
+                  if sweep.get('hiddenCount'):
+                      print(f"  re-hid {sweep['hiddenCount']}: {sweep.get('hiddenRows')}", flush=True)
+          except Exception as exc:
+              print(f'non-fatal: {exc}', flush=True)
+
           print('\nOfficial calendar sync complete.', flush=True)
           PY
