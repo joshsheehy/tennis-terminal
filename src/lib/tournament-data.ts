@@ -118,10 +118,17 @@ function challengerEvent(
   surface: string,
   indoor: boolean | null,
   protennisliveCode: string | null,
-  hasDoublesQualifying: boolean
+  hasDoublesQualifying: boolean,
+  // Almost always omitted — makeSlug(name, city) is what every other row
+  // relies on. Exists for the rare case where a canonical row has to line up
+  // with a slug that discovery already settled on under a different
+  // name/city spelling (see the Open de Vendée entry below): passing the
+  // derived slug here would just recreate the alternate-spelling duplicate
+  // this row exists to prevent.
+  slugOverride?: string
 ): TournamentEdition {
   return {
-    tournament: { slug: makeSlug(name, city), name, city, country },
+    tournament: { slug: slugOverride ?? makeSlug(name, city), name, city, country },
     edition: {
       year,
       week,
@@ -439,10 +446,26 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   // The curated Challenger list above stops at week 31; later weeks come from
   // calendar discovery. This one needs a canonical entry anyway: the ATP archive
   // calls the event "Mouilleron le Captif" while the official calendar and PTL
-  // call it "Open de Vendée", so discovery created two separate tournaments for
-  // the same event (one with the cuts, one empty). A canonical row gives the
-  // pair a single identity for consolidate-tournaments to merge into.
-  challengerEvent('Open de Vendée', 'Mouilleron-le-Captif', 'France', 2026, 39, '2026-09-28', null, 'Challenger 75', 'Indoor Hard', true, '6857', false),
+  // call it "Open de Vendée", so discovery kept creating fresh duplicate
+  // tournaments for the same event under both spellings.
+  //
+  // The real history (2022, 2024, 2025 — all with real cuts) lives under
+  // slug "open-de-vendee", built from imports well before this row existed.
+  // A first version of this fix used challengerEvent's default slug, which
+  // derives from name+city and comes out "open-de-vendee-mouilleron-le-captif"
+  // — a FOURTH spelling, not the canonical one, so it kept recreating the
+  // very duplicate it was meant to stop: merge-tournaments would consolidate
+  // it away, then the next sync-canonical/import-calendars run (which upserts
+  // every ALL_EDITIONS row unconditionally) would recreate it from this line,
+  // 0 cuts and all. slugOverride pins this row to the slug that already
+  // carries the tournament's history, so the nightly upsert lands on that row
+  // directly instead of spawning another alias for consolidate-tournaments to
+  // clean up.
+  challengerEvent(
+    'Open de Vendée', 'Mouilleron-le-Captif', 'France', 2026, 39, '2026-09-28', null,
+    'Challenger 75', 'Indoor Hard', true, '6857', false,
+    'open-de-vendee'
+  ),
 
   // ─── WEEK 16 (Apr 22) — ATP 1000 ─────────────────────────────────────────────
   tourEvent('Mutua Madrid Open', 'Madrid', 'Spain', 2026, 16, '2026-04-22', '2026-05-03', 'ATP 1000', 'Clay', false, '1536', false),
