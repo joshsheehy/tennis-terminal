@@ -17,16 +17,18 @@
  *   npx tsx scripts/monday-audit.mjs --grace=5            # days to allow after an entry deadline
  *   npx tsx scripts/monday-audit.mjs --as-of=2026-07-06   # replay as if run on that date
  *   npx tsx scripts/monday-audit.mjs --previous=state.json  # diff against an earlier run's state
- *   npx tsx scripts/monday-audit.mjs --emit-known > scripts/monday-audit-known.json
+ *   npx tsx scripts/monday-audit.mjs --emit-known         # write current findings into the acknowledgements file
  *   npx tsx scripts/monday-audit.mjs --skip-site          # database checks only
  *
  * ACKNOWLEDGING KNOWN GAPS
  *   Some events can never get a cut (no ProTennisLive code, sheet never published).
  *   List them in scripts/monday-audit-known.json so they stop failing the run:
  *     { "acknowledged": [ { "key": "A2|some-slug@2026", "until": "2026-10-31", "reason": "no PTL code" } ] }
- *   Keys are printed by --emit-known. An acknowledgement EXPIRES on its `until` date and the
- *   finding comes back, so nothing is muted forever. --emit-known prints the existing valid
- *   acknowledgements plus every current finding, to baseline a noisy first run in one step.
+ *   An acknowledgement EXPIRES on its `until` date and the finding comes back, so nothing is
+ *   muted forever. --emit-known writes scripts/monday-audit-known.json itself (it keeps the
+ *   still-valid acknowledgements and adds every current finding for 28 days) to baseline a
+ *   noisy first run. Review the file, delete the entries you actually want to fix, commit it.
+ *   Keep DATABASE_URL in a file outside the repo and pass it with tsx --env-file=<path>.
  *
  * Env:
  *   DATABASE_URL        required  Postgres URL (Railway *public* URL from CI; read-only is enough)
@@ -204,21 +206,34 @@ const tableExists = async (client, name) =>
 // ───────────────────────────────────────────────────────────────────────────
 
 function loadJson(path) {
+  let text
   try {
-    return JSON.parse(readFileSync(path, 'utf8'))
+    text = readFileSync(path, 'utf8')
   } catch (e) {
     if (e.code === 'ENOENT') return null
-    throw new Error(`Could not read ${path}: ${e.message}`) // a corrupt file must be loud, not ignored
+    throw e
+  }
+  if (!text.trim()) return null // an emptied file means "nothing acknowledged", the safe direction
+  try {
+    return JSON.parse(text)
+  } catch (e) {
+    throw new Error(`Could not parse ${path}: ${e.message}`) // a corrupt file must be loud, not ignored
   }
 }
 
 const known = new Map() // key -> acknowledgement
 const expiredAcks = []
-for (const a of loadJson(KNOWN_FILE)?.acknowledged ?? []) {
-  if (a.until && dayStart(a.until) < TODAY) expiredAcks.push(a)
-  else known.set(a.key, a)
+let previous = null
+try {
+  for (const a of loadJson(KNOWN_FILE)?.acknowledged ?? []) {
+    if (a.until && dayStart(a.until) < TODAY) expiredAcks.push(a)
+    else known.set(a.key, a)
+  }
+  if (!HEALTH_ONLY && PREVIOUS_FILE) previous = loadJson(PREVIOUS_FILE)
+} catch (e) {
+  console.error(e.message)
+  process.exit(2)
 }
-const previous = HEALTH_ONLY || !PREVIOUS_FILE ? null : loadJson(PREVIOUS_FILE)
 
 // ───────────────────────────────────────────────────────────────────────────
 // CHECK FRAMEWORK
@@ -920,13 +935,12 @@ async function main() {
 
   if (EMIT_KNOWN) {
     const until = iso(addDays(TODAY, ACK_DAYS))
-    const merged = [
-      ...known.values(),
-      ...results
-        .filter((r) => /^(A|B3|C)/.test(r.id) && !r.note.includes('CHECK ERROR'))
-        .flatMap((r) => r.items.map((i) => ({ key: i.key, until, reason: 'baseline — review', text: i.text }))),
-    ]
-    await say(JSON.stringify({ acknowledged: merged }, null, 2))
+    const baseline = results
+      .filter((r) => /^(A|B3|C)/.test(r.id) && !r.note.includes('CHECK ERROR'))
+      .flatMap((r) => r.items.map((i) => ({ key: i.key, until, reason: 'baseline — review', text: i.text })))
+    const merged = [...known.values(), ...baseline]
+    writeFileSync(KNOWN_FILE, JSON.stringify({ acknowledged: merged }, null, 2) + '\n')
+    await say(`Wrote ${merged.length} acknowledgement(s) to ${KNOWN_FILE} (${baseline.length} new, ${known.size} kept). Review it before committing.`)
     process.exit(0)
   }
 
@@ -943,7 +957,9 @@ async function main() {
     )
 
   const message = buildTelegram(diff, extra.scorecard)
+  const quietHealth = HEALTH_ONLY && !summarise().crit.length && !summarise().warn.length
   if (DRY_RUN) await say(`\n--- Telegram preview (not sent) ---\n${message.replace(/<\/?[bi]>/g, '')}`)
+  else if (quietHealth) console.log('[telegram] health run is clean — not sending a message.')
   else await sendTelegram(message)
 
   process.exit(summarise().crit.length ? 1 : 0)
