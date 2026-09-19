@@ -139,6 +139,11 @@ export async function GET() {
        where te.tournament_id = t.id
          and te.status = 'held'
          and te.year > $1
+         -- Same reasoning as the stale-row sweep above: an ITF event can
+         -- share a city name with an ATP/Challenger one (Tashkent, Gaborone
+         -- both have unrelated ITF M15s in 2026) and must never be touched
+         -- by a rule written for the tour-level event.
+         and te.level not ilike 'ITF%'
          and (t.slug ilike $2 or t.name ilike $2)
        returning t.slug, te.year, te.level`,
       [rule.finalYear, `%${rule.pattern}%`]
@@ -172,6 +177,9 @@ export async function GET() {
        where te.tournament_id = t.id
          and te.status = 'held'
          and te.year = $1
+         -- Tashkent and Gaborone both carry an unrelated ITF M15 the same
+         -- year; a bare pattern would otherwise cancel those too.
+         and te.level not ilike 'ITF%'
          and (t.slug ilike $2 or t.name ilike $2 or t.city ilike $2)
        returning t.slug, te.year, te.level`,
       [rule.year, `%${rule.pattern}%`]

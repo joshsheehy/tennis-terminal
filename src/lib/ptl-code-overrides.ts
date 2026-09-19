@@ -63,22 +63,21 @@ export const PTL_CODE_OVERRIDES: Record<string, PtlCodeOverride> = {
   samsun: { code: '3167', confirmedFor: 2026, header: 'Samsun Open — Samsun, Turkiye' },
   brownsburg: { code: '3131', confirmedFor: 2026, header: 'Indiana Hardcourt Championships — Brownsburg, IN, U.S.A.' },
   'chisinau-1': { code: '2993', confirmedFor: 2026, header: 'Moldova Open — Chisinau, Moldova' },
-  'fujairah-1': { code: '3067', confirmedFor: 2026, header: 'Fujairah Open — Fujairah, U.A.E.' },
   cancun: { code: '3009', confirmedFor: 2026, header: 'Cancun Country Open — Cancun, Mexico' },
   'quebec-city': { code: '3103', confirmedFor: 2026, header: 'CHALLENGER BANQUE NATIONALE QUEBEC — Quebec City, Canada' },
   sion: { code: '3133', confirmedFor: 2026, header: 'Sion, Switzerland' },
 
-  // Correct codes whose draw sheet was never published — the posting returns
-  // the 2616-byte "Tournament Information Not Yet Available" placeholder.
-  // Recorded so the importer stops treating them as undiscovered, and so the
-  // health check can tell "no sheet exists" from "we failed to fetch it".
-  durham: { code: '3099', confirmedFor: 2026, header: 'Tournament Information Not Yet Available' },
-  'centurion-3-centurion': { code: '3091', confirmedFor: 2026, header: 'Tournament Information Not Yet Available' },
-  'centurion-4-centurion': { code: '3093', confirmedFor: 2026, header: 'Tournament Information Not Yet Available' },
+  // NOT HERE ANY MORE: durham, centurion-3-centurion, centurion-4-centurion,
+  // fujairah-1. All four looked like undiscovered codes — a code that resolved
+  // but whose posting returned the 2616-byte "Tournament Information Not Yet
+  // Available" placeholder — until the official ATP calendar confirmed all
+  // four were cancelled outright. That's a fact about the tournament, not
+  // about whether we know its code, so it belongs in cancelled-editions.ts:
+  // status flips to 'not_held' and the whole event drops out of every query
+  // that feeds this file, discovery, and the health check alike. Fujairah 1's
+  // code (3067) is preserved there in a comment, since its entry list did
+  // publish real acceptance data before the cancellation.
 };
-
-/** Byte length of the "Tournament Information Not Yet Available" placeholder. */
-export const UNPUBLISHED_PLACEHOLDER_BYTES = 2616;
 
 export function overrideCodeFor(slug: string): string | null {
   return PTL_CODE_OVERRIDES[slug]?.code ?? null;

@@ -1,15 +1,25 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { PTL_CODE_OVERRIDES } from '@/lib/ptl-code-overrides';
 
-// Events whose posting exists but whose draw sheet was never published, plus
-// the Slams, which have no ProTennisLive posting at all. Derived from the
-// override file so the two cannot drift: an entry recorded there as the
-// placeholder header is one we have confirmed by fetching it.
-const UNPUBLISHED_SHEET_SLUGS = new Set<string>([
-  ...Object.entries(PTL_CODE_OVERRIDES)
-    .filter(([, v]) => v.header.startsWith('Tournament Information Not Yet Available'))
-    .map(([slug]) => slug),
+// Events with no cut to find and no fix a sync can apply, so counting them as
+// coverage failures would make the gate unpassable for reasons unrelated to
+// whether the pipeline is working.
+//
+// Cancelled tournaments (Durham, Centurion 3/4, Fujairah, etc.) do NOT belong
+// in this set any more — they are handled one level down, in
+// cancelled-editions.ts, which flips their status to 'not_held' in the
+// database. checkRecentCutCoverage's query already filters on
+// `te.status = 'held'`, so a cancelled edition simply stops being a row this
+// query sees, the same as it stops being a row any other query sees. That is
+// the more correct fix: the fact "this tournament didn't happen" lives once,
+// next to the other facts about the tournament, instead of being repeated
+// here as a guess inferred from an empty PDF.
+//
+// What's left here is the one category that status flip cannot cover: events
+// that DID happen but have no ProTennisLive posting to begin with. The Slams
+// use a different results pipeline entirely (/api/import-slam-cuts) and were
+// never going to appear in a PTL-code-driven coverage count.
+const NO_PTL_POSTING_SLUGS = new Set<string>([
   'us-open-new-york',
   'us-open-qualifying-new-york',
   'australian-open-melbourne',
@@ -104,23 +114,22 @@ async function checkRecentCutCoverage(year: number) {
     [year]
   );
 
-  // Some events will never have a cut, and counting them as failures makes the
-  // alarm useless. A gate that can't reach its threshold goes red every night
-  // for something no sync can fix, and then nobody reads the emails.
+  // Some events will never have a PTL-sourced cut, and counting them as
+  // failures makes the alarm useless. A gate that can't reach its threshold
+  // goes red every night for something no sync can fix, and then nobody reads
+  // the emails.
   //
-  // Only confirmed cases are excluded, and each is confirmed by evidence rather
-  // than assumption: a posting that returns the "Tournament Information Not Yet
-  // Available" placeholder (durham, centurion-3, centurion-4), and the Slams,
-  // which have no ProTennisLive posting at all — /api/import-slam-cuts is their
-  // route, so they do not belong in this check either way.
-  //
-  // They stay visible in the response rather than being silently dropped: if
-  // one of them ever does publish a sheet, that should be noticed.
+  // Cancelled editions are already gone from `result.rows` — the query above
+  // filters on status='held', and cancelled-editions.ts is what keeps that
+  // status current. What's left to exclude here is the Slams, which have no
+  // ProTennisLive posting at all and were never going to show up any other
+  // way. They stay visible in the response rather than being silently
+  // dropped, on the off chance that ever changes.
   const excluded: string[] = [];
   const counted = result.rows.filter((row) => {
-    const unpublished = UNPUBLISHED_SHEET_SLUGS.has(row.slug);
-    if (unpublished) excluded.push(row.slug);
-    return !unpublished;
+    const noPosting = NO_PTL_POSTING_SLUGS.has(row.slug);
+    if (noPosting) excluded.push(row.slug);
+    return !noPosting;
   });
 
   const total = counted.length;
@@ -143,8 +152,11 @@ async function checkRecentCutCoverage(year: number) {
     year,
     rowCount: total,
     withCut,
-    // Events left out of the count because no draw sheet exists to import.
-    excludedUnpublished: excluded.sort(),
+    // Events left out of the count because there is no ProTennisLive posting
+    // to import from (the Slams). Cancelled editions do not appear here —
+    // they are absent from rowCount/withCut too, having already dropped out
+    // of the query above.
+    excludedNoPosting: excluded.sort(),
     coveragePercent: Number((coverage * 100).toFixed(1)),
     lastUpdated: null,
     staleDays: null,
@@ -217,6 +229,53 @@ async function weeklyCutCoverage(year: number) {
   return Array.from(byWeek.values()).sort((a, b) => b.week - a.week);
 }
 
+/**
+ * Editions the cancelled-editions.ts sweep has taken out of the 'held' pool
+ * recently — the answer to "is that gap real or is the event just cancelled?"
+ * without having to go read the source file. Purely informational: these rows
+ * are already outside every coverage query by virtue of status='not_held', so
+ * this list changes nothing about `healthy`.
+ */
+async function recentlyCancelled(year: number) {
+  const result = await pool.query<{
+    slug: string;
+    name: string;
+    level: string;
+    week: number | null;
+    start_date: Date | string | null;
+    has_cuts: boolean;
+  }>(
+    `
+    select t.slug, t.name, te.level, te.week, te.start_date,
+           exists (
+             select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id
+           ) as has_cuts
+    from tournament_editions te
+    join tournaments t on t.id = te.tournament_id
+    where te.year = $1
+      and te.status = 'not_held'
+      and te.level not ilike 'ITF%'
+      and te.start_date is not null
+      and te.start_date >= current_date - interval '70 days'
+      and te.start_date <= current_date + interval '14 days'
+    order by te.start_date desc
+    `,
+    [year]
+  );
+
+  return result.rows.map((row) => ({
+    slug: row.slug,
+    name: row.name,
+    level: row.level,
+    week: row.week,
+    startDate: row.start_date instanceof Date ? row.start_date.toISOString().slice(0, 10) : row.start_date,
+    // A cancelled edition can still carry a real entry list published before
+    // the call-off (Fujairah 1) — worth flagging rather than implying no data
+    // survived.
+    hasEntryListData: row.has_cuts,
+  }));
+}
+
 export async function GET() {
   const year = new Date().getFullYear();
 
@@ -269,9 +328,10 @@ export async function GET() {
 
   // Discovery finding tournaments is only half the pipeline; the other half is
   // cuts actually arriving for them.
-  const [cutCoverage, recentWeeks] = await Promise.all([
+  const [cutCoverage, recentWeeks, cancelledEditions] = await Promise.all([
     checkRecentCutCoverage(year),
     weeklyCutCoverage(year),
+    recentlyCancelled(year),
   ]);
   const allChecks = [...sources, cutCoverage];
   const healthy = allChecks.every((s) => s.healthy);
@@ -286,6 +346,10 @@ export async function GET() {
       // Informational, never gating: which events in each of the last eight
       // weeks are still waiting on a cut.
       recentWeeks,
+      // Informational, never gating: events near the coverage window that
+      // were cancelled rather than missing — see cancelled-editions.ts for
+      // the official-calendar evidence behind each one.
+      cancelledEditions,
       // Flat reason list so the workflow can echo what's wrong in one line.
       problems: allChecks.flatMap((s) => (s.healthy ? [] : [`${s.label}: ${s.problems.join('; ')}`])),
     },
