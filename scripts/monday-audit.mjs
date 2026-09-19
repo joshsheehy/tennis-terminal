@@ -1,33 +1,47 @@
 #!/usr/bin/env node
 /**
- * TennisCuts Monday Audit — weekly integrity + health check for tenniscuts.com.
+ * TennisCuts Monday Audit — integrity + health check for tenniscuts.com.
  *
  * Answers three questions:
  *   1. Is every cut that SHOULD exist by now actually in the database?
  *   2. Is any stored data impossible, duplicated, or self-contradictory?
- *   3. Is the site rendering that data?
+ *   3. Are the pipelines, the alert emails and the site itself healthy?
  *
  * Run through tsx: it imports the app's own deadline, anomaly and ATP-week rules
  * from src/lib so the audit cannot drift from what the app itself believes.
  *
- *   npx tsx scripts/monday-audit.mjs --dry-run          # print the report, send nothing
- *   npx tsx scripts/monday-audit.mjs                    # report + Telegram (if configured)
- *   npx tsx scripts/monday-audit.mjs --weeks=3          # widen the coverage window
- *   npx tsx scripts/monday-audit.mjs --grace=5          # days to allow after a deadline
- *   npx tsx scripts/monday-audit.mjs --as-of=2026-07-06 # replay as if run on that date
+ *   npx tsx scripts/monday-audit.mjs --dry-run            # print the report, send nothing
+ *   npx tsx scripts/monday-audit.mjs                      # report + Telegram (if configured)
+ *   npx tsx scripts/monday-audit.mjs --only=health        # pipelines, alerts and site only (daily)
+ *   npx tsx scripts/monday-audit.mjs --weeks=3            # widen the coverage window
+ *   npx tsx scripts/monday-audit.mjs --grace=5            # days to allow after an entry deadline
+ *   npx tsx scripts/monday-audit.mjs --as-of=2026-07-06   # replay as if run on that date
+ *   npx tsx scripts/monday-audit.mjs --previous=state.json  # diff against an earlier run's state
+ *   npx tsx scripts/monday-audit.mjs --emit-known > scripts/monday-audit-known.json
+ *   npx tsx scripts/monday-audit.mjs --skip-site          # database checks only
+ *
+ * ACKNOWLEDGING KNOWN GAPS
+ *   Some events can never get a cut (no ProTennisLive code, sheet never published).
+ *   List them in scripts/monday-audit-known.json so they stop failing the run:
+ *     { "acknowledged": [ { "key": "A2|some-slug@2026", "until": "2026-10-31", "reason": "no PTL code" } ] }
+ *   Keys are printed by --emit-known. An acknowledgement EXPIRES on its `until` date and the
+ *   finding comes back, so nothing is muted forever. --emit-known prints the existing valid
+ *   acknowledgements plus every current finding, to baseline a noisy first run in one step.
  *
  * Env:
  *   DATABASE_URL        required  Postgres URL (Railway *public* URL from CI; read-only is enough)
  *   SITE_URL            optional  default https://tenniscuts.com
- *   TELEGRAM_BOT_TOKEN  optional  with TELEGRAM_CHAT_ID, sends the summary; otherwise skipped
- *   TELEGRAM_CHAT_ID    optional
- *   GITHUB_STEP_SUMMARY auto      set by GitHub Actions
+ *   TELEGRAM_BOT_TOKEN  optional  create a bot with @BotFather; with TELEGRAM_CHAT_ID sends the summary
+ *   TELEGRAM_CHAT_ID    optional  message the bot, then open api.telegram.org/bot<TOKEN>/getUpdates
+ *   GITHUB_STEP_SUMMARY, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID   set by GitHub Actions
  *
- * Exit code 1 when any CRITICAL fires, so a scheduled run goes red and GitHub emails you.
+ * Exit code 1 when any un-acknowledged CRITICAL fires, so a scheduled run goes red and GitHub emails you.
+ * Exit code 2 when the audit itself could not run.
  */
 
 import pg from 'pg'
-import { writeFileSync, appendFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, appendFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import {
   categoryForLevel,
   deadlinesForEdition,
@@ -47,17 +61,39 @@ const FLAG = (n) => ARGS.includes(`--${n}`)
 const OPT = (n, d) => ARGS.find((a) => a.startsWith(`--${n}=`))?.split('=')[1] ?? d
 
 const DRY_RUN = FLAG('dry-run')
+const EMIT_KNOWN = FLAG('emit-known')
+const SKIP_SITE = FLAG('skip-site') || EMIT_KNOWN
+const HEALTH_ONLY = OPT('only') === 'health'
 const COVERAGE_WEEKS = parseInt(OPT('weeks', '2'), 10) // current week + N-1 ahead
 // A cut can only exist once its entry list is posted, which is after the deadline.
 const GRACE_DAYS = Number(OPT('grace', '3'))
 const AS_OF = OPT('as-of') ? new Date(`${OPT('as-of')}T13:00:00Z`) : new Date()
+const KNOWN_FILE = OPT('known', fileURLToPath(new URL('./monday-audit-known.json', import.meta.url)))
+const PREVIOUS_FILE = OPT('previous')
+const ACK_DAYS = 28 // how long --emit-known acknowledgements last
 
 // Upper plausibility bounds. The lower bounds come from the app's own minPlausibleRank.
 const MAX_CUT = { singles: 2500, doubles: 6000 }
 
+// Checks that still run in --only=health mode.
+const HEALTH_CHECKS = new Set(['B1', 'B5', 'E1', 'D1', 'D3'])
+
+// Pipelines with a known cadence, and how long silence is tolerated before it is suspicious.
+// Each is skipped quietly if its table does not exist in this database.
+const FRESHNESS = [
+  { name: 'Public entry-list sync', table: 'entry_list_source_status', column: 'last_checked_at', maxHours: 48, cadence: 'hourly' },
+  { name: 'Swings recompute', table: 'swings', column: 'computed_at', maxHours: 72, cadence: 'daily' },
+]
+
+const SLOW_MS = 8000
 const MS_DAY = 86400000
 const COVERAGE_CATS = new Set(['atp', 'challenger', 'grandslam'])
 const ICON = { critical: '🔴', warn: '🟡', info: '⚪' }
+
+const RUN_URL =
+  process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
+    ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    : null
 
 // ───────────────────────────────────────────────────────────────────────────
 // DATES
@@ -79,7 +115,8 @@ const RECENT_START = addDays(WEEK_START, -7) // last week's events still owe us 
 /**
  * One row per held edition, with its cuts pivoted out of cutoff_snapshots.
  * cutoff_snapshots is unique on (edition, event_type, draw_type) and re-imports
- * UPDATE in place, so updated_at (not created_at) is the "last written" signal.
+ * UPDATE in place, so updated_at is the "last written" signal and created_at
+ * is when the cut first appeared.
  * A doubles cut is any of three columns: the Challenger advance/onsite cuts
  * live apart from last_direct_acceptance_rank (mirrors /api/missing-cuts-report).
  */
@@ -96,6 +133,9 @@ async function loadEditions(client) {
             max(cs.updated_at) ${draw('singles', 'main')} AS md_written,
             max(cs.updated_at) ${draw('singles', 'qualifying')} AS q_written,
             max(cs.updated_at) ${draw('doubles', 'main')} AS d_written,
+            min(cs.created_at) ${draw('singles', 'main')} AS md_created,
+            min(cs.created_at) ${draw('singles', 'qualifying')} AS q_created,
+            min(cs.created_at) ${draw('doubles', 'main')} AS d_created,
             coalesce(bool_or(cs.last_direct_acceptance_rank IS NULL
                              AND cs.source_notes LIKE $2), false) AS rejected
      FROM tournament_editions te
@@ -122,6 +162,8 @@ const HAS = {
   doubles_main: (r) => r.d_cut != null,
 }
 const WRITTEN = { singles_main: 'md_written', singles_qualifying: 'q_written', doubles_main: 'd_written' }
+const CREATED = { singles_main: 'md_created', singles_qualifying: 'q_created', doubles_main: 'd_created' }
+const DRAW_LABEL = { singles_main: 'singles main', singles_qualifying: 'singles qualifying', doubles_main: 'doubles main' }
 
 /**
  * The draws an edition should carry a cut for, each with the moment its entry
@@ -147,17 +189,66 @@ const overdue = (d) => AS_OF.getTime() > d.deadline.getTime() + GRACE_DAYS * MS_
 const label = (r) => `${r.name} · ${r.level} · ${r.start_date}`
 const withRejected = (r, s) => (r.rejected ? `${s} · parsed cut was rejected as anomalous` : s)
 const weekKey = (r) => iso(mondayOfWeekUtc(r.start))
-const severityFor = (list, near) => (!list.length ? 'info' : list.some((r) => r.start < WINDOW_END) ? near : 'warn')
+const ek = (r) => `${r.slug}@${r.year}` // stable across date edits, unique per edition
+const pctOf = (a, b) => (b ? Math.round((a / b) * 100) : 100)
+const quantile = (xs, p) => {
+  const s = [...xs].sort((a, b) => a - b)
+  return s[Math.min(s.length - 1, Math.floor(p * s.length))]
+}
+
+const tableExists = async (client, name) =>
+  (await client.query('SELECT to_regclass($1) IS NOT NULL AS ok', [`public.${name}`])).rows[0].ok
+
+// ───────────────────────────────────────────────────────────────────────────
+// ACKNOWLEDGEMENTS AND PREVIOUS STATE
+// ───────────────────────────────────────────────────────────────────────────
+
+function loadJson(path) {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'))
+  } catch (e) {
+    if (e.code === 'ENOENT') return null
+    throw new Error(`Could not read ${path}: ${e.message}`) // a corrupt file must be loud, not ignored
+  }
+}
+
+const known = new Map() // key -> acknowledgement
+const expiredAcks = []
+for (const a of loadJson(KNOWN_FILE)?.acknowledged ?? []) {
+  if (a.until && dayStart(a.until) < TODAY) expiredAcks.push(a)
+  else known.set(a.key, a)
+}
+const previous = HEALTH_ONLY || !PREVIOUS_FILE ? null : loadJson(PREVIOUS_FILE)
 
 // ───────────────────────────────────────────────────────────────────────────
 // CHECK FRAMEWORK
 // ───────────────────────────────────────────────────────────────────────────
 
+/**
+ * A result carries `items` (individual findings, each with a stable key so it can be
+ * acknowledged and diffed between runs) and `detail` (context lines with no key).
+ */
 const results = []
-const record = (r) => results.push({ rows: [], note: '', ...r })
+const item = (key, text, r) => ({ key, text, r })
+
+function record({ id, title, severity, count, items = [], detail = [], note = '' }) {
+  results.push({ id, title, severity, count, items, detail, acknowledged: [], note, whole: false })
+}
+
+/** Per-item findings: acknowledged items are set aside BEFORE severity is decided. */
+function report(id, title, items, { severity, note = '', detail = [], whole = false }) {
+  const active = items.filter((i) => !known.has(i.key))
+  const acknowledged = items.filter((i) => known.has(i.key))
+  const sev = !active.length ? 'info' : typeof severity === 'function' ? severity(active) : severity
+  results.push({ id, title, severity: sev, count: active.length, items: active, detail, acknowledged, note, whole })
+}
+
+const nearWindow = (near) => (active) => (active.some((i) => i.r.start < WINDOW_END) ? near : 'warn')
 
 /** A check that throws must be loud: a silently skipped check reads as "all clear". */
 async function check(id, title, fn) {
+  if (HEALTH_ONLY && !HEALTH_CHECKS.has(id)) return
+  if (SKIP_SITE && id.startsWith('D')) return
   try {
     await fn()
   } catch (e) {
@@ -166,10 +257,27 @@ async function check(id, title, fn) {
       title,
       severity: 'critical',
       count: 1,
-      rows: [String(e.message).split('\n')[0]],
+      items: [item(`${id}|error`, String(e.message).split('\n')[0])],
       note: 'CHECK ERROR — this check did not run. Fix the audit; do not ignore.',
     })
   }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// SITE FETCHING
+// ───────────────────────────────────────────────────────────────────────────
+
+/** One retry after a pause, so a cold start or a blip does not read as an outage. */
+async function get(path) {
+  const attempt = () => fetch(SITE + path, { redirect: 'follow', signal: AbortSignal.timeout(30000) })
+  try {
+    const res = await attempt()
+    if (res.status < 500) return res
+  } catch {
+    // fall through to the retry
+  }
+  await new Promise((r) => setTimeout(r, 5000))
+  return attempt()
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -188,17 +296,15 @@ async function runChecks(client, rows) {
       r.md_cut == null && r.q_cut == null && r.d_cut == null &&
       r.draws.some(overdue)
   )
+  const inA1 = new Set(a1.map((r) => r.edition_id)) // A2–A4 skip these, acknowledged or not
   await check('A1', `Events last week → next ${COVERAGE_WEEKS} week(s) with zero cut data`, async () => {
-    record({
-      id: 'A1',
-      title: `Events last week → next ${COVERAGE_WEEKS} week(s) with zero cut data`,
-      severity: a1.length ? 'critical' : 'info',
-      count: a1.length,
-      rows: a1.map((r) => withRejected(r, label(r))),
-      note: `Held ATP / Challenger / Slam events only (ITF is rolled up in B4). Window ${win}.`,
-    })
+    report(
+      'A1',
+      `Events last week → next ${COVERAGE_WEEKS} week(s) with zero cut data`,
+      a1.map((r) => item(`A1|${ek(r)}`, withRejected(r, label(r)), r)),
+      { severity: 'critical', note: `Held ATP / Challenger / Slam events only (ITF is rolled up in B4). Window ${win}.` }
+    )
   })
-  const inA1 = new Set(a1.map((r) => r.edition_id))
 
   // ── A2–A4. A draw whose entry list has closed but whose cut is missing ───
   const lateDraws = (draw, extra = () => true) =>
@@ -210,43 +316,30 @@ async function runChecks(client, rows) {
         r.draws.some((d) => d.draw === draw && overdue(d)) &&
         !HAS[draw](r)
     )
-  const deadlineOf = (r, draw) => iso(r.draws.find((d) => d.draw === draw).deadline)
-  const rowsFor = (list, draw) =>
-    list.map((r) => withRejected(r, `${label(r)} · entries closed ${deadlineOf(r, draw)}`))
+  const lateItems = (id, list, draw) =>
+    list.map((r) => {
+      const closed = iso(r.draws.find((d) => d.draw === draw).deadline)
+      return item(`${id}|${ek(r)}`, withRejected(r, `${label(r)} · entries closed ${closed}`), r)
+    })
 
   await check('A2', 'Entry list closed, singles main-draw cut still missing', async () => {
-    const list = lateDraws('singles_main')
-    record({
-      id: 'A2',
-      title: 'Entry list closed, singles main-draw cut still missing',
-      severity: severityFor(list, 'critical'),
-      count: list.length,
-      rows: rowsFor(list, 'singles_main'),
+    report('A2', 'Entry list closed, singles main-draw cut still missing', lateItems('A2', lateDraws('singles_main'), 'singles_main'), {
+      severity: nearWindow('critical'),
       note: 'Deadlines come from src/lib/entry-deadlines.ts. Critical if any event starts inside the coverage window; a list of only later events is a warning.',
     })
   })
 
   await check('A3', 'Singles cut recorded but doubles cut missing', async () => {
     const list = lateDraws('doubles_main', (r) => r.md_cut != null)
-    record({
-      id: 'A3',
-      title: 'Singles cut recorded but doubles cut missing',
-      severity: severityFor(list, 'critical'),
-      count: list.length,
-      rows: rowsFor(list, 'doubles_main'),
+    report('A3', 'Singles cut recorded but doubles cut missing', lateItems('A3', list, 'doubles_main'), {
+      severity: nearWindow('critical'),
       note: 'Only counted once the doubles entry list has closed (ATP 14d, Challenger 7d, Slam 14d before the Monday). A Challenger doubles cut may sit in the advance/onsite columns; either counts.',
     })
   })
 
   await check('A4', 'Main-draw cut present but qualifying cut missing', async () => {
     const list = lateDraws('singles_qualifying', (r) => r.md_cut != null && r.cat !== 'grandslam')
-    record({
-      id: 'A4',
-      title: 'Main-draw cut present but qualifying cut missing',
-      severity: list.length ? 'warn' : 'info',
-      count: list.length,
-      rows: rowsFor(list, 'singles_qualifying'),
-    })
+    report('A4', 'Main-draw cut present but qualifying cut missing', lateItems('A4', list, 'singles_qualifying'), { severity: 'warn' })
   })
 
   // ── A5. Cut last written before its entry list closed → provisional ──────
@@ -257,16 +350,39 @@ async function runChecks(client, rows) {
       for (const d of r.draws) {
         const written = r[WRITTEN[d.draw]]
         if (written && written < d.deadline && overdue(d))
-          stale.push(`${label(r)} · ${d.draw} written ${iso(written)}, entries closed ${iso(d.deadline)}`)
+          stale.push(item(`A5|${ek(r)}|${d.draw}`, `${label(r)} · ${d.draw} written ${iso(written)}, entries closed ${iso(d.deadline)}`, r))
       }
     }
-    record({
-      id: 'A5',
-      title: 'Cut last written before its entry deadline (provisional)',
-      severity: stale.length ? 'warn' : 'info',
-      count: stale.length,
-      rows: stale,
+    report('A5', 'Cut last written before its entry deadline (provisional)', stale, {
+      severity: 'warn',
       note: 'A number captured before the entry list closed is not the deadline boundary, and nothing has refreshed it since.',
+    })
+  })
+
+  // ── S1. Coverage scorecard (informational) ───────────────────────────────
+  const scorecard = {}
+  await check('S1', 'Coverage scorecard', async () => {
+    for (const r of cov) {
+      if (r.start < WEEK_START || r.start >= WINDOW_END) continue
+      for (const d of r.draws) {
+        if (!overdue(d)) continue
+        const s = (scorecard[d.draw] ??= { have: 0, expected: 0 })
+        s.expected++
+        if (HAS[d.draw](r)) s.have++
+      }
+    }
+    const before = previous?.scorecard ?? {}
+    const detail = Object.entries(scorecard).map(([draw, s]) => {
+      const was = before[draw] ? ` (last run ${pctOf(before[draw].have, before[draw].expected)}%)` : ''
+      return `${DRAW_LABEL[draw]}: ${s.have}/${s.expected} (${pctOf(s.have, s.expected)}%)${was}`
+    })
+    record({
+      id: 'S1',
+      title: 'Coverage scorecard',
+      severity: 'info',
+      count: 0,
+      detail: detail.length ? detail : ['no events in the window have a closed entry list yet'],
+      note: `Events starting ${win} whose entry list closed more than ${GRACE_DAYS} day(s) ago.`,
     })
   })
 
@@ -289,13 +405,42 @@ async function runChecks(client, rows) {
       title: 'Cut importer liveness',
       severity: last7 === 0 ? (inPlay ? 'critical' : 'warn') : ageDays > 3 ? 'warn' : 'info',
       count: last7,
-      rows: [
+      detail: [
         `last write: ${b.last ? iso(new Date(b.last)) : 'never'} (${ageDays}d ago)`,
         `rows written last 7d: ${last7}`,
         `rows written last 30d: ${Number(b.last30)}`,
         `total cut rows: ${Number(b.total)}`,
       ],
       note: 'Zero writes in 7 days while events are in play means the PDF import is failing silently and the site is serving stale numbers.',
+    })
+  })
+
+  // ── B2. How long cuts really take to arrive (informational) ──────────────
+  await check('B2', 'Importer lag after entry deadline', async () => {
+    const lags = {}
+    for (const r of cov) {
+      if (r.start < addDays(TODAY, -70) || r.start > TODAY) continue
+      for (const d of r.draws) {
+        const created = r[CREATED[d.draw]]
+        if (created) (lags[d.draw] ??= []).push((created - d.deadline) / MS_DAY)
+      }
+    }
+    const detail = Object.entries(lags).map(
+      ([draw, xs]) => `${DRAW_LABEL[draw]}: n=${xs.length}, median ${quantile(xs, 0.5).toFixed(1)}d, p90 ${quantile(xs, 0.9).toFixed(1)}d after entries closed`
+    )
+    const worst = Math.max(0, ...Object.values(lags).map((xs) => quantile(xs, 0.9)))
+    record({
+      id: 'B2',
+      title: 'Importer lag after entry deadline',
+      severity: 'info',
+      count: 0,
+      detail: detail.length ? detail : ['not enough recent events to measure'],
+      note:
+        worst > 14
+          ? `p90 lag is ${worst.toFixed(1)}d. Lag that large usually means backfilled or copied rows, not a slow importer, so do not tune --grace to it.`
+          : worst > GRACE_DAYS
+            ? `p90 lag is ${worst.toFixed(1)}d but --grace is ${GRACE_DAYS}d, so late-but-normal cuts may be flagged. Consider --grace=${Math.ceil(worst)}.`
+            : `--grace (${GRACE_DAYS}d) covers the observed p90. Measured from the first time each cut was stored, over events from the last 10 weeks.`,
     })
   })
 
@@ -307,28 +452,46 @@ async function runChecks(client, rows) {
     for (let i = 0; i < 8; i++) {
       const k = iso(addDays(WEEK_START, i * 7))
       const n = perWeek.get(k) ?? 0
-      if (n === 0) gaps.push(`week of ${k} — 0 tournaments`)
-      else if (n < 4) gaps.push(`week of ${k} — only ${n} tournaments`)
+      if (n === 0) gaps.push(item(`B3|${k}`, `week of ${k} — 0 tournaments`, { zero: true }))
+      else if (n < 4) gaps.push(item(`B3|${k}`, `week of ${k} — only ${n} tournaments`, { zero: false }))
     }
-    record({
-      id: 'B3',
-      title: 'Weeks ahead with no or few tournaments loaded',
-      severity: gaps.some((g) => g.endsWith('0 tournaments')) ? 'critical' : gaps.length ? 'warn' : 'info',
-      count: gaps.length,
-      rows: gaps,
+    report('B3', 'Weeks ahead with no or few tournaments loaded', gaps, {
+      severity: (active) => (active.some((i) => i.r.zero) ? 'critical' : 'warn'),
       note: 'An empty forward week breaks the swing builder silently. Late-December weeks are legitimately thin.',
     })
   })
 
   // ── B4. ITF, rolled up (informational) ───────────────────────────────────
   await check('B4', 'ITF weekly cut coverage', async () => {
-    const lines = []
+    const detail = []
     for (let i = -1; i <= 1; i++) {
       const k = iso(addDays(WEEK_START, i * 7))
       const itf = rows.filter((r) => r.cat === 'itf' && weekKey(r) === k)
-      lines.push(`week of ${k} — ${itf.length} ITF events, ${itf.filter((r) => r.md_cut != null).length} with a singles main cut`)
+      detail.push(`week of ${k} — ${itf.length} ITF events, ${itf.filter((r) => r.md_cut != null).length} with a singles main cut`)
     }
-    record({ id: 'B4', title: 'ITF weekly cut coverage', severity: 'info', count: 0, rows: lines })
+    record({ id: 'B4', title: 'ITF weekly cut coverage', severity: 'info', count: 0, detail })
+  })
+
+  // ── B5. Other pipelines gone quiet ───────────────────────────────────────
+  await check('B5', 'Data pipelines gone quiet', async () => {
+    const stale = []
+    const detail = []
+    for (const p of FRESHNESS) {
+      if (!(await tableExists(client, p.table))) {
+        detail.push(`${p.name}: table ${p.table} not present, skipped`)
+        continue
+      }
+      const { rows: [f] } = await client.query(`SELECT max(${p.column}) AS t FROM ${p.table}`)
+      const ageH = f.t ? Math.floor((AS_OF - new Date(f.t)) / 3600000) : null
+      const text = `${p.name}: last ${f.t ? iso(new Date(f.t)) : 'never'}${ageH == null ? '' : ` (${ageH}h ago)`}, expected ${p.cadence}`
+      if (ageH == null || ageH > p.maxHours) stale.push(item(`B5|${p.table}`, text))
+      else detail.push(text)
+    }
+    report('B5', 'Data pipelines gone quiet', stale, {
+      severity: 'warn',
+      detail,
+      note: 'Offseason lulls can trip this briefly. The audit cannot see workflow runs, only the timestamps they leave behind.',
+    })
   })
 
   // ── C1. Impossible cut values ────────────────────────────────────────────
@@ -345,28 +508,23 @@ async function runChecks(client, rows) {
       for (const [name, event, drawType, v] of cuts) {
         if (v == null) continue
         const min = minPlausibleRank(r.level, event, drawType)
-        if (v < min || v > MAX_CUT[event]) bad.push(`${label(r)} · ${name} cut = ${v} (plausible ${min}–${MAX_CUT[event]})`)
+        if (v < min || v > MAX_CUT[event])
+          bad.push(item(`C1|${ek(r)}|${name}`, `${label(r)} · ${name} cut = ${v} (plausible ${min}–${MAX_CUT[event]})`, r))
       }
     }
-    record({
-      id: 'C1',
-      title: 'Impossible cut values',
-      severity: bad.length ? 'critical' : 'info',
-      count: bad.length,
-      rows: bad,
+    report('C1', 'Impossible cut values', bad, {
+      severity: 'critical',
       note: 'Lower bounds are the app’s own minPlausibleRank; upper bounds are singles 2500, doubles 6000.',
     })
   })
 
   // ── C2. Qualifying cut better than main-draw cut ─────────────────────────
   await check('C2', 'Qualifying cut better than main-draw cut (inverted)', async () => {
-    const bad = rows.filter((r) => r.md_cut != null && r.q_cut != null && r.q_cut < r.md_cut)
-    record({
-      id: 'C2',
-      title: 'Qualifying cut better than main-draw cut (inverted)',
-      severity: bad.length ? 'critical' : 'info',
-      count: bad.length,
-      rows: bad.map((r) => `${label(r)} · MD ${r.md_cut} vs Q ${r.q_cut}`),
+    const bad = rows
+      .filter((r) => r.md_cut != null && r.q_cut != null && r.q_cut < r.md_cut)
+      .map((r) => item(`C2|${ek(r)}`, `${label(r)} · MD ${r.md_cut} vs Q ${r.q_cut}`, r))
+    report('C2', 'Qualifying cut better than main-draw cut (inverted)', bad, {
+      severity: 'critical',
       note: 'Physically impossible. Suggests the parser swapped the MD and Q sheets.',
     })
   })
@@ -387,15 +545,13 @@ async function runChecks(client, rows) {
         for (let j = i + 1; j < group.length; j++) {
           const a = norm(group[i].name), b = norm(group[j].name)
           const sameCity = norm(group[i].city) && norm(group[i].city) === norm(group[j].city)
-          if ((a && b && (a.includes(b) || b.includes(a))) || sameCity)
-            dupes.push(`${group[i].name} (${group[i].slug}) ⟷ ${group[j].name} (${group[j].slug}) · ${weekKey(group[i])} · ${group[i].country}`)
+          if ((a && b && (a.includes(b) || b.includes(a))) || sameCity) {
+            const [x, y] = [group[i], group[j]].sort((p, q) => p.slug.localeCompare(q.slug))
+            dupes.push(item(`C3|${ek(x)}|${ek(y)}`, `${x.name} (${x.slug}) ⟷ ${y.name} (${y.slug}) · ${weekKey(x)} · ${x.country}`))
+          }
         }
-    record({
-      id: 'C3',
-      title: 'Duplicate tournament editions',
-      severity: dupes.length ? 'warn' : 'info',
-      count: dupes.length,
-      rows: dupes,
+    report('C3', 'Duplicate tournament editions', dupes, {
+      severity: 'warn',
       note: 'Same week + country + level with near-identical name or the same city. Duplicates double-count supply in the depth model. /api/city-dupes digs further.',
     })
   })
@@ -406,9 +562,9 @@ async function runChecks(client, rows) {
     for (const r of rows) {
       const nm = r.name.match(/\bM(15|25)\b/i)
       const lm = r.level.match(/\bM(15|25)\b/i)
-      if (nm && lm && nm[1] !== lm[1]) bad.push(`${r.name} → level "${r.level}"`)
+      if (nm && lm && nm[1] !== lm[1]) bad.push(item(`C4|${ek(r)}`, `${r.name} → level "${r.level}"`, r))
     }
-    record({ id: 'C4', title: 'Tournament name contradicts its level field', severity: bad.length ? 'warn' : 'info', count: bad.length, rows: bad })
+    report('C4', 'Tournament name contradicts its level field', bad, { severity: 'warn' })
   })
 
   // ── C5. Missing coordinates (drops an event out of swing chains) ─────────
@@ -420,14 +576,10 @@ async function runChecks(client, rows) {
       if (r.latitude != null && r.longitude != null) continue
       if (seen.has(r.slug)) continue
       seen.add(r.slug)
-      bad.push(`${r.name} · ${r.country ?? '(no country)'} · ${r.start_date}`)
+      bad.push(item(`C5|${r.slug}`, `${r.name} · ${r.country ?? '(no country)'} · ${r.start_date}`, r))
     }
-    record({
-      id: 'C5',
-      title: 'Upcoming tournaments missing coordinates',
-      severity: bad.length ? 'warn' : 'info',
-      count: bad.length,
-      rows: bad,
+    report('C5', 'Upcoming tournaments missing coordinates', bad, {
+      severity: 'warn',
       note: 'No coordinates means the event cannot join a swing chain. /api/geocode-tournaments backfills them.',
     })
   })
@@ -436,29 +588,25 @@ async function runChecks(client, rows) {
   await check('C6', 'Malformed country values', async () => {
     const counts = new Map()
     for (const r of rows) counts.set(r.country, (counts.get(r.country) ?? 0) + 1)
-    const bad = [...counts].filter(([c]) => {
-      const v = String(c ?? '').trim()
-      return !v || /^[A-Z]{3}$/.test(v) || /\.\s*$/.test(v)
-    })
-    record({
-      id: 'C6',
-      title: 'Malformed country values',
-      severity: bad.length ? 'warn' : 'info',
-      count: bad.length,
-      rows: bad.map(([c, n]) => `"${c ?? '(null)'}" — ${n} editions`),
+    const bad = [...counts]
+      .filter(([c]) => {
+        const v = String(c ?? '').trim()
+        return !v || /^[A-Z]{3}$/.test(v) || /\.\s*$/.test(v)
+      })
+      .map(([c, n]) => item(`C6|${c ?? '(null)'}`, `"${c ?? '(null)'}" — ${n} editions`))
+    report('C6', 'Malformed country values', bad, {
+      severity: 'warn',
       note: 'The app stores full country names. A code, abbreviation or blank never matches a full name, which silently breaks same-country swing links.',
     })
   })
 
   // ── C7. Stored week disagrees with the ATP season week ───────────────────
   await check('C7', 'Stored week number disagrees with the ATP season week', async () => {
-    const bad = rows.filter((r) => r.week !== getAtpWeekForSeason(r.start_date, r.year))
-    record({
-      id: 'C7',
-      title: 'Stored week number disagrees with the ATP season week',
-      severity: bad.length ? 'warn' : 'info',
-      count: bad.length,
-      rows: bad.map((r) => `${label(r)} · stored wk ${r.week ?? 'null'}, expected ${getAtpWeekForSeason(r.start_date, r.year)}`),
+    const bad = rows
+      .filter((r) => r.week !== getAtpWeekForSeason(r.start_date, r.year))
+      .map((r) => item(`C7|${ek(r)}`, `${label(r)} · stored wk ${r.week ?? 'null'}, expected ${getAtpWeekForSeason(r.start_date, r.year)}`, r))
+    report('C7', 'Stored week number disagrees with the ATP season week', bad, {
+      severity: 'warn',
       note: 'Uses the ATP season rule from src/lib/atp-week.ts, not ISO weeks. /api/fix-weeks recomputes them.',
     })
   })
@@ -467,37 +615,95 @@ async function runChecks(client, rows) {
   await check('C8', 'Draw-size coverage', async () => {
     const pool = rows.filter((r) => r.cat !== 'itf' && r.start < WINDOW_END)
     const have = pool.filter((r) => r.singles_draw_size != null).length
-    const pct = pool.length ? Math.round((have / pool.length) * 100) : 100
+    const pct = pctOf(have, pool.length)
     record({
       id: 'C8',
       title: 'Draw-size coverage',
       severity: pct < 50 ? 'warn' : 'info',
       count: pct,
-      rows: [`singles_draw_size populated: ${have}/${pool.length} (${pct}%)`],
+      detail: [`singles_draw_size populated: ${have}/${pool.length} (${pct}%)`],
       note: 'Draw size feeds absorption capacity in the depth model.',
     })
   })
 
-  // ── D. Site health ───────────────────────────────────────────────────────
-  const get = (path) => fetch(SITE + path, { redirect: 'follow', signal: AbortSignal.timeout(30000) })
+  // ── E1. Deadline-alert emails actually going out ─────────────────────────
+  await check('E1', 'Deadline alert emails', async () => {
+    if (!(await tableExists(client, 'alert_subscribers')) || !(await tableExists(client, 'alert_sends'))) {
+      record({ id: 'E1', title: 'Deadline alert emails', severity: 'info', count: 0, detail: ['alert tables not present, skipped'] })
+      return
+    }
+    const subs = (
+      await client.query(`SELECT count(*)::int AS n FROM alert_subscribers WHERE active AND unsubscribed_at IS NULL`)
+    ).rows[0].n
+    const cats = new Set(
+      (
+        await client.query(
+          `SELECT DISTINCT c FROM alert_subscribers, unnest(categories) AS c WHERE active AND unsubscribed_at IS NULL`
+        )
+      ).rows.map((x) => x.c)
+    )
+    const { rows: [s] } = await client.query(
+      `SELECT count(*)::int AS n, max(sent_at) AS last FROM alert_sends WHERE sent_at > $1::timestamptz - interval '7 days'`,
+      [AS_OF.toISOString()]
+    )
+    // Deadlines a subscriber could have been emailed about in the last week.
+    const from = addDays(AS_OF, -7)
+    let due = 0
+    for (const r of rows)
+      for (const d of deadlinesForEdition(r)) {
+        const at = new Date(d.deadlineAtIso)
+        if (d.kind !== 'doubles' && cats.has(d.category) && at > from && at <= AS_OF) due++
+      }
+    const dead = subs > 0 && due > 0 && s.n === 0
+    record({
+      id: 'E1',
+      title: 'Deadline alert emails',
+      severity: dead ? 'critical' : 'info',
+      count: s.n,
+      items: dead ? [item('E1', `${subs} active subscriber(s), ${due} entry deadline(s) passed in the last 7 days, zero alert emails sent`)] : [],
+      detail: [
+        `active subscribers: ${subs} (categories: ${[...cats].sort().join(', ') || 'none'})`,
+        `entry deadlines passed in the last 7 days (subscribed categories, excluding doubles): ${due}`,
+        `alert emails sent in the last 7 days: ${s.n}${s.last ? ` (last ${iso(new Date(s.last))})` : ''}`,
+      ],
+      note: 'Zero sends despite subscribers and passed deadlines means the hourly alert job or the mail provider is failing silently, and that is the product.',
+    })
+  })
 
+  // ── D. Site health ───────────────────────────────────────────────────────
   await check('D1', 'Core page health', async () => {
+    const pages = [
+      ['/', 2000], ['/cuts', 2000], ['/schedule', 2000], ['/alerts', 2000],
+      ['/swings', 2000], ['/depth', 2000], ['/lists', 2000],
+      ['/sitemap.xml', 50], ['/robots.txt', 20],
+    ]
     const out = []
     let bad = 0
-    for (const p of ['/', '/cuts', '/alerts']) {
+    let slow = 0
+    for (const [p, minBytes] of pages) {
       const t0 = Date.now()
       try {
         const res = await get(p)
         const body = await res.text()
-        const ok = res.ok && body.length > 500
+        const ms = Date.now() - t0
+        const ok = res.ok && body.length >= minBytes
+        const isSlow = ok && ms > SLOW_MS
         if (!ok) bad++
-        out.push(`${p} — ${res.status} · ${Date.now() - t0}ms · ${body.length} bytes${ok ? '' : '  ← FAIL'}`)
+        if (isSlow) slow++
+        out.push(`${p} — ${res.status} · ${ms}ms · ${body.length} bytes${ok ? '' : '  ← FAIL'}${isSlow ? '  ← SLOW' : ''}`)
       } catch (e) {
         bad++
         out.push(`${p} — request failed: ${e.message}  ← FAIL`)
       }
     }
-    record({ id: 'D1', title: 'Core page health', severity: bad ? 'critical' : 'info', count: bad, rows: out })
+    record({
+      id: 'D1',
+      title: 'Core page health',
+      severity: bad ? 'critical' : slow ? 'warn' : 'info',
+      count: bad + slow,
+      items: out.filter((l) => /←/.test(l)).map((l) => item(`D1|${l.split(' ')[0]}`, l)),
+      detail: out.filter((l) => !/←/.test(l)),
+    })
   })
 
   await check('D2', 'Current-week tournament pages show the stored cut', async () => {
@@ -505,9 +711,10 @@ async function runChecks(client, rows) {
       .filter((r) => r.md_cut != null && r.start >= WEEK_START && r.start < addDays(WEEK_START, 7))
       .sort(() => Math.random() - 0.5)
       .slice(0, 5)
-    const out = []
-    let bad = 0
+    const fails = []
+    const detail = []
     for (const r of pool) {
+      const want = `${r.year} · Singles main cut #${r.md_cut}`
       try {
         const res = await get(`/tournaments/${r.slug}`)
         const html = await res.text()
@@ -517,21 +724,18 @@ async function runChecks(client, rows) {
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
         const shown = new RegExp(`${r.year}\\s*·\\s*Singles main cut\\s*#\\s*${r.md_cut}\\b`).test(text)
-        if (!res.ok || !shown) bad++
-        out.push(`${r.name} — ${res.status} · expected "${r.year} · Singles main cut #${r.md_cut}"${res.ok && shown ? ' ✓' : '  ← FAIL'}`)
+        if (res.ok && shown) detail.push(`${r.name} — ${res.status} · "${want}" ✓`)
+        else fails.push(item(`D2|${r.slug}`, `${r.name} — ${res.status} · expected "${want}"  ← FAIL`, r))
       } catch (e) {
-        bad++
-        out.push(`${r.name} — ${e.message}  ← FAIL`)
+        fails.push(item(`D2|${r.slug}`, `${r.name} — ${e.message}  ← FAIL`, r))
       }
     }
-    if (!pool.length) out.push('no current-week events with a recorded cut to sample')
-    record({
-      id: 'D2',
-      title: 'Current-week tournament pages show the stored cut',
-      severity: bad ? 'critical' : 'info',
-      count: bad,
-      rows: out,
-      note: 'Catches data present in Postgres but missing or wrong on the page.',
+    if (!pool.length) detail.push('no current-week events with a recorded cut to sample')
+    report('D2', 'Current-week tournament pages show the stored cut', fails, {
+      severity: 'critical',
+      detail,
+      whole: true,
+      note: 'Catches data present in Postgres but missing or wrong on the page. Random sample of up to 5, so a failure may not repeat next run.',
     })
   })
 
@@ -544,64 +748,123 @@ async function runChecks(client, rows) {
       title: 'OG image endpoint',
       severity: ok ? 'info' : 'warn',
       count: ok ? 0 : 1,
-      rows: [`${res.status} · ${ct || 'no content-type'}`],
+      detail: [`${res.status} · ${ct || 'no content-type'}`],
       note: 'A failure here breaks every share preview without breaking the site.',
     })
   })
+
+  return { scorecard }
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// REPORTING
+// STATE, DIFF AND REPORTING
 // ───────────────────────────────────────────────────────────────────────────
 
-// Severity alone decides what alerts. `count` is descriptive and can legitimately be 0
-// on a failure (B1 counts recent writes, so a dead importer has count 0).
+const activeResults = () => results.filter((r) => r.severity !== 'info')
 const summarise = () => ({
   crit: results.filter((r) => r.severity === 'critical'),
   warn: results.filter((r) => r.severity === 'warn'),
 })
 
-const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-
-function buildTelegram() {
-  const { crit, warn } = summarise()
-  const L = [`<b>TennisCuts — Monday audit · ${iso(TODAY)}</b>`]
-  L.push(
-    crit.length
-      ? `🔴 ${crit.length} critical · 🟡 ${warn.length} warnings`
-      : warn.length
-        ? `🟡 ${warn.length} warnings · no criticals`
-        : '✅ All clear'
+/** Every open finding with a stable key. A check with no per-item keys counts as one finding. */
+function findings() {
+  return activeResults().flatMap((r) =>
+    !r.whole && r.items.some((i) => i.key)
+      ? r.items.map((i) => ({ key: i.key, id: r.id, severity: r.severity, text: i.text }))
+      : [{ key: r.id, id: r.id, severity: r.severity, text: r.title }]
   )
-  for (const r of [...crit, ...warn]) {
-    L.push('', `${ICON[r.severity]} <b>${escapeHtml(r.title)}</b> — ${r.count}`)
-    for (const row of r.rows.slice(0, 8)) L.push(`· ${escapeHtml(row)}`)
-    if (r.rows.length > 8) L.push(`· …and ${r.rows.length - 8} more`)
-  }
-  const msg = L.join('\n')
-  return msg.length > 3900 ? msg.slice(0, 3850) + '\n\n<i>…truncated. See the full report.</i>' : msg
 }
 
-function buildMarkdown() {
+function diffAgainstPrevious(current) {
+  if (!previous) return null
+  const prevKeys = new Set(previous.findings.map((f) => f.key))
+  const nowKeys = new Set(current.map((f) => f.key))
+  const ran = new Set(results.map((r) => r.id)) // a check that did not run this time cannot resolve anything
+  return {
+    since: previous.asOf,
+    fresh: new Set(current.filter((f) => !prevKeys.has(f.key)).map((f) => f.key)),
+    resolved: previous.findings.filter((f) => ran.has(f.id) && !nowKeys.has(f.key) && !known.has(f.key)),
+    kept: current.filter((f) => prevKeys.has(f.key)).length,
+  }
+}
+
+const isFresh = (diff, r, i) => diff?.fresh.has(r.whole ? r.id : i.key) ?? false
+const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const runTitle = () => (HEALTH_ONLY ? 'daily health check' : 'Monday audit')
+
+function scorecardLine(scorecard) {
+  const parts = Object.entries(scorecard).map(([d, s]) => `${DRAW_LABEL[d].replace('singles ', '').replace(' main', '')} ${s.have}/${s.expected}`)
+  return parts.length ? `Coverage: ${parts.join(' · ')}` : null
+}
+
+function headline(diff) {
   const { crit, warn } = summarise()
+  const bits = []
+  bits.push(crit.length ? `🔴 ${crit.length} critical` : '🟢 no criticals')
+  if (warn.length) bits.push(`🟡 ${warn.length} warnings`)
+  if (diff) bits.push(`🆕 ${diff.fresh.size} new`, `✅ ${diff.resolved.length} resolved`)
+  const ack = results.reduce((n, r) => n + r.acknowledged.length, 0)
+  if (ack) bits.push(`🤫 ${ack} acknowledged`)
+  return bits.join(' · ')
+}
+
+function buildTelegram(diff, scorecard) {
+  const L = [`<b>TennisCuts — ${runTitle()} · ${iso(TODAY)}</b>`, headline(diff)]
+  const sc = scorecardLine(scorecard)
+  if (sc) L.push(escapeHtml(sc))
+  for (const r of activeResults()) {
+    L.push('', `${ICON[r.severity]} <b>${escapeHtml(r.title)}</b> — ${r.count}`)
+    const rows = [...r.items].sort((a, b) => Number(isFresh(diff, r, b)) - Number(isFresh(diff, r, a)))
+    for (const i of rows.slice(0, 6)) L.push(`· ${isFresh(diff, r, i) ? '🆕 ' : ''}${escapeHtml(i.text)}`)
+    if (rows.length > 6) L.push(`· …and ${rows.length - 6} more`)
+  }
+  if (diff?.resolved.length) L.push('', `✅ <b>Resolved since ${escapeHtml(diff.since)}</b>: ${diff.resolved.length}`)
+  if (RUN_URL) L.push('', `Full report: ${RUN_URL}`)
+  const msg = L.join('\n')
+  return msg.length > 3900 ? msg.slice(0, 3800) + `\n\n<i>…truncated.</i>${RUN_URL ? `\nFull report: ${RUN_URL}` : ''}` : msg
+}
+
+function buildMarkdown(diff) {
   const L = [
-    '# TennisCuts — Monday audit',
-    `_${AS_OF.toISOString()}_ · site: ${SITE} · window: ${iso(WEEK_START)} → ${iso(addDays(WINDOW_END, -1))} · grace: ${GRACE_DAYS}d`,
+    `# TennisCuts — ${runTitle()}`,
+    `_${AS_OF.toISOString()}_ · site: ${SITE} · window: ${iso(WEEK_START)} → ${iso(addDays(WINDOW_END, -1))} · grace: ${GRACE_DAYS}d${RUN_URL ? ` · [run](${RUN_URL})` : ''}`,
     '',
-    `**${crit.length} critical · ${warn.length} warnings**`,
+    `**${headline(diff)}**`,
     '',
   ]
+  if (diff) L.push(`Since ${diff.since}: ${diff.fresh.size} new, ${diff.resolved.length} resolved, ${diff.kept} unchanged.`, '')
+  else if (!HEALTH_ONLY) L.push('No earlier run to compare against, so nothing is marked new.', '')
+  if (expiredAcks.length)
+    L.push(`⚠️ ${expiredAcks.length} acknowledgement(s) expired and are back in play: ${expiredAcks.map((a) => a.key).join(', ')}`, '')
+
+  const quiet = []
   for (const r of results) {
+    if (r.severity === 'info' && !r.items.length && !r.detail.length && !r.acknowledged.length) {
+      quiet.push(`${r.id} — ${r.title}`)
+      continue
+    }
     L.push(`## ${r.severity === 'info' ? '✅' : ICON[r.severity]} ${r.id} — ${r.title}`)
     L.push(`Count: **${r.count}**`)
     if (r.note) L.push(`> ${r.note}`)
-    if (r.rows.length) {
+    if (r.items.length || r.detail.length) {
       L.push('')
-      for (const row of r.rows.slice(0, 60)) L.push(`- ${row}`)
-      if (r.rows.length > 60) L.push(`- …and ${r.rows.length - 60} more`)
+      for (const i of r.items.slice(0, 60)) L.push(`- ${isFresh(diff, r, i) ? '🆕 ' : ''}${i.text}`)
+      if (r.items.length > 60) L.push(`- …and ${r.items.length - 60} more`)
+      for (const d of r.detail) L.push(`- ${d}`)
+    }
+    if (r.acknowledged.length) {
+      L.push('', `<details><summary>${r.acknowledged.length} acknowledged</summary>`, '')
+      for (const i of r.acknowledged.slice(0, 60)) L.push(`- ${i.text} — _${known.get(i.key).reason ?? 'no reason given'}, until ${known.get(i.key).until ?? 'n/a'}_`)
+      L.push('', '</details>')
     }
     L.push('')
   }
+  if (diff?.resolved.length) {
+    L.push('## ✅ Resolved since last run', '')
+    for (const f of diff.resolved.slice(0, 60)) L.push(`- ${f.text}`)
+    L.push('')
+  }
+  if (quiet.length) L.push('## Passing', '', ...quiet.map((q) => `- ✅ ${q}`), '')
   return L.join('\n')
 }
 
@@ -621,6 +884,8 @@ async function sendTelegram(text) {
   console.log(`[telegram] ${res.status} ${j.ok ? 'sent' : JSON.stringify(j).slice(0, 200)}`)
 }
 
+const say = (s) => new Promise((resolve) => process.stdout.write(s + '\n', resolve))
+
 // ───────────────────────────────────────────────────────────────────────────
 // MAIN
 // ───────────────────────────────────────────────────────────────────────────
@@ -638,26 +903,48 @@ async function main() {
   const client = new pg.Client({
     connectionString: url,
     ssl: /localhost|127\.0\.0\.1/.test(url) ? false : { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
   })
   await client.connect()
   // The audit only reads. Enforce it, since CI holds a production connection string.
   await client.query('SET default_transaction_read_only = on')
+  await client.query("SET statement_timeout = '120s'")
 
-  let rows
+  let extra
   try {
-    rows = await loadEditions(client)
-    await runChecks(client, rows)
+    const rows = await loadEditions(client)
+    extra = await runChecks(client, rows)
   } finally {
     await client.end()
   }
 
-  const md = buildMarkdown()
-  console.log(md)
+  if (EMIT_KNOWN) {
+    const until = iso(addDays(TODAY, ACK_DAYS))
+    const merged = [
+      ...known.values(),
+      ...results
+        .filter((r) => /^(A|B3|C)/.test(r.id) && !r.note.includes('CHECK ERROR'))
+        .flatMap((r) => r.items.map((i) => ({ key: i.key, until, reason: 'baseline — review', text: i.text }))),
+    ]
+    await say(JSON.stringify({ acknowledged: merged }, null, 2))
+    process.exit(0)
+  }
+
+  const current = findings()
+  const diff = diffAgainstPrevious(current)
+  const md = buildMarkdown(diff)
+  await say(md)
   writeFileSync('monday-audit-report.md', md)
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md)
+  if (!HEALTH_ONLY)
+    writeFileSync(
+      'monday-audit-state.json',
+      JSON.stringify({ asOf: iso(TODAY), findings: current, scorecard: extra.scorecard }, null, 2)
+    )
 
-  if (DRY_RUN) console.log(`\n--- Telegram preview (not sent) ---\n${buildTelegram().replace(/<\/?[bi]>/g, '')}`)
-  else await sendTelegram(buildTelegram())
+  const message = buildTelegram(diff, extra.scorecard)
+  if (DRY_RUN) await say(`\n--- Telegram preview (not sent) ---\n${message.replace(/<\/?[bi]>/g, '')}`)
+  else await sendTelegram(message)
 
   process.exit(summarise().crit.length ? 1 : 0)
 }

@@ -1,8 +1,18 @@
 name: Monday audit
 
-# Weekly integrity + health check: are the cuts that should exist in the
-# database, is the stored data sane, and does the site render it.
-# See the header of scripts/monday-audit.mjs for what each check does.
+# Integrity + health checks for the cuts database and the live site.
+# See the header of scripts/monday-audit.mjs for every check and flag.
+#
+#   Monday          full audit: are the cuts that should exist stored, is the
+#                   stored data sane, are pipelines / alert emails / site healthy.
+#                   Compared against the previous full audit, so the report and
+#                   any Telegram message lead with what is NEW and what RESOLVED.
+#   Every other day health only: importer liveness, pipeline freshness, alert
+#                   emails and site pages. Catches a dead importer in a day, not
+#                   a week.
+#   Push touching   smoke test: runs the audit against a fresh Postgres built from
+#   sql/ or the     sql/*.sql, so a schema change that breaks a check fails the
+#   audit itself    commit instead of failing quietly on Monday.
 #
 # Needs one repository secret, DATABASE_URL: the Railway *public* Postgres URL
 # (Railway -> Postgres service -> Variables -> DATABASE_PUBLIC_URL). The
@@ -10,17 +20,26 @@ name: Monday audit
 # audit only reads, and enforces that with a read-only session.
 #
 # Telegram is optional: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to also get
-# the summary as a message. Without them the run still goes red on a critical
+# the summary as a message. Without them a run still goes red on a critical
 # finding (GitHub emails you) and writes the full report to the run summary.
+#
+# Known gaps that can never be fixed (an event with no ProTennisLive code, say)
+# go in scripts/monday-audit-known.json with an expiry date so they stop failing
+# the run without being muted forever.
 
 on:
   schedule:
-    # 13:00 UTC Monday = 08:00 CDT / 07:00 CST in Dallas. GitHub cron is UTC
-    # with no DST awareness, so this drifts an hour when clocks change in
-    # November and March.
+    # 13:00 UTC = 08:00 CDT / 07:00 CST in Dallas. GitHub cron is UTC with no DST
+    # awareness, so this drifts an hour when clocks change in November and March.
     - cron: '0 13 * * 1'
+    - cron: '0 13 * * 0,2-6'
   workflow_dispatch: # run on demand from the Actions tab
     inputs:
+      mode:
+        description: 'full = whole audit, health = importer / pipelines / alerts / site only'
+        type: choice
+        options: [full, health]
+        default: full
       weeks:
         description: 'Coverage window in weeks (current week + N-1 ahead)'
         required: false
@@ -29,12 +48,23 @@ on:
         description: 'Days to allow after an entry deadline before a missing cut counts'
         required: false
         default: '3'
+  push:
+    paths:
+      - 'sql/**'
+      - 'scripts/monday-audit.mjs'
+      - 'scripts/monday-audit-known.json'
+      - 'src/lib/entry-deadlines.ts'
+      - 'src/lib/cutoff-anomaly.ts'
+      - 'src/lib/atp-week.ts'
+      - '.github/workflows/monday-audit.yml'
 
 permissions:
   contents: read
+  actions: read # to fetch the previous audit's saved state
 
 jobs:
   audit:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -47,15 +77,54 @@ jobs:
 
       - run: npm ci
 
+      - name: Pick mode
+        id: mode
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$EVENT" = "schedule" ]; then
+            if [ "$SCHEDULE" = "0 13 * * 1" ]; then mode=full; else mode=health; fi
+          else
+            mode="${INPUT_MODE:-full}"
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Running the $mode audit"
+
+      # Best effort: the state artifact is uploaded even from red runs, so this
+      # finds the last full audit whatever its outcome.
+      - name: Fetch the previous full audit for comparison
+        if: steps.mode.outputs.mode == 'full'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p previous
+          for id in $(gh run list --workflow monday-audit.yml --limit 30 --json databaseId --jq '.[].databaseId'); do
+            [ "$id" = "$GITHUB_RUN_ID" ] && continue
+            if gh run download "$id" --name monday-audit-state --dir previous 2>/dev/null; then
+              echo "Comparing against run $id"
+              exit 0
+            fi
+          done
+          echo "No earlier full audit found; nothing will be marked new."
+
       - name: Run audit
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SITE_URL: https://tenniscuts.com
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODE: ${{ steps.mode.outputs.mode }}
           WEEKS: ${{ inputs.weeks || '2' }}
           GRACE: ${{ inputs.grace || '3' }}
-        run: npx tsx scripts/monday-audit.mjs --weeks="$WEEKS" --grace="$GRACE"
+        run: |
+          args=(--weeks="$WEEKS" --grace="$GRACE")
+          if [ "$MODE" = "health" ]; then args+=(--only=health); fi
+          if [ -f previous/monday-audit-state.json ]; then args+=(--previous=previous/monday-audit-state.json); fi
+          npx tsx scripts/monday-audit.mjs "${args[@]}"
 
       - name: Upload report
         if: always()
@@ -64,3 +133,64 @@ jobs:
           name: monday-audit-report
           path: monday-audit-report.md
           if-no-files-found: ignore
+
+      - name: Upload state for the next comparison
+        if: always() && steps.mode.outputs.mode == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: monday-audit-state
+          path: monday-audit-state.json
+          if-no-files-found: ignore
+
+  smoke:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: devpassword
+          POSTGRES_DB: tennis
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:devpassword@localhost:5432/tennis
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply schema, every migration, seed
+        run: |
+          for f in sql/schema.sql sql/0*.sql scripts/seed-dev-db.sql; do
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      # Findings against seed data are expected (exit 1). What must never happen
+      # is the audit crashing (exit 2) or a check erroring against the schema.
+      - name: Audit against the fresh schema
+        run: |
+          set +e
+          npx tsx scripts/monday-audit.mjs --dry-run --skip-site
+          code=$?
+          set -e
+          if [ "$code" -ge 2 ]; then
+            echo "::error::the audit crashed (exit $code)"
+            exit 1
+          fi
+          if grep -q "CHECK ERROR" monday-audit-report.md; then
+            echo "::error::a check failed to run against the current schema"
+            grep -B2 -A4 "CHECK ERROR" monday-audit-report.md
+            exit 1
+          fi

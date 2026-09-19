@@ -42,3 +42,4 @@ shot.mjs
 
 # Monday audit output (also uploaded as a CI artifact)
 monday-audit-report.md
+monday-audit-state.json
