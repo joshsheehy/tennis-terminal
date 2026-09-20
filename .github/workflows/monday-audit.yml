@@ -48,6 +48,10 @@ on:
         description: 'Days to allow after an entry deadline before a missing cut counts'
         required: false
         default: '3'
+      lead:
+        description: 'A cut is due this many days before its event starts (0 = start day, -1 = a day after)'
+        required: false
+        default: '0'
   push:
     paths:
       - 'sql/**'
@@ -120,8 +124,9 @@ jobs:
           MODE: ${{ steps.mode.outputs.mode }}
           WEEKS: ${{ inputs.weeks || '2' }}
           GRACE: ${{ inputs.grace || '3' }}
+          LEAD: ${{ inputs.lead || '0' }}
         run: |
-          args=(--weeks="$WEEKS" --grace="$GRACE")
+          args=(--weeks="$WEEKS" --grace="$GRACE" --lead="$LEAD")
           if [ "$MODE" = "health" ]; then args+=(--only=health); fi
           if [ -f previous/monday-audit-state.json ]; then args+=(--previous=previous/monday-audit-state.json); fi
           npx tsx scripts/monday-audit.mjs "${args[@]}"

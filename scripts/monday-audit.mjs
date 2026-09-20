@@ -70,9 +70,11 @@ const HEALTH_ONLY = OPT('only') === 'health'
 const COVERAGE_WEEKS = parseInt(OPT('weeks', '2'), 10) // current week + N-1 ahead
 // A cut can only exist once its entry list is posted, which is after the deadline.
 const GRACE_DAYS = Number(OPT('grace', '3'))
-// In practice cuts are stored around the draw, not days after the entry deadline, so a cut is
-// only "due" from LEAD_DAYS before the event starts (negative = allow that long after it starts).
-// B2 measures when cuts really arrive and suggests a value.
+// In practice cuts are stored around the draw, not days after the entry deadline (in the first
+// production run last week's events had their cuts and next week's had none), so a cut is only
+// "due" from LEAD_DAYS before the event starts (negative = allow that long after it starts).
+// Nothing in the schema records when a number first arrived, so this cannot be measured:
+// tune it from what the Monday report flags. --lead=-1 gives an event until the end of its first day.
 const LEAD_DAYS = Number(OPT('lead', '0'))
 const AS_OF = OPT('as-of') ? new Date(`${OPT('as-of')}T13:00:00Z`) : new Date()
 const KNOWN_FILE = OPT('known', fileURLToPath(new URL('./monday-audit-known.json', import.meta.url)))
@@ -198,11 +200,6 @@ const withRejected = (r, s) => (r.rejected ? `${s} · parsed cut was rejected as
 const weekKey = (r) => iso(mondayOfWeekUtc(r.start))
 const ek = (r) => `${r.slug}@${r.year}` // stable across date edits, unique per edition
 const pctOf = (a, b) => (b ? Math.round((a / b) * 100) : 100)
-const quantile = (xs, p) => {
-  const s = [...xs].sort((a, b) => a - b)
-  return s[Math.min(s.length - 1, Math.floor(p * s.length))]
-}
-
 const tableExists = async (client, name) =>
   (await client.query('SELECT to_regclass($1) IS NOT NULL AS ok', [`public.${name}`])).rows[0].ok
 
@@ -439,42 +436,6 @@ async function runChecks(client, rows) {
         `total cut rows: ${Number(b.total)}`,
       ],
       note: 'Zero writes in 7 days while events are in play means the PDF import is failing silently and the site is serving stale numbers.',
-    })
-  })
-
-  // ── B2. When cuts really arrive, relative to the event start (informational) ─
-  await check('B2', 'When cuts arrive relative to the event start', async () => {
-    const rel = {}
-    let backfilled = 0
-    for (const r of cov) {
-      if (r.start < addDays(TODAY, -70) || r.start > TODAY) continue
-      for (const d of r.draws) {
-        const written = r[WRITTEN[d.draw]]
-        if (!written || !HAS[d.draw](r)) continue // only rows that actually hold a number
-        const days = (written - r.start) / MS_DAY
-        if (days > 21) backfilled++ // rewritten weeks after the event: a backfill or cleanup, not arrival
-        else (rel[d.draw] ??= []).push(days)
-      }
-    }
-    const fmt = (x) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(1)}d`
-    const detail = Object.entries(rel).map(
-      ([draw, xs]) => `${DRAW_LABEL[draw]}: n=${xs.length}, median ${fmt(quantile(xs, 0.5))}, p90 ${fmt(quantile(xs, 0.9))} (negative = written before the event starts)`
-    )
-    if (backfilled) detail.push(`ignored ${backfilled} cut(s) last written more than 3 weeks after the event started (backfills or cleanups)`)
-    const worst = Math.max(...Object.values(rel).map((xs) => quantile(xs, 0.9)), -Infinity)
-    const suggested = -Math.ceil(worst)
-    const caveat = ' Measured from each row’s last write, which is an upper bound: a later rewrite makes cuts look later than they arrived.'
-    record({
-      id: 'B2',
-      title: 'When cuts arrive relative to the event start',
-      severity: 'info',
-      count: 0,
-      detail: detail.length ? detail : ['not enough recent events to measure'],
-      note: Number.isFinite(worst)
-        ? (suggested < LEAD_DAYS
-            ? `90% of cuts were last written by ${fmt(worst)} from the start, later than --lead=${LEAD_DAYS} assumes. If on-time cuts are being flagged, consider --lead=${suggested}.`
-            : `--lead=${LEAD_DAYS} covers the observed p90 (${fmt(worst)}).`) + caveat
-        : '',
     })
   })
 
