@@ -91,6 +91,9 @@ export type ParsedOfficialPdfCutoff = {
   challenger_doubles_onsite_cut_rank: number | null;
   alternate_entries_count: number;
   lucky_loser_count: number;
+  // Empty slots in the draw, from a "Byes (N)" line in the Last Direct Acceptance box. A draw that
+  // is not full has no last direct acceptance, so this is reported instead of a cut, never as one.
+  byes_count: number | null;
   pdf_text_length: number;
 };
 
@@ -180,6 +183,10 @@ function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   const trimmedName = name.trim();
   if (trimmedName.length < 2) return true;
 
+  // "Byes (10)" and "Adv. 2949 / On-site Byes (2)" are the Last Direct Acceptance box reporting
+  // empty draw slots. The number is a count of byes, not a ranking, so it must never become a cut.
+  if (/\bbyes?\b/i.test(raw)) return true;
+
   // Names must contain at least one alphabetic character.
   if (!/[A-Za-zÀ-ÿ]/.test(trimmedName)) return true;
 
@@ -200,7 +207,7 @@ function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   // Madrid-style combined-ranking notation: "D+D 88; S+S 414".
   if (/\b[A-Z]\+[A-Z]\b/.test(raw)) return true;
   // Entry-category codes, not player names: WC (wildcard), LL (lucky loser), etc.
-  if (/^(WC|LL|SE|PR|WR|Alt)$/i.test(trimmedName)) return true;
+  if (/^(WC|LL|SE|PR|WR|Alt)\.?$/i.test(trimmedName)) return true;
 
   // Tennis set scores like "62 75", "64 26 10-8", "76(5) 64".
   // Strip parentheses/dashes and check if every token is a 2-digit short score.
@@ -326,6 +333,19 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
   return null;
 }
 
+// The box prints "Byes (10)" where a last direct acceptance would go when the draw is not full,
+// and "Adv. 2949 / On-site Byes (2)" on Challenger doubles sheets. Slot rows in the bracket read
+// "2Bye" with no parentheses, so they never match.
+function parseByesCount(lines: string[], ldaIndex: number): number | null {
+  if (ldaIndex === -1) return null;
+  const window = lines.slice(ldaIndex, ldaIndex + 6);
+  for (const line of window) {
+    const match = line.match(/\bbyes?\s*\(\s*(\d{1,3})\s*\)/i);
+    if (match) return Number(match[1]);
+  }
+  return null;
+}
+
 function parseChallengerDoublesCuts(lines: string[], lastDirectAcceptanceIndex: number) {
   const extractCuts = (text: string) => {
     const normalized = text.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
@@ -403,6 +423,7 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
     challenger_doubles_onsite_cut_rank: challengerDoublesCuts.onsite,
     alternate_entries_count: alternate_count,
     lucky_loser_count,
+    byes_count: parseByesCount(lines, lastDirectAcceptanceIndex),
     pdf_text_length: text.length,
   };
 }
@@ -582,6 +603,7 @@ function mergeResults(stream: ParsedOfficialPdfCutoff, layout: ParsedOfficialPdf
     challenger_doubles_onsite_cut_rank: stream.challenger_doubles_onsite_cut_rank ?? layout.challenger_doubles_onsite_cut_rank,
     alternate_entries_count: Math.max(stream.alternate_entries_count, layout.alternate_entries_count),
     lucky_loser_count: Math.max(stream.lucky_loser_count, layout.lucky_loser_count),
+    byes_count: stream.byes_count ?? layout.byes_count,
     pdf_text_length: stream.pdf_text_length,
   };
 }

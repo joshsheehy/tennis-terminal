@@ -132,6 +132,13 @@ const RECENT_START = addDays(WEEK_START, -7) // last week's events still owe us 
  */
 async function loadEditions(client) {
   const draw = (e, d) => `FILTER (WHERE cs.event_type = '${e}' AND cs.draw_type = '${d}')`
+  // byes_count is added by the app the first time it needs it, so it may not exist yet in production.
+  const hasByesColumn =
+    (await client.query(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'cutoff_snapshots' AND column_name = 'byes_count'`
+    )).rowCount > 0
+  const byes = (e, d) => (hasByesColumn ? `max(cs.byes_count) ${draw(e, d)}` : 'NULL::int')
   const { rows } = await client.query(
     `SELECT te.id AS edition_id, t.slug, t.name, t.city, t.country, t.latitude, t.longitude,
             te.year, te.week, te.start_date::text AS start_date, te.level, te.singles_draw_size,
@@ -140,6 +147,9 @@ async function loadEditions(client) {
             max(cs.last_direct_acceptance_rank) ${draw('doubles', 'main')} AS d_rank,
             max(cs.challenger_doubles_advanced_cut_rank) ${draw('doubles', 'main')} AS d_adv,
             max(cs.challenger_doubles_onsite_cut_rank) ${draw('doubles', 'main')} AS d_onsite,
+            ${byes('singles', 'main')} AS md_byes,
+            ${byes('singles', 'qualifying')} AS q_byes,
+            ${byes('doubles', 'main')} AS d_byes,
             max(cs.updated_at) ${draw('singles', 'main')} AS md_written,
             max(cs.updated_at) ${draw('singles', 'qualifying')} AS q_written,
             max(cs.updated_at) ${draw('doubles', 'main')} AS d_written,
@@ -163,10 +173,11 @@ async function loadEditions(client) {
   return rows
 }
 
+// A draw whose sheet reported byes has no cut to find (nobody was cut), so it counts as present.
 const HAS = {
-  singles_main: (r) => r.md_cut != null,
-  singles_qualifying: (r) => r.q_cut != null,
-  doubles_main: (r) => r.d_cut != null,
+  singles_main: (r) => r.md_cut != null || r.md_byes != null,
+  singles_qualifying: (r) => r.q_cut != null || r.q_byes != null,
+  doubles_main: (r) => r.d_cut != null || r.d_byes != null,
 }
 const WRITTEN = { singles_main: 'md_written', singles_qualifying: 'q_written', doubles_main: 'd_written' }
 const DRAW_LABEL = { singles_main: 'singles main', singles_qualifying: 'singles qualifying', doubles_main: 'doubles main' }
@@ -310,7 +321,7 @@ async function runChecks(client, rows) {
     (r) =>
       r.start >= RECENT_START &&
       r.start < WINDOW_END &&
-      r.md_cut == null && r.q_cut == null && r.d_cut == null &&
+      !HAS.singles_main(r) && !HAS.singles_qualifying(r) && !HAS.doubles_main(r) &&
       r.draws.some(overdue)
   )
   const inA1 = new Set(a1.map((r) => r.edition_id)) // A2–A4 skip these, acknowledged or not

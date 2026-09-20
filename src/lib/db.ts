@@ -20,6 +20,26 @@ if (process.env.NODE_ENV !== 'production') {
   globalForDb.pool = pool;
 }
 
+// cutoff_snapshots.byes_count is added at runtime the first time anything needs it, so the code can
+// deploy before sql/017 has been applied without breaking every page that reads cuts. The catalog
+// check comes first because ALTER TABLE takes a brief exclusive lock even when the column exists.
+let byesColumn: Promise<void> | null = null;
+export function ensureByesColumn(): Promise<void> {
+  byesColumn ??= (async () => {
+    const found = await pool.query(
+      `select 1 from information_schema.columns
+       where table_schema = 'public' and table_name = 'cutoff_snapshots' and column_name = 'byes_count'`
+    );
+    if (found.rowCount === 0) {
+      await pool.query('alter table cutoff_snapshots add column if not exists byes_count int');
+    }
+  })().catch((error) => {
+    byesColumn = null; // retry on the next call rather than caching a failure
+    throw error;
+  });
+  return byesColumn;
+}
+
 // Run `fn` inside a real BEGIN/COMMIT on a single checked-out client.
 // Never use pool.query('BEGIN') for this: each pool.query() call can run on
 // a different pooled connection, so the BEGIN, the statements, and the
@@ -259,6 +279,7 @@ export async function getCutoffSnapshotsForEditionIds(
 ): Promise<CutoffSnapshot[]> {
   if (editionIds.length === 0) return [];
 
+  await ensureByesColumn();
   const result = await pool.query<CutoffSnapshot>(
     `
     select
@@ -281,6 +302,7 @@ export async function getCutoffSnapshotsForEditionIds(
       alternate_entries_count,
       lucky_loser_count,
       qualifying_byes_count,
+      byes_count,
       created_at,
       updated_at
     from cutoff_snapshots

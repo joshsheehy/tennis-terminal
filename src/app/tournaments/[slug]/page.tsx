@@ -132,11 +132,20 @@ function rankText(rank: number | null) {
   return rank ? String(rank) : '—';
 }
 
+// Empty draw slots the sheet reported ("Byes (10)"). A draw that is not full has no cut.
+function byesText(byes: number) {
+  return `${byes} ${byes === 1 ? 'bye' : 'byes'}`;
+}
+
 function challengerDoublesCutText(cutoff: CutoffSnapshot) {
   const advance = cutoff.challenger_doubles_advanced_cut_rank;
   const onsite = cutoff.challenger_doubles_onsite_cut_rank;
+  const byes = cutoff.byes_count ?? 0;
 
   if (advance && onsite) return `Adv ${advance} / on-site ${onsite}`;
+  // Doubles sheets read "Adv. 2949 / On-site Byes (2)": a real advance cut, and no on-site cut because
+  // the on-site draw had open places.
+  if (advance && byes > 0) return `Adv ${advance} / on-site ${byesText(byes)}`;
   if (advance) return `Adv ${advance}`;
   if (onsite) return `on-site ${onsite}`;
   return rankText(cutoff.last_direct_acceptance_rank);
@@ -321,6 +330,14 @@ function CutoffTable({
         let cutDisplay: React.ReactNode;
         if (!cutoff) {
           cutDisplay = <span className="cut-value cut-value--na">Not yet imported</span>;
+        } else if (!hasRank && !tombstoned && (cutoff.byes_count ?? 0) > 0) {
+          // The draw was not full, so nobody was cut: show the open places instead of a rank.
+          cutDisplay = (
+            <>
+              <span className="cut-value">{byesText(cutoff.byes_count ?? 0)}</span>
+              <div className="cut-sub cut-sub--faint">Draw not full</div>
+            </>
+          );
         } else if (!hasRank || tombstoned) {
           cutDisplay = <span className="cut-value cut-value--na">Not on record</span>;
         } else if (isChallenger && eventType === 'doubles') {

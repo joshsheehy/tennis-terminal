@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, ensureByesColumn } from '@/lib/db';
 import {
   fetchAndParseOfficialPdfCutoff,
   fetchOfficialPdfDebug,
@@ -222,7 +222,11 @@ async function storeParsedCut({
     parsed.last_direct_acceptance_rank !== null ||
     parsed.challenger_doubles_advanced_cut_rank !== null ||
     parsed.challenger_doubles_onsite_cut_rank !== null;
+  // The sheet's Last Direct Acceptance box said "Byes (N)": the draw was not full, so there is no cut
+  // to record, but the open places are worth keeping.
+  const hasByes = parsed.byes_count !== null;
 
+  await ensureByesColumn();
   const editionId = await getOrCreateEditionId(slug, year);
   if (!editionId) {
     return NextResponse.json(
@@ -251,12 +255,27 @@ async function storeParsedCut({
          source_notes = excluded.source_notes,
          alternate_entries_count = excluded.alternate_entries_count,
          lucky_loser_count = excluded.lucky_loser_count,
+         byes_count = excluded.byes_count,
          updated_at = now()`
     : `do update set
          parsed_at = excluded.parsed_at,
          parser_version = excluded.parser_version,
          alternate_entries_count = excluded.alternate_entries_count,
          lucky_loser_count = excluded.lucky_loser_count,
+         -- Earlier versions of the parser read "Byes (5)" as a cut of 5. When the sheet says byes and
+         -- the stored cut is exactly that number and came from this importer, it is that misread:
+         -- clear it. A hand-set cut (source_type manual_*) is never touched.
+         last_direct_acceptance_rank = case
+           when cutoff_snapshots.source_type = 'official_pdf'
+            and excluded.byes_count is not null
+            and cutoff_snapshots.last_direct_acceptance_rank = excluded.byes_count
+           then null else cutoff_snapshots.last_direct_acceptance_rank end,
+         last_direct_acceptance_player_name = case
+           when cutoff_snapshots.source_type = 'official_pdf'
+            and excluded.byes_count is not null
+            and cutoff_snapshots.last_direct_acceptance_rank = excluded.byes_count
+           then null else cutoff_snapshots.last_direct_acceptance_player_name end,
+         byes_count = coalesce(excluded.byes_count, cutoff_snapshots.byes_count),
          updated_at = now()`;
 
   const writeResult = await pool.query(
@@ -267,11 +286,11 @@ async function storeParsedCut({
        challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
        challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
        parsed_at, parser_version, source_notes,
-       alternate_entries_count, lucky_loser_count, updated_at
+       alternate_entries_count, lucky_loser_count, byes_count, updated_at
      ) values (
        $1, $2, $3, 'official_pdf',
        $4, $5, null, null, $6, null, $7, null,
-       now(), 'official-pdf-bottom-left-v4', $8, $9, $10, now()
+       now(), 'official-pdf-bottom-left-v4', $8, $9, $10, $11, now()
      )
      on conflict (tournament_edition_id, event_type, draw_type)
      ${conflictClause}`,
@@ -281,9 +300,10 @@ async function storeParsedCut({
       parsed.last_direct_acceptance_name,
       parsed.challenger_doubles_advanced_cut_rank,
       parsed.challenger_doubles_onsite_cut_rank,
-      `Official PDF (direct import): ${url}. Raw: ${parsed.raw_last_direct_acceptance ?? 'not found'}.${anomaly ? ` ${ANOMALY_TAG}: ${anomaly.reason}` : ''}`,
+      `Official PDF (direct import): ${url}. Raw: ${parsed.raw_last_direct_acceptance ?? (hasByes ? `Byes (${parsed.byes_count}), draw not full` : 'not found')}.${anomaly ? ` ${ANOMALY_TAG}: ${anomaly.reason}` : ''}`,
       parsed.alternate_entries_count,
       parsed.lucky_loser_count,
+      parsed.byes_count,
     ]
   );
 
@@ -299,6 +319,7 @@ async function storeParsedCut({
     draw_type: draw,
     pdf_url: url,
     hasRank,
+    hasByes,
     wrote,
     preservedExisting,
     anomalyRejected: anomaly,
@@ -314,6 +335,7 @@ async function storeParsedCut({
     challenger_doubles_onsite_cut_rank: parsed.challenger_doubles_onsite_cut_rank,
     alternate_entries_count: parsed.alternate_entries_count,
     lucky_loser_count: parsed.lucky_loser_count,
+    byes_count: parsed.byes_count,
     pdf_text_length: parsed.pdf_text_length,
   });
 }

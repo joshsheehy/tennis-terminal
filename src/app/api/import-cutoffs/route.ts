@@ -1,6 +1,6 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, ensureByesColumn } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff, isUpstreamRefused } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { PTL_CODE_OVERRIDES } from '@/lib/ptl-code-overrides';
@@ -393,6 +393,7 @@ async function upsertCutoffSnapshot(
   importedPdfUrl: string,
   anomalyReason: string | null = null
 ) {
+  await ensureByesColumn();
   await pool.query(
     `
     insert into cutoff_snapshots (
@@ -413,6 +414,7 @@ async function upsertCutoffSnapshot(
       source_notes,
       alternate_entries_count,
       lucky_loser_count,
+      byes_count,
       updated_at
     )
     values (
@@ -433,6 +435,7 @@ async function upsertCutoffSnapshot(
       $8,
       $9,
       $10,
+      $11,
       now()
     )
     on conflict (tournament_edition_id, event_type, draw_type)
@@ -475,6 +478,12 @@ async function upsertCutoffSnapshot(
       parser_version = excluded.parser_version,
       alternate_entries_count = excluded.alternate_entries_count,
       lucky_loser_count = excluded.lucky_loser_count,
+      -- A parse with no rank at all keeps the earlier byes, like it keeps the earlier cut.
+      byes_count = case when excluded.last_direct_acceptance_rank is null
+                         and excluded.challenger_doubles_advanced_cut_rank is null
+                         and excluded.challenger_doubles_onsite_cut_rank is null
+                         then coalesce(excluded.byes_count, cutoff_snapshots.byes_count)
+                         else excluded.byes_count end,
       updated_at = now()
     `,
     [
@@ -488,6 +497,7 @@ async function upsertCutoffSnapshot(
       `Official PDF: ${importedPdfUrl}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}. Historical edition row may be generated from current calendar metadata when no exact historical calendar row exists yet.${anomalyReason ? ` ${ANOMALY_TAG}: ${anomalyReason}` : ''}`,
       parsed.alternate_entries_count,
       parsed.lucky_loser_count,
+      parsed.byes_count,
     ]
   );
 }

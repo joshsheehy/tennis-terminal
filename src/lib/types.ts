@@ -41,6 +41,8 @@ export type CutoffSnapshot = {
   lucky_loser_count: number;
   // Byes in the qualifying draw (ITF only). On the singles-qualifying row.
   qualifying_byes_count?: number | null;
+  // Empty draw slots the sheet reported in its Last Direct Acceptance box ("Byes (N)"). Any draw.
+  byes_count?: number | null;
   created_at?: string;
   updated_at?: string;
 };

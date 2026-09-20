@@ -1,6 +1,6 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, ensureByesColumn } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 
 export const runtime = 'nodejs';
@@ -130,6 +130,8 @@ function buildCandidateUrls(row: EditionCoverageRow, code: string | null, draw: 
 }
 
 export async function GET(request: NextRequest) {
+  // A draw whose sheet reported byes has no cut to find, so it counts as present (see byes_count).
+  await ensureByesColumn();
   const params = request.nextUrl.searchParams;
   const year = Number(params.get('year') ?? '2024');
   const limit = Math.min(Number(params.get('limit') ?? '500'), 1000);
@@ -161,14 +163,14 @@ export async function GET(request: NextRequest) {
         where cs.tournament_edition_id = te.id
           and cs.event_type = 'singles'
           and cs.draw_type = 'main'
-          and cs.last_direct_acceptance_rank is not null
+          and (cs.last_direct_acceptance_rank is not null or cs.byes_count is not null)
       ) as has_singles_main,
       exists(
         select 1 from cutoff_snapshots cs
         where cs.tournament_edition_id = te.id
           and cs.event_type = 'singles'
           and cs.draw_type = 'qualifying'
-          and cs.last_direct_acceptance_rank is not null
+          and (cs.last_direct_acceptance_rank is not null or cs.byes_count is not null)
       ) as has_singles_qualifying,
       exists(
         select 1 from cutoff_snapshots cs
@@ -179,6 +181,7 @@ export async function GET(request: NextRequest) {
             cs.last_direct_acceptance_rank is not null
             or cs.challenger_doubles_advanced_cut_rank is not null
             or cs.challenger_doubles_onsite_cut_rank is not null
+            or cs.byes_count is not null
           )
       ) as has_doubles_main,
       exists(
@@ -186,7 +189,7 @@ export async function GET(request: NextRequest) {
         where cs.tournament_edition_id = te.id
           and cs.event_type = 'doubles'
           and cs.draw_type = 'qualifying'
-          and cs.last_direct_acceptance_rank is not null
+          and (cs.last_direct_acceptance_rank is not null or cs.byes_count is not null)
       ) as has_doubles_qualifying,
       coalesce(
         array_agg(cs.source_notes) filter (where cs.source_notes is not null),

@@ -54,6 +54,59 @@ describe('layoutItemsToText', () => {
   });
 });
 
+describe('byes and alternates in the Last Direct Acceptance box', () => {
+  // Text taken from the real Brazzaville 2026 draw sheets (protennislive posting 2961).
+  it('reports "Byes (10)" as open slots, not as a cut of 10 (qualifying sheet)', () => {
+    const text = ['Qualifying Round 1', 'Last Direct Acceptance', 'Byes (10)', 'ATP Supervisor', 'Paulo Cardoso'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+    expect(parsed.last_direct_acceptance_name).toBeNull();
+    expect(parsed.byes_count).toBe(10);
+  });
+
+  it('keeps the real doubles advance cut and reads the on-site byes separately', () => {
+    const text = ['Last Direct Acceptance', 'Adv. 2949 / On-site Byes (2)', 'ATP Supervisor'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+    expect(parsed.challenger_doubles_advanced_cut_rank).toBe(2949);
+    expect(parsed.challenger_doubles_onsite_cut_rank).toBeNull();
+    expect(parsed.byes_count).toBe(2);
+  });
+
+  it('does not turn "On-site Byes (3)" into a cut of 3 (the Temuco doubles bug)', () => {
+    const text = ['Last Direct Acceptance', 'Adv. 1184 / On-site Byes (3)', 'ATP Supervisor'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+    expect(parsed.byes_count).toBe(3);
+  });
+
+  it('handles the label and Byes on one line, and a single bye', () => {
+    const parsed = parseOfficialPdfCutoffText('LAST DIRECT ACCEPTANCE Byes (1) ATP SUPERVISOR');
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+    expect(parsed.byes_count).toBe(1);
+  });
+
+  it('does not treat "Alt. (3)" as a player with rank 3 (the Brazzaville main-draw bug)', () => {
+    const text = ['Last Direct Acceptance', 'Alt. (3)', 'ATP Supervisor'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+    expect(parsed.byes_count).toBeNull();
+  });
+
+  it('ignores per-slot "Bye" rows in the bracket, which have no count', () => {
+    const text = ['2Bye', '3WCBOLANGI, BienvenueCOD', '6Bye', 'Last Direct Acceptance', 'Matusevich, Anton - 431', 'ATP Supervisor'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.byes_count).toBeNull();
+    expect(parsed.last_direct_acceptance_rank).toBe(431);
+  });
+
+  it('still parses an ordinary cut and reports no byes', () => {
+    const parsed = parseOfficialPdfCutoffText(['Last Direct Acceptance', 'Matusevich, Anton - 431', 'ATP Supervisor'].join('\n'));
+    expect(parsed.last_direct_acceptance_rank).toBe(431);
+    expect(parsed.byes_count).toBeNull();
+  });
+});
+
 describe('parseOfficialPdfCutoffText', () => {
   it('counts [Alt] (square bracket) alternates — Glasgow doubles draw style', () => {
     const text = [
