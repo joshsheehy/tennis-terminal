@@ -50,4 +50,26 @@ export const TOURNAMENT_ALIASES: TournamentAlias[] = [
       'ProTennisLive call it "Open de Vendée". No shared code to catch it via dedupe-by-code, ' +
       'so it recreates itself under this slug on the next sync unless resolved here.',
   },
+  {
+    aliasSlug: 'plovdiv-challenger',
+    canonicalSlug: 'plovdiv',
+    reason:
+      'The 22 June 2026 Plovdiv Challenger was created twice. It is played on clay, which is what ' +
+      '"plovdiv" has; "plovdiv-challenger" carried it as a hard court, and held the imported cuts. ' +
+      'Merging into "plovdiv" keeps the clay edition and folds those cuts into it.',
+  },
+  {
+    aliasSlug: 'florianopolis',
+    canonicalSlug: 'engie-open',
+    reason:
+      'Same Florianópolis Challenger under its city name and its sponsor name. "engie-open" carries ' +
+      'the history (2022-2025, with cuts); "florianopolis" only the 2026 edition.',
+  },
+  {
+    aliasSlug: 'san-gregorio-di-catania',
+    canonicalSlug: 'catania',
+    reason:
+      'Same Catania Challenger (12 October 2026) under the town it is played in and the city name. ' +
+      'Neither has history, so the shorter, city-named slug is canonical.',
+  },
 ];

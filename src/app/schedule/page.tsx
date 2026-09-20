@@ -26,12 +26,24 @@ function doublesNum(c: CutoffSnapshot | null, isChallenger: boolean): number | n
   if (isChallenger) return c.challenger_doubles_advanced_cut_rank ?? c.last_alternate_rank ?? c.last_direct_acceptance_rank ?? null;
   return c.last_alternate_rank ?? c.last_direct_acceptance_rank ?? null;
 }
+// A draw whose sheet reported byes was not full, so nobody was cut and any ranking got in.
+function isOpenDraw(c: CutoffSnapshot | null): boolean {
+  return (
+    c != null &&
+    (c.byes_count ?? 0) > 0 &&
+    c.last_direct_acceptance_rank == null &&
+    c.last_alternate_rank == null &&
+    c.challenger_doubles_advanced_cut_rank == null
+  );
+}
 function hasAnyCut(cutoffs: CutoffSnapshot[]): boolean {
+  // An open draw is real data for this edition too, so it must not fall back to last year's numbers.
   return cutoffs.some(
     (c) =>
       c.last_direct_acceptance_rank != null ||
       c.last_alternate_rank != null ||
-      c.challenger_doubles_advanced_cut_rank != null
+      c.challenger_doubles_advanced_cut_rank != null ||
+      isOpenDraw(c)
   );
 }
 function isItf(level: string) {
@@ -94,13 +106,19 @@ async function resolveStop(row: TournamentDetailRow): Promise<Stop> {
     : { edition, refCutoffs: [], refYear: null };
 }
 
-function CutChip({ label, value }: { label: string; value: number | null }) {
+function CutChip({ label, value, open = false }: { label: string; value: number | null; open?: boolean }) {
   return (
     <div className="sched-cut">
       <div className="sched-cut__label">{label}</div>
-      <div className={`sched-cut__val${value == null ? ' sched-cut__val--na' : ''}`}>
-        {value == null ? '—' : `#${value}`}
-      </div>
+      {open ? (
+        <div className="sched-cut__val" title="The draw wasn't full, so any ranking got in">
+          Any rank
+        </div>
+      ) : (
+        <div className={`sched-cut__val${value == null ? ' sched-cut__val--na' : ''}`}>
+          {value == null ? '—' : `#${value}`}
+        </div>
+      )}
     </div>
   );
 }
@@ -164,9 +182,12 @@ export default async function SchedulePage({
           const e = stop.edition;
           const prev = i > 0 ? stops[i - 1].edition : null;
           const ch = isChallenger(e.level);
-          const sm = singlesNum(findCut(stop.refCutoffs, 'singles', 'main'));
-          const sq = singlesNum(findCut(stop.refCutoffs, 'singles', 'qualifying'));
-          const dd = doublesNum(findCut(stop.refCutoffs, 'doubles', 'main'), ch);
+          const smCut = findCut(stop.refCutoffs, 'singles', 'main');
+          const sqCut = findCut(stop.refCutoffs, 'singles', 'qualifying');
+          const ddCut = findCut(stop.refCutoffs, 'doubles', 'main');
+          const sm = singlesNum(smCut);
+          const sq = singlesNum(sqCut);
+          const dd = doublesNum(ddCut, ch);
           // The Friday between this stop and the one before it — always the
           // Friday immediately ahead of THIS stop's start, so a gap of any
           // length still lands on the travel day that actually gets you here
@@ -210,9 +231,9 @@ export default async function SchedulePage({
                 </p>
 
                 <div className="sched-cuts">
-                  <CutChip label="Singles MD" value={sm} />
-                  <CutChip label="Singles Q" value={sq} />
-                  <CutChip label="Doubles" value={dd} />
+                  <CutChip label="Singles MD" value={sm} open={sm == null && isOpenDraw(smCut)} />
+                  <CutChip label="Singles Q" value={sq} open={sq == null && isOpenDraw(sqCut)} />
+                  <CutChip label="Doubles" value={dd} open={dd == null && isOpenDraw(ddCut)} />
                 </div>
 
                 <div className="sched-actions">

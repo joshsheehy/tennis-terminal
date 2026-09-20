@@ -1,4 +1,4 @@
-import { pool, withTransaction } from './db';
+import { ensureByesColumn, pool, withTransaction } from './db';
 
 // The transactional core of /api/merge-tournaments, factored out so
 // /api/resolve-tournament-aliases can reuse it for the same-event duplicates
@@ -32,6 +32,7 @@ export async function resolveTournamentBySlugOrText(query: string): Promise<Tour
 export type MergeSummary = { movedEditions: number; mergedConflictYears: number; ghostDeleted: boolean };
 
 export async function mergeTournaments(ghostId: string, canonicalId: string): Promise<MergeSummary> {
+  await ensureByesColumn();
   const ghostEditions = await pool.query<{ id: string; year: number }>(
     `select id, year from tournament_editions where tournament_id = $1 order by year`,
     [ghostId]
@@ -64,7 +65,7 @@ export async function mergeTournaments(ghostId: string, canonicalId: string): Pr
              last_alternate_rank, last_alternate_player_name,
              challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
              challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-             parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
+             parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, byes_count, updated_at
            )
            select $2,
              event_type, draw_type, source_type,
@@ -72,7 +73,7 @@ export async function mergeTournaments(ghostId: string, canonicalId: string): Pr
              last_alternate_rank, last_alternate_player_name,
              challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
              challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-             parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, now()
+             parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, byes_count, now()
            from cutoff_snapshots
            where tournament_edition_id = $1
            on conflict (tournament_edition_id, event_type, draw_type) do nothing`,
