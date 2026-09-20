@@ -299,5 +299,20 @@ jobs:
           except Exception as exc:
               print(f'non-fatal: {exc}', flush=True)
 
+          # Same idea for tournament-aliases.ts: a duplicate a specific
+          # importer keeps recreating under an alternate name has no shared
+          # code, so dedupe-by-code above never catches it. Merge it back into
+          # its canonical row every run rather than trusting a one-off fix to
+          # stick past the next sync.
+          print('\n=== Re-apply tournament aliases ===', flush=True)
+          try:
+              aliases = request_json('/api/resolve-tournament-aliases?apply=true', timeout=60, retries=1)
+              for r in aliases.get('results') or []:
+                  if r.get('merged'):
+                      print(f"  merged {r['aliasSlug']} -> {r['canonicalSlug']} "
+                            f"(moved={r.get('movedEditions')}, folded={r.get('mergedConflictYears')})", flush=True)
+          except Exception as exc:
+              print(f'non-fatal: {exc}', flush=True)
+
           print('\nOfficial calendar sync complete.', flush=True)
           PY

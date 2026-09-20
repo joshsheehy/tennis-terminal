@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool, withTransaction } from '@/lib/db';
+import { pool } from '@/lib/db';
+import { mergeTournaments, resolveTournamentBySlugOrText } from '@/lib/merge-tournament';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,28 +10,14 @@ export const dynamic = 'force-dynamic';
 // their names/cities/weeks differ too much — e.g. "Istanbul TTF" and
 // "İstanbul (İstinye)", which are the same Challenger.
 //
+// A duplicate that recurs from a specific data source (an importer keeps
+// re-deriving the same alternate name/slug every night) needs more than a
+// one-off run of this — see tournament-aliases.ts and
+// /api/resolve-tournament-aliases, which apply the same merge nightly.
+//
 // Usage:
 //   GET /api/merge-tournaments?from=<slug|name>&to=<slug|name>&apply=true
 // Dry-run by default. Each of from/to must resolve to exactly one tournament.
-
-type TournamentRow = { id: string; slug: string; name: string; city: string | null; country: string | null };
-
-async function resolveTournament(query: string): Promise<TournamentRow[]> {
-  const bySlug = await pool.query<TournamentRow>(
-    `select id, slug, name, city, country from tournaments where slug = $1`,
-    [query]
-  );
-  if (bySlug.rows.length) return bySlug.rows;
-
-  const byText = await pool.query<TournamentRow>(
-    `select id, slug, name, city, country from tournaments
-     where name ilike $1 or city ilike $1 or slug ilike $1
-     order by name
-     limit 10`,
-    [`%${query}%`]
-  );
-  return byText.rows;
-}
 
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
@@ -45,7 +32,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [fromMatches, toMatches] = await Promise.all([resolveTournament(fromQ), resolveTournament(toQ)]);
+  const [fromMatches, toMatches] = await Promise.all([
+    resolveTournamentBySlugOrText(fromQ),
+    resolveTournamentBySlugOrText(toQ),
+  ]);
 
   if (fromMatches.length !== 1 || toMatches.length !== 1) {
     return NextResponse.json(
@@ -66,12 +56,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'from and to resolve to the same tournament' }, { status: 400 });
   }
 
-  const ghostEditions = await pool.query<{ id: string; year: number }>(
-    `select id, year from tournament_editions where tournament_id = $1 order by year`,
-    [ghost.id]
-  );
-
   if (!apply) {
+    const ghostEditions = await pool.query<{ year: number }>(
+      `select year from tournament_editions where tournament_id = $1 order by year`,
+      [ghost.id]
+    );
     return NextResponse.json({
       ok: true,
       dryRun: true,
@@ -83,69 +72,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const summary = await withTransaction(async (client) => {
-      let movedEditions = 0;
-      let mergedConflictYears = 0;
-
-      const canonicalYears = await client.query<{ year: number }>(
-        `select year from tournament_editions where tournament_id = $1`,
-        [canonical.id]
-      );
-      const yearSet = new Set(canonicalYears.rows.map((r) => r.year));
-
-      for (const ed of ghostEditions.rows) {
-        if (yearSet.has(ed.year)) {
-          // Canonical already has this year — merge cutoffs into its edition, then drop the ghost edition.
-          const target = await client.query<{ id: string }>(
-            `select id from tournament_editions where tournament_id = $1 and year = $2 limit 1`,
-            [canonical.id, ed.year]
-          );
-          const targetId = target.rows[0]?.id;
-          if (!targetId) continue;
-
-          await client.query(
-            `insert into cutoff_snapshots (
-               tournament_edition_id, event_type, draw_type, source_type,
-               last_direct_acceptance_rank, last_direct_acceptance_player_name,
-               last_alternate_rank, last_alternate_player_name,
-               challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
-               challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-               parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, updated_at
-             )
-             select $2,
-               event_type, draw_type, source_type,
-               last_direct_acceptance_rank, last_direct_acceptance_player_name,
-               last_alternate_rank, last_alternate_player_name,
-               challenger_doubles_advanced_cut_rank, challenger_doubles_advanced_team_name,
-               challenger_doubles_onsite_cut_rank, challenger_doubles_onsite_team_name,
-               parsed_at, parser_version, source_notes, alternate_entries_count, lucky_loser_count, now()
-             from cutoff_snapshots
-             where tournament_edition_id = $1
-             on conflict (tournament_edition_id, event_type, draw_type) do nothing`,
-            [ed.id, targetId]
-          );
-          await client.query('delete from cutoff_snapshots where tournament_edition_id = $1', [ed.id]);
-          await client.query('delete from tournament_editions where id = $1', [ed.id]);
-          mergedConflictYears += 1;
-        } else {
-          await client.query('update tournament_editions set tournament_id = $1, updated_at = now() where id = $2', [
-            canonical.id,
-            ed.id,
-          ]);
-          movedEditions += 1;
-        }
-      }
-
-      const remaining = await client.query<{ cnt: string }>(
-        'select count(*) as cnt from tournament_editions where tournament_id = $1',
-        [ghost.id]
-      );
-      const ghostDeleted = Number(remaining.rows[0].cnt) === 0;
-      if (ghostDeleted) await client.query('delete from tournaments where id = $1', [ghost.id]);
-
-      return { movedEditions, mergedConflictYears, ghostDeleted };
-    });
-
+    const summary = await mergeTournaments(ghost.id, canonical.id);
     return NextResponse.json({
       ok: true,
       dryRun: false,

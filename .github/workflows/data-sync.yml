@@ -316,6 +316,18 @@ jobs:
               if sweep.get('hiddenCount'):
                   print(f"  re-hid {sweep['hiddenCount']}: {sweep.get('hiddenRows')}", flush=True)
 
+          # 9c) Same idea for tournament-aliases.ts: a duplicate that a specific
+          # importer keeps recreating under an alternate name (no shared code,
+          # so dedupe-by-code above never catches it — see the Mouilleron-le-
+          # Captif / Open de Vendée note in that file) gets merged back into
+          # its canonical row every night instead of staying fixed for one day.
+          print('\n=== Re-apply tournament aliases ===', flush=True)
+          aliases = request_json('/api/resolve-tournament-aliases?apply=true', required=False, timeout=60)
+          for r in aliases.get('results') or []:
+              if r.get('merged'):
+                  print(f"  merged {r['aliasSlug']} -> {r['canonicalSlug']} "
+                        f"(moved={r.get('movedEditions')}, folded={r.get('mergedConflictYears')})", flush=True)
+
           # 10) Beta cut projections: after the night's calendar/cut imports,
           # refresh the production prediction snapshots and score any stored
           # predictions whose actual cuts landed during this sync. Keep this in
