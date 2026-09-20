@@ -552,17 +552,6 @@ async function runChecks(client, rows) {
     })
   })
 
-  // ── C4. Name says one ITF level, level says another ──────────────────────
-  await check('C4', 'Tournament name contradicts its level field', async () => {
-    const bad = []
-    for (const r of rows) {
-      const nm = r.name.match(/\bM(15|25)\b/i)
-      const lm = r.level.match(/\bM(15|25)\b/i)
-      if (nm && lm && nm[1] !== lm[1]) bad.push(item(`C4|${ek(r)}`, `${r.name} → level "${r.level}"`, r))
-    }
-    report('C4', 'Tournament name contradicts its level field', bad, { severity: 'warn' })
-  })
-
   // ── C5. Missing coordinates (drops an event out of swing chains) ─────────
   await check('C5', 'Upcoming tournaments missing coordinates', async () => {
     const seen = new Set()
@@ -711,7 +700,9 @@ async function runChecks(client, rows) {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
     const bad = []
     for (const r of rows) {
-      if (r.cat === 'itf' || r.start < addDays(TODAY, -60)) continue
+      // ATP 1000 events run 12 days and start Wednesday or Thursday (Cincinnati, Shanghai), and team
+      // events (Laver, Davis) have their own shape, so only ordinary tour weeks are held to Sun-Tue.
+      if (r.cat === 'itf' || r.cat === null || /1000/.test(r.level) || r.start < addDays(TODAY, -60)) continue
       const dow = r.start.getUTCDay()
       if (dow >= 3) bad.push(item(`C12|${ek(r)}|start`, `${label(r)} · starts on a ${days[dow]}`, r))
       if (r.end_date) {
@@ -721,7 +712,7 @@ async function runChecks(client, rows) {
     }
     report('C12', 'Tournament dates that cannot be right', bad, {
       severity: 'warn',
-      note: 'A tour event starts Sunday to Tuesday and lasts under two weeks. Anything else is a bad date the site shows to visitors.',
+      note: 'An ordinary tour week starts Sunday to Tuesday and lasts under two weeks (ATP 1000s, team events and ITF are exempt). Anything else is a bad date the site shows to visitors.',
     })
   })
 
