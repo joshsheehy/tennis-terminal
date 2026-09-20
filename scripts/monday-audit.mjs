@@ -123,8 +123,8 @@ const RECENT_START = addDays(WEEK_START, -7) // last week's events still owe us 
 /**
  * One row per held edition, with its cuts pivoted out of cutoff_snapshots.
  * cutoff_snapshots is unique on (edition, event_type, draw_type) and re-imports
- * UPDATE in place, so updated_at is the "last written" signal and created_at
- * is when the cut first appeared.
+ * UPDATE in place, so updated_at is the "last written" signal. created_at is NOT
+ * when a number arrived: empty rows are created in bulk weeks ahead of the event.
  * A doubles cut is any of three columns: the Challenger advance/onsite cuts
  * live apart from last_direct_acceptance_rank (mirrors /api/missing-cuts-report).
  */
@@ -141,9 +141,6 @@ async function loadEditions(client) {
             max(cs.updated_at) ${draw('singles', 'main')} AS md_written,
             max(cs.updated_at) ${draw('singles', 'qualifying')} AS q_written,
             max(cs.updated_at) ${draw('doubles', 'main')} AS d_written,
-            min(cs.created_at) ${draw('singles', 'main')} AS md_created,
-            min(cs.created_at) ${draw('singles', 'qualifying')} AS q_created,
-            min(cs.created_at) ${draw('doubles', 'main')} AS d_created,
             coalesce(bool_or(cs.last_direct_acceptance_rank IS NULL
                              AND cs.source_notes LIKE $2), false) AS rejected
      FROM tournament_editions te
@@ -170,7 +167,6 @@ const HAS = {
   doubles_main: (r) => r.d_cut != null,
 }
 const WRITTEN = { singles_main: 'md_written', singles_qualifying: 'q_written', doubles_main: 'd_written' }
-const CREATED = { singles_main: 'md_created', singles_qualifying: 'q_created', doubles_main: 'd_created' }
 const DRAW_LABEL = { singles_main: 'singles main', singles_qualifying: 'singles qualifying', doubles_main: 'doubles main' }
 
 /**
@@ -453,20 +449,21 @@ async function runChecks(client, rows) {
     for (const r of cov) {
       if (r.start < addDays(TODAY, -70) || r.start > TODAY) continue
       for (const d of r.draws) {
-        const created = r[CREATED[d.draw]]
-        if (!created) continue
-        const days = (created - r.start) / MS_DAY
-        if (days > 21) backfilled++ // stored weeks after the event: a backfill, not importer lag
+        const written = r[WRITTEN[d.draw]]
+        if (!written || !HAS[d.draw](r)) continue // only rows that actually hold a number
+        const days = (written - r.start) / MS_DAY
+        if (days > 21) backfilled++ // rewritten weeks after the event: a backfill or cleanup, not arrival
         else (rel[d.draw] ??= []).push(days)
       }
     }
     const fmt = (x) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(1)}d`
     const detail = Object.entries(rel).map(
-      ([draw, xs]) => `${DRAW_LABEL[draw]}: n=${xs.length}, median ${fmt(quantile(xs, 0.5))}, p90 ${fmt(quantile(xs, 0.9))} (negative = stored before the event starts)`
+      ([draw, xs]) => `${DRAW_LABEL[draw]}: n=${xs.length}, median ${fmt(quantile(xs, 0.5))}, p90 ${fmt(quantile(xs, 0.9))} (negative = written before the event starts)`
     )
-    if (backfilled) detail.push(`ignored ${backfilled} cut(s) first stored more than 3 weeks after the event started (backfills)`)
+    if (backfilled) detail.push(`ignored ${backfilled} cut(s) last written more than 3 weeks after the event started (backfills or cleanups)`)
     const worst = Math.max(...Object.values(rel).map((xs) => quantile(xs, 0.9)), -Infinity)
     const suggested = -Math.ceil(worst)
+    const caveat = ' Measured from each row’s last write, which is an upper bound: a later rewrite makes cuts look later than they arrived.'
     record({
       id: 'B2',
       title: 'When cuts arrive relative to the event start',
@@ -474,9 +471,9 @@ async function runChecks(client, rows) {
       count: 0,
       detail: detail.length ? detail : ['not enough recent events to measure'],
       note: Number.isFinite(worst)
-        ? suggested < LEAD_DAYS
-          ? `90% of cuts are stored by ${fmt(worst)} from the start, later than --lead=${LEAD_DAYS} assumes, so on-time cuts may be flagged. Consider --lead=${suggested}.`
-          : `--lead=${LEAD_DAYS} covers the observed p90 (${fmt(worst)}).`
+        ? (suggested < LEAD_DAYS
+            ? `90% of cuts were last written by ${fmt(worst)} from the start, later than --lead=${LEAD_DAYS} assumes. If on-time cuts are being flagged, consider --lead=${suggested}.`
+            : `--lead=${LEAD_DAYS} covers the observed p90 (${fmt(worst)}).`) + caveat
         : '',
     })
   })
