@@ -14,7 +14,8 @@
  *   npx tsx scripts/monday-audit.mjs                      # report + Telegram (if configured)
  *   npx tsx scripts/monday-audit.mjs --only=health        # pipelines, alerts and site only (daily)
  *   npx tsx scripts/monday-audit.mjs --weeks=3            # widen the coverage window
- *   npx tsx scripts/monday-audit.mjs --grace=5            # days to allow after an entry deadline
+ *   npx tsx scripts/monday-audit.mjs --lead=0             # a cut is due this many days BEFORE the event starts
+ *   npx tsx scripts/monday-audit.mjs --grace=5            # ...and never sooner than this many days after the entry deadline
  *   npx tsx scripts/monday-audit.mjs --as-of=2026-07-06   # replay as if run on that date
  *   npx tsx scripts/monday-audit.mjs --previous=state.json  # diff against an earlier run's state
  *   npx tsx scripts/monday-audit.mjs --emit-known         # write current findings into the acknowledgements file
@@ -69,6 +70,10 @@ const HEALTH_ONLY = OPT('only') === 'health'
 const COVERAGE_WEEKS = parseInt(OPT('weeks', '2'), 10) // current week + N-1 ahead
 // A cut can only exist once its entry list is posted, which is after the deadline.
 const GRACE_DAYS = Number(OPT('grace', '3'))
+// In practice cuts are stored around the draw, not days after the entry deadline, so a cut is
+// only "due" from LEAD_DAYS before the event starts (negative = allow that long after it starts).
+// B2 measures when cuts really arrive and suggests a value.
+const LEAD_DAYS = Number(OPT('lead', '0'))
 const AS_OF = OPT('as-of') ? new Date(`${OPT('as-of')}T13:00:00Z`) : new Date()
 const KNOWN_FILE = OPT('known', fileURLToPath(new URL('./monday-audit-known.json', import.meta.url)))
 const PREVIOUS_FILE = OPT('previous')
@@ -76,6 +81,7 @@ const ACK_DAYS = 28 // how long --emit-known acknowledgements last
 
 // Upper plausibility bounds. The lower bounds come from the app's own minPlausibleRank.
 const MAX_CUT = { singles: 2500, doubles: 6000 }
+const MAX_CUT_ITF = { singles: 4000, doubles: 6000 } // ITF qualifying cuts of 2500-2700 are normal
 
 // Checks that still run in --only=health mode.
 const HEALTH_CHECKS = new Set(['B1', 'B5', 'E1', 'D1', 'D3'])
@@ -176,18 +182,21 @@ const DRAW_LABEL = { singles_main: 'singles main', singles_qualifying: 'singles 
  */
 function expectedDraws(r) {
   if (!COVERAGE_CATS.has(r.cat)) return []
+  const dueBy = (deadline) =>
+    new Date(Math.max(deadline.getTime() + GRACE_DAYS * MS_DAY, r.start.getTime() - LEAD_DAYS * MS_DAY))
   if (isGrandSlamQualifyingLevel(r.level)) {
     // Qualifying closes 28 days before the MAIN draw Monday; this entry sits a week earlier.
-    return [{ draw: 'singles_qualifying', deadline: addDays(mondayOfWeekUtc(r.start), -21) }]
+    const deadline = addDays(mondayOfWeekUtc(r.start), -21)
+    return [{ draw: 'singles_qualifying', deadline, due: dueBy(deadline) }]
   }
   const byKind = Object.fromEntries(deadlinesForEdition(r).map((d) => [d.kind, new Date(d.deadlineAtIso)]))
   const out = [{ draw: 'singles_main', deadline: byKind.main }]
   if (r.cat !== 'grandslam') out.push({ draw: 'singles_qualifying', deadline: byKind.qualifying })
   out.push({ draw: 'doubles_main', deadline: byKind.doubles })
-  return out.filter((d) => d.deadline)
+  return out.filter((d) => d.deadline).map((d) => ({ ...d, due: dueBy(d.deadline) }))
 }
 
-const overdue = (d) => AS_OF.getTime() > d.deadline.getTime() + GRACE_DAYS * MS_DAY
+const overdue = (d) => AS_OF.getTime() > d.due.getTime()
 const label = (r) => `${r.name} · ${r.level} · ${r.start_date}`
 const withRejected = (r, s) => (r.rejected ? `${s} · parsed cut was rejected as anomalous` : s)
 const weekKey = (r) => iso(mondayOfWeekUtc(r.start))
@@ -317,7 +326,7 @@ async function runChecks(client, rows) {
       'A1',
       `Events last week → next ${COVERAGE_WEEKS} week(s) with zero cut data`,
       a1.map((r) => item(`A1|${ek(r)}`, withRejected(r, label(r)), r)),
-      { severity: 'critical', note: `Held ATP / Challenger / Slam events only (ITF is rolled up in B4). Window ${win}.` }
+      { severity: 'critical', note: `Held ATP / Challenger / Slam events only (ITF is rolled up in B4). Window ${win}. A cut is due ${LEAD_DAYS} day(s) before the event starts (--lead), and no sooner than ${GRACE_DAYS} day(s) after its entry deadline.` }
     )
   })
 
@@ -340,7 +349,7 @@ async function runChecks(client, rows) {
   await check('A2', 'Entry list closed, singles main-draw cut still missing', async () => {
     report('A2', 'Entry list closed, singles main-draw cut still missing', lateItems('A2', lateDraws('singles_main'), 'singles_main'), {
       severity: nearWindow('critical'),
-      note: 'Deadlines come from src/lib/entry-deadlines.ts. Critical if any event starts inside the coverage window; a list of only later events is a warning.',
+      note: 'Deadlines come from src/lib/entry-deadlines.ts. Critical if any event starts inside the coverage window; a list of only later events is a warning. See --lead for when a cut counts as due.',
     })
   })
 
@@ -377,10 +386,15 @@ async function runChecks(client, rows) {
   // ── S1. Coverage scorecard (informational) ───────────────────────────────
   const scorecard = {}
   await check('S1', 'Coverage scorecard', async () => {
+    let pending = 0
     for (const r of cov) {
-      if (r.start < WEEK_START || r.start >= WINDOW_END) continue
+      if (r.start < WEEK_START || r.start >= addDays(WEEK_START, 28)) continue
       for (const d of r.draws) {
-        if (!overdue(d)) continue
+        if (!overdue(d)) {
+          if (AS_OF.getTime() > d.deadline.getTime() + GRACE_DAYS * MS_DAY && !HAS[d.draw](r)) pending++
+          continue
+        }
+        if (r.start >= WINDOW_END) continue
         const s = (scorecard[d.draw] ??= { have: 0, expected: 0 })
         s.expected++
         if (HAS[d.draw](r)) s.have++
@@ -391,13 +405,15 @@ async function runChecks(client, rows) {
       const was = before[draw] ? ` (last run ${pctOf(before[draw].have, before[draw].expected)}%)` : ''
       return `${DRAW_LABEL[draw]}: ${s.have}/${s.expected} (${pctOf(s.have, s.expected)}%)${was}`
     })
+    if (!detail.length) detail.push('no events in the window have a cut due yet')
+    detail.push(`not yet due (entry list closed, cut expected around the draw): ${pending} draw(s) in the next 4 weeks`)
     record({
       id: 'S1',
       title: 'Coverage scorecard',
       severity: 'info',
       count: 0,
-      detail: detail.length ? detail : ['no events in the window have a closed entry list yet'],
-      note: `Events starting ${win} whose entry list closed more than ${GRACE_DAYS} day(s) ago.`,
+      detail,
+      note: `Events starting ${win} whose cut is due (see --lead / --grace).`,
     })
   })
 
@@ -430,32 +446,38 @@ async function runChecks(client, rows) {
     })
   })
 
-  // ── B2. How long cuts really take to arrive (informational) ──────────────
-  await check('B2', 'Importer lag after entry deadline', async () => {
-    const lags = {}
+  // ── B2. When cuts really arrive, relative to the event start (informational) ─
+  await check('B2', 'When cuts arrive relative to the event start', async () => {
+    const rel = {}
+    let backfilled = 0
     for (const r of cov) {
       if (r.start < addDays(TODAY, -70) || r.start > TODAY) continue
       for (const d of r.draws) {
         const created = r[CREATED[d.draw]]
-        if (created) (lags[d.draw] ??= []).push((created - d.deadline) / MS_DAY)
+        if (!created) continue
+        const days = (created - r.start) / MS_DAY
+        if (days > 21) backfilled++ // stored weeks after the event: a backfill, not importer lag
+        else (rel[d.draw] ??= []).push(days)
       }
     }
-    const detail = Object.entries(lags).map(
-      ([draw, xs]) => `${DRAW_LABEL[draw]}: n=${xs.length}, median ${quantile(xs, 0.5).toFixed(1)}d, p90 ${quantile(xs, 0.9).toFixed(1)}d after entries closed`
+    const fmt = (x) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(1)}d`
+    const detail = Object.entries(rel).map(
+      ([draw, xs]) => `${DRAW_LABEL[draw]}: n=${xs.length}, median ${fmt(quantile(xs, 0.5))}, p90 ${fmt(quantile(xs, 0.9))} (negative = stored before the event starts)`
     )
-    const worst = Math.max(0, ...Object.values(lags).map((xs) => quantile(xs, 0.9)))
+    if (backfilled) detail.push(`ignored ${backfilled} cut(s) first stored more than 3 weeks after the event started (backfills)`)
+    const worst = Math.max(...Object.values(rel).map((xs) => quantile(xs, 0.9)), -Infinity)
+    const suggested = -Math.ceil(worst)
     record({
       id: 'B2',
-      title: 'Importer lag after entry deadline',
+      title: 'When cuts arrive relative to the event start',
       severity: 'info',
       count: 0,
       detail: detail.length ? detail : ['not enough recent events to measure'],
-      note:
-        worst > 14
-          ? `p90 lag is ${worst.toFixed(1)}d. Lag that large usually means backfilled or copied rows, not a slow importer, so do not tune --grace to it.`
-          : worst > GRACE_DAYS
-            ? `p90 lag is ${worst.toFixed(1)}d but --grace is ${GRACE_DAYS}d, so late-but-normal cuts may be flagged. Consider --grace=${Math.ceil(worst)}.`
-            : `--grace (${GRACE_DAYS}d) covers the observed p90. Measured from the first time each cut was stored, over events from the last 10 weeks.`,
+      note: Number.isFinite(worst)
+        ? suggested < LEAD_DAYS
+          ? `90% of cuts are stored by ${fmt(worst)} from the start, later than --lead=${LEAD_DAYS} assumes, so on-time cuts may be flagged. Consider --lead=${suggested}.`
+          : `--lead=${LEAD_DAYS} covers the observed p90 (${fmt(worst)}).`
+        : '',
     })
   })
 
@@ -523,13 +545,14 @@ async function runChecks(client, rows) {
       for (const [name, event, drawType, v] of cuts) {
         if (v == null) continue
         const min = minPlausibleRank(r.level, event, drawType)
-        if (v < min || v > MAX_CUT[event])
-          bad.push(item(`C1|${ek(r)}|${name}`, `${label(r)} · ${name} cut = ${v} (plausible ${min}–${MAX_CUT[event]})`, r))
+        const max = (r.cat === 'itf' ? MAX_CUT_ITF : MAX_CUT)[event]
+        if (v < min || v > max)
+          bad.push(item(`C1|${ek(r)}|${name}`, `${label(r)} · ${name} cut = ${v} (plausible ${min}–${max})`, r))
       }
     }
     report('C1', 'Impossible cut values', bad, {
       severity: 'critical',
-      note: 'Lower bounds are the app’s own minPlausibleRank; upper bounds are singles 2500, doubles 6000.',
+      note: 'Lower bounds are the app’s own minPlausibleRank. Upper bounds: singles 2500 (ITF 4000), doubles 6000. The app’s /api/cleanup-anomalous-cuts sweeps single-digit parser misreads.',
     })
   })
 
@@ -539,8 +562,8 @@ async function runChecks(client, rows) {
       .filter((r) => r.md_cut != null && r.q_cut != null && r.q_cut < r.md_cut)
       .map((r) => item(`C2|${ek(r)}`, `${label(r)} · MD ${r.md_cut} vs Q ${r.q_cut}`, r))
     report('C2', 'Qualifying cut better than main-draw cut (inverted)', bad, {
-      severity: 'critical',
-      note: 'Physically impossible. Suggests the parser swapped the MD and Q sheets.',
+      severity: (active) => (active.some((i) => i.r.cat !== 'itf') ? 'critical' : 'warn'),
+      note: 'Impossible for ATP / Challenger / Slam, which is critical (a parser misread or swapped sheets). ITF entry lists use different ranking dates per draw, so a small ITF inversion is only a warning.',
     })
   })
 
@@ -606,7 +629,7 @@ async function runChecks(client, rows) {
     const bad = [...counts]
       .filter(([c]) => {
         const v = String(c ?? '').trim()
-        return !v || /^[A-Z]{3}$/.test(v) || /\.\s*$/.test(v)
+        return !v || /^[A-Z]{3}$/.test(v) || (/\.\s*$/.test(v) && !v.includes(','))
       })
       .map(([c, n]) => item(`C6|${c ?? '(null)'}`, `"${c ?? '(null)'}" — ${n} editions`))
     report('C6', 'Malformed country values', bad, {
@@ -631,13 +654,11 @@ async function runChecks(client, rows) {
     const pool = rows.filter((r) => r.cat !== 'itf' && r.start < WINDOW_END)
     const have = pool.filter((r) => r.singles_draw_size != null).length
     const pct = pctOf(have, pool.length)
-    record({
-      id: 'C8',
-      title: 'Draw-size coverage',
-      severity: pct < 50 ? 'warn' : 'info',
-      count: pct,
-      detail: [`singles_draw_size populated: ${have}/${pool.length} (${pct}%)`],
-      note: 'Draw size feeds absorption capacity in the depth model.',
+    const text = `singles_draw_size populated: ${have}/${pool.length} (${pct}%)`
+    report('C8', 'Draw-size coverage', pct < 50 ? [item('C8', text)] : [], {
+      severity: 'warn',
+      detail: pct < 50 ? [] : [text],
+      note: 'Draw size feeds absorption capacity in the depth model. Acknowledge key "C8" if the column is known debt.',
     })
   })
 
@@ -729,7 +750,6 @@ async function runChecks(client, rows) {
     const fails = []
     const detail = []
     for (const r of pool) {
-      const want = `${r.year} · Singles main cut #${r.md_cut}`
       try {
         const res = await get(`/tournaments/${r.slug}`)
         const html = await res.text()
@@ -738,9 +758,13 @@ async function runChecks(client, rows) {
           .replace(/<(script|style)[\s\S]*?<\/\1>/g, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
-        const shown = new RegExp(`${r.year}\\s*·\\s*Singles main cut\\s*#\\s*${r.md_cut}\\b`).test(text)
-        if (res.ok && shown) detail.push(`${r.name} — ${res.status} · "${want}" ✓`)
-        else fails.push(item(`D2|${r.slug}`, `${r.name} — ${res.status} · expected "${want}"  ← FAIL`, r))
+        // The page shows the cut in the edition's detail row, and in a by-year history line once the
+        // tournament has more than one year of data. Either proves the stored number is rendered.
+        const shown =
+          new RegExp(`Singles main PDF source\\s*${r.md_cut}\\b`).test(text) ||
+          new RegExp(`${r.year}\\s*·\\s*Singles main cut\\s*#\\s*${r.md_cut}\\b`).test(text)
+        if (res.ok && shown) detail.push(`${r.name} — ${res.status} · singles main cut #${r.md_cut} shown ✓`)
+        else fails.push(item(`D2|${r.slug}`, `${r.name} — ${res.status} · singles main cut #${r.md_cut} not found on the page  ← FAIL`, r))
       } catch (e) {
         fails.push(item(`D2|${r.slug}`, `${r.name} — ${e.message}  ← FAIL`, r))
       }
