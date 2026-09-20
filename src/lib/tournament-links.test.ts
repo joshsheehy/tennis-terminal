@@ -25,6 +25,17 @@ describe('fridayBefore', () => {
     expect(fridayBefore(null)).toBeNull();
     expect(fridayBefore('not-a-date')).toBeNull();
   });
+
+  it('handles a Date object the same as its equivalent ISO string', () => {
+    // pg returns a `date` column as a native Date at runtime regardless of
+    // what the row's TypeScript type claims. This was the actual "the
+    // flight link shows a random date" bug: appending "T00:00:00Z" to a
+    // stringified Date (not an ISO date string) parses to Invalid Date,
+    // fridayBefore returned null, and googleFlightsUrl silently dropped the
+    // date param, leaving Google Flights to pick its own.
+    expect(fridayBefore(new Date(Date.UTC(2026, 6, 13)))).toBe(fridayBefore('2026-07-13'));
+    expect(fridayBefore(new Date(Date.UTC(2026, 6, 13)))).toBe('2026-07-10');
+  });
 });
 
 describe('googleFlightsUrl', () => {

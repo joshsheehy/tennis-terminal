@@ -49,6 +49,13 @@ function fmtRange(start: string | null, end: string | null): string {
   if (!start) return 'TBD';
   return end ? `${f(start)} – ${f(end)}` : f(start);
 }
+// Weekday included — the flight connector is specifically calling out "this is
+// a Friday," so the day name is the point, not just the date.
+function fmtDay(d: string): string {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).format(
+    new Date(`${d}T00:00:00Z`)
+  );
+}
 
 type Stop = {
   edition: ScheduleRow;
@@ -114,7 +121,22 @@ export default async function SchedulePage({
   const rows = await getEditionsWithCutoffsByIds(ids);
   if (rows.length === 0) redirect('/cuts');
 
-  const stops = await Promise.all(rows.map(resolveStop));
+  // getEditionsWithCutoffsByIds returns rows in the order the ?build= URL
+  // lists their edition IDs — the order tournaments were added in the
+  // Builder, not the order they're actually played. A schedule numbered 1, 2,
+  // 3 with a flight between each pair only makes sense chronologically, and
+  // the flight date/direction below depends on "prev" genuinely being the
+  // stop played right before this one — added out of order, "prev" could be a
+  // tournament weeks away, and the Friday shown had nothing to do with either
+  // leg of the actual trip.
+  const stops = (await Promise.all(rows.map(resolveStop))).sort((a, b) => {
+    const ad = a.edition.start_date;
+    const bd = b.edition.start_date;
+    if (!ad && !bd) return 0;
+    if (!ad) return 1; // undated stops sort last rather than scrambling the itinerary
+    if (!bd) return -1;
+    return ad < bd ? -1 : ad > bd ? 1 : 0;
+  });
 
   const backHref = `/?build=${encodeURIComponent(ids.join(','))}${year ? `&year=${encodeURIComponent(year)}` : ''}`;
   const surfaces = Array.from(new Set(stops.map((s) => s.edition.surface))).filter(Boolean);
@@ -147,47 +169,66 @@ export default async function SchedulePage({
           const sm = singlesNum(findCut(stop.refCutoffs, 'singles', 'main'));
           const sq = singlesNum(findCut(stop.refCutoffs, 'singles', 'qualifying'));
           const dd = doublesNum(findCut(stop.refCutoffs, 'doubles', 'main'), ch);
-          const flights = prev ? googleFlightsUrl(prev.city, e.city, fridayBefore(e.start_date)) : null;
+          // The Friday between this stop and the one before it — always the
+          // Friday immediately ahead of THIS stop's start, so a gap of any
+          // length still lands on the travel day that actually gets you here
+          // on time, not some arbitrary midpoint.
+          const flightDate = prev ? fridayBefore(e.start_date) : null;
+          const flights = prev ? googleFlightsUrl(prev.city, e.city, flightDate) : null;
           return (
-            <div key={e.edition_id} className="sched-card">
-              <div className="sched-card__top">
-                <div className="sched-card__title">
-                  <span className="sched-card__num">{i + 1}</span>
-                  <a href={`/tournaments/${e.slug}`} className="sched-card__name">
-                    {displayName(e.name)}
+            <div key={e.edition_id} className="sched-stop">
+              {prev && flights && (
+                <div className="sched-connector">
+                  <span className="sched-connector__rule" aria-hidden="true" />
+                  <a
+                    href={flights}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="sched-connector__link"
+                    title={`Flights ${prev.city} → ${e.city}`}
+                  >
+                    <span aria-hidden="true">✈︎</span>
+                    {prev.city} → {e.city}
+                    {flightDate && <span className="sched-connector__date">{fmtDay(flightDate)}</span>}
                   </a>
+                  <span className="sched-connector__rule" aria-hidden="true" />
                 </div>
-                <div className="sched-card__dates">
-                  {fmtRange(e.start_date, e.end_date)}
-                  <div>Week {e.week ?? '—'}</div>
+              )}
+              <div className="sched-card">
+                <div className="sched-card__top">
+                  <div className="sched-card__title">
+                    <span className="sched-card__num">{i + 1}</span>
+                    <a href={`/tournaments/${e.slug}`} className="sched-card__name">
+                      {displayName(e.name)}
+                    </a>
+                  </div>
+                  <div className="sched-card__dates">
+                    {fmtRange(e.start_date, e.end_date)}
+                    <div>Week {e.week ?? '—'}</div>
+                  </div>
                 </div>
-              </div>
-              <p className="sched-card__meta">
-                {e.city}{e.country ? `, ${e.country}` : ''} · {e.level} · {e.surface}
-              </p>
+                <p className="sched-card__meta">
+                  {e.city}{e.country ? `, ${e.country}` : ''} · {e.level} · {e.surface}
+                </p>
 
-              <div className="sched-cuts">
-                <CutChip label="Singles MD" value={sm} />
-                <CutChip label="Singles Q" value={sq} />
-                <CutChip label="Doubles" value={dd} />
-              </div>
+                <div className="sched-cuts">
+                  <CutChip label="Singles MD" value={sm} />
+                  <CutChip label="Singles Q" value={sq} />
+                  <CutChip label="Doubles" value={dd} />
+                </div>
 
-              <div className="sched-actions">
-                {flights && (
-                  <a href={flights} target="_blank" rel="noreferrer" className="sched-btn" title={`Flights ${prev!.city} → ${e.city}`}>
-                    ✈︎ Flights
-                  </a>
-                )}
-                {stop.detailSheet ? (
-                  <a href={stop.detailSheet} target="_blank" rel="noreferrer" className="sched-btn">
-                    📄 Detail sheet
-                  </a>
-                ) : (
-                  <span className="sched-btn sched-btn--ghost" aria-disabled="true">📄 No sheet</span>
-                )}
-                {stop.refYear != null && stop.refYear !== e.year && (
-                  <span className="sched-ref">cuts from {stop.refYear}</span>
-                )}
+                <div className="sched-actions">
+                  {stop.detailSheet ? (
+                    <a href={stop.detailSheet} target="_blank" rel="noreferrer" className="sched-btn">
+                      📄 Detail sheet
+                    </a>
+                  ) : (
+                    <span className="sched-btn sched-btn--ghost" aria-disabled="true">📄 No sheet</span>
+                  )}
+                  {stop.refYear != null && stop.refYear !== e.year && (
+                    <span className="sched-ref">cuts from {stop.refYear}</span>
+                  )}
+                </div>
               </div>
             </div>
           );

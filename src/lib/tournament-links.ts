@@ -95,12 +95,23 @@ export function detailSheetUrlForEdition(edition: {
   return code ? detailSheetUrl(code, edition.year) : null;
 }
 
-// The Friday immediately before a date (YYYY-MM-DD) — the natural travel day for
-// the weekend ahead of a Monday main draw. Returns null if unparseable. A date
+// The Friday immediately before a date — the natural travel day for the
+// weekend ahead of a Monday main draw. Returns null if unparseable. A date
 // that already falls on a Friday maps to the previous Friday (a week earlier).
-export function fridayBefore(startISO: string | null | undefined): string | null {
-  if (!startISO) return null;
-  const d = new Date(`${startISO}T00:00:00Z`);
+//
+// Accepts a Date object as well as a 'YYYY-MM-DD' string: pg returns a `date`
+// column as a native Date at runtime regardless of what the TypeScript row
+// type claims, and appending "T00:00:00Z" to a stringified Date (rather than
+// an ISO date string) produces garbage that silently parses to Invalid Date.
+// That was the actual "random dates" bug — not a wrong Friday, but no Friday
+// at all: this returned null, googleFlightsUrl dropped the date param
+// entirely, and Google Flights picked whatever date it felt like.
+export function fridayBefore(startDate: string | Date | null | undefined): string | null {
+  if (!startDate) return null;
+  const iso = startDate instanceof Date
+    ? `${startDate.getUTCFullYear()}-${String(startDate.getUTCMonth() + 1).padStart(2, '0')}-${String(startDate.getUTCDate()).padStart(2, '0')}`
+    : startDate;
+  const d = new Date(`${iso}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return null;
   const dow = d.getUTCDay(); // 0 Sun … 5 Fri … 6 Sat
   const back = ((dow - 5 + 7) % 7) || 7;

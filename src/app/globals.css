@@ -909,6 +909,49 @@ td {
   flex-direction: column;
   gap: 12px;
 }
+.sched-stop {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* The flight leg between this stop and the previous one — its own row
+   between the two cards, not a button tucked inside either one. */
+.sched-connector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+}
+.sched-connector__rule {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--border);
+}
+.sched-connector__link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sched-connector__link:hover { border-color: var(--brand-ink); color: var(--brand-ink); }
+.sched-connector__date {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+.sched-connector__date::before {
+  content: '·';
+  margin-right: 6px;
+  color: var(--text-faint);
+}
 .sched-card {
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -1017,6 +1060,10 @@ td {
   .sched-card__top { flex-direction: column; align-items: flex-start; gap: 2px; }
   .sched-card__dates { text-align: left; }
   .sched-card__meta { margin-left: 0; }
+  .sched-connector__rule { flex: 0 0 12px; }
+  .sched-connector__link { white-space: normal; text-align: center; }
+  .sched-connector__date { display: block; margin-top: 1px; }
+  .sched-connector__date::before { content: none; }
 }
 
 .muted-panel {
