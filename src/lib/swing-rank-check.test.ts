@@ -35,6 +35,23 @@ describe('entryStatus', () => {
     expect(entryStatus(230, ref({ mainAlt: 240 }))).toBe('main'); // only alt on record
   });
 
+  it('says main draw for any ranking when the main draw was not full', () => {
+    expect(entryStatus(1, ref({ mainOpen: true }))).toBe('main');
+    expect(entryStatus(1400, ref({ mainOpen: true }))).toBe('main');
+    // Even if an older year left a cut number behind, the latest reality wins.
+    expect(entryStatus(1400, ref({ mainOpen: true, qualCut: 300 }))).toBe('main');
+  });
+
+  it('puts anyone past the main cut in qualifying when qualifying was not full', () => {
+    expect(entryStatus(180, ref({ mainCut: 230, qualOpen: true }))).toBe('main');
+    expect(entryStatus(900, ref({ mainCut: 230, qualOpen: true }))).toBe('qualifying');
+    expect(entryStatus(900, ref({ qualOpen: true }))).toBe('qualifying');
+  });
+
+  it('still needs a ranking to say anything about an open draw', () => {
+    expect(entryStatus(null, ref({ mainOpen: true }))).toBe('unknown');
+  });
+
   it('is unknown without a rank or without any cut data', () => {
     expect(entryStatus(null, ref({ mainCut: 200 }))).toBe('unknown');
     expect(entryStatus(200, null)).toBe('unknown');

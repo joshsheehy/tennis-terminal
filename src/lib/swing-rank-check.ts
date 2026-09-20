@@ -13,6 +13,10 @@ export type CutReference = {
   qualCut: number | null;
   /** Season the reference cut is from (e.g. 2025 for a 2026 stop). */
   fromYear: number | null;
+  /** The main draw was not full (the sheet reported byes), so any ranking got in. */
+  mainOpen?: boolean;
+  /** The qualifying draw was not full, so any ranking got into qualifying. */
+  qualOpen?: boolean;
 };
 
 /** Singles and doubles reference cuts for one tournament. */
@@ -58,9 +62,12 @@ export function mainDrawCut(ref: CutReference): number | null {
  */
 export function entryStatus(rank: number | null, ref: CutReference | null | undefined): EntryStatus {
   if (rank == null || !Number.isFinite(rank) || !ref) return 'unknown';
+  // A draw that was not full let everyone in, so any ranking entered would have gotten in.
+  if (ref.mainOpen) return 'main';
   const mainT = mainDrawCut(ref);
-  if (mainT == null && ref.qualCut == null) return 'unknown';
   if (mainT != null && rank <= mainT) return 'main';
+  if (ref.qualOpen) return 'qualifying';
+  if (mainT == null && ref.qualCut == null) return 'unknown';
   if (ref.qualCut != null && rank <= ref.qualCut) return 'qualifying';
   return 'out';
 }

@@ -4,7 +4,7 @@
 // combination the nightly job hasn't persisted.
 
 import { unstable_cache } from 'next/cache';
-import { pool } from './db';
+import { pool, ensureByesColumn } from './db';
 import { getAtpWeekForSeason } from './atp-week';
 import { CURRENT_SEASON } from './seasons';
 import {
@@ -100,7 +100,8 @@ const getCachedEvents = unstable_cache(
 // edition in `year`. distinct on (slug, event_type, draw_type) ordered by year
 // desc -> latest cut per draw. Doubles cuts come from either the ATP-style
 // direct-acceptance rank or the Challenger doubles "advanced entry" team cut.
-async function loadReferenceCutoffs(year: number): Promise<Record<string, TournamentCutRefs>> {
+export async function loadReferenceCutoffs(year: number): Promise<Record<string, TournamentCutRefs>> {
+  await ensureByesColumn();
   const result = await pool.query<{
     slug: string;
     from_year: number;
@@ -110,6 +111,7 @@ async function loadReferenceCutoffs(year: number): Promise<Record<string, Tourna
     alt: number | null;
     dbl_adv: number | null;
     dbl_onsite: number | null;
+    byes: number | null;
   }>(
     `
     with relevant as (
@@ -126,12 +128,14 @@ async function loadReferenceCutoffs(year: number): Promise<Record<string, Tourna
       cs.last_direct_acceptance_rank as direct,
       cs.last_alternate_rank as alt,
       cs.challenger_doubles_advanced_cut_rank as dbl_adv,
-      cs.challenger_doubles_onsite_cut_rank as dbl_onsite
+      cs.challenger_doubles_onsite_cut_rank as dbl_onsite,
+      cs.byes_count as byes
     from relevant r
     join tournament_editions te on te.tournament_id = r.id
     join cutoff_snapshots cs on cs.tournament_edition_id = te.id
     where cs.last_direct_acceptance_rank is not null
        or cs.challenger_doubles_advanced_cut_rank is not null
+       or cs.byes_count > 0
     order by r.slug, cs.event_type, cs.draw_type, te.year desc
     `,
     [year]
@@ -146,7 +150,12 @@ async function loadReferenceCutoffs(year: number): Promise<Record<string, Tourna
   for (const row of result.rows) {
     const entry = refs[row.slug] ?? emptyRefs();
     const ref = row.event_type === 'doubles' ? entry.doubles : entry.singles;
-    if (row.draw_type === 'main') {
+    // No number but the sheet reported byes: the draw was not full, so any ranking got in.
+    const open = row.direct == null && row.dbl_adv == null && (row.byes ?? 0) > 0;
+    if (open) {
+      if (row.draw_type === 'main') ref.mainOpen = true;
+      else ref.qualOpen = true;
+    } else if (row.draw_type === 'main') {
       if (row.event_type === 'doubles') {
         // ATP doubles use the direct rank; Challenger doubles the advanced cut.
         ref.mainCut = row.direct ?? row.dbl_adv;

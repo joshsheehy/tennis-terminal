@@ -283,7 +283,9 @@ export default function SwingsView({
       const md = ref.mainAlt ?? ref.mainCut;
       const parts: string[] = [];
       if (md != null) parts.push(`MD #${md}`);
+      else if (ref.mainOpen) parts.push('MD open');
       if (ref.qualCut != null) parts.push(`Q #${ref.qualCut}`);
+      else if (ref.qualOpen) parts.push('Q open');
       return parts.length ? `${ref.fromYear} cut · ${parts.join(' · ')}` : undefined;
     },
     [data.cutRefs]
@@ -1330,7 +1332,7 @@ function BuilderPanel({
                           style={{ color: sMeta.color, borderColor: sMeta.color }}
                           title={
                             ref?.singles.fromYear
-                              ? `Singles ${ref.singles.fromYear} cut — MD ${ref.singles.mainCut ?? '–'}, Q ${ref.singles.qualCut ?? '–'}`
+                              ? `Singles ${ref.singles.fromYear} cut — MD ${ref.singles.mainCut ?? (ref.singles.mainOpen ? 'open' : '–')}, Q ${ref.singles.qualCut ?? (ref.singles.qualOpen ? 'open' : '–')}`
                               : 'No singles cut on record'
                           }
                         >
@@ -1343,7 +1345,7 @@ function BuilderPanel({
                           style={{ color: dMeta.color, borderColor: dMeta.color }}
                           title={
                             ref?.doubles.fromYear
-                              ? `Doubles ${ref.doubles.fromYear} cut — MD ${ref.doubles.mainCut ?? '–'}`
+                              ? `Doubles ${ref.doubles.fromYear} cut — MD ${ref.doubles.mainCut ?? (ref.doubles.mainOpen ? 'open' : '–')}`
                               : 'No doubles cut on record'
                           }
                         >
@@ -1588,6 +1590,12 @@ function TournamentInfoCard({
     refText = `${singlesRef.fromYear} cut — Q #${singlesRef.qualCut}`;
   } else if (draw.key === 'd' && doublesRef?.fromYear != null && (doublesRef.mainAlt ?? doublesRef.mainCut) != null) {
     refText = `${doublesRef.fromYear} cut — MD #${doublesRef.mainAlt ?? doublesRef.mainCut}`;
+  } else if (draw.key === 'm' && singlesRef?.fromYear != null && singlesRef.mainOpen) {
+    refText = `${singlesRef.fromYear} — draw not full, any ranking got in`;
+  } else if (draw.key === 'q' && singlesRef?.fromYear != null && singlesRef.qualOpen) {
+    refText = `${singlesRef.fromYear} — draw not full, any ranking got in`;
+  } else if (draw.key === 'd' && doublesRef?.fromYear != null && doublesRef.mainOpen) {
+    refText = `${doublesRef.fromYear} — draw not full, any ranking got in`;
   }
   const refLine = refText ? <p className="tinfo-line">{refText}</p> : null;
 
