@@ -83,7 +83,6 @@ const ACK_DAYS = 28 // how long --emit-known acknowledgements last
 
 // Upper plausibility bounds. The lower bounds come from the app's own minPlausibleRank.
 const MAX_CUT = { singles: 2500, doubles: 6000 }
-const MAX_CUT_ITF = { singles: 4000, doubles: 6000 } // ITF qualifying cuts of 2500-2700 are normal
 
 // Checks that still run in --only=health mode.
 const HEALTH_CHECKS = new Set(['B1', 'B5', 'E1', 'D1', 'D3'])
@@ -141,7 +140,7 @@ async function loadEditions(client) {
   const byes = (e, d) => (hasByesColumn ? `max(cs.byes_count) ${draw(e, d)}` : 'NULL::int')
   const { rows } = await client.query(
     `SELECT te.id AS edition_id, t.slug, t.name, t.city, t.country, t.latitude, t.longitude,
-            te.year, te.week, te.start_date::text AS start_date, te.level, te.singles_draw_size,
+            te.year, te.week, te.start_date::text AS start_date, te.end_date::text AS end_date, te.level, te.surface, te.singles_draw_size,
             max(cs.last_direct_acceptance_rank) ${draw('singles', 'main')} AS md_cut,
             max(cs.last_direct_acceptance_rank) ${draw('singles', 'qualifying')} AS q_cut,
             max(cs.last_direct_acceptance_rank) ${draw('doubles', 'main')} AS d_rank,
@@ -330,7 +329,7 @@ async function runChecks(client, rows) {
       'A1',
       `Events last week → next ${COVERAGE_WEEKS} week(s) with zero cut data`,
       a1.map((r) => item(`A1|${ek(r)}`, withRejected(r, label(r)), r)),
-      { severity: 'critical', note: `Held ATP / Challenger / Slam events only (ITF is rolled up in B4). Window ${win}. A cut is due ${LEAD_DAYS} day(s) before the event starts (--lead), and no sooner than ${GRACE_DAYS} day(s) after its entry deadline.` }
+      { severity: 'critical', note: `Held ATP / Challenger / Slam events only (ITF cuts are not checked). Window ${win}. A cut is due ${LEAD_DAYS} day(s) before the event starts (--lead), and no sooner than ${GRACE_DAYS} day(s) after its entry deadline.` }
     )
   })
 
@@ -467,17 +466,6 @@ async function runChecks(client, rows) {
     })
   })
 
-  // ── B4. ITF, rolled up (informational) ───────────────────────────────────
-  await check('B4', 'ITF weekly cut coverage', async () => {
-    const detail = []
-    for (let i = -1; i <= 1; i++) {
-      const k = iso(addDays(WEEK_START, i * 7))
-      const itf = rows.filter((r) => r.cat === 'itf' && weekKey(r) === k)
-      detail.push(`week of ${k} — ${itf.length} ITF events, ${itf.filter((r) => r.md_cut != null).length} with a singles main cut`)
-    }
-    record({ id: 'B4', title: 'ITF weekly cut coverage', severity: 'info', count: 0, detail })
-  })
-
   // ── B5. Other pipelines gone quiet ───────────────────────────────────────
   await check('B5', 'Data pipelines gone quiet', async () => {
     const stale = []
@@ -504,6 +492,7 @@ async function runChecks(client, rows) {
   await check('C1', 'Impossible cut values', async () => {
     const bad = []
     for (const r of rows) {
+      if (r.cat === 'itf') continue // ITF cuts are not tracked here
       const cuts = [
         ['singles main', 'singles', 'main', r.md_cut],
         ['singles qualifying', 'singles', 'qualifying', r.q_cut],
@@ -514,25 +503,25 @@ async function runChecks(client, rows) {
       for (const [name, event, drawType, v] of cuts) {
         if (v == null) continue
         const min = minPlausibleRank(r.level, event, drawType)
-        const max = (r.cat === 'itf' ? MAX_CUT_ITF : MAX_CUT)[event]
+        const max = MAX_CUT[event]
         if (v < min || v > max)
           bad.push(item(`C1|${ek(r)}|${name}`, `${label(r)} · ${name} cut = ${v} (plausible ${min}–${max})`, r))
       }
     }
     report('C1', 'Impossible cut values', bad, {
       severity: 'critical',
-      note: 'Lower bounds are the app’s own minPlausibleRank. Upper bounds: singles 2500 (ITF 4000), doubles 6000. The app’s /api/cleanup-anomalous-cuts sweeps single-digit parser misreads.',
+      note: 'Lower bounds are the app’s own minPlausibleRank. Upper bounds: singles 2500, doubles 6000. The app’s /api/cleanup-anomalous-cuts sweeps single-digit parser misreads.',
     })
   })
 
   // ── C2. Qualifying cut better than main-draw cut ─────────────────────────
   await check('C2', 'Qualifying cut better than main-draw cut (inverted)', async () => {
     const bad = rows
-      .filter((r) => r.md_cut != null && r.q_cut != null && r.q_cut < r.md_cut)
+      .filter((r) => r.cat !== 'itf' && r.md_cut != null && r.q_cut != null && r.q_cut < r.md_cut)
       .map((r) => item(`C2|${ek(r)}`, `${label(r)} · MD ${r.md_cut} vs Q ${r.q_cut}`, r))
     report('C2', 'Qualifying cut better than main-draw cut (inverted)', bad, {
-      severity: (active) => (active.some((i) => i.r.cat !== 'itf') ? 'critical' : 'warn'),
-      note: 'Impossible for ATP / Challenger / Slam, which is critical (a parser misread or swapped sheets). ITF entry lists use different ranking dates per draw, so a small ITF inversion is only a warning.',
+      severity: 'critical',
+      note: 'Impossible for ATP / Challenger / Slam: a parser misread or swapped sheets.',
     })
   })
 
@@ -631,6 +620,111 @@ async function runChecks(client, rows) {
     })
   })
 
+  // ── C9. Cut far from the tournament's own history ────────────────────────
+  // A wrong number that is still plausible (a misread that lands on 240 instead of 549) passes every
+  // bounds check. Compared with the same tournament at the same level in earlier years it stands out.
+  let history
+  const loadHistory = async () => {
+    if (history) return history
+    const { rows: h } = await client.query(
+      `SELECT t.slug, te.year, te.level, te.surface,
+              max(cs.last_direct_acceptance_rank) FILTER (WHERE cs.event_type = 'singles' AND cs.draw_type = 'main') AS md_cut
+       FROM tournament_editions te
+       JOIN tournaments t ON t.id = te.tournament_id
+       LEFT JOIN cutoff_snapshots cs ON cs.tournament_edition_id = te.id
+       WHERE te.status = 'held' AND te.start_date IS NOT NULL AND te.start_date >= $1::date
+       GROUP BY te.id, t.id`,
+      [iso(addDays(TODAY, -1900))]
+    )
+    history = new Map()
+    for (const e of h) (history.get(e.slug) ?? history.set(e.slug, []).get(e.slug)).push(e)
+    return history
+  }
+  const median = (xs) => {
+    const sorted = [...xs].sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+  }
+
+  await check('C9', 'Singles main cut far from the tournament’s own history', async () => {
+    const hist = await loadHistory()
+    const bad = []
+    for (const r of rows) {
+      if (!COVERAGE_CATS.has(r.cat) || r.md_cut == null) continue
+      if (r.start < addDays(TODAY, -120) || r.start >= WINDOW_END) continue
+      const prior = (hist.get(r.slug) ?? []).filter((e) => e.year < r.year && e.level === r.level && e.md_cut != null)
+      if (prior.length < 2) continue
+      const typical = median(prior.map((e) => e.md_cut))
+      if (r.md_cut > typical * 2.5 || r.md_cut < typical / 2.5)
+        bad.push(item(`C9|${ek(r)}`, `${label(r)} · cut ${r.md_cut}, but ${prior.length} earlier years at this level had a median of ${Math.round(typical)}`, r))
+    }
+    report('C9', 'Singles main cut far from the tournament’s own history', bad, {
+      severity: 'warn',
+      note: 'Needs two earlier years at the same level and a factor of 2.5 either way. Often a genuine change (weaker field, new level); sometimes a misread that looks plausible.',
+    })
+  })
+
+  // ── C10. Surface changed since last year ─────────────────────────────────
+  await check('C10', 'Surface differs from the tournament’s previous edition', async () => {
+    const hist = await loadHistory()
+    const norm = (v) => String(v ?? '').toLowerCase().replace(/indoor|outdoor|[^a-z]/g, '')
+    const bad = []
+    for (const r of rows) {
+      if (!r.surface || r.cat === 'itf' || r.cat === null) continue
+      if (r.start < addDays(TODAY, -60)) continue
+      const previous = (hist.get(r.slug) ?? []).filter((e) => e.year < r.year && e.surface).sort((a, b) => b.year - a.year)[0]
+      if (previous && norm(previous.surface) !== norm(r.surface))
+        bad.push(item(`C10|${ek(r)}`, `${label(r)} · ${r.surface}, but ${previous.year} was ${previous.surface}`, r))
+    }
+    report('C10', 'Surface differs from the tournament’s previous edition', bad, {
+      severity: 'warn',
+      note: 'Surfaces rarely change. A change is either real news or two records of one event (that is how the Plovdiv duplicate was created).',
+    })
+  })
+
+  // ── C11. Swings that include a cancelled or undated tournament ───────────
+  await check('C11', 'Swings containing a cancelled or undated tournament', async () => {
+    if (!(await tableExists(client, 'swing_events')) || !(await tableExists(client, 'swings'))) {
+      record({ id: 'C11', title: 'Swings containing a cancelled or undated tournament', severity: 'info', count: 0, detail: ['swing tables not present, skipped'] })
+      return
+    }
+    const { rows: hits } = await client.query(
+      `SELECT s.label, s.year, t.slug, t.name, te.status, te.start_date::text AS start_date
+       FROM swing_events se
+       JOIN swings s ON s.id = se.swing_id
+       JOIN tournament_editions te ON te.id = se.tournament_edition_id
+       JOIN tournaments t ON t.id = te.tournament_id
+       WHERE s.year >= $1 AND (te.status <> 'held' OR te.start_date IS NULL)
+       ORDER BY s.year, s.label`,
+      [TODAY.getUTCFullYear()]
+    )
+    report(
+      'C11',
+      'Swings containing a cancelled or undated tournament',
+      hits.map((h) => item(`C11|${h.year}|${h.label}|${h.slug}`, `${h.label} (${h.year}) includes ${h.name}, which is ${h.status === 'held' ? 'undated' : h.status}`)),
+      { severity: 'warn', note: 'Shows visitors a trip that cannot happen. The nightly swing recompute normally drops these.' }
+    )
+  })
+
+  // ── C12. Impossible dates ────────────────────────────────────────────────
+  await check('C12', 'Tournament dates that cannot be right', async () => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const bad = []
+    for (const r of rows) {
+      if (r.cat === 'itf' || r.start < addDays(TODAY, -60)) continue
+      const dow = r.start.getUTCDay()
+      if (dow >= 3) bad.push(item(`C12|${ek(r)}|start`, `${label(r)} · starts on a ${days[dow]}`, r))
+      if (r.end_date) {
+        const span = (dayStart(r.end_date) - r.start) / MS_DAY
+        if (span < 0 || span > 13) bad.push(item(`C12|${ek(r)}|end`, `${label(r)} · ends ${r.end_date}, ${span} days after it starts`, r))
+      }
+    }
+    report('C12', 'Tournament dates that cannot be right', bad, {
+      severity: 'warn',
+      note: 'A tour event starts Sunday to Tuesday and lasts under two weeks. Anything else is a bad date the site shows to visitors.',
+    })
+  })
+
   // ── E1. Deadline-alert emails actually going out ─────────────────────────
   await check('E1', 'Deadline alert emails', async () => {
     if (!(await tableExists(client, 'alert_subscribers')) || !(await tableExists(client, 'alert_sends'))) {
@@ -680,7 +774,7 @@ async function runChecks(client, rows) {
     const pages = [
       ['/', 2000], ['/cuts', 2000], ['/schedule', 2000], ['/alerts', 2000],
       ['/swings', 2000], ['/depth', 2000], ['/lists', 2000],
-      ['/sitemap.xml', 50], ['/robots.txt', 20],
+      ['/ds', 2000], ['/sitemap.xml', 50], ['/robots.txt', 20],
     ]
     const out = []
     let bad = 0
