@@ -4,7 +4,7 @@ import { getEditionsWithCutoffsByIds, getTournamentDetailRowsBySlug, getItfPrior
 import type { TournamentDetailRow } from '@/lib/db';
 import { CutoffSnapshot, ScheduleRow } from '@/lib/types';
 import { CURRENT_SEASON, EARLIEST_SEASON } from '@/lib/seasons';
-import { detailSheetUrlForEdition, fridayBefore, googleFlightsUrl } from '@/lib/tournament-links';
+import { fridayBefore, googleFlightsUrl } from '@/lib/tournament-links';
 import ScheduleShareButton from '@/components/ScheduleShareButton';
 
 export const dynamic = 'force-dynamic';
@@ -63,7 +63,6 @@ type Stop = {
   // most recent prior year with data — labelled so it's clear it's a reference).
   refCutoffs: CutoffSnapshot[];
   refYear: number | null;
-  detailSheet: string | null;
 };
 
 // Pick the cut data to display for a stop: this edition's own cuts if present,
@@ -71,18 +70,17 @@ type Stop = {
 // (ATP/Challenger by slug; ITF by tier + city + week).
 async function resolveStop(row: TournamentDetailRow): Promise<Stop> {
   const edition = row.edition;
-  const detailSheet = detailSheetUrlForEdition(edition);
 
   if (hasAnyCut(row.cutoffs)) {
-    return { edition, refCutoffs: row.cutoffs, refYear: edition.year, detailSheet };
+    return { edition, refCutoffs: row.cutoffs, refYear: edition.year };
   }
 
   if (isItf(edition.level)) {
     const itf = await getItfPriorYearCutEditions(edition.level, edition.city, edition.week, edition.year);
     if (itf.length && hasAnyCut(itf[0].cutoffs)) {
-      return { edition, refCutoffs: itf[0].cutoffs, refYear: itf[0].edition.year, detailSheet };
+      return { edition, refCutoffs: itf[0].cutoffs, refYear: itf[0].edition.year };
     }
-    return { edition, refCutoffs: [], refYear: null, detailSheet };
+    return { edition, refCutoffs: [], refYear: null };
   }
 
   const history = await getTournamentDetailRowsBySlug(
@@ -92,8 +90,8 @@ async function resolveStop(row: TournamentDetailRow): Promise<Stop> {
   );
   const ref = history.find((h) => hasAnyCut(h.cutoffs));
   return ref
-    ? { edition, refCutoffs: ref.cutoffs, refYear: ref.edition.year, detailSheet }
-    : { edition, refCutoffs: [], refYear: null, detailSheet };
+    ? { edition, refCutoffs: ref.cutoffs, refYear: ref.edition.year }
+    : { edition, refCutoffs: [], refYear: null };
 }
 
 function CutChip({ label, value }: { label: string; value: number | null }) {
@@ -218,13 +216,6 @@ export default async function SchedulePage({
                 </div>
 
                 <div className="sched-actions">
-                  {stop.detailSheet ? (
-                    <a href={stop.detailSheet} target="_blank" rel="noreferrer" className="sched-btn">
-                      📄 Detail sheet
-                    </a>
-                  ) : (
-                    <span className="sched-btn sched-btn--ghost" aria-disabled="true">📄 No sheet</span>
-                  )}
                   {stop.refYear != null && stop.refYear !== e.year && (
                     <span className="sched-ref">cuts from {stop.refYear}</span>
                   )}

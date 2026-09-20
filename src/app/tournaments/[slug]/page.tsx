@@ -9,11 +9,6 @@ import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { CURRENT_SEASON, EARLIEST_SEASON, isAvailableSeason } from '@/lib/seasons';
 import { backLinkFor } from '@/lib/back-link';
 import { SITE_NAME, SITE_URL } from '@/lib/brand';
-import {
-  detailSheetUrl,
-  levelGetsDetailSheet,
-  resolveTournamentPtlCode,
-} from '@/lib/tournament-links';
 
 // Look up the most recent protennislive_code we know for a slug, so the
 // CutoffTable can render a "PDF source" link even when no cuts snapshot
@@ -457,15 +452,6 @@ export default async function TournamentDetailPage({
   const viewedRow = rows.find((r) => r.edition.year === year) ?? rows[0];
   const current = viewedRow.edition;
 
-  // One code for the whole tournament: the detail sheet exists per year under
-  // the same code, so every edition gets a link as long as any of them knows
-  // it. The cut snapshots are searched as well as the edition rows, since a
-  // calendar-discovered event often carries the code only there.
-  const tournamentPtlCode = resolveTournamentPtlCode(slug, [
-    ...rows.map((row) => row.edition.source_url),
-    ...rows.flatMap((row) => row.cutoffs.map((cutoff) => cutoff.source_notes)),
-  ]);
-
   // ITF events have no fixed code and each week is its own slug, so a current
   // ITF edition with no cut data (e.g. 2026, before that season's strength
   // sheet exists) can't show its own history. Pull the nearest prior-year
@@ -554,7 +540,6 @@ export default async function TournamentDetailPage({
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
         {rows.map((row, i) => {
           const prevRow = rows[i + 1] ?? null;
-          const detailCode = levelGetsDetailSheet(row.edition.level) ? tournamentPtlCode : null;
           return (
           <div
             key={row.edition.edition_id}
@@ -573,17 +558,6 @@ export default async function TournamentDetailPage({
                   )}
                 </h3>
                 <p className="edition-card__meta">{editionSummary(row.edition)}</p>
-                {detailCode && (
-                  <a
-                    href={detailSheetUrl(detailCode, row.edition.year)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="src-link"
-                    style={{ marginTop: 6 }}
-                  >
-                    Tournament detail sheet ↗
-                  </a>
-                )}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span className="pill-note">
