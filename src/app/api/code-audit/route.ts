@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, ensureByesColumn } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 
 export const runtime = 'nodejs';
@@ -41,6 +41,7 @@ function normalizeCity(city: string) {
 }
 
 export async function GET(request: NextRequest) {
+  await ensureByesColumn();
   const year = Number(request.nextUrl.searchParams.get('year') ?? new Date().getFullYear());
   if (!Number.isInteger(year)) {
     return NextResponse.json({ ok: false, error: 'Invalid year' }, { status: 400 });
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
         where cs.tournament_edition_id = te.id
           and cs.event_type = 'singles'
           and cs.draw_type = 'main'
-          and cs.last_direct_acceptance_rank is not null
+          and (cs.last_direct_acceptance_rank is not null or cs.byes_count is not null)
       )
     order by te.start_date desc
     `,

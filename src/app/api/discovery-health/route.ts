@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, ensureByesColumn } from '@/lib/db';
 
 // Events with no cut to find and no fix a sync can apply, so counting them as
 // coverage failures would make the gate unpassable for reasons unrelated to
@@ -100,7 +100,7 @@ async function checkRecentCutCoverage(year: number) {
         where cs.tournament_edition_id = te.id
           and cs.event_type = 'singles'
           and cs.draw_type = 'main'
-          and cs.last_direct_acceptance_rank is not null
+          and (cs.last_direct_acceptance_rank is not null or cs.byes_count is not null)
       ))::int as with_cut
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
@@ -194,7 +194,7 @@ async function weeklyCutCoverage(year: number) {
              where cs.tournament_edition_id = te.id
                and cs.event_type = 'singles'
                and cs.draw_type = 'main'
-               and cs.last_direct_acceptance_rank is not null
+               and (cs.last_direct_acceptance_rank is not null or cs.byes_count is not null)
            ) as has_cut
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
@@ -277,6 +277,7 @@ async function recentlyCancelled(year: number) {
 }
 
 export async function GET() {
+  await ensureByesColumn();
   const year = new Date().getFullYear();
 
   const rows = await pool.query<{
