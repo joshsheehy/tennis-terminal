@@ -42,14 +42,25 @@ describe('googleFlightsUrl', () => {
   it('pins the one-way date when given', () => {
     const url = googleFlightsUrl('Cary', 'Newport', '2026-07-10');
     expect(decodeURIComponent(url)).toContain(
-      'One-way flights to Newport from Cary on 2026-07-10'
+      'one-way flights to Newport from Cary on 2026-07-10'
     );
   });
 
   it('omits the date clause when none is given', () => {
     const url = googleFlightsUrl('Cary', 'Newport');
-    expect(decodeURIComponent(url)).toContain('One-way flights to Newport from Cary');
+    expect(decodeURIComponent(url)).toContain('one-way flights to Newport from Cary');
     expect(url).not.toContain('%20on%20');
+  });
+
+  it('goes through plain web search, not the travel/flights mini-app', () => {
+    // travel/flights?q=... stopped parsing its query entirely — loading it
+    // directly in a real browser came back with both city fields blank, no
+    // date, and "Round trip" still selected. Regular web search still runs
+    // the query through Google's general language understanding and surfaces
+    // a flights result inline, so that's the endpoint this has to hit.
+    const url = googleFlightsUrl('Cary', 'Newport', '2026-07-10');
+    expect(url.startsWith('https://www.google.com/search?q=')).toBe(true);
+    expect(url).not.toContain('travel/flights');
   });
 });
 

@@ -118,18 +118,38 @@ export function fridayBefore(startDate: string | Date | null | undefined): strin
   return new Date(d.getTime() - back * 86400000).toISOString().slice(0, 10);
 }
 
-// Google Flights deep link for a leg. Google reliably parses a natural-language
-// query, and city names are what we have (no airport codes in the data). We
-// lead with "One-way" so it doesn't default to a round trip — each leg of a
-// swing is a one-way hop to the next stop — and pin the date to the Friday
-// between the two tournaments when we know it.
+// A flight search link for a leg, built from a natural-language query. City
+// names are what we have (no airport codes in the data), so the query has to
+// stay free text — but WHICH Google endpoint that text goes to matters.
+//
+// google.com/travel/flights?q=... — what this used to point at — no longer
+// parses the query at all. Loaded it directly in a real browser: "Where
+// from?" and "Where to?" both came back blank, the date was empty, and the
+// trip-type toggle stayed on "Round trip." Every flight link on the site was
+// silently landing on an empty search form, not a wrong-but-plausible one —
+// that's what a user reported as "came up with Toulouse to nowhere": Google's
+// own fallback for an unparsed query, not anything derived from our data.
+//
+// google.com/search?q=... — plain web search — still runs the query through
+// Google's general-purpose language understanding rather than the travel
+// mini-app's own (evidently abandoned) parser, and surfaces its flights rich
+// result inline on the results page for a signed-in real user. Can't get an
+// automated before/after screenshot of that box from here — Google's bot
+// defenses correctly block headless traffic hitting search directly, same as
+// they should — so this is architecturally the sound choice (the confirmed
+// state of the old endpoint make that easy) rather than something proven
+// working end to end. Worth an actual click-through after deploy.
+//
+// "One-way" leads the query since each leg of a swing is a one-way hop to the
+// next stop, not a round trip, and the date pins to the Friday between the
+// two tournaments when we know it.
 export function googleFlightsUrl(
   fromCity: string,
   toCity: string,
   dateISO?: string | null
 ): string {
   const q = dateISO
-    ? `One-way flights to ${toCity} from ${fromCity} on ${dateISO}`
-    : `One-way flights to ${toCity} from ${fromCity}`;
-  return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
+    ? `one-way flights to ${toCity} from ${fromCity} on ${dateISO}`
+    : `one-way flights to ${toCity} from ${fromCity}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 }
