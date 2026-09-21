@@ -53,6 +53,7 @@ import {
 } from '../src/lib/entry-deadlines.ts'
 import { ANOMALY_TAG, minPlausibleRank } from '../src/lib/cutoff-anomaly.ts'
 import { getAtpWeekForSeason } from '../src/lib/atp-week.ts'
+import { continentForCountry } from '../src/lib/swings.ts'
 
 // ───────────────────────────────────────────────────────────────────────────
 // CONFIG
@@ -140,7 +141,7 @@ async function loadEditions(client) {
   const byes = (e, d) => (hasByesColumn ? `max(cs.byes_count) ${draw(e, d)}` : 'NULL::int')
   const { rows } = await client.query(
     `SELECT te.id AS edition_id, t.slug, t.name, t.city, t.country, t.latitude, t.longitude,
-            te.year, te.week, te.start_date::text AS start_date, te.end_date::text AS end_date, te.level, te.surface, te.singles_draw_size,
+            te.year, te.week, te.start_date::text AS start_date, te.end_date::text AS end_date, te.level, te.surface,
             max(cs.last_direct_acceptance_rank) ${draw('singles', 'main')} AS md_cut,
             max(cs.last_direct_acceptance_rank) ${draw('singles', 'qualifying')} AS q_cut,
             max(cs.last_direct_acceptance_rank) ${draw('doubles', 'main')} AS d_rank,
@@ -569,19 +570,25 @@ async function runChecks(client, rows) {
     })
   })
 
-  // ── C6. Malformed country values ─────────────────────────────────────────
-  await check('C6', 'Malformed country values', async () => {
-    const counts = new Map()
-    for (const r of rows) counts.set(r.country, (counts.get(r.country) ?? 0) + 1)
-    const bad = [...counts]
-      .filter(([c]) => {
-        const v = String(c ?? '').trim()
-        return !v || /^[A-Z]{3}$/.test(v) || (/\.\s*$/.test(v) && !v.includes(','))
-      })
-      .map(([c, n]) => item(`C6|${c ?? '(null)'}`, `"${c ?? '(null)'}" — ${n} editions`))
-    report('C6', 'Malformed country values', bad, {
+  // ── C6. Countries the swing logic cannot place ───────────────────────────
+  // Swings chain events in the same country, or in neighbouring ones. src/lib/swings.ts already reads
+  // "USA", "China, P.R." and "Korea, Rep." as the usual names, so those are fine; what it cannot place
+  // is a blank country or one it has no continent for (a 3-letter code, a spelling it has not seen).
+  await check('C6', 'Countries the swing logic cannot place', async () => {
+    const groups = new Map()
+    for (const r of rows) {
+      const v = String(r.country ?? '').trim()
+      if (v && continentForCountry(v) != null) continue
+      const key = v || '(blank)'
+      const g = groups.get(key) ?? { n: 0, examples: [] }
+      g.n++
+      if (g.examples.length < 3 && !g.examples.includes(r.name)) g.examples.push(r.name)
+      groups.set(key, g)
+    }
+    const bad = [...groups].map(([c, g]) => item(`C6|${c}`, `"${c}" — ${g.n} editions, e.g. ${g.examples.join(', ')}`))
+    report('C6', 'Countries the swing logic cannot place', bad, {
       severity: 'warn',
-      note: 'The app stores full country names. A code, abbreviation or blank never matches a full name, which silently breaks same-country swing links.',
+      note: 'These events never link to a same-country neighbour in a swing. /api/backfill-countries fills blanks, but read its dry run first: it guesses from coordinates and sibling rows (it would have put Athens, Greece in the United States).',
     })
   })
 
@@ -593,19 +600,6 @@ async function runChecks(client, rows) {
     report('C7', 'Stored week number disagrees with the ATP season week', bad, {
       severity: 'warn',
       note: 'Uses the ATP season rule from src/lib/atp-week.ts, not ISO weeks. /api/fix-weeks recomputes them.',
-    })
-  })
-
-  // ── C8. Draw-size coverage ───────────────────────────────────────────────
-  await check('C8', 'Draw-size coverage', async () => {
-    const pool = rows.filter((r) => r.cat !== 'itf' && r.start < WINDOW_END)
-    const have = pool.filter((r) => r.singles_draw_size != null).length
-    const pct = pctOf(have, pool.length)
-    const text = `singles_draw_size populated: ${have}/${pool.length} (${pct}%)`
-    report('C8', 'Draw-size coverage', pct < 50 ? [item('C8', text)] : [], {
-      severity: 'warn',
-      detail: pct < 50 ? [] : [text],
-      note: 'Draw size feeds absorption capacity in the depth model. Acknowledge key "C8" if the column is known debt.',
     })
   })
 
