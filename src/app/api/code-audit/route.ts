@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, ensureByesColumn } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { overrideCodeFor } from '@/lib/ptl-code-overrides';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -128,6 +129,14 @@ export async function GET(request: NextRequest) {
       ? row.start_date.toISOString().slice(0, 10)
       : (row.start_date as string | null);
     const base = { slug: row.slug, city: row.city, level: row.level, week: row.week, startDate: iso };
+
+    // A code confirmed by hand in ptl-code-overrides.ts. cut-sync builds its fetch list from this report,
+    // so an override that only /api/import-cutoffs read never reached the runner that collects cuts.
+    const override = overrideCodeFor(row.slug);
+    if (override) {
+      alreadyHaveCode.push({ ...base, code: override, from: 'ptl-code-overrides.ts' });
+      continue;
+    }
 
     const own = codeBySlug.get(row.slug);
     if (own) {
