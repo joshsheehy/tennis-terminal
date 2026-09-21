@@ -221,7 +221,8 @@ const CONTINENTS: Record<string, string[]> = {
     'algeria', 'angola', 'benin', 'botswana', 'burkina faso', 'burundi',
     'cameroon', "cote d'ivoire", "côte d'ivoire", 'egypt', 'ethiopia',
     'gabon', 'ghana', 'kenya', 'libya', 'madagascar', 'malawi', 'mali',
-    'mauritius', 'morocco', 'mozambique', 'namibia', 'nigeria', 'rwanda',
+    'mauritius', 'morocco', 'mozambique', 'namibia', 'nigeria',
+    'republic of the congo', 'rwanda',
     'senegal', 'seychelles', 'south africa', 'sudan', 'tanzania', 'togo',
     'tunisia', 'uganda', 'zambia', 'zimbabwe',
   ],
@@ -250,7 +251,12 @@ const COUNTRY_TO_CONTINENT: Map<string, string> = new Map(
 
 export function continentForCountry(country: string | null): string | null {
   if (!country) return null;
-  return COUNTRY_TO_CONTINENT.get(country.toLowerCase().trim()) ?? null;
+  // Try the spelling as given, then its canonical name, so an alias such as "URU" inherits Uruguay's continent.
+  return (
+    COUNTRY_TO_CONTINENT.get(country.toLowerCase().trim()) ??
+    COUNTRY_TO_CONTINENT.get(countryKey(country)) ??
+    null
+  );
 }
 
 // Short display names for labels and tier strings.
@@ -267,6 +273,12 @@ const COUNTRY_DISPLAY: Record<string, string> = {
   'korea, rep.': 'South Korea',
   'czech republic': 'Czechia',
   'united arab emirates': 'UAE',
+  // Spellings other data sources use: the current official name, and 3-letter codes.
+  turkiye: 'Turkey',
+  'türkiye': 'Turkey',
+  uru: 'Uruguay',
+  per: 'Peru',
+  den: 'Denmark',
 };
 
 export function countryDisplayName(country: string): string {

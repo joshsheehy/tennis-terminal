@@ -5,6 +5,7 @@ import {
   allLevelScopes,
   areNeighboringCountries,
   continentForCountry,
+  countryDisplayName,
   detectSwings,
   eventsConnect,
   formatTierMix,
@@ -68,6 +69,16 @@ describe('continentForCountry', () => {
     expect(continentForCountry(null)).toBeNull();
     expect(continentForCountry('Atlantis')).toBeNull();
   });
+
+  it('understands other data sources’ spellings and 3-letter codes', () => {
+    expect(continentForCountry('Turkiye')).toBe('Europe');
+    expect(continentForCountry('URU')).toBe('South America');
+    expect(continentForCountry('PER')).toBe('South America');
+    expect(continentForCountry('DEN')).toBe('Europe');
+    expect(continentForCountry('Republic of the Congo')).toBe('Africa');
+    expect(countryDisplayName('PER')).toBe('Peru');
+    expect(countryDisplayName('Turkiye')).toBe('Turkey');
+  });
 });
 
 describe('eventsConnect', () => {
@@ -76,6 +87,19 @@ describe('eventsConnect', () => {
     const b = ev({ ...newYork, week: 2 });
     expect(haversineKm(a.latitude!, a.longitude!, b.latitude!, b.longitude!)).toBeGreaterThan(600);
     expect(eventsConnect(a, b)).toBe(true);
+  });
+
+  it('treats a country code, a variant spelling and the full name as one country', () => {
+    const montevideo = { latitude: -34.9, longitude: -56.16 };
+    const paysandu = { latitude: -32.32, longitude: -58.08 };
+    expect(eventsConnect(ev({ country: 'URU', ...montevideo, week: 1 }), ev({ country: 'Uruguay', ...paysandu, week: 2 }))).toBe(true);
+    expect(eventsConnect(ev({ country: 'Turkiye', latitude: 41.0, longitude: 28.98, week: 1 }), ev({ country: 'Turkey', latitude: 36.9, longitude: 30.7, week: 2 }))).toBe(true);
+  });
+
+  it('lets an aliased country hop to a neighbour within the km threshold', () => {
+    // Istanbul -> Thessaloniki (Turkey/Greece) and Copenhagen -> Malmo (Denmark/Sweden) are under 600 km.
+    expect(eventsConnect(ev({ country: 'Turkiye', latitude: 41.01, longitude: 28.98, week: 1 }), ev({ country: 'Greece', latitude: 40.64, longitude: 22.94, week: 2 }))).toBe(true);
+    expect(eventsConnect(ev({ country: 'DEN', latitude: 55.68, longitude: 12.57, week: 1 }), ev({ country: 'Sweden', latitude: 55.6, longitude: 13.0, week: 2 }))).toBe(true);
   });
 
   it('connects same-country pairs even without coordinates', () => {

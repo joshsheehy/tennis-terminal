@@ -42,6 +42,11 @@ const COUNTRY_ALIASES: Record<string, string> = {
   'korea, rep.': 'South Korea',
   'great britain': 'United Kingdom',
   usa: 'United States',
+  turkiye: 'Turkey',
+  'türkiye': 'Turkey',
+  uru: 'Uruguay',
+  per: 'Peru',
+  den: 'Denmark',
 };
 
 // Same idea for individual city spellings that consistently miss.

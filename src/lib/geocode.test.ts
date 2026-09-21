@@ -154,6 +154,13 @@ describe('normalizeCountryForGeocoding', () => {
     expect(normalizeCountryForGeocoding('USA')).toBe('United States');
   });
 
+  it('maps 3-letter codes and the Turkiye spelling to names Nominatim knows', () => {
+    expect(normalizeCountryForGeocoding('URU')).toBe('Uruguay');
+    expect(normalizeCountryForGeocoding('PER')).toBe('Peru');
+    expect(normalizeCountryForGeocoding('DEN')).toBe('Denmark');
+    expect(normalizeCountryForGeocoding('Turkiye')).toBe('Turkey');
+  });
+
   it('passes through ordinary countries and null', () => {
     expect(normalizeCountryForGeocoding('France')).toBe('France');
     expect(normalizeCountryForGeocoding(null)).toBeNull();
