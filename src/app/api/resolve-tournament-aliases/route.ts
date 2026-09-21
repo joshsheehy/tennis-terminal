@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { mergeTournaments } from '@/lib/merge-tournament';
 import { TOURNAMENT_ALIASES } from '@/lib/tournament-aliases';
+import { SURFACE_OVERRIDES } from '@/lib/surface-overrides';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,12 +68,39 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Surface overrides (surface-overrides.ts): re-assert a known surface on every year of a tournament.
+  const surfaceOverrides: Array<{ slug: string; surface: string; editions: number; years: number[] }> = [];
+  for (const override of SURFACE_OVERRIDES) {
+    const wrong = await pool.query<{ id: string; year: number }>(
+      `select te.id, te.year
+       from tournament_editions te
+       join tournaments t on t.id = te.tournament_id
+       where t.slug = $1
+         and (te.surface is distinct from $2 or te.indoor is distinct from $3)
+       order by te.year`,
+      [override.slug, override.surface, override.indoor]
+    );
+    if (apply && wrong.rows.length) {
+      await pool.query(
+        `update tournament_editions set surface = $1, indoor = $2, updated_at = now() where id = any($3::uuid[])`,
+        [override.surface, override.indoor, wrong.rows.map((r) => r.id)]
+      );
+    }
+    surfaceOverrides.push({
+      slug: override.slug,
+      surface: override.surface,
+      editions: wrong.rows.length,
+      years: wrong.rows.map((r) => r.year),
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     apply,
     results,
+    surfaceOverrides,
     note: apply
       ? undefined
-      : 'Dry run: reports which aliases currently have a row to merge. Re-run with &apply=true.',
+      : 'Dry run: reports which aliases currently have a row to merge, and which editions a surface override would change. Re-run with &apply=true.',
   });
 }
