@@ -56,6 +56,8 @@ export const PTL_CODE_OVERRIDES: Record<string, PtlCodeOverride> = {
   'phan-thiet-4': { code: '3139', confirmedFor: 2026, header: 'SPORT FESTIVAL CHALLENGER II — Phan Thiet, Vietnam' },
   'plovdiv-2': { code: '3169', confirmedFor: 2026, header: 'PLOVDIV CHALLENGER — Plovdiv, Bulgaria' },
   'plovdiv-3': { code: '3171', confirmedFor: 2026, header: 'PLOVDIV CHALLENGER 3 — Plovdiv, Bulgaria' },
+  'plovdiv-4': { code: '3173', confirmedFor: 2026, header: 'PLOVDIV CHALLENGER 4 — Plovdiv, Bulgaria' },
+  'san-diego-2': { code: '3175', confirmedFor: 2026, header: 'TENNIS WAREHOUSE OPEN — San Diego, CA, U.S.A.' },
   'kingston-1': { code: '3121', confirmedFor: 2026, header: 'Kingston Open 1 — Kingston, Jamaica' },
   'kingston-2': { code: '3129', confirmedFor: 2026, header: 'Kingston Open 2 — Kingston, Jamaica' },
   'roehampton-1': { code: '3123', confirmedFor: 2026, header: 'LEXUS ROEHAMPTON CHALLENGER — Roehampton, Great Britain' },
