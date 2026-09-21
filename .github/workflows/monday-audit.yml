@@ -121,6 +121,7 @@ jobs:
           SITE_URL: https://tenniscuts.com
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ github.token }} # lets the audit read the run history of the scheduled jobs
           MODE: ${{ steps.mode.outputs.mode }}
           WEEKS: ${{ inputs.weeks || '2' }}
           GRACE: ${{ inputs.grace || '3' }}

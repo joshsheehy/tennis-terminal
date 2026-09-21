@@ -20,6 +20,7 @@
  *   npx tsx scripts/monday-audit.mjs --previous=state.json  # diff against an earlier run's state
  *   npx tsx scripts/monday-audit.mjs --emit-known         # write current findings into the acknowledgements file
  *   npx tsx scripts/monday-audit.mjs --skip-site          # database checks only
+ *   npx tsx scripts/monday-audit.mjs --skip-ptl           # do not probe protennislive.com for missing sheets
  *
  * ACKNOWLEDGING KNOWN GAPS
  *   Some events can never get a cut (no ProTennisLive code, sheet never published).
@@ -45,6 +46,7 @@
 import pg from 'pg'
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import tls from 'node:tls'
 import {
   categoryForLevel,
   deadlinesForEdition,
@@ -52,8 +54,9 @@ import {
   mondayOfWeekUtc,
 } from '../src/lib/entry-deadlines.ts'
 import { ANOMALY_TAG, minPlausibleRank } from '../src/lib/cutoff-anomaly.ts'
+import { resolveTournamentPtlCode } from '../src/lib/tournament-links.ts'
+import { overrideCodeFor } from '../src/lib/ptl-code-overrides.ts'
 import { getAtpWeekForSeason } from '../src/lib/atp-week.ts'
-import { continentForCountry } from '../src/lib/swings.ts'
 
 // ───────────────────────────────────────────────────────────────────────────
 // CONFIG
@@ -67,6 +70,7 @@ const OPT = (n, d) => ARGS.find((a) => a.startsWith(`--${n}=`))?.split('=')[1] ?
 const DRY_RUN = FLAG('dry-run')
 const EMIT_KNOWN = FLAG('emit-known')
 const SKIP_SITE = FLAG('skip-site') || EMIT_KNOWN
+const SKIP_PTL = FLAG('skip-ptl') || SKIP_SITE // no calls to protennislive.com
 const HEALTH_ONLY = OPT('only') === 'health'
 const COVERAGE_WEEKS = parseInt(OPT('weeks', '2'), 10) // current week + N-1 ahead
 // A cut can only exist once its entry list is posted, which is after the deadline.
@@ -86,13 +90,22 @@ const ACK_DAYS = 28 // how long --emit-known acknowledgements last
 const MAX_CUT = { singles: 2500, doubles: 6000 }
 
 // Checks that still run in --only=health mode.
-const HEALTH_CHECKS = new Set(['B1', 'B5', 'E1', 'D1', 'D3'])
+const HEALTH_CHECKS = new Set(['B1', 'B5', 'B6', 'E1', 'D1', 'D3', 'D4', 'D5', 'D6'])
 
 // Pipelines with a known cadence, and how long silence is tolerated before it is suspicious.
 // Each is skipped quietly if its table does not exist in this database.
 const FRESHNESS = [
   { name: 'Public entry-list sync', table: 'entry_list_source_status', column: 'last_checked_at', maxHours: 48, cadence: 'hourly' },
-  { name: 'Swings recompute', table: 'swings', column: 'computed_at', maxHours: 72, cadence: 'daily' },
+]
+
+// Scheduled workflows that keep the data fresh, and how long without a successful scheduled run is
+// too long. GitHub starts scheduled runs late (up to a few hours), so these are generous.
+const SCHEDULED_JOBS = [
+  { file: 'cut-sync.yml', name: 'Cut sync', cadence: 'twice a day', maxHours: 30 },
+  { file: 'data-sync.yml', name: 'Nightly data sync', cadence: 'daily', maxHours: 50 },
+  { file: 'official-calendar-sync.yml', name: 'Official calendar sync', cadence: 'daily', maxHours: 50 },
+  { file: 'deadline-alerts.yml', name: 'Deadline alerts', cadence: 'hourly', maxHours: 6 },
+  { file: 'public-entry-list-sync.yml', name: 'Entry list sync', cadence: 'hourly', maxHours: 6 },
 ]
 
 const SLOW_MS = 8000
@@ -140,7 +153,7 @@ async function loadEditions(client) {
     )).rowCount > 0
   const byes = (e, d) => (hasByesColumn ? `max(cs.byes_count) ${draw(e, d)}` : 'NULL::int')
   const { rows } = await client.query(
-    `SELECT te.id AS edition_id, t.slug, t.name, t.city, t.country, t.latitude, t.longitude,
+    `SELECT te.id AS edition_id, t.slug, t.name, t.city, t.country,
             te.year, te.week, te.start_date::text AS start_date, te.end_date::text AS end_date, te.level, te.surface,
             max(cs.last_direct_acceptance_rank) ${draw('singles', 'main')} AS md_cut,
             max(cs.last_direct_acceptance_rank) ${draw('singles', 'qualifying')} AS q_cut,
@@ -309,12 +322,130 @@ async function get(path) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// WHY IS A CUT MISSING?
+// ───────────────────────────────────────────────────────────────────────────
+// A missing cut has very different causes and only some are a fault. Each one is classified:
+//   posted       the sheet is up on ProTennisLive and was not imported: the sync is broken for it
+//   needs-code   no ProTennisLive code is known, so the sync cannot even look: a manual fix
+//   cancelled    a code is known but the sheet was never published and the event has started
+//   waiting      a code is known and ProTennisLive simply has not published the sheet yet: nothing to do
+//   unknown      ProTennisLive would not answer
+
+const CAUSE_TEXT = {
+  posted: '📥 the sheet is posted on ProTennisLive but was not imported',
+  'needs-code': '🔑 no ProTennisLive code found (add one to src/lib/ptl-code-overrides.ts)',
+  waiting: '⏳ ProTennisLive has not published the sheet yet',
+  cancelled: '⚠️ never published and the event has started, so likely cancelled (see src/lib/cancelled-editions.ts)',
+  unknown: '❓ could not reach ProTennisLive to check',
+}
+const SEVERITY_RANK = { info: 0, warn: 1, critical: 2 }
+const MAX_PTL_PROBES = 16
+const PTL_HEADERS = {
+  'user-agent': 'Mozilla/5.0 (compatible; TennisCutsBot/1.0)',
+  accept: 'application/pdf,*/*;q=0.8',
+  referer: 'https://www.protennislive.com/',
+}
+
+/** posted | absent | refused | error. ProTennisLive answers 200 with a 2616-byte page when a code
+ * exists but nothing is published, and a ~1245-byte page when there is no such posting. */
+async function probeSheet(code, year) {
+  try {
+    const res = await fetch(`https://www.protennislive.com/posting/${year}/${code}/mds.pdf`, {
+      headers: PTL_HEADERS,
+      signal: AbortSignal.timeout(20000),
+    })
+    if (res.status === 429 || res.status === 503) return 'refused'
+    if (res.status === 404 || res.status === 410) return 'absent'
+    if (!res.ok) return 'error'
+    return (await res.arrayBuffer()).byteLength > 3000 ? 'posted' : 'absent'
+  } catch {
+    return 'error'
+  }
+}
+
+/** Every ProTennisLive URL any edition or cut of a tournament carries, by slug. The code belongs to
+ * the tournament, so any year's URL identifies it. */
+async function loadCodeUrls(client) {
+  const { rows } = await client.query(
+    `SELECT t.slug, te.source_url,
+            substring(cs.source_notes from 'protennislive\\.com/posting/[0-9]{4}/[0-9]+') AS snap_url
+     FROM tournaments t
+     JOIN tournament_editions te ON te.tournament_id = t.id
+     LEFT JOIN cutoff_snapshots cs
+            ON cs.tournament_edition_id = te.id AND cs.source_notes LIKE '%protennislive.com/posting/%'`
+  )
+  const bySlug = new Map()
+  for (const r of rows) {
+    const list = bySlug.get(r.slug) ?? bySlug.set(r.slug, new Set()).get(r.slug)
+    if (r.source_url) list.add(r.source_url)
+    if (r.snap_url) list.add(r.snap_url)
+  }
+  return bySlug
+}
+
+/** Visible text of an HTML page, comparable across encodings. */
+function pageText(html) {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style)[\s\S]*?<\/\1>/g, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+}
+const tournamentName = (name) => name.replace(/,\s*[A-Z]{2}$/, '')
+const alnum = (v) => v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
+
+// ───────────────────────────────────────────────────────────────────────────
 // CHECKS
 // ───────────────────────────────────────────────────────────────────────────
 
 async function runChecks(client, rows) {
   const cov = rows.filter((r) => COVERAGE_CATS.has(r.cat))
   const win = `${iso(WEEK_START)} → ${iso(addDays(WINDOW_END, -1))}`
+
+  // Classify why editions have no cut (see above). Soonest events first, capped so a bad day does not
+  // hammer protennislive.com, which throttles hard.
+  const causes = new Map() // edition_id -> cause
+  let urlsBySlug = null
+  let probes = 0
+  async function classify(list) {
+    urlsBySlug ??= await loadCodeUrls(client)
+    for (const r of [...list].sort((a, b) => a.start - b.start)) {
+      if (causes.has(r.edition_id)) continue
+      const code = resolveTournamentPtlCode(r.slug, [...(urlsBySlug.get(r.slug) ?? [])]) ?? overrideCodeFor(r.slug)
+      if (!code) {
+        causes.set(r.edition_id, 'needs-code')
+        continue
+      }
+      if (SKIP_PTL || probes >= MAX_PTL_PROBES) {
+        causes.set(r.edition_id, 'unchecked')
+        continue
+      }
+      probes++
+      const result = await probeSheet(code, r.year)
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+      const started = (TODAY - r.start) / MS_DAY >= 3
+      causes.set(r.edition_id, result === 'posted' ? 'posted' : result === 'absent' ? (started ? 'cancelled' : 'waiting') : 'unknown')
+    }
+  }
+  const causeItem = (id, r, text) => {
+    const cause = causes.get(r.edition_id)
+    return { key: `${id}|${ek(r)}`, text: CAUSE_TEXT[cause] ? `${text} · ${CAUSE_TEXT[cause]}` : text, r, cause }
+  }
+  // Only a sheet that is up but not imported is a fault in the pipeline (critical). A missing code or a
+  // probable cancellation needs a person (warn). Waiting on ProTennisLive needs nobody (info).
+  const byCause = (near) => (active) =>
+    active
+      .map((i) => {
+        if (i.cause === 'posted') return 'critical'
+        if (i.cause === 'waiting') return 'info'
+        if (i.cause) return i.cause === 'unchecked' ? (i.r.start < WINDOW_END ? near : 'warn') : 'warn'
+        return i.r.start < WINDOW_END ? near : 'warn'
+      })
+      .reduce((a, b) => (SEVERITY_RANK[b] > SEVERITY_RANK[a] ? b : a), 'info')
 
   // ── A1. Started or starting soon, and nothing at all recorded ────────────
   const a1 = cov.filter(
@@ -326,11 +457,12 @@ async function runChecks(client, rows) {
   )
   const inA1 = new Set(a1.map((r) => r.edition_id)) // A2–A4 skip these, acknowledged or not
   await check('A1', `Events last week → next ${COVERAGE_WEEKS} week(s) with zero cut data`, async () => {
+    await classify(a1)
     report(
       'A1',
       `Events last week → next ${COVERAGE_WEEKS} week(s) with zero cut data`,
-      a1.map((r) => item(`A1|${ek(r)}`, withRejected(r, label(r)), r)),
-      { severity: 'critical', note: `Held ATP / Challenger / Slam events only (ITF cuts are not checked). Window ${win}. A cut is due ${LEAD_DAYS} day(s) before the event starts (--lead), and no sooner than ${GRACE_DAYS} day(s) after its entry deadline.` }
+      a1.map((r) => causeItem('A1', r, withRejected(r, label(r)))),
+      { severity: byCause('critical'), note: `Held ATP / Challenger / Slam events only (ITF cuts are not checked). Window ${win}. A cut is due ${LEAD_DAYS} day(s) before the event starts (--lead), and no sooner than ${GRACE_DAYS} day(s) after its entry deadline. Each row says why it is missing; only a posted-but-unimported sheet is critical.` }
     )
   })
 
@@ -344,16 +476,19 @@ async function runChecks(client, rows) {
         r.draws.some((d) => d.draw === draw && overdue(d)) &&
         !HAS[draw](r)
     )
-  const lateItems = (id, list, draw) =>
+  const lateItems = (id, list, draw, withCause = false) =>
     list.map((r) => {
       const closed = iso(r.draws.find((d) => d.draw === draw).deadline)
-      return item(`${id}|${ek(r)}`, withRejected(r, `${label(r)} · entries closed ${closed}`), r)
+      const text = withRejected(r, `${label(r)} · entries closed ${closed}`)
+      return withCause ? causeItem(id, r, text) : item(`${id}|${ek(r)}`, text, r)
     })
 
   await check('A2', 'Entry list closed, singles main-draw cut still missing', async () => {
-    report('A2', 'Entry list closed, singles main-draw cut still missing', lateItems('A2', lateDraws('singles_main'), 'singles_main'), {
-      severity: nearWindow('critical'),
-      note: 'Deadlines come from src/lib/entry-deadlines.ts. Critical if any event starts inside the coverage window; a list of only later events is a warning. See --lead for when a cut counts as due.',
+    const list = lateDraws('singles_main')
+    await classify(list)
+    report('A2', 'Entry list closed, singles main-draw cut still missing', lateItems('A2', list, 'singles_main', true), {
+      severity: byCause('critical'),
+      note: 'Deadlines come from src/lib/entry-deadlines.ts. Each row says why it is missing; only a sheet that is posted but not imported is critical. See --lead for when a cut counts as due.',
     })
   })
 
@@ -463,7 +598,7 @@ async function runChecks(client, rows) {
     }
     report('B3', 'Weeks ahead with no or few tournaments loaded', gaps, {
       severity: (active) => (active.some((i) => i.r.zero) ? 'critical' : 'warn'),
-      note: 'An empty forward week breaks the swing builder silently. Late-December weeks are legitimately thin.',
+      note: 'An empty forward week means the calendar import missed it. Late-December weeks are legitimately thin.',
     })
   })
 
@@ -486,6 +621,51 @@ async function runChecks(client, rows) {
       severity: 'warn',
       detail,
       note: 'Offseason lulls can trip this briefly. The audit cannot see workflow runs, only the timestamps they leave behind.',
+    })
+  })
+
+  // ── B6. Scheduled jobs failing or stopped ───────────────────────────────
+  // The syncs that keep the data fresh run on GitHub. Two failures in a row, or no success for longer
+  // than the cadence allows, means a feed has quietly stopped.
+  await check('B6', 'Scheduled jobs failing or stopped', async () => {
+    const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN
+    const repo = process.env.GITHUB_REPOSITORY
+    if (!token || !repo) {
+      record({ id: 'B6', title: 'Scheduled jobs failing or stopped', severity: 'info', count: 0, detail: ['no GitHub token here (this check runs in CI), skipped'] })
+      return
+    }
+    const problems = []
+    const detail = []
+    for (const job of SCHEDULED_JOBS) {
+      const res = await fetch(
+        `https://api.github.com/repos/${repo}/actions/workflows/${job.file}/runs?event=schedule&status=completed&per_page=6`,
+        {
+          headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' },
+          signal: AbortSignal.timeout(20000),
+        }
+      )
+      if (!res.ok) throw new Error(`GitHub API answered ${res.status} for ${job.file}`)
+      const runs = (await res.json()).workflow_runs ?? []
+      const failed = (r) => r.conclusion === 'failure' || r.conclusion === 'timed_out'
+      let streak = 0
+      for (const r of runs) {
+        if (!failed(r)) break
+        streak++
+      }
+      const lastOk = runs.find((r) => r.conclusion === 'success')
+      const hours = lastOk ? Math.max(0, Math.floor((AS_OF - new Date(lastOk.created_at)) / 3600000)) : null
+      if (streak >= 2) {
+        problems.push(item(`B6|${job.file}|failing`, `${job.name}: the last ${streak} scheduled runs failed (latest ${iso(new Date(runs[0].created_at))}) ${runs[0].html_url}`))
+      } else if (hours == null || hours > job.maxHours) {
+        problems.push(item(`B6|${job.file}|stale`, `${job.name}: no successful scheduled run ${hours == null ? 'in the last 6 runs' : `for ${hours}h`} (expected ${job.cadence})`))
+      } else {
+        detail.push(`${job.name}: last success ${hours}h ago (expected ${job.cadence})`)
+      }
+    }
+    report('B6', 'Scheduled jobs failing or stopped', problems, {
+      severity: 'warn',
+      detail,
+      note: 'Read from GitHub Actions run history. Two failed scheduled runs in a row, or no success within the cadence.',
     })
   })
 
@@ -550,45 +730,6 @@ async function runChecks(client, rows) {
     report('C3', 'Duplicate tournament editions', dupes, {
       severity: 'warn',
       note: 'Same week + country + level with near-identical name or the same city. Duplicates double-count supply in the depth model. /api/city-dupes digs further.',
-    })
-  })
-
-  // ── C5. Missing coordinates (drops an event out of swing chains) ─────────
-  await check('C5', 'Upcoming tournaments missing coordinates', async () => {
-    const seen = new Set()
-    const bad = []
-    for (const r of rows) {
-      if (r.start < WEEK_START || r.start >= addDays(WEEK_START, 56)) continue
-      if (r.latitude != null && r.longitude != null) continue
-      if (seen.has(r.slug)) continue
-      seen.add(r.slug)
-      bad.push(item(`C5|${r.slug}`, `${r.name} · ${r.country ?? '(no country)'} · ${r.start_date}`, r))
-    }
-    report('C5', 'Upcoming tournaments missing coordinates', bad, {
-      severity: 'warn',
-      note: 'No coordinates means the event cannot join a swing chain. /api/geocode-tournaments backfills them.',
-    })
-  })
-
-  // ── C6. Countries the swing logic cannot place ───────────────────────────
-  // Swings chain events in the same country, or in neighbouring ones. src/lib/swings.ts already reads
-  // "USA", "China, P.R." and "Korea, Rep." as the usual names, so those are fine; what it cannot place
-  // is a blank country or one it has no continent for (a 3-letter code, a spelling it has not seen).
-  await check('C6', 'Countries the swing logic cannot place', async () => {
-    const groups = new Map()
-    for (const r of rows) {
-      const v = String(r.country ?? '').trim()
-      if (v && continentForCountry(v) != null) continue
-      const key = v || '(blank)'
-      const g = groups.get(key) ?? { n: 0, examples: [] }
-      g.n++
-      if (g.examples.length < 3 && !g.examples.includes(r.name)) g.examples.push(r.name)
-      groups.set(key, g)
-    }
-    const bad = [...groups].map(([c, g]) => item(`C6|${c}`, `"${c}" — ${g.n} editions, e.g. ${g.examples.join(', ')}`))
-    report('C6', 'Countries the swing logic cannot place', bad, {
-      severity: 'warn',
-      note: 'These events never link to a same-country neighbour in a swing. /api/backfill-countries fills blanks, but read its dry run first: it guesses from coordinates and sibling rows (it would have put Athens, Greece in the United States).',
     })
   })
 
@@ -665,30 +806,6 @@ async function runChecks(client, rows) {
     })
   })
 
-  // ── C11. Swings that include a cancelled or undated tournament ───────────
-  await check('C11', 'Swings containing a cancelled or undated tournament', async () => {
-    if (!(await tableExists(client, 'swing_events')) || !(await tableExists(client, 'swings'))) {
-      record({ id: 'C11', title: 'Swings containing a cancelled or undated tournament', severity: 'info', count: 0, detail: ['swing tables not present, skipped'] })
-      return
-    }
-    const { rows: hits } = await client.query(
-      `SELECT s.label, s.year, t.slug, t.name, te.status, te.start_date::text AS start_date
-       FROM swing_events se
-       JOIN swings s ON s.id = se.swing_id
-       JOIN tournament_editions te ON te.id = se.tournament_edition_id
-       JOIN tournaments t ON t.id = te.tournament_id
-       WHERE s.year >= $1 AND (te.status <> 'held' OR te.start_date IS NULL)
-       ORDER BY s.year, s.label`,
-      [TODAY.getUTCFullYear()]
-    )
-    report(
-      'C11',
-      'Swings containing a cancelled or undated tournament',
-      hits.map((h) => item(`C11|${h.year}|${h.label}|${h.slug}`, `${h.label} (${h.year}) includes ${h.name}, which is ${h.status === 'held' ? 'undated' : h.status}`)),
-      { severity: 'warn', note: 'Shows visitors a trip that cannot happen. The nightly swing recompute normally drops these.' }
-    )
-  })
-
   // ── C12. Impossible dates ────────────────────────────────────────────────
   await check('C12', 'Tournament dates that cannot be right', async () => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -758,7 +875,7 @@ async function runChecks(client, rows) {
   await check('D1', 'Core page health', async () => {
     const pages = [
       ['/', 2000], ['/cuts', 2000], ['/schedule', 2000], ['/alerts', 2000],
-      ['/swings', 2000], ['/depth', 2000], ['/lists', 2000],
+      ['/lists', 2000],
       ['/ds', 2000], ['/sitemap.xml', 50], ['/robots.txt', 20],
     ]
     const out = []
@@ -837,6 +954,89 @@ async function runChecks(client, rows) {
       count: ok ? 0 : 1,
       detail: [`${res.status} · ${ct || 'no content-type'}`],
       note: 'A failure here breaks every share preview without breaking the site.',
+    })
+  })
+
+  await check('D4', 'Certificate and domain expiry', async () => {
+    const url = new URL(SITE)
+    if (url.protocol !== 'https:') {
+      record({ id: 'D4', title: 'Certificate and domain expiry', severity: 'info', count: 0, detail: ['site is not https, skipped'] })
+      return
+    }
+    const host = url.hostname
+    const certDays = await new Promise((resolve, reject) => {
+      const socket = tls.connect({ host, port: 443, servername: host, timeout: 15000 }, () => {
+        const cert = socket.getPeerCertificate()
+        socket.end()
+        resolve(Math.floor((new Date(cert.valid_to) - AS_OF) / MS_DAY))
+      })
+      socket.on('error', reject)
+      socket.on('timeout', () => {
+        socket.destroy()
+        reject(new Error('TLS handshake timed out'))
+      })
+    })
+    // The registry's own expiry date, from its public RDAP service (Verisign for .com and .net; the
+    // universal rdap.org front door blocks scripts). Best effort: any other extension is left unread.
+    const domain = host.split('.').slice(-2).join('.')
+    const tld = host.split('.').pop()
+    let domainDays = null
+    if (tld === 'com' || tld === 'net') {
+      try {
+        const res = await fetch(`https://rdap.verisign.com/${tld}/v1/domain/${domain}`, {
+          headers: { accept: 'application/rdap+json' },
+          signal: AbortSignal.timeout(20000),
+        })
+        if (res.ok) {
+          const expiry = ((await res.json()).events ?? []).find((e) => e.eventAction === 'expiration')?.eventDate
+          if (expiry) domainDays = Math.floor((new Date(expiry) - AS_OF) / MS_DAY)
+        }
+      } catch {
+        // leave it unknown rather than guess
+      }
+    }
+    const problems = []
+    if (certDays < 21) problems.push(item('D4|cert', `TLS certificate for ${host} expires in ${certDays} day(s)`, { level: certDays < 7 ? 'critical' : 'warn' }))
+    if (domainDays != null && domainDays < 45)
+      problems.push(item('D4|domain', `The ${host.split('.').slice(-2).join('.')} domain registration expires in ${domainDays} day(s)`, { level: domainDays < 14 ? 'critical' : 'warn' }))
+    report('D4', 'Certificate and domain expiry', problems, {
+      severity: (active) => (active.some((i) => i.r.level === 'critical') ? 'critical' : 'warn'),
+      detail: [`TLS certificate: ${certDays} days left`, `Domain registration: ${domainDays == null ? 'could not be read' : `${domainDays} days left`}`],
+      note: 'An expired certificate or domain takes the whole site down. Renewals are usually automatic until a card fails.',
+    })
+  })
+
+  await check('D5', 'This week’s events are on the site', async () => {
+    const res = await get('/cuts')
+    if (!res.ok) throw new Error(`/cuts answered ${res.status}`)
+    const onSite = alnum(pageText(await res.text()))
+    const expected = cov.filter((r) => r.start >= WEEK_START && r.start < addDays(WEEK_START, 14))
+    const missing = expected.filter((r) => !onSite.includes(alnum(tournamentName(r.name))))
+    report('D5', 'This week’s events are on the site', missing.map((r) => item(`D5|${ek(r)}`, `${label(r)} · not found on /cuts`, r)), {
+      severity: 'critical',
+      detail: [`${expected.length - missing.length} of ${expected.length} ATP / Challenger / Slam events for this and next week are listed on /cuts`],
+      note: 'The database has the event and the main page does not show it: a rendering, caching or filtering problem.',
+    })
+  })
+
+  await check('D6', 'Tournament pages render', async () => {
+    const slugs = [...new Set(rows.filter((r) => COVERAGE_CATS.has(r.cat)).map((r) => r.slug))].sort(() => Math.random() - 0.5).slice(0, 10)
+    const fails = []
+    for (const slug of slugs) {
+      try {
+        const res = await get(`/tournaments/${slug}`)
+        const body = await res.text()
+        if (!res.ok || body.length < 5000 || /Application error|Internal Server Error/i.test(body))
+          fails.push(item(`D6|${slug}`, `/tournaments/${slug} — ${res.status}, ${body.length} bytes  ← FAIL`))
+      } catch (e) {
+        fails.push(item(`D6|${slug}`, `/tournaments/${slug} — ${e.message}  ← FAIL`))
+      }
+    }
+    report('D6', 'Tournament pages render', fails, {
+      severity: 'critical',
+      whole: true,
+      detail: [`sampled ${slugs.length} tournament pages across all years`],
+      note: 'A random sample of tournament pages, any year. Catches a page that errors on one tournament’s odd data.',
     })
   })
 
