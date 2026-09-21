@@ -377,10 +377,23 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
 // "2Bye" with no parentheses, so they never match.
 function parseByesCount(lines: string[], ldaIndex: number): number | null {
   if (ldaIndex === -1) return null;
-  const window = lines.slice(ldaIndex, ldaIndex + 6);
-  for (const line of window) {
-    const match = line.match(/\bbyes?\s*\(\s*(\d{1,3})\s*\)/i);
+  const COUNT = /\bbyes?\s*\(\s*(\d{1,3})\s*\)/i;
+
+  // The count can be glued straight onto the label, "LAST DIRECT ACCEPTANCEByes (6)", where there is no
+  // word boundary before "Byes". Take the label out of the line before looking for it.
+  const labelLine = lines[ldaIndex].replace(/last direct acceptance(?:\s+(?:at deadline|in draw))*\s*:?/gi, ' ');
+  const after = [labelLine, ...lines.slice(ldaIndex + 1, ldaIndex + 6)];
+  for (const line of after) {
+    const match = line.match(COUNT);
     if (match) return Number(match[1]);
+  }
+
+  // 2022-23 sheets print the box's text on the line before the label, glued to the supervisor:
+  //   "Byes (8)CHALLENGER SUPERVISOR" / "Jorge Mandl" / "LAST DIRECT ACCEPTANCE"
+  // Only that exact shape is read, so a stray "Bye (n)" elsewhere on the sheet cannot match.
+  for (let back = 1; back <= 2; back += 1) {
+    const before = lines[ldaIndex - back]?.match(/^byes?\s*\(\s*(\d{1,3})\s*\)\s*(?:challenger\s+|atp\s+)?supervisor/i);
+    if (before) return Number(before[1]);
   }
   return null;
 }
@@ -454,15 +467,20 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
   const challengerDoublesCuts = parseChallengerDoublesCuts(lines, lastDirectAcceptanceIndex);
   const { alternate_count, lucky_loser_count } = parseAlternateEntriesCount(lines);
 
+  const byes_count = parseByesCount(lines, lastDirectAcceptanceIndex);
+  // The box holds either a last direct acceptance or a byes count, never both. If it says byes, anything
+  // read as a rank came from somewhere else on the sheet.
+  const lda = byes_count != null ? null : lastDirect;
+
   return {
-    last_direct_acceptance_rank: lastDirect?.rank ?? null,
-    last_direct_acceptance_name: lastDirect?.name ?? null,
-    raw_last_direct_acceptance: lastDirect?.raw ?? null,
+    last_direct_acceptance_rank: lda?.rank ?? null,
+    last_direct_acceptance_name: lda?.name ?? null,
+    raw_last_direct_acceptance: lda?.raw ?? null,
     challenger_doubles_advanced_cut_rank: challengerDoublesCuts.advanced,
     challenger_doubles_onsite_cut_rank: challengerDoublesCuts.onsite,
     alternate_entries_count: alternate_count,
     lucky_loser_count,
-    byes_count: parseByesCount(lines, lastDirectAcceptanceIndex),
+    byes_count,
     pdf_text_length: text.length,
   };
 }

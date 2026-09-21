@@ -107,6 +107,35 @@ describe('byes and alternates in the Last Direct Acceptance box', () => {
   });
 });
 
+describe('byes in the 2022-23 layouts', () => {
+  // Every case is a real box from an archived sheet.
+  it('reads a count glued after the label (Francavilla 2022, Helsinki 2023)', () => {
+    expect(parseOfficialPdfCutoffText(['LAST DIRECT ACCEPTANCEByes (6)', 'PINNINGTON JONES, JackCLAVERIE, Lorenzo'].join('\n')).byes_count).toBe(6);
+    expect(parseOfficialPdfCutoffText(['LAST DIRECT ACCEPTANCEBye (3)', 'YEVSEYEV, DenisSAKELLARIDIS, Stefanos'].join('\n')).byes_count).toBe(3);
+  });
+
+  it('reads a count on the line before the label (Salvador 2022, Tunis 2022)', () => {
+    expect(parseOfficialPdfCutoffText(['www.ATPTour.com', 'Byes (8)CHALLENGER SUPERVISOR', 'Jorge Mandl', 'LAST DIRECT ACCEPTANCE'].join('\n')).byes_count).toBe(8);
+    expect(parseOfficialPdfCutoffText(['www.ATPTour.com', 'BYE (3)CHALLENGER SUPERVISOR', 'Mohamed Chahir Fitouhi', 'LAST DIRECT ACCEPTANCE'].join('\n')).byes_count).toBe(3);
+  });
+
+  it('still reads the count on the next line and on the label line (Bendigo, Lima doubles)', () => {
+    expect(parseOfficialPdfCutoffText(['LAST DIRECT ACCEPTANCE:', 'Bye (4)CHALLENGER SUPERVISORAhmed Abdel-Azim', 'WITHDRAWALS'].join('\n')).byes_count).toBe(4);
+    expect(parseOfficialPdfCutoffText('LAST DIRECT ACCEPTANCE: BYE (3)CHALLENGER SUPERVISORRafael Schneider').byes_count).toBe(3);
+  });
+
+  it('does not invent a count from a bare "Bye" (Concepcion 2022) or a stray Bye line', () => {
+    expect(parseOfficialPdfCutoffText('LAST DIRECT ACCEPTANCEByeCHALLENGER SUPERVISOR(S)Jaime Chavez').byes_count).toBeNull();
+    expect(parseOfficialPdfCutoffText(['Bye (9)', 'ERREY, Cooper', 'LAST DIRECT ACCEPTANCECHALLENGER SUPERVISOR(S)Ahmed Abdel-Azim'].join('\n')).byes_count).toBeNull();
+  });
+
+  it('never keeps a rank when the box says byes', () => {
+    const parsed = parseOfficialPdfCutoffText(['LAST DIRECT ACCEPTANCEByes (6)', 'Some Player - 431', 'ATP Supervisor'].join('\n'));
+    expect(parsed.byes_count).toBe(6);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
+  });
+});
+
 describe('older sheet layouts and lines that are not a cut', () => {
   // Lines below are copied from real 2022-23 draw sheets, taken from the web archive.
   it('reads the value printed just before the label (Rome 2022)', () => {
