@@ -95,7 +95,8 @@ const HEALTH_CHECKS = new Set(['B1', 'B5', 'B6', 'E1', 'D1', 'D3', 'D4', 'D5', '
 // Pipelines with a known cadence, and how long silence is tolerated before it is suspicious.
 // Each is skipped quietly if its table does not exist in this database.
 const FRESHNESS = [
-  { name: 'Public entry-list sync', table: 'entry_list_source_status', column: 'last_checked_at', maxHours: 48, cadence: 'hourly' },
+  // groupBy: each source is judged on its own, so one dead feed is not hidden by the others still writing.
+  { name: 'Public entry-list sync', table: 'entry_list_source_status', column: 'last_checked_at', groupBy: 'source_key', maxHours: 48, cadence: 'hourly' },
 ]
 
 // Scheduled workflows that keep the data fresh, and how long without a successful scheduled run is
@@ -396,7 +397,8 @@ function pageText(html) {
     .replace(/\s+/g, ' ')
 }
 const tournamentName = (name) => name.replace(/,\s*[A-Z]{2}$/, '')
-const alnum = (v) => v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
+// Lowercase words separated by single spaces, so a name can be matched on word boundaries.
+const words = (v) => ` ${v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()} `
 
 // ───────────────────────────────────────────────────────────────────────────
 // CHECKS
@@ -611,11 +613,18 @@ async function runChecks(client, rows) {
         detail.push(`${p.name}: table ${p.table} not present, skipped`)
         continue
       }
-      const { rows: [f] } = await client.query(`SELECT max(${p.column}) AS t FROM ${p.table}`)
-      const ageH = f.t ? Math.floor((AS_OF - new Date(f.t)) / 3600000) : null
-      const text = `${p.name}: last ${f.t ? iso(new Date(f.t)) : 'never'}${ageH == null ? '' : ` (${ageH}h ago)`}, expected ${p.cadence}`
-      if (ageH == null || ageH > p.maxHours) stale.push(item(`B5|${p.table}`, text))
-      else detail.push(text)
+      const { rows: found } = await client.query(
+        p.groupBy
+          ? `SELECT ${p.groupBy} AS k, max(${p.column}) AS t FROM ${p.table} GROUP BY 1 ORDER BY 1`
+          : `SELECT NULL AS k, max(${p.column}) AS t FROM ${p.table}`
+      )
+      for (const f of found) {
+        const ageH = f.t ? Math.floor((AS_OF - new Date(f.t)) / 3600000) : null
+        const who = f.k ? `${p.name} (${f.k})` : p.name
+        const text = `${who}: last ${f.t ? iso(new Date(f.t)) : 'never'}${ageH == null ? '' : ` (${Math.max(0, ageH)}h ago)`}, expected ${p.cadence}`
+        if (ageH == null || ageH > p.maxHours) stale.push(item(`B5|${p.table}${f.k ? `|${f.k}` : ''}`, text))
+        else detail.push(text)
+      }
     }
     report('B5', 'Data pipelines gone quiet', stale, {
       severity: 'warn',
@@ -644,7 +653,10 @@ async function runChecks(client, rows) {
           signal: AbortSignal.timeout(20000),
         }
       )
-      if (!res.ok) throw new Error(`GitHub API answered ${res.status} for ${job.file}`)
+      if (!res.ok) {
+        detail.push(`${job.name}: could not read its run history (GitHub answered ${res.status})`)
+        continue
+      }
       const runs = (await res.json()).workflow_runs ?? []
       const failed = (r) => r.conclusion === 'failure' || r.conclusion === 'timed_out'
       let streak = 0
@@ -1009,9 +1021,9 @@ async function runChecks(client, rows) {
   await check('D5', 'This week’s events are on the site', async () => {
     const res = await get('/cuts')
     if (!res.ok) throw new Error(`/cuts answered ${res.status}`)
-    const onSite = alnum(pageText(await res.text()))
+    const onSite = words(pageText(await res.text()))
     const expected = cov.filter((r) => r.start >= WEEK_START && r.start < addDays(WEEK_START, 14))
-    const missing = expected.filter((r) => !onSite.includes(alnum(tournamentName(r.name))))
+    const missing = expected.filter((r) => !onSite.includes(words(tournamentName(r.name))))
     report('D5', 'This week’s events are on the site', missing.map((r) => item(`D5|${ek(r)}`, `${label(r)} · not found on /cuts`, r)), {
       severity: 'critical',
       detail: [`${expected.length - missing.length} of ${expected.length} ATP / Challenger / Slam events for this and next week are listed on /cuts`],

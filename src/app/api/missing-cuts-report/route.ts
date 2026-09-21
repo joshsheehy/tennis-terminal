@@ -2,6 +2,7 @@ import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, ensureByesColumn } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { overrideCodeFor } from '@/lib/ptl-code-overrides';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -105,6 +106,13 @@ function confidenceFor(row: EditionCoverageRow, code: string | null) {
     return {
       level: 'high',
       reason: 'Permanent ProTennisLive code is mapped from the canonical tournament registry.',
+    };
+  }
+
+  if (overrideCodeFor(row.slug)) {
+    return {
+      level: 'high',
+      reason: 'ProTennisLive code was confirmed by hand against the sheet header (ptl-code-overrides.ts).',
     };
   }
 
@@ -220,7 +228,10 @@ export async function GET(request: NextRequest) {
   );
 
   const report = rowsResult.rows.map((row) => {
-    const code = SLUG_TO_CANONICAL_CODE.get(row.slug) ?? extractCodeFromTextSources([row.source_url, ...row.source_notes]);
+    const code =
+      SLUG_TO_CANONICAL_CODE.get(row.slug) ??
+      overrideCodeFor(row.slug) ??
+      extractCodeFromTextSources([row.source_url, ...row.source_notes]);
     const expected = expectedDraws(row);
     const missing = expected.filter((draw) => !hasDraw(row, draw));
     const present = expected.filter((draw) => hasDraw(row, draw));
