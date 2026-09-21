@@ -107,6 +107,30 @@ describe('byes and alternates in the Last Direct Acceptance box', () => {
   });
 });
 
+describe('doubles sheets that print only the ranking', () => {
+  // Real boxes from the 2023 Indian Wells and Madrid doubles sheets.
+  it('reads a bare ranking glued to the supervisor line', () => {
+    const indianWells = parseOfficialPdfCutoffText(['CABAL, Juan Sebastian / FARAH, Robert', 'www.ATPTour.com', 'LAST DIRECT ACCEPTANCE: 69ATP SUPERVISOR(S)', 'ALTERNATESRETIREMENTS/WALKOVERS'].join('\n'));
+    expect(indianWells.last_direct_acceptance_rank).toBe(69);
+    expect(indianWells.last_direct_acceptance_name).toBeNull();
+    expect(parseOfficialPdfCutoffText('LAST DIRECT ACCEPTANCE: 86ATP SUPERVISOR(S)').last_direct_acceptance_rank).toBe(86);
+  });
+
+  it('reads a bare ranking that is alone on the label line', () => {
+    expect(parseOfficialPdfCutoffText(['LAST DIRECT ACCEPTANCE: 69', '$33,460', 'MEKTIC, Nikola / PAVIC, Mate'].join('\n')).last_direct_acceptance_rank).toBe(69);
+  });
+
+  it('does not read a year, a tiny number, or a number that is only the start of other text', () => {
+    expect(parseOfficialPdfCutoffText('LAST DIRECT ACCEPTANCE: 2023ATP SUPERVISOR(S)').last_direct_acceptance_rank).toBeNull();
+    expect(parseOfficialPdfCutoffText('LAST DIRECT ACCEPTANCE: 2ATP SUPERVISOR(S)').last_direct_acceptance_rank).toBeNull();
+    expect(parseOfficialPdfCutoffText('LAST DIRECT ACCEPTANCE: 69 players were seeded').last_direct_acceptance_rank).toBeNull();
+  });
+
+  it('still prefers a name and ranking when one is there', () => {
+    expect(parseOfficialPdfCutoffText('LAST DIRECT ACCEPTANCE: Matusevich, Anton - 431ATP SUPERVISOR').last_direct_acceptance_rank).toBe(431);
+  });
+});
+
 describe('byes in the 2022-23 layouts', () => {
   // Every case is a real box from an archived sheet.
   it('reads a count glued after the label (Francavilla 2022, Helsinki 2023)', () => {

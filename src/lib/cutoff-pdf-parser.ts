@@ -239,6 +239,15 @@ function parseInlineLastDirectAcceptance(labelLine: string): ParsedNameRank | nu
   const tail = afterLabel[1].trim();
   if (!tail) return null;
 
+  // Doubles sheets print just the combined ranking, with no name, right after the label:
+  //   "LAST DIRECT ACCEPTANCE: 69ATP SUPERVISOR(S)"   (Indian Wells 2023)
+  //   "LAST DIRECT ACCEPTANCE: 86ATP SUPERVISOR(S)"   (Madrid 2023)
+  // Only a number that is the whole value counts: it must be followed by the supervisor or nothing.
+  const bare = tail.match(/^P?(\d{1,4})(?=\s*(?:ATP\s+SUPERVISOR|CHALLENGER\s+SUPERVISOR|$))/i);
+  if (bare && isPlausibleBareRank(Number(bare[1]))) {
+    return { name: null, rank: Number(bare[1]), raw: `${labelLine.trim()}` };
+  }
+
   const nameRank = tail.match(/^(.+?)\s*-\s*P?(\d{1,5})/);
   if (!nameRank) return null;
 
