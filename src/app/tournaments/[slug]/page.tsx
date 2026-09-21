@@ -8,6 +8,7 @@ import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { CURRENT_SEASON, EARLIEST_SEASON, isAvailableSeason } from '@/lib/seasons';
 import { backLinkFor } from '@/lib/back-link';
+import { resolveTournamentPtlCode } from '@/lib/tournament-links';
 import { SITE_NAME, SITE_URL } from '@/lib/brand';
 
 // Look up the most recent protennislive_code we know for a slug, so the
@@ -266,13 +267,16 @@ function CutoffTable({
   level,
   slug,
   year,
+  resolvedCode,
 }: {
   cutoffs: CutoffSnapshot[];
   level: string;
   slug: string;
   year: number;
+  /** The tournament's code as recovered from any year's saved links, for events the catalogue lacks. */
+  resolvedCode: string | null;
 }) {
-  const ptlCode = getProtennislivCodeForSlug(slug);
+  const ptlCode = getProtennislivCodeForSlug(slug) ?? resolvedCode;
   if (isInvitationOnlyLevel(level)) {
     return (
       <div className="muted-panel">
@@ -454,6 +458,14 @@ export default async function TournamentDetailPage({
   const viewedRow = rows.find((r) => r.edition.year === year) ?? rows[0];
   const current = viewedRow.edition;
 
+  // A code belongs to the tournament, not to one year: Prague is 600 every season. Events the catalogue does
+  // not list still carry it in the links saved on their other editions and cuts, so a draw that has lost its
+  // own link (or never had one) can still point at the right sheet.
+  const tournamentPtlCode = resolveTournamentPtlCode(slug, [
+    ...rows.map((row) => row.edition.source_url),
+    ...rows.flatMap((row) => row.cutoffs.map((cutoff) => cutoff.source_notes)),
+  ]);
+
   // ITF events have no fixed code and each week is its own slug, so a current
   // ITF edition with no cut data (e.g. 2026, before that season's strength
   // sheet exists) can't show its own history. Pull the nearest prior-year
@@ -587,6 +599,7 @@ export default async function TournamentDetailPage({
                   level={row.edition.level}
                   slug={row.edition.slug}
                   year={row.edition.year}
+                  resolvedCode={tournamentPtlCode}
                 />
               )}
             </div>
