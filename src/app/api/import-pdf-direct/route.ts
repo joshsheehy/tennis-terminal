@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool, ensureByesColumn } from '@/lib/db';
+import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
 import {
   fetchAndParseOfficialPdfCutoff,
   fetchOfficialPdfDebug,
@@ -206,7 +206,15 @@ async function storeParsedCut({
   // cuts this way. When the value is below the structural minimum for the
   // event, drop it (treat as if no rank was parsed) and tag source_notes so
   // the rejection is visible in the response and the DB.
-  const level = getLevelForSlug(slug);
+  await ensureByesColumn();
+  const editionId = await getOrCreateEditionId(slug, year);
+  if (!editionId) {
+    return NextResponse.json(
+      { ok: false, error: `Tournament slug "${slug}" not found in DB. Run /api/sync-canonical or /api/import-calendars first.` },
+      { status: 404 }
+    );
+  }
+  const level = getLevelForSlug(slug) ?? (await editionLevel(editionId));
   const anomaly = checkRankAnomaly(
     parsed.last_direct_acceptance_rank,
     level,
@@ -225,15 +233,6 @@ async function storeParsedCut({
   // The sheet's Last Direct Acceptance box said "Byes (N)": the draw was not full, so there is no cut
   // to record, but the open places are worth keeping.
   const hasByes = parsed.byes_count !== null;
-
-  await ensureByesColumn();
-  const editionId = await getOrCreateEditionId(slug, year);
-  if (!editionId) {
-    return NextResponse.json(
-      { ok: false, error: `Tournament slug "${slug}" not found in DB. Run /api/sync-canonical or /api/import-calendars first.` },
-      { status: 404 }
-    );
-  }
 
   // Conflict policy on re-import:
   //   - Valid parsed rank → full destructive upsert (overwrites prior cut +

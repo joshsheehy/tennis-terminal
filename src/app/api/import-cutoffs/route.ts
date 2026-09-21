@@ -1,6 +1,6 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
-import { pool, ensureByesColumn } from '@/lib/db';
+import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff, isUpstreamRefused } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { PTL_CODE_OVERRIDES } from '@/lib/ptl-code-overrides';
@@ -650,7 +650,7 @@ export async function GET(request: NextRequest) {
       // Reject impossibly-low parses before they overwrite anything. Tokyo
       // 2024 / Paris 2025 had blank LDA footers that the parser was filling
       // with seed-number digits — those now get blocked here.
-      const level = getLevelForSlug(target.slug);
+      const level = getLevelForSlug(target.slug) ?? (await editionLevel(editionId));
       const anomaly = checkRankAnomaly(
         parsed.last_direct_acceptance_rank,
         level,

@@ -1,6 +1,7 @@
 import { AVAILABLE_SEASONS, EARLIEST_SEASON } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
-import { pool, ensureByesColumn } from '@/lib/db';
+import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
+import { checkRankAnomaly } from '@/lib/cutoff-anomaly';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 
@@ -86,12 +87,19 @@ async function tryFill(
   // 22s budget by itself. With Promise.allSettled the slowest URL alone
   // bounds the wall time, and the first successful parse wins.
   const currentYear = new Date().getFullYear();
+  const level = await editionLevel(editionId);
   for (const year of candidateYears) {
     const archiveFirst = year < currentYear;
     const baseUrl = `https://www.protennislive.com/posting/${year}/${code}`;
     const attempts = pdfNames.map(async (pdfName) => {
       const pdfUrl = `${baseUrl}/${pdfName}`;
       const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl, archiveFirst);
+      // A misread (a title line, a seed number) must not be stored as a cut. The level comes from the edition, so
+      // events the built-in catalogue does not list are guarded too.
+      if (checkRankAnomaly(parsed.last_direct_acceptance_rank, level, eventType, drawType)) {
+        parsed.last_direct_acceptance_rank = null;
+        parsed.last_direct_acceptance_name = null;
+      }
       // A sheet whose Last Direct Acceptance box says "Byes (N)" has no cut, but it is a real answer
       // (the draw was not full) and must not be retried or tombstoned as if the PDF were missing.
       const hasRank =

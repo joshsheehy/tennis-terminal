@@ -40,6 +40,15 @@ export function ensureByesColumn(): Promise<void> {
   return byesColumn;
 }
 
+// The level stored on an edition ("Challenger 50", "ATP 1000"). The misread-cut guard needs the level to
+// know what a plausible cut is, and the importers used to learn it only from the built-in catalogue. An
+// event the catalogue does not list (most Challengers, discovered from the calendar) then had NO guard at
+// all: a cut of 3 read off a title line was written as if it were real. The edition always has its level.
+export async function editionLevel(editionId: string): Promise<string | null> {
+  const result = await pool.query<{ level: string | null }>('select level from tournament_editions where id = $1', [editionId]);
+  return result.rows[0]?.level ?? null;
+}
+
 // Run `fn` inside a real BEGIN/COMMIT on a single checked-out client.
 // Never use pool.query('BEGIN') for this: each pool.query() call can run on
 // a different pooled connection, so the BEGIN, the statements, and the

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool, ensureByesColumn } from '@/lib/db';
+import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
+import { checkRankAnomaly } from '@/lib/cutoff-anomaly';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import slugify from 'slugify';
@@ -149,9 +150,23 @@ async function tryImportCut(
   pdfNames: string[]
 ): Promise<{ ok: boolean; rank?: number | null }> {
   const base = `https://www.protennislive.com/posting/${year}/${code}`;
+  const level = await editionLevel(editionId);
   for (const pdf of pdfNames) {
     try {
       const parsed = await fetchAndParseOfficialPdfCutoff(`${base}/${pdf}`);
+      // A misread (a title line, a seed number) must not be stored as a cut. The level comes from the edition, so
+      // events the built-in catalogue does not list are guarded too.
+      if (checkRankAnomaly(parsed.last_direct_acceptance_rank, level, eventType, drawType)) {
+        parsed.last_direct_acceptance_rank = null;
+        parsed.last_direct_acceptance_name = null;
+        // This route writes whatever it parsed, so a rejected misread with nothing else on the sheet
+        // must not overwrite an existing cut with blanks: try the next file name instead.
+        const usable =
+          parsed.challenger_doubles_advanced_cut_rank !== null ||
+          parsed.challenger_doubles_onsite_cut_rank !== null ||
+          parsed.byes_count !== null;
+        if (!usable) continue;
+      }
       await ensureByesColumn();
       await pool.query(
         `insert into cutoff_snapshots (

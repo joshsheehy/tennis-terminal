@@ -1,6 +1,7 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
-import { pool, ensureByesColumn } from '@/lib/db';
+import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
+import { checkRankAnomaly } from '@/lib/cutoff-anomaly';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { getAtpEditionYearForStartDate, getAtpWeekForSeason } from '@/lib/atp-week';
@@ -136,11 +137,18 @@ async function tryImportCut(
   pdfNames: string[]
 ): Promise<{ ok: boolean; pdfUrl?: string; rank?: number | null }> {
   const baseUrl = `https://www.protennislive.com/posting/${year}/${code}`;
+  const level = await editionLevel(editionId);
 
   for (const pdfName of pdfNames) {
     const pdfUrl = `${baseUrl}/${pdfName}`;
     try {
       const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl);
+      // A misread (a title line, a seed number) must not be stored as a cut. The level comes from the edition, so
+      // events the built-in catalogue does not list are guarded too.
+      if (checkRankAnomaly(parsed.last_direct_acceptance_rank, level, eventType, drawType)) {
+        parsed.last_direct_acceptance_rank = null;
+        parsed.last_direct_acceptance_name = null;
+      }
       // Skip results-sheet PDFs served at entry-list URLs: they parse without
       // throwing but have no rank data, so recording them would mask the gap.
       const hasRank =
