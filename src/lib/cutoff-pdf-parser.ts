@@ -204,6 +204,12 @@ function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   if (/^(QUARTER|SEMI)[\s-]FINALIST/i.test(trimmedName)) return true;
   // The label line itself captured as a player name.
   if (/^LAST\s+DIRECT\s+ACCEPTANCE/i.test(trimmedName)) return true;
+  // Prize and points tables that sit beside the box: "SECOND ROUND 8", "THIRD ROUND$84,510".
+  if (/^(FIRST|SECOND|THIRD|FOURTH|QUARTER|SEMI)[\s-]*(ROUND|FINAL)/i.test(trimmedName)) return true;
+  // Tournament titles: "OPEN 13", "THAILAND TENNIS TOUR".
+  if (/^(OPEN|MASTERS|CHALLENGER|CHAMPIONSHIPS?)$/i.test(trimmedName) || /\bTENNIS\s+TOUR\b/i.test(trimmedName)) return true;
+  // Withdrawal notes: "R. Bautista Agut (Right wrist)", "F. Tiafoe (Knee)".
+  if (/\((?:left\s+|right\s+)?(?:wrist|knee|ankle|back|shoulder|elbow|hip|foot|thigh|calf|illness|injury|abdominal|hamstring|groin|arm|leg)/i.test(raw)) return true;
   // Madrid-style combined-ranking notation: "D+D 88; S+S 414".
   if (/\b[A-Z]\+[A-Z]\b/.test(raw)) return true;
   // Entry-category codes, not player names: WC (wildcard), LL (lucky loser), etc.
@@ -285,10 +291,40 @@ function parseBareDeadlineRank(lines: string[], index: number): ParsedNameRank |
   return null;
 }
 
+// Older sheets (2022-23 ATP events) print the value glued onto the end of the run of text that comes
+// right before the label, after the supervisors' names:
+//   "G. Armstrong/C. Sanches/R. Herfel/C. Di DioATP SUPERVISORSGoffin, David - 47LAST DIRECT ACCEPTANCE:"
+//   "…ATP SUPERVISORSRinderknech, A 57LAST DIRECT ACCEPTANCE:"
+// Only text between SUPERVISOR(S) and the label is read, so a stray number elsewhere cannot match.
+function parseLdaBeforeLabel(labelLine: string): ParsedNameRank | null {
+  const labelAt = labelLine.search(/last direct acceptance/i);
+  if (labelAt <= 0) return null;
+  const supervisors = labelLine.slice(0, labelAt).match(/SUPERVISORS?(?:\(S\))?\s*(.+)$/i);
+  if (!supervisors) return null;
+  const value = supervisors[1].replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+  const match = value.match(/^(.+?)\s*-\s*P?(\d{1,4})$/) ?? value.match(/^(.+?)\s+P?(\d{1,4})$/);
+  if (!match) return null;
+  const candidate = { name: cleanAcceptanceName(match[1]), rank: Number(match[2]), raw: value };
+  return isSpuriousNameRank(candidate.name, candidate.rank, candidate.raw) ? null : candidate;
+}
+
+// "A.Fils 195 - Alt (4)": the player, their ranking, and that they got in as an alternate. The (4) is
+// their place on the alternate list, not a ranking, so the cut is the 195.
+function parseAlternateEntry(text: string): ParsedNameRank | null {
+  const normalized = text.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+  const match = normalized.match(/^(.+?)\s+P?(\d{1,4})\s*-\s*Alt\b/i);
+  if (!match) return null;
+  const candidate = { name: cleanAcceptanceName(match[1]), rank: Number(match[2]), raw: normalized };
+  return isSpuriousNameRank(candidate.name, candidate.rank, candidate.raw) ? null : candidate;
+}
+
 function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
   const index = lines.findIndex((line) => /last direct acceptance/i.test(line));
 
   if (index === -1) return null;
+
+  const before = parseLdaBeforeLabel(lines[index]);
+  if (before) return before;
 
   // Prefer an inline value on the label line itself, before scanning following rows.
   const inline = parseInlineLastDirectAcceptance(lines[index]);
@@ -309,6 +345,9 @@ function parseLastDirectAcceptance(lines: string[]): ParsedNameRank | null {
     const line = lines[index + offset];
     if (!line) continue;
     if (isFooterHeading(line)) continue;
+
+    const altEntry = parseAlternateEntry(line);
+    if (altEntry) return altEntry;
 
     const parsed = parseNameAndRank(line);
     if (parsed && !isSpuriousNameRank(parsed.name ?? '', parsed.rank, parsed.raw)) {

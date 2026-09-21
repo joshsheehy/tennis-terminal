@@ -21,6 +21,7 @@
  *   npx tsx scripts/monday-audit.mjs --emit-known         # write current findings into the acknowledgements file
  *   npx tsx scripts/monday-audit.mjs --skip-site          # database checks only
  *   npx tsx scripts/monday-audit.mjs --skip-ptl           # do not probe protennislive.com for missing sheets
+ *   npx tsx scripts/monday-audit.mjs --sheets=30          # how many stored cuts V1 re-reads against their sheets (default 8)
  *
  * ACKNOWLEDGING KNOWN GAPS
  *   Some events can never get a cut (no ProTennisLive code, sheet never published).
@@ -47,13 +48,15 @@ import pg from 'pg'
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import tls from 'node:tls'
+import { createRequire } from 'node:module'
 import {
   categoryForLevel,
   deadlinesForEdition,
   isGrandSlamQualifyingLevel,
   mondayOfWeekUtc,
 } from '../src/lib/entry-deadlines.ts'
-import { ANOMALY_TAG, minPlausibleRank } from '../src/lib/cutoff-anomaly.ts'
+import { ANOMALY_TAG, checkRankAnomaly, minPlausibleRank } from '../src/lib/cutoff-anomaly.ts'
+import { parseOfficialPdfCutoffBuffer } from '../src/lib/cutoff-pdf-parser.ts'
 import { resolveTournamentPtlCode } from '../src/lib/tournament-links.ts'
 import { overrideCodeFor } from '../src/lib/ptl-code-overrides.ts'
 import { getAtpWeekForSeason } from '../src/lib/atp-week.ts'
@@ -81,6 +84,7 @@ const GRACE_DAYS = Number(OPT('grace', '3'))
 // Nothing in the schema records when a number first arrived, so this cannot be measured:
 // tune it from what the Monday report flags. --lead=-1 gives an event until the end of its first day.
 const LEAD_DAYS = Number(OPT('lead', '0'))
+const SHEET_SAMPLE = Math.max(0, Number(OPT('sheets', '8')))
 const AS_OF = OPT('as-of') ? new Date(`${OPT('as-of')}T13:00:00Z`) : new Date()
 const KNOWN_FILE = OPT('known', fileURLToPath(new URL('./monday-audit-known.json', import.meta.url)))
 const PREVIOUS_FILE = OPT('previous')
@@ -90,6 +94,8 @@ const ACK_DAYS = 28 // how long --emit-known acknowledgements last
 const MAX_CUT = { singles: 2500, doubles: 6000 }
 
 // Checks that still run in --only=health mode.
+// Checks that look at a rotating sample: a finding that is not in today's sample has not been fixed.
+const SAMPLED_CHECKS = new Set(['V1'])
 const HEALTH_CHECKS = new Set(['B1', 'B5', 'B6', 'E1', 'D1', 'D3', 'D4', 'D5', 'D6'])
 
 // Pipelines with a known cadence, and how long silence is tolerated before it is suspicious.
@@ -364,6 +370,36 @@ async function probeSheet(code, year) {
   }
 }
 
+const SHEET_MONTHS = { january: 0, february: 1, march: 2, april: 3, may: 4, june: 5, july: 6, august: 7, september: 8, october: 9, november: 10, december: 11 }
+
+/** When the sheet says its event starts. Sheets print "24 November — 30 November 2025", or run the place
+ * into the dates: "Rome, Italy8 - 15 May 2022". A sheet whose date is not the edition's is another year's. */
+function sheetStartDate(text) {
+  for (const l of text.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 25)) {
+    let m = l.match(/(\d{1,2})\s+([A-Za-z]+)\s*[—–-]\s*(\d{1,2})\s+([A-Za-z]+)\s+(20\d\d)/)
+    if (m && SHEET_MONTHS[m[2].toLowerCase()] != null && SHEET_MONTHS[m[4].toLowerCase()] != null) {
+      const sm = SHEET_MONTHS[m[2].toLowerCase()], em = SHEET_MONTHS[m[4].toLowerCase()], ey = Number(m[5])
+      return new Date(Date.UTC(sm > em ? ey - 1 : ey, sm, Number(m[1])))
+    }
+    m = l.match(/(\d{1,2})\s*[—–-]\s*(\d{1,2})\s+([A-Za-z]+)\s+(20\d\d)/)
+    if (m && SHEET_MONTHS[m[3].toLowerCase()] != null) return new Date(Date.UTC(Number(m[4]), SHEET_MONTHS[m[3].toLowerCase()], Number(m[1])))
+  }
+  return null
+}
+
+/** A small stable number from a string, so the sample is the same all day and different tomorrow. */
+function seededOrder(key) {
+  let h = 2166136261
+  for (const c of `${key}|${iso(TODAY)}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619)
+  return h >>> 0
+}
+
+// pdf-parse runs a self-test if it is imported at the top of a module, so load it only when a sheet is read.
+let pdfParseFn
+const readPdfText = async (buf) => (await (pdfParseFn ??= createRequire(import.meta.url)('pdf-parse'))(buf)).text
+
+const DRAW_FILE = { 'singles main': 'mds', 'singles qualifying': 'qs', 'doubles main': 'mdd' }
+
 /** Every ProTennisLive URL any edition or cut of a tournament carries, by slug. The code belongs to
  * the tournament, so any year's URL identifies it. */
 async function loadCodeUrls(client) {
@@ -555,6 +591,128 @@ async function runChecks(client, rows) {
       count: 0,
       detail,
       note: `Events starting ${win} whose cut is due (see --lead / --grace).`,
+    })
+  })
+
+  // ── V1. Stored cuts agree with the sheets they came from ────────────────
+  // Every other check asks "is this number believable?". This one re-reads the draw sheet the cut came
+  // from and compares the bottom-left Last Direct Acceptance box with what the site shows, which is
+  // the only way to catch a wrong number that looks fine (a byes count stored as a rank, a prize-table
+  // row read as a player). It reads a small rotating sample each run: recently written rows first.
+  await check('V1', 'Stored cuts agree with their draw sheets', async () => {
+    if (SKIP_PTL || SHEET_SAMPLE === 0) {
+      record({ id: 'V1', title: 'Stored cuts agree with their draw sheets', severity: 'info', count: 0, detail: ['skipped (no calls to protennislive.com)'] })
+      return
+    }
+    const hasByes =
+      (await client.query(`SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cutoff_snapshots' AND column_name='byes_count'`)).rowCount > 0
+    const { rows: cands } = await client.query(
+      `SELECT t.slug, t.name, te.year, te.start_date::text AS start_date, te.level,
+              cs.event_type, cs.draw_type, cs.source_notes, cs.updated_at,
+              cs.last_direct_acceptance_rank AS rank, cs.challenger_doubles_advanced_cut_rank AS adv,
+              cs.challenger_doubles_onsite_cut_rank AS onsite, ${hasByes ? 'cs.byes_count' : 'NULL::int'} AS byes
+       FROM cutoff_snapshots cs
+       JOIN tournament_editions te ON te.id = cs.tournament_edition_id
+       JOIN tournaments t ON t.id = te.tournament_id
+       WHERE te.status = 'held' AND te.level NOT ILIKE 'ITF%' AND cs.source_type = 'official_pdf'
+         AND te.start_date >= $1::date AND te.start_date <= $2::date
+         AND (cs.last_direct_acceptance_rank IS NOT NULL OR cs.challenger_doubles_advanced_cut_rank IS NOT NULL
+              OR cs.challenger_doubles_onsite_cut_rank IS NOT NULL ${hasByes ? 'OR cs.byes_count > 0' : ''})`,
+      [iso(addDays(TODAY, -75)), iso(addDays(TODAY, 7))]
+    )
+    urlsBySlug ??= await loadCodeUrls(client)
+    const usable = []
+    for (const c of cands) {
+      const key = `${c.event_type} ${c.draw_type}`
+      if (!DRAW_FILE[key]) continue
+      let url = String(c.source_notes ?? '').match(/https:\/\/www\.protennislive\.com\/posting\/\d{4}\/\d+\/[a-z0-9-]+\.pdf/i)?.[0] ?? null
+      if (!url) {
+        const code = resolveTournamentPtlCode(c.slug, [...(urlsBySlug.get(c.slug) ?? [])]) ?? overrideCodeFor(c.slug)
+        if (code) url = `https://www.protennislive.com/posting/${c.year}/${code}/${DRAW_FILE[key]}.pdf`
+      }
+      if (url) usable.push({ ...c, url, key: `${c.slug}@${c.year}|${c.event_type}/${c.draw_type}` })
+    }
+    // Rows written in the last week are the likeliest to be wrong; fill the rest from the rest of the season.
+    const recent = usable.filter((c) => AS_OF - new Date(c.updated_at) < 7 * MS_DAY)
+    const rest = usable.filter((c) => !recent.includes(c))
+    const byLuck = (a, b) => seededOrder(a.key) - seededOrder(b.key)
+    const sample = [...recent.sort(byLuck).slice(0, Math.ceil(SHEET_SAMPLE / 2)), ...rest.sort(byLuck)].slice(0, SHEET_SAMPLE)
+
+    const findings = []
+    const tally = { agree: 0, disagree: 0, unreadable: 0, other: 0, missing: 0 }
+    let throttled = false
+    for (const c of sample) {
+      if (throttled) { tally.missing++; continue }
+      let res
+      try {
+        res = await fetch(c.url, { headers: PTL_HEADERS, signal: AbortSignal.timeout(30000) })
+      } catch {
+        tally.missing++
+        continue
+      }
+      await new Promise((r) => setTimeout(r, 2500))
+      if (res.status === 429 || res.status === 503) { throttled = true; tally.missing++; continue }
+      if (!res.ok) { tally.missing++; continue }
+      let buf, p, startsOn
+      try {
+        buf = Buffer.from(await res.arrayBuffer())
+        if (buf.length < 4000 || buf.subarray(0, 4).toString() !== '%PDF') { tally.missing++; continue }
+        p = await parseOfficialPdfCutoffBuffer(buf)
+        // The sheet must be this edition's own draw: ProTennisLive can serve another season's at an old path.
+        startsOn = sheetStartDate(await readPdfText(buf))
+      } catch {
+        tally.unreadable++
+        continue
+      }
+      const gap = startsOn ? Math.round((startsOn - dayStart(c.start_date)) / MS_DAY) : null
+      if (gap == null || Math.abs(gap) > 7) { tally.other++; continue }
+
+      const isDoubles = c.event_type === 'doubles'
+      const anomaly = p.last_direct_acceptance_rank != null && checkRankAnomaly(p.last_direct_acceptance_rank, c.level, c.event_type, c.draw_type)
+      const sheet = {
+        byes: p.byes_count,
+        rank: anomaly ? null : p.last_direct_acceptance_rank,
+        adv: p.challenger_doubles_advanced_cut_rank,
+        onsite: p.challenger_doubles_onsite_cut_rank,
+      }
+      const cat = categoryForLevel(c.level)
+      const readable = sheet.byes != null || sheet.rank != null || sheet.adv != null || sheet.onsite != null
+      if (!readable) { tally.unreadable++; continue }
+      const at = `${c.name} · ${c.level} · ${c.start_date} · ${c.event_type} ${c.draw_type}`
+      const stored = `${c.rank != null ? `rank ${c.rank}` : ''}${c.adv != null ? `${c.rank != null ? ', ' : ''}adv ${c.adv}` : ''}${c.byes ? `${c.rank != null || c.adv != null ? ', ' : ''}${c.byes} byes` : ''}` || 'nothing'
+      let problem = null
+      let level = 'warn'
+      if (sheet.byes != null) {
+        if (cat !== 'challenger') { tally.other++; continue } // ATP and Slam draws carry built-in byes for seeds
+        if (c.rank != null && c.rank === sheet.byes && !(c.byes > 0)) { problem = `the sheet says ${sheet.byes} byes (draw not full) but the site shows it as a cut of ${c.rank}`; level = 'critical' }
+        else if (!(c.byes > 0)) problem = `the sheet says ${sheet.byes} byes (draw not full); the site stores ${stored}`
+        else if (c.byes !== sheet.byes) problem = `the sheet says ${sheet.byes} byes; the site stores ${c.byes}`
+        else if (c.rank != null && sheet.rank == null) problem = `the sheet's box says ${sheet.byes} byes, but the site also shows a cut of ${c.rank}`
+      } else if (isDoubles && (sheet.adv != null || sheet.onsite != null)) {
+        if (sheet.adv != null && c.adv !== sheet.adv) problem = `the sheet gives an advance cut of ${sheet.adv}; the site stores ${stored}`
+        else if (sheet.onsite != null && c.onsite !== sheet.onsite) problem = `the sheet gives an on-site cut of ${sheet.onsite}; the site stores ${stored}`
+      } else if (sheet.rank != null) {
+        const shown = isDoubles ? (c.adv ?? c.rank) : c.rank
+        if (c.byes > 0) problem = `the sheet gives a cut of ${sheet.rank}; the site says ${c.byes} byes`
+        else if (shown == null) problem = `the sheet gives a cut of ${sheet.rank}; the site stores nothing`
+        else if (shown !== sheet.rank) problem = `the sheet gives a cut of ${sheet.rank}; the site stores ${stored}`
+      }
+      if (problem) {
+        tally.disagree++
+        findings.push({ ...item(`V1|${c.key}`, `${at} · ${problem} · ${c.url}`, { start: dayStart(c.start_date), level }), level })
+      } else tally.agree++
+    }
+
+    const checked = tally.agree + tally.disagree
+    const detail = [
+      `sampled ${sample.length} of ${usable.length} stored cuts from the last 75 days; cuts written in the last week are picked first`,
+      `${checked} re-read against their sheets: ${tally.agree} agree, ${tally.disagree} disagree`,
+      `${tally.unreadable} sheets the parser could not read a cut from, ${tally.other} skipped (another season's sheet, or an ATP/Slam draw with built-in byes), ${tally.missing} not fetched${throttled ? ' (ProTennisLive asked to slow down)' : ''}`,
+    ]
+    report('V1', 'Stored cuts agree with their draw sheets', findings, {
+      severity: (active) => (active.some((i) => i.level === 'critical') ? 'critical' : 'warn'),
+      detail,
+      note: 'Re-reads the Last Direct Acceptance box (bottom left) of each sampled sheet and compares it with what the site stores. Critical only when a byes count was stored as a cut. A disagreement can also mean the sheet was updated after the cut was stored.',
     })
   })
 
@@ -1082,7 +1240,7 @@ function diffAgainstPrevious(current) {
   return {
     since: previous.asOf,
     fresh: new Set(current.filter((f) => !prevKeys.has(f.key)).map((f) => f.key)),
-    resolved: previous.findings.filter((f) => ran.has(f.id) && !nowKeys.has(f.key) && !known.has(f.key)),
+    resolved: previous.findings.filter((f) => ran.has(f.id) && !SAMPLED_CHECKS.has(f.id) && !nowKeys.has(f.key) && !known.has(f.key)),
     kept: current.filter((f) => prevKeys.has(f.key)).length,
   }
 }

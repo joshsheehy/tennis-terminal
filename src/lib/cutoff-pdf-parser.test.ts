@@ -107,6 +107,55 @@ describe('byes and alternates in the Last Direct Acceptance box', () => {
   });
 });
 
+describe('older sheet layouts and lines that are not a cut', () => {
+  // Lines below are copied from real 2022-23 draw sheets, taken from the web archive.
+  it('reads the value printed just before the label (Rome 2022)', () => {
+    const parsed = parseOfficialPdfCutoffText(
+      ['CARRENO BUSTA, Pablo', 'G. Armstrong/C. Sanches/R. Herfel/C. Di DioATP SUPERVISORSGoffin, David - 47LAST DIRECT ACCEPTANCE:', 'THIRD ROUND€ 72,865', 'SECOND ROUND', '8'].join('\n')
+    );
+    expect(parsed.last_direct_acceptance_rank).toBe(47);
+    expect(parsed.last_direct_acceptance_name).toBe('Goffin, David');
+  });
+
+  it('reads a value with no dash before the label (Monte-Carlo 2022)', () => {
+    const parsed = parseOfficialPdfCutoffText(
+      ['BASILASHVILI, Nikoloz', 'G.Armstrong/C. Sanches/C.MourierATP SUPERVISORSRinderknech, A  57LAST DIRECT ACCEPTANCE:', 'THIRD ROUND€ 72,865', 'SECOND ROUND', 'R. Bautista Agut (Right wrist)', '8'].join('\n')
+    );
+    expect(parsed.last_direct_acceptance_rank).toBe(57);
+  });
+
+  it('reads the Cincinnati 2022 line with the supervisors first', () => {
+    const parsed = parseOfficialPdfCutoffText(
+      ['8', '101619', 'Ali Nili, Roland HerfelATP SUPERVISORSBrandon Nakashima - 49LAST DIRECT ACCEPTANCE:', 'THIRD ROUND$84,510', 'SECOND ROUND'].join('\n')
+    );
+    expect(parsed.last_direct_acceptance_rank).toBe(49);
+  });
+
+  it('never reads the points table as a cut when the box is blank', () => {
+    for (const text of [
+      ['LAST DIRECT ACCEPTANCE', 'THIRD ROUND€ 72,865', 'SECOND ROUND', '8'].join('\n'),
+      ['LAST DIRECT ACCEPTANCE', 'SECOND ROUND', 'R. Bautista Agut (Right wrist)', '8'].join('\n'),
+      ['LAST DIRECT ACCEPTANCE', 'OPEN', '13'].join('\n'),
+      ['LAST DIRECT ACCEPTANCE', 'THAILAND TENNIS TOUR 3'].join('\n'),
+    ]) {
+      expect(parseOfficialPdfCutoffText(text).last_direct_acceptance_rank).toBeNull();
+    }
+  });
+
+  it('takes the ranking, not the alternate-list place, from "A.Fils 195 - Alt (4)" (Montpellier 2023)', () => {
+    const stream = parseOfficialPdfCutoffText(['LAST DIRECT ACCEPTANCE', 'www.ATPTour.com', 'A.Fils 195 - Alt (4)ATP SUPERVISOR(S)'].join('\n'));
+    expect(stream.last_direct_acceptance_rank).toBe(195);
+    expect(stream.last_direct_acceptance_name).toBe('A.Fils');
+    const layout = parseOfficialPdfCutoffText(['LAST DIRECT ACCEPTANCE', 'A.Fils 195 - Alt', '(4)'].join('\n'));
+    expect(layout.last_direct_acceptance_rank).toBe(195);
+  });
+
+  it('does not let the new rules disturb an ordinary sheet', () => {
+    const parsed = parseOfficialPdfCutoffText(['ATP SUPERVISORS', 'Some Name', 'LAST DIRECT ACCEPTANCE', 'Matusevich, Anton - 431', 'ATP SUPERVISOR'].join('\n'));
+    expect(parsed.last_direct_acceptance_rank).toBe(431);
+  });
+});
+
 describe('parseOfficialPdfCutoffText', () => {
   it('counts [Alt] (square bracket) alternates — Glasgow doubles draw style', () => {
     const text = [
