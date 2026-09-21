@@ -92,10 +92,13 @@ async function tryFill(
     const attempts = pdfNames.map(async (pdfName) => {
       const pdfUrl = `${baseUrl}/${pdfName}`;
       const parsed = await fetchAndParseOfficialPdfCutoff(pdfUrl, archiveFirst);
+      // A sheet whose Last Direct Acceptance box says "Byes (N)" has no cut, but it is a real answer
+      // (the draw was not full) and must not be retried or tombstoned as if the PDF were missing.
       const hasRank =
         parsed.last_direct_acceptance_rank !== null ||
         parsed.challenger_doubles_advanced_cut_rank !== null ||
-        parsed.challenger_doubles_onsite_cut_rank !== null;
+        parsed.challenger_doubles_onsite_cut_rank !== null ||
+        parsed.byes_count !== null;
       if (!hasRank) throw new Error('no rank data');
       return { parsed, pdfUrl };
     });
@@ -162,18 +165,21 @@ async function markDrawAttempted(
          when cutoff_snapshots.last_direct_acceptance_rank is not null
            or cutoff_snapshots.challenger_doubles_advanced_cut_rank is not null
            or cutoff_snapshots.challenger_doubles_onsite_cut_rank is not null
+           or cutoff_snapshots.byes_count is not null
          then cutoff_snapshots.source_notes
          else excluded.source_notes end,
        parsed_at = case
          when cutoff_snapshots.last_direct_acceptance_rank is not null
            or cutoff_snapshots.challenger_doubles_advanced_cut_rank is not null
            or cutoff_snapshots.challenger_doubles_onsite_cut_rank is not null
+           or cutoff_snapshots.byes_count is not null
          then cutoff_snapshots.parsed_at
          else excluded.parsed_at end,
        updated_at = case
          when cutoff_snapshots.last_direct_acceptance_rank is not null
            or cutoff_snapshots.challenger_doubles_advanced_cut_rank is not null
            or cutoff_snapshots.challenger_doubles_onsite_cut_rank is not null
+           or cutoff_snapshots.byes_count is not null
          then cutoff_snapshots.updated_at
          else now() end`,
     [editionId, eventType, drawType]
@@ -182,6 +188,7 @@ async function markDrawAttempted(
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
+  await ensureByesColumn(); // the has_* selection below reads byes_count
   const force = request.nextUrl.searchParams.get('force') === 'true';
 
   // ── Phase 1: Cleanup (fast, idempotent) ──────────────────────────────────────────
@@ -231,10 +238,10 @@ export async function GET(request: NextRequest) {
        te.start_date::text as start_date,
        te.level,
        te.source_url,
-       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'main' and cs.last_direct_acceptance_rank is not null) as has_singles_main,
-       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'qualifying' and cs.last_direct_acceptance_rank is not null) as has_singles_qual,
-       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'main' and (cs.last_direct_acceptance_rank is not null or cs.challenger_doubles_advanced_cut_rank is not null or cs.challenger_doubles_onsite_cut_rank is not null)) as has_doubles_main,
-       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'qualifying' and cs.last_direct_acceptance_rank is not null) as has_doubles_qual,
+       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'main' and (cs.last_direct_acceptance_rank is not null or cs.byes_count is not null)) as has_singles_main,
+       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'qualifying' and (cs.last_direct_acceptance_rank is not null or cs.byes_count is not null)) as has_singles_qual,
+       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'main' and (cs.last_direct_acceptance_rank is not null or cs.challenger_doubles_advanced_cut_rank is not null or cs.challenger_doubles_onsite_cut_rank is not null or cs.byes_count is not null)) as has_doubles_main,
+       exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'qualifying' and (cs.last_direct_acceptance_rank is not null or cs.byes_count is not null)) as has_doubles_qual,
        exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'main' and cs.source_notes = 'PDF_NOT_FOUND' and cs.updated_at > now() - interval '${TOMBSTONE_TTL}') as recently_tried_singles_main,
        exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'singles' and cs.draw_type = 'qualifying' and cs.source_notes = 'PDF_NOT_FOUND' and cs.updated_at > now() - interval '${TOMBSTONE_TTL}') as recently_tried_singles_qual,
        exists(select 1 from cutoff_snapshots cs where cs.tournament_edition_id = te.id and cs.event_type = 'doubles' and cs.draw_type = 'main' and cs.source_notes = 'PDF_NOT_FOUND' and cs.updated_at > now() - interval '${TOMBSTONE_TTL}') as recently_tried_doubles_main,

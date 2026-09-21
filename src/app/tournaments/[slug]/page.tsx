@@ -300,7 +300,9 @@ function CutoffTable({
       {expected.map((draw) => {
         const [eventType, drawType] = draw.split('_') as ['singles' | 'doubles', 'main' | 'qualifying'];
         const cutoff = findCutoff(cutoffs, eventType, drawType);
-        const tombstoned = cutoff ? isTombstone(cutoff) : false;
+        // A tombstone means "we looked and found no PDF". A row that holds byes is the opposite: we read
+        // the sheet and it said the draw was not full, so an old marker must not hide it.
+        const tombstoned = cutoff ? isTombstone(cutoff) && (cutoff.byes_count ?? 0) === 0 : false;
         // Prefer the URL embedded in source_notes by the importer / set-cut.
         // If the row was never created (cuts not yet imported, no PDF found)
         // or its source_notes lacks a URL, fall back to the canonical

@@ -276,6 +276,15 @@ async function storeParsedCut({
             and cutoff_snapshots.last_direct_acceptance_rank = excluded.byes_count
            then null else cutoff_snapshots.last_direct_acceptance_player_name end,
          byes_count = coalesce(excluded.byes_count, cutoff_snapshots.byes_count),
+         -- The notes should point at the sheet we just read. Keep a hand-written note (a manual cut always
+         -- carries a rank, so it never reaches this branch) but replace a "PDF not found" marker, and
+         -- the leftover of a rejected misread, once the sheet has actually been read.
+         source_notes = case
+           when cutoff_snapshots.source_notes = 'PDF_NOT_FOUND'
+             or (excluded.byes_count is not null and cutoff_snapshots.last_direct_acceptance_rank is null
+                 and cutoff_snapshots.source_type = 'official_pdf')
+           then excluded.source_notes
+           else cutoff_snapshots.source_notes end,
          updated_at = now()`;
 
   const writeResult = await pool.query(
