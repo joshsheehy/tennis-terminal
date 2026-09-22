@@ -1,0 +1,41 @@
+name: Telegram poll
+
+# Answers messages sent to the existing tenniscuts.com bot ("status", "open", "resolved?" ...) from the
+# case ledger — no LLM, just a lookup (scripts/telegram-bot.mjs). Runs on a short cron because GitHub
+# Actions has no long-lived job type to hold a real getUpdates long-poll open.
+#
+# Telegram allows only one active consumer of a bot's updates at a time. This is that consumer. Do not
+# also set a webhook for this bot — the two would fight over the same update stream (see the script header).
+#
+# Needs three repository secrets already set up for the Monday audit: DATABASE_URL (write access — the
+# ledger lives in the same database as the cuts), TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # GitHub's minimum cron granularity; actual spacing can slip a few minutes under load
+  workflow_dispatch:
+
+concurrency:
+  group: telegram-poll
+  cancel-in-progress: false # let an overlapping run finish rather than dropping its offset update
+
+permissions:
+  contents: read
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check Telegram for messages and reply
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: npx tsx scripts/telegram-bot.mjs

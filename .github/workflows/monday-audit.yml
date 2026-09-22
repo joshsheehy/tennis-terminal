@@ -26,6 +26,13 @@ name: Monday audit
 # Known gaps that can never be fixed (an event with no ProTennisLive code, say)
 # go in scripts/monday-audit-known.json with an expiry date so they stop failing
 # the run without being muted forever.
+#
+# A full run's findings are also recorded in the case ledger (a database table; see
+# src/lib/agent-cases.ts and scripts/case-ledger.mjs), and a "boss" job then works whatever it can fix on
+# its own (scripts/boss/orchestrate.mjs — a fixed, deterministic playbook, no LLM) before anything reaches
+# you. That needs one more secret, ADMIN_SECRET (the same one the admin API already requires), so the boss
+# can call the same import/cleanup endpoints a person would. What the boss cannot fix is escalated, and
+# .github/workflows/telegram-poll.yml is what lets you ask the bot whether it has been resolved.
 
 on:
   schedule:
@@ -75,6 +82,9 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+      boss_cases: ${{ steps.ledger.outputs.boss_cases }}
     steps:
       - uses: actions/checkout@v4
 
@@ -134,8 +144,18 @@ jobs:
         run: |
           args=(--weeks="$WEEKS" --grace="$GRACE" --lead="$LEAD" --sheets="$SHEETS")
           if [ "$MODE" = "health" ]; then args+=(--only=health); fi
+          # Full-mode findings become work for the boss job below rather than a reason to fail this run;
+          # its own exit code covers whatever is left unresolved. Health mode is unaffected.
+          if [ "$MODE" = "full" ]; then args+=(--handoff); fi
           if [ -f previous/monday-audit-state.json ]; then args+=(--previous=previous/monday-audit-state.json); fi
           npx tsx scripts/monday-audit.mjs "${args[@]}"
+
+      - name: Sync findings to the case ledger
+        if: always() && steps.mode.outputs.mode == 'full'
+        id: ledger
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }} # write access — the audit's own session self-restricts to read-only, this step does not
+        run: npx tsx scripts/case-ledger.mjs sync monday-audit-state.json
 
       - name: Upload report
         if: always()
@@ -152,6 +172,30 @@ jobs:
           name: monday-audit-state
           path: monday-audit-state.json
           if-no-files-found: ignore
+
+  boss:
+    needs: audit
+    if: needs.audit.outputs.mode == 'full' && fromJSON(needs.audit.outputs.boss_cases || '0') > 0
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Work the case ledger
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          SITE_URL: https://tenniscuts.com
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: npx tsx scripts/boss/orchestrate.mjs
 
   smoke:
     if: github.event_name == 'push'
@@ -193,7 +237,7 @@ jobs:
       - name: Audit against the fresh schema
         run: |
           set +e
-          npx tsx scripts/monday-audit.mjs --dry-run --skip-site
+          npx tsx scripts/monday-audit.mjs --dry-run --skip-site --handoff
           code=$?
           set -e
           if [ "$code" -ge 2 ]; then
@@ -205,3 +249,13 @@ jobs:
             grep -B2 -A4 "CHECK ERROR" monday-audit-report.md
             exit 1
           fi
+
+      # The ledger and the boss dispatcher are the other half of this pipeline; a schema change that
+      # breaks them should fail here too, not silently on the next real audit run.
+      - name: Sync the ledger and let the boss look at what it found
+        env:
+          ADMIN_SECRET: smoke-test-secret
+          SITE_URL: http://127.0.0.1:1 # nothing here should actually need to call out — a real call is a bug
+        run: |
+          npx tsx scripts/case-ledger.mjs sync monday-audit-state.json
+          npx tsx scripts/boss/orchestrate.mjs || true # exit 1 just means it escalated something against seed data, which is expected

@@ -22,6 +22,8 @@
  *   npx tsx scripts/monday-audit.mjs --skip-site          # database checks only
  *   npx tsx scripts/monday-audit.mjs --skip-ptl           # do not probe protennislive.com for missing sheets
  *   npx tsx scripts/monday-audit.mjs --sheets=30          # how many stored cuts V1 re-reads against their sheets (default 8)
+ *   npx tsx scripts/monday-audit.mjs --handoff            # a boss agent takes the findings: no Telegram list of problems, exit 0 on criticals
+ *   npx tsx scripts/monday-audit.mjs --state=out.json     # where to write the run's state (default monday-audit-state.json)
  *
  * ACKNOWLEDGING KNOWN GAPS
  *   Some events can never get a cut (no ProTennisLive code, sheet never published).
@@ -75,6 +77,8 @@ const EMIT_KNOWN = FLAG('emit-known')
 const SKIP_SITE = FLAG('skip-site') || EMIT_KNOWN
 const SKIP_PTL = FLAG('skip-ptl') || SKIP_SITE // no calls to protennislive.com
 const HEALTH_ONLY = OPT('only') === 'health'
+const HANDOFF = FLAG('handoff') // the boss agent owns the findings; the audit stays quiet about them
+const STATE_FILE = OPT('state', 'monday-audit-state.json')
 const COVERAGE_WEEKS = parseInt(OPT('weeks', '2'), 10) // current week + N-1 ahead
 // A cut can only exist once its entry list is posted, which is after the deadline.
 const GRACE_DAYS = Number(OPT('grace', '3'))
@@ -96,6 +100,7 @@ const MAX_CUT = { singles: 2500, doubles: 6000 }
 // Checks that still run in --only=health mode.
 // Checks that look at a rotating sample: a finding that is not in today's sample has not been fixed.
 const SAMPLED_CHECKS = new Set(['V1'])
+const verifiedKeys = [] // sampled-check keys that were looked at this run and found correct
 const HEALTH_CHECKS = new Set(['B1', 'B5', 'B6', 'E1', 'D1', 'D3', 'D4', 'D5', 'D6'])
 
 // Pipelines with a known cadence, and how long silence is tolerated before it is suspicious.
@@ -277,7 +282,7 @@ try {
  * acknowledged and diffed between runs) and `detail` (context lines with no key).
  */
 const results = []
-const item = (key, text, r) => ({ key, text, r })
+const item = (key, text, r, data) => ({ key, text, r, data })
 
 function record({ id, title, severity, count, items = [], detail = [], note = '' }) {
   results.push({ id, title, severity, count, items, detail, acknowledged: [], note, whole: false })
@@ -446,7 +451,7 @@ async function runChecks(client, rows) {
 
   // Classify why editions have no cut (see above). Soonest events first, capped so a bad day does not
   // hammer protennislive.com, which throttles hard.
-  const causes = new Map() // edition_id -> cause
+  const causes = new Map() // edition_id -> { cause, code }
   let urlsBySlug = null
   let probes = 0
   async function classify(list) {
@@ -455,23 +460,29 @@ async function runChecks(client, rows) {
       if (causes.has(r.edition_id)) continue
       const code = resolveTournamentPtlCode(r.slug, [...(urlsBySlug.get(r.slug) ?? [])]) ?? overrideCodeFor(r.slug)
       if (!code) {
-        causes.set(r.edition_id, 'needs-code')
+        causes.set(r.edition_id, { cause: 'needs-code' })
         continue
       }
       if (SKIP_PTL || probes >= MAX_PTL_PROBES) {
-        causes.set(r.edition_id, 'unchecked')
+        causes.set(r.edition_id, { cause: 'unchecked' })
         continue
       }
       probes++
       const result = await probeSheet(code, r.year)
       await new Promise((resolve) => setTimeout(resolve, 1200))
       const started = (TODAY - r.start) / MS_DAY >= 3
-      causes.set(r.edition_id, result === 'posted' ? 'posted' : result === 'absent' ? (started ? 'cancelled' : 'waiting') : 'unknown')
+      causes.set(r.edition_id, { cause: result === 'posted' ? 'posted' : result === 'absent' ? (started ? 'cancelled' : 'waiting') : 'unknown', code })
     }
   }
+  // A "posted" cause always comes from probing mds.pdf (see probeSheet above), so the fix it points at is
+  // always singles/main — the boss's reimport remedy re-reads exactly the sheet this check just found.
   const causeItem = (id, r, text) => {
-    const cause = causes.get(r.edition_id)
-    return { key: `${id}|${ek(r)}`, text: CAUSE_TEXT[cause] ? `${text} · ${CAUSE_TEXT[cause]}` : text, r, cause }
+    const { cause, code } = causes.get(r.edition_id) ?? {}
+    const data =
+      cause === 'posted' && code
+        ? { remedy: 'reimport', slug: r.slug, year: r.year, event: 'singles', draw: 'main', url: `https://www.protennislive.com/posting/${r.year}/${code}/mds.pdf` }
+        : undefined
+    return { key: `${id}|${ek(r)}`, text: CAUSE_TEXT[cause] ? `${text} · ${CAUSE_TEXT[cause]}` : text, r, cause, data }
   }
   // Only a sheet that is up but not imported is a fault in the pipeline (critical). A missing code or a
   // probable cancellation needs a person (warn). Waiting on ProTennisLive needs nobody (info).
@@ -699,8 +710,12 @@ async function runChecks(client, rows) {
       }
       if (problem) {
         tally.disagree++
-        findings.push({ ...item(`V1|${c.key}`, `${at} · ${problem} · ${c.url}`, { start: dayStart(c.start_date), level }), level })
-      } else tally.agree++
+        const data = { remedy: 'reimport', slug: c.slug, year: c.year, event: c.event_type, draw: c.draw_type, url: c.url }
+        findings.push({ ...item(`V1|${c.key}`, `${at} · ${problem} · ${c.url}`, { start: dayStart(c.start_date), level }, data), level })
+      } else {
+        tally.agree++
+        verifiedKeys.push(`V1|${c.key}`)
+      }
     }
 
     const checked = tally.agree + tally.disagree
@@ -1227,8 +1242,8 @@ const summarise = () => ({
 function findings() {
   return activeResults().flatMap((r) =>
     !r.whole && r.items.some((i) => i.key)
-      ? r.items.map((i) => ({ key: i.key, id: r.id, severity: r.severity, text: i.text }))
-      : [{ key: r.id, id: r.id, severity: r.severity, text: r.title }]
+      ? r.items.map((i) => ({ key: i.key, id: r.id, severity: r.severity, title: r.title, text: i.text, data: i.data }))
+      : [{ key: r.id, id: r.id, severity: r.severity, title: r.title, text: r.title }]
   )
 }
 
@@ -1392,18 +1407,27 @@ async function main() {
   await say(md)
   writeFileSync('monday-audit-report.md', md)
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md)
-  if (!HEALTH_ONLY)
-    writeFileSync(
-      'monday-audit-state.json',
-      JSON.stringify({ asOf: iso(TODAY), findings: current, scorecard: extra.scorecard }, null, 2)
+  // Written on every run (not just full ones): the case ledger reads it. `ran` lists the checks that
+  // actually executed, so a check that was skipped or errored can never close a case it did not look at.
+  const ranChecks = results.filter((r) => !SAMPLED_CHECKS.has(r.id) && !r.note.includes('CHECK ERROR')).map((r) => r.id)
+  writeFileSync(
+    STATE_FILE,
+    JSON.stringify(
+      { asOf: iso(TODAY), mode: HEALTH_ONLY ? 'health' : 'full', ran: ranChecks, verified: verifiedKeys, findings: current, scorecard: extra.scorecard },
+      null,
+      2
     )
+  )
 
   const message = buildTelegram(diff, extra.scorecard)
   const quietHealth = HEALTH_ONLY && !summarise().crit.length && !summarise().warn.length
   if (DRY_RUN) await say(`\n--- Telegram preview (not sent) ---\n${message.replace(/<\/?[bi]>/g, '')}`)
   else if (quietHealth) console.log('[telegram] health run is clean — not sending a message.')
+  else if (HANDOFF && current.length) console.log('[telegram] findings handed to the boss agent — it reports what it could not fix.')
   else await sendTelegram(message)
 
+  // With a boss, a finding is work for it rather than a reason to fail this run; only a crash is red here.
+  if (HANDOFF) process.exit(0)
   process.exit(summarise().crit.length ? 1 : 0)
 }
 
