@@ -56,9 +56,13 @@ export default function AlertsPage() {
         send you what you pick.
       </p>
 
-      <section className="card" style={{ marginBottom: 32 }}>
+      <section className="card" style={{ marginBottom: 12 }}>
         <AlertSignup />
       </section>
+      <p className="page-footnote" style={{ marginBottom: 32 }}>
+        We only use your email to send the alerts you pick. See the{' '}
+        <a href="/privacy">privacy policy</a>.
+      </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 10px', color: 'var(--text-strong)' }}>
         The deadlines we track
