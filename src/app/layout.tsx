@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import SiteNav from '@/components/SiteNav';
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import { SITE_NAME, SITE_URL, SITE_DESCRIPTION } from '@/lib/brand';
 
 // Self-hosted at build time by next/font — no runtime request to Google.
@@ -37,6 +38,13 @@ export const metadata: Metadata = {
   category: 'sports',
   alternates: {
     canonical: '/',
+  },
+  // Standalone-mode presentation for "Add to Home Screen" on iOS Safari
+  // (manifest.ts covers Android/Chrome's install prompt).
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: SITE_NAME,
   },
   openGraph: {
     type: 'website',
@@ -88,6 +96,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </head>
       <body>
+        <ServiceWorkerRegister />
         <SiteNav />
         {children}
       </body>
