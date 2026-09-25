@@ -62,6 +62,24 @@ describe('googleFlightsUrl', () => {
     expect(url.startsWith('https://www.google.com/search?q=')).toBe(true);
     expect(url).not.toContain('travel/flights');
   });
+
+  it('uses the real Google Flights results page when both cities have a known airport', () => {
+    // Rennes and Saint-Tropez are both in city-airports.ts (RNS, NCE). This is
+    // the exact pair a user hit the search fallback on — verified live that
+    // this specific tfs value opens a real results page with both airports
+    // and "One way" read back correctly.
+    const url = googleFlightsUrl('Rennes', 'Saint-Tropez', '2026-09-18');
+    expect(url).toBe(
+      'https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA5LTE4agcIARIDUk5TcgcIARIDTkNFQAFIAXABmAEC&hl=en&gl=US&curr=USD'
+    );
+  });
+
+  it('falls back to search when a date is missing even with known airports', () => {
+    // The real page needs a departure date; there is no verified no-date
+    // behavior for it, so treat "no date" the same as "no airport code."
+    const url = googleFlightsUrl('Rennes', 'Saint-Tropez');
+    expect(url.startsWith('https://www.google.com/search?q=')).toBe(true);
+  });
 });
 
 describe('resolveTournamentPtlCode', () => {

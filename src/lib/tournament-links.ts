@@ -1,4 +1,6 @@
 import { ALL_EDITIONS } from './tournament-data';
+import { airportFor } from './city-airports';
+import { googleFlightsResultsUrl } from './google-flights-tfs';
 
 // Shared link builders for tournament artefacts (ProTennisLive detail sheets)
 // and travel. Used by the tournament detail page and the schedule summary.
@@ -118,36 +120,37 @@ export function fridayBefore(startDate: string | Date | null | undefined): strin
   return new Date(d.getTime() - back * 86400000).toISOString().slice(0, 10);
 }
 
-// A flight search link for a leg, built from a natural-language query. City
-// names are what we have (no airport codes in the data), so the query has to
-// stay free text — but WHICH Google endpoint that text goes to matters.
+// A flight search link for a leg — the real Google Flights results page when
+// we can build one, otherwise a plain search as a fallback that still says
+// exactly what's needed.
 //
-// google.com/travel/flights?q=... — what this used to point at — no longer
-// parses the query at all. Loaded it directly in a real browser: "Where
-// from?" and "Where to?" both came back blank, the date was empty, and the
-// trip-type toggle stayed on "Round trip." Every flight link on the site was
-// silently landing on an empty search form, not a wrong-but-plausible one —
-// that's what a user reported as "came up with Toulouse to nowhere": Google's
-// own fallback for an unparsed query, not anything derived from our data.
+// The real page (google-flights-tfs.ts) needs a departure date and an actual
+// IATA airport code on both ends — city-airports.ts is deliberately a small,
+// hand-verified list, not a guess at scale, so most cities aren't on it yet.
+// google.com/travel/flights?q=<free text>, which this used to point at for
+// everyone, no longer parses its query at all: loaded that exact URL in a
+// real browser and got both city fields blank, no date, "Round trip" still
+// selected. That's what a user reported as "came up with Toulouse to
+// nowhere" — Google's own fallback for a query it never read, not anything
+// derived from our data. google.com/search?q=... still runs the same free
+// text through Google's general language understanding and surfaces a
+// flights result inline, so that's the fallback for a city not in the
+// registry rather than reviving the dead endpoint.
 //
-// google.com/search?q=... — plain web search — still runs the query through
-// Google's general-purpose language understanding rather than the travel
-// mini-app's own (evidently abandoned) parser, and surfaces its flights rich
-// result inline on the results page for a signed-in real user. Can't get an
-// automated before/after screenshot of that box from here — Google's bot
-// defenses correctly block headless traffic hitting search directly, same as
-// they should — so this is architecturally the sound choice (the confirmed
-// state of the old endpoint make that easy) rather than something proven
-// working end to end. Worth an actual click-through after deploy.
-//
-// "One-way" leads the query since each leg of a swing is a one-way hop to the
-// next stop, not a round trip, and the date pins to the Friday between the
-// two tournaments when we know it.
+// "One-way" leads the fallback query and is baked into the real page's
+// trip_type field, since each leg of a swing is a one-way hop to the next
+// stop, not a round trip. The date pins to the Friday between the two
+// tournaments when we know it.
 export function googleFlightsUrl(
   fromCity: string,
   toCity: string,
   dateISO?: string | null
 ): string {
+  if (dateISO) {
+    const fromIata = airportFor(fromCity);
+    const toIata = airportFor(toCity);
+    if (fromIata && toIata) return googleFlightsResultsUrl(fromIata, toIata, dateISO);
+  }
   const q = dateISO
     ? `one-way flights to ${toCity} from ${fromCity} on ${dateISO}`
     : `one-way flights to ${toCity} from ${fromCity}`;
