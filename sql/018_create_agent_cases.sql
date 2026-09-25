@@ -45,9 +45,11 @@ create table if not exists agent_case_events (
 
 create index if not exists agent_case_events_case_idx on agent_case_events(case_id, at desc);
 
--- Tiny durable key/value store, currently just the Telegram poller's update offset (scripts/telegram-bot.mjs).
--- A GitHub Actions cron run has no memory of the last run, so the offset has to live somewhere; the same
--- database the ledger already lives in is simpler than a second store.
+-- Tiny durable key/value store for whatever small bit of cross-run state a script needs next; a GitHub
+-- Actions cron run has no memory of its own, so anything like that has to live somewhere, and the same
+-- database the ledger already lives in is simpler than a second store. Not currently used by anything —
+-- the Telegram poller (scripts/telegram-bot.mjs) used to keep its update offset here before it was
+-- replaced by a webhook (src/app/api/telegram-webhook/route.ts), which has no offset to track.
 create table if not exists agent_kv (
   key text primary key,
   value jsonb not null,

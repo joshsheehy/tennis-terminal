@@ -1,6 +1,6 @@
-// What the Telegram poller (scripts/telegram-bot.mjs) does with an inbound message: a fixed set of
-// intents answered by a ledger lookup, never an LLM call — "has it been resolved?" should be a cheap,
-// honest, instant answer, not something a model can hallucinate.
+// What the Telegram webhook (src/app/api/telegram-webhook/route.ts, via telegram-reply.ts) does with
+// an inbound message: a fixed set of intents answered by a ledger lookup, never an LLM call — "has it
+// been resolved?" should be a cheap, honest, instant answer, not something a model can hallucinate.
 
 export type Intent = 'status' | 'list' | 'help';
 

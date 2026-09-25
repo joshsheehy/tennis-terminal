@@ -32,7 +32,7 @@ name: Monday audit
 # its own (scripts/boss/orchestrate.mjs — a fixed, deterministic playbook, no LLM) before anything reaches
 # you. That needs one more secret, ADMIN_SECRET (the same one the admin API already requires), so the boss
 # can call the same import/cleanup endpoints a person would. What the boss cannot fix is escalated, and
-# .github/workflows/telegram-poll.yml is what lets you ask the bot whether it has been resolved.
+# the /api/telegram-webhook route (src/app/api/telegram-webhook/route.ts) is what lets you ask the bot whether it has been resolved, replying instantly instead of on a GitHub Actions schedule.
 
 on:
   schedule:

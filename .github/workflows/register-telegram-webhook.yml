@@ -1,0 +1,53 @@
+name: Register Telegram webhook
+
+# One-time (or one-time-per-rotation) setup step: points the Telegram bot at
+# /api/telegram-webhook instead of leaving it on getUpdates polling.
+#
+# Run this by hand from the Actions tab after:
+#   1. TELEGRAM_WEBHOOK_SECRET is set to the SAME value in two places —
+#      this repo's secrets (for this workflow to read) and the Railway app's
+#      environment variables (for the route to check incoming requests
+#      against). They must match exactly or every delivery gets a 401.
+#   2. .github/workflows/telegram-poll.yml no longer exists (or is disabled).
+#      Telegram allows exactly one active consumer of a bot's updates —
+#      leaving the poller running alongside a webhook makes its getUpdates
+#      calls start failing with 409, not a clean handoff.
+#
+# Safe to re-run any time (e.g. after rotating TELEGRAM_WEBHOOK_SECRET) —
+# setWebhook with the same URL just re-confirms the registration.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Call Telegram setWebhook
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+            echo "Missing TELEGRAM_BOT_TOKEN repository secret."; exit 1
+          fi
+          if [ -z "${TELEGRAM_WEBHOOK_SECRET:-}" ]; then
+            echo "Missing TELEGRAM_WEBHOOK_SECRET repository secret. Set it here AND on Railway (same value)."; exit 1
+          fi
+
+          response=$(curl -sS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+            --data-urlencode "url=https://tenniscuts.com/api/telegram-webhook" \
+            --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
+            --data-urlencode "allowed_updates=[\"message\"]")
+          echo "$response"
+          ok=$(echo "$response" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(d).ok)}catch{console.log('false')}})")
+          if [ "$ok" != "true" ]; then
+            echo "setWebhook did not report ok:true — see the response above."
+            exit 1
+          fi
+
+          echo
+          echo "=== Current webhook info ==="
+          curl -sS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"

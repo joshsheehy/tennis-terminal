@@ -80,21 +80,39 @@ above) would be checked against before it's allowed to act:
 
 ## Talking to it on Telegram
 
-`scripts/telegram-bot.mjs`, polled every 5 minutes by `.github/workflows/telegram-poll.yml`. Not a webhook:
-Telegram allows only one active consumer of a bot's updates, this repo is public, and a webhook would need
-an unauthenticated route on the live site (`/api/telegram-webhook`) with its own secret-token and chat-id
-checks. Polling needs neither — no new endpoint, no new attack surface — at the cost of replies landing on
-a five-minute cadence instead of instantly.
+A webhook: Telegram POSTs each message straight to `/api/telegram-webhook`
+(`src/app/api/telegram-webhook/route.ts`) on the live Next.js app, which replies immediately via
+`replyFor` (`src/lib/telegram-reply.ts`).
 
-Every reply is a lookup (`ledgerSummary`, `listCases`), never a model call:
+This used to be `scripts/telegram-bot.mjs`, polled by `.github/workflows/telegram-poll.yml` on a
+`*/5 * * * *` cron. That was a deliberate choice at the time — polling needs no new public endpoint,
+and Telegram allows only one active consumer of a bot's updates, so a webhook meant taking on both a
+new unauthenticated-looking route and the responsibility of not running the poller alongside it. The
+tradeoff was framed as five-minute-cadence replies instead of instant ones, which seemed acceptable.
+
+It wasn't five minutes in practice. Pulling the poller's actual run history (19 consecutive runs) showed
+gaps of 2-5 hours between runs, not 5 minutes — a 24-60x deviation from the configured schedule. GitHub
+Actions does not treat `schedule:` as a promise, and deprioritizes frequent schedules further on a repo
+already running this many other scheduled workflows. A message to the bot could sit unanswered for
+hours, which is what "the bot takes over an hour to answer" turned out to mean. That's why this moved to
+a webhook: the poller's replies were never actually fast, so the reason to avoid a webhook stopped
+applying.
+
+The webhook route is carved out of `src/middleware.ts`'s admin-secret gate (Telegram can't supply
+`ADMIN_SECRET`) and authenticates itself instead via Telegram's own `secret_token` mechanism: whatever
+value `TELEGRAM_WEBHOOK_SECRET` is set to gets registered with `setWebhook`, and Telegram echoes it back
+on every delivery as the `X-Telegram-Bot-Api-Secret-Token` header. A request without a matching header
+gets a bare 401 and nothing else runs.
+
+Every reply is still a lookup (`ledgerSummary`, `listCases`), never a model call:
 
 - "status" / "resolved?" / "any progress" → what's fixed in the last 7 days, what's escalated, when the
   audit last ran.
 - "open" / "list" / "cases" → what's open right now.
 - anything else → a one-line reminder of those two.
 
-Only messages from `TELEGRAM_CHAT_ID` get a reply (others are read, to keep the update offset moving, but
-never answered) — so finding the bot on Telegram doesn't hand a stranger a read of the case ledger.
+Only messages from `TELEGRAM_CHAT_ID` get a reply — everything else is silently dropped — so finding the
+bot on Telegram doesn't hand a stranger a read of the case ledger.
 
 ## Setup
 
@@ -102,3 +120,9 @@ One new secret beyond what the audit already needs: **`ADMIN_SECRET`**, the same
 as the app's admin API key (Railway → your Next.js service → Variables → `ADMIN_SECRET`). Add it as a
 GitHub repository secret with that exact value. Nothing else changes — `DATABASE_URL`,
 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` are all already in place from the Monday audit setup.
+
+For the Telegram webhook specifically, one more secret is needed, in *two* places with the *same* value:
+**`TELEGRAM_WEBHOOK_SECRET`** — as a Railway environment variable (so the route can check incoming
+requests against it) and as a GitHub repository secret (so `.github/workflows/register-telegram-webhook.yml`
+can hand it to Telegram's `setWebhook` call). After both are set, run that workflow once by hand from the
+Actions tab to register the webhook. Safe to re-run any time, e.g. after rotating the secret.

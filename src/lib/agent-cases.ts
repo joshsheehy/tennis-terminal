@@ -319,19 +319,3 @@ export async function ledgerSummary(days = 7): Promise<LedgerSummary> {
     lastAuditAt: audit.rows[0]?.at ?? null,
   };
 }
-
-/** The Telegram poller's last-seen update_id + 1, so a cron run only sees messages that arrived since the last one. */
-export async function getTelegramOffset(): Promise<number> {
-  await ensureAgentTables();
-  const r = await pool.query<{ value: number }>(`select (value->>'offset')::bigint as value from agent_kv where key = 'telegram_offset'`);
-  return r.rows[0]?.value ?? 0;
-}
-
-export async function setTelegramOffset(offset: number): Promise<void> {
-  await ensureAgentTables();
-  await pool.query(
-    `insert into agent_kv (key, value, updated_at) values ('telegram_offset', jsonb_build_object('offset', $1::bigint), now())
-     on conflict (key) do update set value = excluded.value, updated_at = now()`,
-    [offset]
-  );
-}

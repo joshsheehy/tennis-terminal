@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Every /api route is an operator/sync tool that can read or mutate the
-// production database, so they all require the admin secret. The only
-// exceptions are the public coverage snapshot and the alert signup/unsubscribe
-// endpoints, which are reached by anonymous visitors (form POST + email link).
+// production database, so they all require the admin secret. The exceptions
+// are the public coverage snapshot, the alert signup/unsubscribe endpoints
+// (anonymous visitors, form POST + email link), and the Telegram webhook —
+// Telegram can't supply our ADMIN_SECRET, so it authenticates itself with its
+// own secret_token header instead, checked inside that route. See that
+// route's header for why it exists as a public endpoint at all.
 const PUBLIC_API_PATHS = new Set([
   '/api/status',
   '/api/subscribe',
   '/api/unsubscribe',
   '/api/preferences',
+  '/api/telegram-webhook',
 ]);
 
 // The secret can be supplied three ways so both automation and a human in a
