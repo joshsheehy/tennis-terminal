@@ -1,0 +1,123 @@
+name: Import a known ProTennisLive code
+
+# Attaches a ProTennisLive code you already have (e.g. someone handed you a
+# posting URL like protennislive.com/posting/2026/3151/ds.pdf) to an existing
+# tournament edition, then imports its cut straight away. Two calls, no
+# probing — this is the fast path.
+#
+# Contrast with .github/workflows/ptl-code-sync.yml, which is for the OTHER
+# case: you don't know the code at all and have to discover it by sweeping a
+# range of posting numbers. Use that one (with a narrow code_start/code_end
+# around a sibling event's code, if you can guess a range) when you have no
+# code yet; use this one the moment you do.
+#
+# WHY NAME/CITY MATTER: /api/import-ptl-postings derives the tournament's slug
+# from `name`/`city` when the code isn't already in the static catalogue
+# (src/lib/tournament-data.ts) — see src/lib/official-calendar.ts's
+# fallbackSlugFor/deriveCity. deriveCity only strips a trailing "(...)" or
+# state code off `name`; it does NOT extract a city out of an unrelated event
+# name. A posting's own header name is often a sponsor name, not the
+# tournament's usual name (Bari's 2026 header says "Levante Open" — the DB
+# calls it "Bari"), so passing the header's name/city through unchanged can
+# slugify to something like "levante-open" and create a SECOND, duplicate
+# tournament instead of attaching to the existing one.
+#
+# So: check the existing tournament's slug first (its /tournaments/<slug>
+# page, or the DB), then pass name/city that slugify to that same slug —
+# usually just the city name, e.g. name: "Bari", city: "Bari" — regardless of
+# what the posting header itself says. The header's name still ends up in the
+# cutoff source_notes as provenance either way.
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: 'Existing tournament slug (e.g. "bari") — must already exist in the DB'
+        required: true
+      year:
+        description: 'Season year (e.g. 2026)'
+        required: true
+      code:
+        description: 'ProTennisLive posting code (the number in /posting/<year>/<code>/...)'
+        required: true
+      name:
+        description: 'Name to slugify — pick one that slugifies to the existing slug (see header comment)'
+        required: true
+      city:
+        description: 'City to slugify — used if `name` alone is not enough (see header comment)'
+        required: true
+      country:
+        description: 'Country (optional)'
+        required: false
+      level:
+        description: 'Challenger NN or ATP 250/500/1000'
+        required: true
+      surface:
+        description: 'Hard, Clay, Grass, or Carpet'
+        required: true
+      startDate:
+        description: 'Edition start date, YYYY-MM-DD'
+        required: true
+      indoor:
+        description: 'Indoor?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Register the code, then import its cut
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          SLUG: ${{ inputs.slug }}
+          YEAR: ${{ inputs.year }}
+          CODE: ${{ inputs.code }}
+          NAME: ${{ inputs.name }}
+          CITY: ${{ inputs.city }}
+          COUNTRY: ${{ inputs.country }}
+          LEVEL: ${{ inputs.level }}
+          SURFACE: ${{ inputs.surface }}
+          START_DATE: ${{ inputs.startDate }}
+          INDOOR: ${{ inputs.indoor }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "APP_URL and ADMIN_SECRET repository secrets are required"
+            exit 1
+          fi
+          base="${APP_URL%/}"
+          [[ "$base" == http* ]] || base="https://$base"
+
+          echo "=== Registering code $CODE for $SLUG ($YEAR) ==="
+          row=$(jq -n \
+            --argjson code "$CODE" \
+            --arg name "$NAME" \
+            --arg city "$CITY" \
+            --arg country "$COUNTRY" \
+            --arg startDate "$START_DATE" \
+            --arg level "$LEVEL" \
+            --arg surface "$SURFACE" \
+            --argjson indoor "${INDOOR:-false}" \
+            '{code: $code, name: $name, city: $city, country: (if $country == "" then null else $country end), startDate: $startDate, level: $level, surface: $surface, indoor: $indoor}')
+          payload=$(jq -n --argjson year "$YEAR" --argjson row "$row" '{year: $year, rows: [$row]}')
+
+          register_response=$(curl --fail-with-body -sS --max-time 60 \
+            -H "Content-Type: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+            -X POST "$base/api/import-ptl-postings?apply=true" -d "$payload")
+          echo "$register_response" | jq .
+
+          registered_slug=$(echo "$register_response" | jq -r '.sampleUpserted[0].slug // empty')
+          if [ "$registered_slug" != "$SLUG" ]; then
+            echo "::error::name/city slugified to \"$registered_slug\", not the expected \"$SLUG\" — this likely created/updated the WRONG tournament. Check the header comment on this workflow and re-run with name/city that slugify to \"$SLUG\"."
+            exit 1
+          fi
+
+          echo
+          echo "=== Importing cuts for $SLUG ($YEAR) ==="
+          curl --fail-with-body -sS --max-time 120 \
+            -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+            "$base/api/import-cutoffs?year=$YEAR&slug=$SLUG&limit=10" | jq .
