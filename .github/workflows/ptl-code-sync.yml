@@ -99,6 +99,31 @@ jobs:
         env:
           INPUT_YEAR: ${{ inputs.year }}
 
+      # Codes already tied to a tournament for this season, so the scan below
+      # can skip them — probing a code we already have spends this host's
+      # rate-limited budget for zero new information. Non-fatal: a fetch
+      # failure just means the scan probes everything in range, same as
+      # before this existed.
+      - name: Fetch already-known codes
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          INPUT_YEAR: ${{ inputs.year }}
+        run: |
+          set -uo pipefail
+          YEAR="${INPUT_YEAR:-$(date -u +%Y)}"
+          base="${APP_URL%/}"
+          [[ "$base" == http* ]] || base="https://$base"
+          if curl --fail-with-body -sS --max-time 60 \
+              -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+              "$base/api/known-ptl-codes?year=$YEAR" -o /tmp/known-codes.json; then
+            count=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/known-codes.json','utf8')).count)" 2>/dev/null || echo '?')
+            echo "$count already-known codes for $YEAR"
+          else
+            echo "could not fetch known codes (non-fatal); scan will probe the full range"
+            rm -f /tmp/known-codes.json
+          fi
+
       - name: Scan ProTennisLive postings
         env:
           INPUT_YEAR: ${{ inputs.year }}
@@ -121,12 +146,15 @@ jobs:
 
           echo "Scanning ProTennisLive postings for $YEAR (codes $CODE_START-$CODE_END, slice $SLICE of $SLICES)"
           echo "PTL_YEAR=$YEAR" >> "$GITHUB_ENV"
+          SKIP_ARGS=()
+          if [ -s /tmp/known-codes.json ]; then SKIP_ARGS=(--skip-codes-file /tmp/known-codes.json); fi
           # Concurrency 2, not 12: the limit is a small bucket, so a wide fan-out
           # only means more requests already in flight when it empties.
           node scripts/scan-ptl-season.mjs "$YEAR" \
             --start "$CODE_START" --end "$CODE_END" \
             --concurrency 2 \
-            --emit-rows /tmp/ptl-rows.json
+            --emit-rows /tmp/ptl-rows.json \
+            "${SKIP_ARGS[@]}"
           # A slice with no ATP/Challenger postings in it is perfectly normal —
           # most of the code space is ITF or unused. The scanner exits non-zero
           # when it was refused, which is the case worth failing on, and that

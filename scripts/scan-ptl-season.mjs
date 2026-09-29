@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 // Season scanner for ProTennisLive — the ATP's own posting system and the
 // primary historical source (JeffSackmann's qual_chall CSVs stop before 2022).
 //
@@ -7,13 +9,21 @@
 //
 //   node scripts/scan-ptl-season.mjs 2022 --emit-rows /tmp/ptl-2022.json
 //   node scripts/scan-ptl-season.mjs 2022 --start 400 --end 3000
+//   node scripts/scan-ptl-season.mjs 2026 --start 1 --end 9999 --skip-codes-file /tmp/known.json
 //
 // Defunct tournaments come through like everything else — if it posted an
 // entry list, it's in the scan.
+//
+// --skip-codes-file points at a JSON array of codes (see below) (or {"codes": [...]},
+// what GET /api/known-ptl-codes returns) to leave out of the range entirely —
+// codes already tied to a tournament, so probing them again spends this
+// host's rate-limited budget for nothing new. Without it, a rescan of a range
+// that's mostly already-known codes wastes most of its probes confirming
+// what the DB already has.
 
 const year = Number(process.argv[2]);
 if (!Number.isInteger(year) || year < 2020 || year > 2030) {
-  console.error('usage: node scripts/scan-ptl-season.mjs <year> [--start N] [--end N] [--emit-rows file]');
+  console.error('usage: node scripts/scan-ptl-season.mjs <year> [--start N] [--end N] [--emit-rows file] [--skip-codes-file file]');
   process.exit(1);
 }
 const argVal = (flag, dflt) => {
@@ -27,6 +37,24 @@ const END = Number(argVal('--end', 9999));
 // requests have already been refused.
 const CONCURRENCY = Number(argVal('--concurrency', 6));
 const emitPath = argVal('--emit-rows', null);
+const skipCodesFile = argVal('--skip-codes-file', null);
+
+function loadSkipCodes(path) {
+  if (!path) return new Set();
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (err) {
+    console.error(`--skip-codes-file ${path} could not be read/parsed: ${err.message}`);
+    process.exit(1);
+  }
+  const list = Array.isArray(parsed) ? parsed : parsed?.codes;
+  if (!Array.isArray(list)) {
+    console.error(`--skip-codes-file ${path} must be a JSON array of codes, or {"codes": [...]}`);
+    process.exit(1);
+  }
+  return new Set(list.map(Number).filter(Number.isFinite));
+}
 
 const HEADERS = {
   'User-Agent': 'TennisCutsSeasonScan/1.0 (+https://tenniscuts.com)',
@@ -308,8 +336,17 @@ async function scanCode(code) {
 }
 
 async function main() {
+  const skipCodes = loadSkipCodes(skipCodesFile);
   const codes = [];
-  for (let c = START; c <= END; c++) codes.push(c);
+  let skippedKnown = 0;
+  for (let c = START; c <= END; c++) {
+    if (skipCodes.has(c)) skippedKnown += 1;
+    else codes.push(c);
+  }
+  if (skipCodes.size > 0) {
+    console.log(`skipping ${skippedKnown} already-known code(s) in range ${START}-${END} `
+      + `(${skipCodes.size} known for the year); probing ${codes.length}`);
+  }
   const rows = [];
   const skips = {};
   const refusals = {};

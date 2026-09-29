@@ -2,6 +2,7 @@ import { EARLIEST_SEASON } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { getKnownCodesForYear } from '@/lib/ptl-known-codes';
 
 type MissingEdition = {
   week: number | null;
@@ -227,38 +228,6 @@ async function resolveMissingEditions(
   return getMissingEditionsFromDb(year, weekFilter);
 }
 
-// Known PTL codes for a year (catalogue + DB source_url/source_notes) — the
-// anchor for auto-ranged scans: new events get codes allocated near the top
-// of the existing band, so scan [max - back, max + ahead].
-async function getKnownCodesForYear(year: number): Promise<number[]> {
-  const codes = new Set<number>();
-  for (const item of ALL_EDITIONS) {
-    if (item.edition.year === year && item.edition.protennislive_code) {
-      const n = Number(item.edition.protennislive_code);
-      if (Number.isFinite(n)) codes.add(n);
-    }
-  }
-  const result = await pool.query<{ code: string }>(
-    `
-    select distinct code from (
-      select (regexp_match(te.source_url, '/posting/\\d+/(\\d+)/'))[1] as code
-      from tournament_editions te
-      where te.year = $1 and te.source_url ~ '/posting/\\d+/\\d+/'
-      union all
-      select (regexp_match(cs.source_notes, '/posting/\\d+/(\\d+)/'))[1] as code
-      from cutoff_snapshots cs
-      join tournament_editions te on te.id = cs.tournament_edition_id
-      where te.year = $1 and cs.source_notes ~ '/posting/\\d+/\\d+/'
-    ) x where code is not null
-    `,
-    [year]
-  );
-  for (const row of result.rows) {
-    const n = Number(row.code);
-    if (Number.isFinite(n)) codes.add(n);
-  }
-  return Array.from(codes);
-}
 
 // A code with no posting and a host that has stopped answering us look
 // identical if both come back as `null`, and the difference is the whole
