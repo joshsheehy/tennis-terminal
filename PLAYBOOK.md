@@ -37,6 +37,16 @@ certificate expiring — goes straight to `escalated`. Each of those needs eithe
 (`ptl-code-overrides.ts`'s own header explains why probing codes doesn't scale and atptour.com 403s
 runners) or a human judgment call the user has made by hand before (Plovdiv's surface override was kept for
 the *wrong* clay edition on purpose; Hamburg's was a explicit rule, not a mechanical "most history" pick).
+
+`D7` ("Detail sheet available for upcoming Challenger/ATP editions") is the same missing-PTL-code problem,
+caught earlier than A1/A2 would catch it: a new tournament (Fort Worth was the case that found this gap)
+can sit on the calendar for weeks with no code and therefore no `/ds` entry, long before any cut is even
+due. It escalates the same way — probing protennislive.com for a code isn't something the boss can do
+safely in-band (see `ptl-code-sync.yml`'s own header: the host rate-limits hard, by what looks like UA
+and/or IP, and a 120-minute scan has come back empty more than once). The actual fix is still a human (or a
+later session) running `ptl-code-sync.yml` (code unknown, needs a probe) or
+`import-ptl-code.yml` (code already in hand — e.g. someone found the tournament's own posting URL) from
+the Actions tab.
 Teaching a script to guess those is how the byes/anomaly bugs earlier in this project's history happened in
 the first place — a plausible-looking number, trusted without a check.
 
