@@ -237,6 +237,12 @@ function moneyToNumber(line) {
 //   ITF:        "ITF World Tennis Tour" anywhere → skip
 const DATE_RE = /(\d{1,2}(?:\s+[A-Za-z]+)?(?:\s+\d{4})?\s*[-–—]\s*\d{1,2}\s+[A-Za-z]+\s+\d{4})/;
 
+function titleCaseIfShouting(name) {
+  return name === name.toUpperCase()
+    ? name.toLowerCase().replace(/(^|[\s\-(])(\p{L})/gu, (m, pre, ch) => pre + ch.toUpperCase())
+    : name;
+}
+
 function parseHeader(lines, code) {
   const head = lines.filter(Boolean).slice(0, 18);
   const joined = head.join(' | ');
@@ -284,10 +290,7 @@ function parseHeader(lines, code) {
   else return { skip: 'no-level' };
 
   // ATP headers shout ("ABN AMRO ROTTERDAM") — title-case fully-uppercase names.
-  const displayName =
-    name === name.toUpperCase()
-      ? name.toLowerCase().replace(/(^|[\s\-(])(\p{L})/gu, (m, pre, ch) => pre + ch.toUpperCase())
-      : name;
+  const displayName = titleCaseIfShouting(name);
 
   return {
     row: {
@@ -301,6 +304,66 @@ function parseHeader(lines, code) {
       surface,
       indoor,
       tourLevelHeuristic: isTour, // endpoint upgrades level from catalogue-by-code when possible
+    },
+  };
+}
+
+// ds.pdf (the detail sheet) routinely goes up before the draw does — Fort Worth's entry list
+// wasn't posted yet (mds.pdf/qs.pdf were both the 2616-byte "not yet available" placeholder)
+// but its detail sheet had carried the tournament's identity for weeks. Tried only when
+// mds.pdf/qs.pdf gave no usable header. The layout is far more regular than the entry list's:
+// one line reads "CITY[, STATE], COUNTRY (CODE)" — anchored on the code we already asked for,
+// since that number can't be confused with anything else on the page — with the date range on
+// the line directly below it and the level ("ATP Challenger NN" or an ATP tour level) on the
+// line after that. Verified against three real sheets before shipping (protennislive.com's own
+// content, so no fixture is checked in): Fort Worth (3187 — the case that found this gap, its
+// detail sheet was up weeks before its draw), Bari (3151), Szczecin (448).
+//
+// `name` is deliberately the city, not the sponsor line above the identity line ("SCHARBAUER-
+// WIKSE ACE OUTREACH ATP CHALLENGER" for Fort Worth) — a sponsor name is exactly what put a
+// second, duplicate tournament into the database for Bari ("Levante Open") before that was
+// caught and fixed by hand. The official calendar import already names most editions after
+// their city for this reason; matching that here is what makes a freshly-discovered code land
+// on the SAME tournament the calendar already created, not a new one.
+function parseDetailSheetHeader(lines, code) {
+  const idRe = new RegExp(`^(.*?),?\\s*\\(${code}\\)\\s*$`);
+  const idx = lines.findIndex((l) => idRe.test(l));
+  if (idx < 1) return { skip: 'no-identity-line' };
+  const parts = lines[idx]
+    .match(idRe)[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return { skip: 'no-city' };
+  const city = titleCaseIfShouting(parts[0]);
+  const country = parts[parts.length - 1];
+
+  const dates = parseDates(lines[idx + 1] ?? '');
+  if (!dates) return { skip: 'no-dates' };
+
+  const levelLine = lines[idx + 2] ?? '';
+  const category = levelLine.match(/Challenger\s+(\d{2,3})\b/i);
+  const tourMatch = levelLine.match(/\bATP\s+(250|500|1000)\b/);
+  let level;
+  if (category) level = `Challenger ${category[1]}`;
+  else if (tourMatch) level = `ATP ${tourMatch[1]}`;
+  else return { skip: 'no-level' };
+
+  const joined = lines.join(' | ');
+  const surfaceMatch = joined.match(/SURFACE:\s*(Outdoor|Indoor)?\s*(Hard|Clay|Grass|Carpet)/i);
+
+  return {
+    row: {
+      code,
+      name: city,
+      city,
+      country,
+      startDate: dates.start,
+      endDate: dates.end,
+      level,
+      surface: surfaceMatch ? surfaceMatch[2] : 'Hard',
+      indoor: /^Indoor$/i.test(surfaceMatch?.[1] ?? ''),
+      tourLevelHeuristic: Boolean(tourMatch),
     },
   };
 }
@@ -328,11 +391,33 @@ async function scanCode(code) {
     const buffer = Buffer.from(await res.arrayBuffer());
     const lines = await firstPageLines(buffer);
     const parsed = parseHeader(lines, code);
-    if (parsed.skip) return { code, skip: parsed.skip };
-    return { code, row: parsed.row };
+    if (!parsed.skip) return { code, row: parsed.row };
+    // Only for "not yet available" — trying ds.pdf for every 'itf' skip (most of the code
+    // space) would multiply this scan's request count against a host that already rate-
+    // limits hard, for a tour we don't track anyway.
+    if (parsed.skip === 'placeholder') {
+      const fromDetailSheet = await scanDetailSheet(code);
+      if (fromDetailSheet) return fromDetailSheet;
+    }
+    return { code, skip: parsed.skip };
   } catch (err) {
     return { code, skip: `error: ${err.message?.slice(0, 60)}` };
   }
+}
+
+// Falls back to ds.pdf when mds.pdf/qs.pdf gave no usable header — the entry list not being
+// up yet (the common case this rescues) is not the same as there being no tournament there.
+// null means ds.pdf didn't help either; the caller keeps its original mds/qs skip reason.
+async function scanDetailSheet(code) {
+  const url = `https://www.protennislive.com/posting/${year}/${code}/ds.pdf`;
+  if ((await probe(url)) !== 'present') return null;
+  await takeSlot();
+  const res = await fetch(url, { headers: HEADERS });
+  if (!res.ok) return null;
+  const buffer = Buffer.from(await res.arrayBuffer());
+  const lines = await firstPageLines(buffer);
+  const parsed = parseDetailSheetHeader(lines, code);
+  return parsed.skip ? null : { code, row: parsed.row };
 }
 
 async function main() {
