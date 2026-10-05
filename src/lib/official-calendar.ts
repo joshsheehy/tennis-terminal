@@ -143,11 +143,18 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
        --
        -- The posting URL is carried forward alongside the fresh calendar URL;
        -- readers recover the code by regex and do not care about the order.
+       --
+       -- The \d here MUST be \\d: this whole query is a JS template literal,
+       -- and an unrecognized escape like a single \d silently drops the
+       -- backslash at parse time, so a single backslash sends Postgres the
+       -- pattern /posting/d+/d+/ -- matches nothing, ever. That turned this
+       -- guard into a no-op: every case fell through to the plain overwrite
+       -- below, for as long as this existed.
        source_url = case
-         when excluded.source_url ~ '/posting/\d+/\d+/' then excluded.source_url
-         when tournament_editions.source_url ~ '/posting/\d+/\d+/'
+         when excluded.source_url ~ '/posting/\\d+/\\d+/' then excluded.source_url
+         when tournament_editions.source_url ~ '/posting/\\d+/\\d+/'
            then excluded.source_url || ' | ' ||
-                (regexp_match(tournament_editions.source_url, '(https?://[^ |]*/posting/\d+/\d+/)'))[1]
+                (regexp_match(tournament_editions.source_url, '(https?://[^ |]*/posting/\\d+/\\d+/)'))[1]
          else excluded.source_url
        end,
        status = 'held',

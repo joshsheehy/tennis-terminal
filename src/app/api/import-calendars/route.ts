@@ -55,11 +55,17 @@ async function upsertTournamentAndEdition(item: TournamentEdition) {
       -- discover-codes/ptl-code-sync/atp-code-harvest found in between got
       -- silently erased by morning. Same bug, same fix, as official-calendar.ts
       -- (upsertOfficialRow) already applies to the other two importers.
+      --
+      -- \d must be \\d here: single-backslash \d in a JS template literal
+      -- silently collapses to "d" at parse time, so the guard below would
+      -- have sent Postgres /posting/d+/d+/ -- matches nothing, always
+      -- falling through to the plain overwrite. Same mistake, same note, as
+      -- official-calendar.ts.
       source_url = case
-        when excluded.source_url ~ '/posting/\d+/\d+/' then excluded.source_url
-        when tournament_editions.source_url ~ '/posting/\d+/\d+/'
+        when excluded.source_url ~ '/posting/\\d+/\\d+/' then excluded.source_url
+        when tournament_editions.source_url ~ '/posting/\\d+/\\d+/'
           then excluded.source_url || ' | ' ||
-               (regexp_match(tournament_editions.source_url, '(https?://[^ |]*/posting/\d+/\d+/)'))[1]
+               (regexp_match(tournament_editions.source_url, '(https?://[^ |]*/posting/\\d+/\\d+/)'))[1]
         else excluded.source_url
       end,
       status = excluded.status,
