@@ -15,6 +15,9 @@ on:
         description: 'Max cases to return'
         required: false
         default: '100'
+      search:
+        description: 'Optional: also search tournaments by slug/name/city (debug-tournament)'
+        required: false
 
 jobs:
   report:
@@ -27,6 +30,7 @@ jobs:
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
           STATUS: ${{ inputs.status || 'open,escalated,in_progress' }}
           LIMIT: ${{ inputs.limit || '100' }}
+          SEARCH: ${{ inputs.search || '' }}
         run: |
           set -euo pipefail
           base="${APP_URL%/}"
@@ -54,3 +58,20 @@ jobs:
           curl -sS --max-time 60 \
             -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
             "$base/api/merge-official-challenger-levels" | jq .
+
+          if [ -n "$SEARCH" ]; then
+            echo
+            echo "=== debug-tournament (q=$SEARCH) ==="
+            # New route; Railway may still be deploying it, so retry briefly.
+            for attempt in 1 2 3 4 5; do
+              resp=$(curl -sS --max-time 30 \
+                -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+                "$base/api/debug-tournament?q=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$SEARCH")")
+              if echo "$resp" | jq -e '.ok' >/dev/null 2>&1; then
+                echo "$resp" | jq .
+                break
+              fi
+              echo "attempt $attempt: not ready yet, retrying in 10s"
+              sleep 10
+            done
+          fi
