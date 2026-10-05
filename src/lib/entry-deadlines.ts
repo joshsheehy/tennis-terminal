@@ -15,6 +15,7 @@
 // A subscriber chooses which of these categories they want alerts for.
 
 import { ScheduleRow } from './types';
+import { deadlineOverrideFor, type DeadlineOverrideKind } from './entry-deadline-overrides';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -182,6 +183,11 @@ export type Deadline = {
   // Set on the Grand Slam main-draw row: the qualifying deadline date for the
   // same event, so the main-draw alert can mention when Qs entries close too.
   qualifyingDeadlineDate?: string;
+  // Set when entry-deadline-overrides.ts replaces the computed date with a
+  // hand-verified real one (ATP moved this specific deadline) — surfaced so
+  // an alert can say the deadline isn't the usual day count, not just show a
+  // date that looks wrong against the rule everyone else follows that week.
+  overridden?: boolean;
 };
 
 // All entry deadlines for a single tournament edition, or [] for levels with no
@@ -208,8 +214,9 @@ export function deadlinesForEdition(row: ScheduleRow): Deadline[] {
   const qualifyingRule = rules.find((r) => r.kind === 'qualifying');
 
   return rules.map((rule) => {
-    const deadline = new Date(monday.getTime() - rule.daysPrior * MS_PER_DAY);
-    const deadlineDate = toDateOnlyString(deadline);
+    const computedDate = toDateOnlyString(new Date(monday.getTime() - rule.daysPrior * MS_PER_DAY));
+    const override = deadlineOverrideFor(row.slug, row.year, rule.kind as DeadlineOverrideKind);
+    const deadlineDate = override ?? computedDate;
     const d: Deadline = {
       editionId: row.edition_id,
       slug: row.slug,
@@ -226,6 +233,7 @@ export function deadlinesForEdition(row: ScheduleRow): Deadline[] {
       deadlineDate,
       deadlineAtIso: deadlineMomentIso(category, deadlineDate),
       timeNote: rule.timeNote,
+      ...(override ? { overridden: true } : {}),
     };
     // Grand Slams are the events people plan around, so their main-draw alert
     // also carries the (later) qualifying deadline date for the same event.

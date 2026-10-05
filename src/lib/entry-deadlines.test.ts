@@ -80,6 +80,32 @@ describe('deadlinesForEdition', () => {
     expect(byKind.doubles).toBe('2026-03-09'); // -7
   });
 
+  it('uses a hand-verified override date in place of the standard day count', () => {
+    // Palermo 2026: real detail sheet (ds.pdf) shows the Doubles Advance Entry
+    // deadline at Wednesday 2026-09-30, not the standard Monday 2026-09-28
+    // (7 days before the Monday 2026-10-05 start) -- see
+    // entry-deadline-overrides.ts for why.
+    const ds = deadlinesForEdition(row({ slug: 'palermo', year: 2026, level: 'Challenger 50', start_date: '2026-10-05' }));
+    const byKind = Object.fromEntries(ds.map((d) => [d.kind, d]));
+    expect(byKind.doubles.deadlineDate).toBe('2026-09-30');
+    expect(byKind.doubles.overridden).toBe(true);
+    // The override is specific to this one tournament/kind -- its own
+    // singles deadlines, computed the standard way, are untouched.
+    expect(byKind.main.deadlineDate).toBe('2026-09-14'); // -21, no override
+    expect(byKind.main.overridden).toBeUndefined();
+  });
+
+  it('leaves an unrelated tournament in the same week at the standard day count', () => {
+    // A different Challenger the same week as Palermo, with no confirmed
+    // override of its own, must not inherit Palermo's -- overrides are
+    // per-tournament (slug+year+kind), not per-week, specifically so an
+    // unverified tournament is never guessed at.
+    const ds = deadlinesForEdition(row({ slug: 'some-other-event', year: 2026, level: 'Challenger 50', start_date: '2026-10-05' }));
+    const byKind = Object.fromEntries(ds.map((d) => [d.kind, d]));
+    expect(byKind.doubles.deadlineDate).toBe('2026-09-28'); // standard -7, not Palermo's -5
+    expect(byKind.doubles.overridden).toBeUndefined();
+  });
+
   it('computes a single ITF entry deadline (18 days)', () => {
     const ds = deadlinesForEdition(row({ level: 'ITF M25' }));
     expect(ds).toHaveLength(1);
