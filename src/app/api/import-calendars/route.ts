@@ -49,7 +49,19 @@ async function upsertTournamentAndEdition(item: TournamentEdition) {
       surface = excluded.surface,
       indoor = excluded.indoor,
       source = excluded.source,
-      source_url = excluded.source_url,
+      -- Never drop a ProTennisLive code already on the row. This upsert runs
+      -- twice a night for every edition in the static catalogue, and most
+      -- catalogue entries only carry the generic calendar URL — so a code
+      -- discover-codes/ptl-code-sync/atp-code-harvest found in between got
+      -- silently erased by morning. Same bug, same fix, as official-calendar.ts
+      -- (upsertOfficialRow) already applies to the other two importers.
+      source_url = case
+        when excluded.source_url ~ '/posting/\d+/\d+/' then excluded.source_url
+        when tournament_editions.source_url ~ '/posting/\d+/\d+/'
+          then excluded.source_url || ' | ' ||
+               (regexp_match(tournament_editions.source_url, '(https?://[^ |]*/posting/\d+/\d+/)'))[1]
+        else excluded.source_url
+      end,
       status = excluded.status,
       updated_at = now()
     `,
