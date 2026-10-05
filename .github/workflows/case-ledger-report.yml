@@ -42,3 +42,15 @@ jobs:
           curl -sS --max-time 60 \
             -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
             "$base/api/discovery-health" | jq .
+
+          echo
+          echo "=== dedupe-by-code (dry run) ==="
+          curl -sS --max-time 60 \
+            -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+            "$base/api/dedupe-by-code" | jq .
+
+          echo
+          echo "=== merge-official-challenger-levels (dry run) ==="
+          curl -sS --max-time 60 \
+            -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+            "$base/api/merge-official-challenger-levels" | jq .
