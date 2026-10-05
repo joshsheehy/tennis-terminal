@@ -103,7 +103,12 @@ const MAX_CUT = { singles: 2500, doubles: 6000 }
 // Checks that look at a rotating sample: a finding that is not in today's sample has not been fixed.
 const SAMPLED_CHECKS = new Set(['V1'])
 const verifiedKeys = [] // sampled-check keys that were looked at this run and found correct
-const HEALTH_CHECKS = new Set(['B1', 'B5', 'B6', 'E1', 'D1', 'D3', 'D4', 'D5', 'D6'])
+// D7 is in here too, deliberately, even though it was written as a "D" (site-completeness)
+// check: a missing code is time-sensitive (the whole point of adding it was catching a gap
+// before a user does), and waiting for the Monday-only full audit meant it could sit silent
+// for up to a week. It costs nothing extra to run daily — unlike V1 it's a DB query against
+// data already loaded, no protennislive.com network calls.
+const HEALTH_CHECKS = new Set(['B1', 'B5', 'B6', 'E1', 'D1', 'D3', 'D4', 'D5', 'D6', 'D7'])
 
 // Pipelines with a known cadence, and how long silence is tolerated before it is suspicious.
 // Each is skipped quietly if its table does not exist in this database.
