@@ -1,0 +1,44 @@
+name: Case ledger report
+
+# Read-only dump of the audit→boss case ledger (see PLAYBOOK.md), for when you
+# want what the boss would have told you on Telegram without waiting for the
+# next escalation. Prints JSON to the log; makes no writes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      status:
+        description: 'Comma-separated statuses to include'
+        required: false
+        default: 'open,escalated,in_progress'
+      limit:
+        description: 'Max cases to return'
+        required: false
+        default: '100'
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch case ledger + discovery health
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          STATUS: ${{ inputs.status || 'open,escalated,in_progress' }}
+          LIMIT: ${{ inputs.limit || '100' }}
+        run: |
+          set -euo pipefail
+          base="${APP_URL%/}"
+          [[ "$base" == http* ]] || base="https://$base"
+
+          echo "=== agent_cases (status=$STATUS) ==="
+          curl --fail-with-body -sS --max-time 60 \
+            -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+            "$base/api/agent-cases?status=$STATUS&limit=$LIMIT" | jq .
+
+          echo
+          echo "=== discovery-health ==="
+          curl -sS --max-time 60 \
+            -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+            "$base/api/discovery-health" | jq .
