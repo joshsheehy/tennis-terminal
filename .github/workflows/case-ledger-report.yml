@@ -18,11 +18,15 @@ on:
       search:
         description: 'Optional: also search tournaments by slug/name/city (debug-tournament)'
         required: false
+      verifySync:
+        description: 'Also re-run sync-official-calendar (verifies the source_url guard holds)'
+        required: false
+        default: 'false'
 
 jobs:
   report:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - name: Fetch case ledger + discovery health
         env:
@@ -31,6 +35,7 @@ jobs:
           STATUS: ${{ inputs.status || 'open,escalated,in_progress' }}
           LIMIT: ${{ inputs.limit || '100' }}
           SEARCH: ${{ inputs.search || '' }}
+          VERIFY_SYNC: ${{ inputs.verifySync || 'false' }}
         run: |
           set -euo pipefail
           base="${APP_URL%/}"
@@ -58,6 +63,15 @@ jobs:
           curl -sS --max-time 60 \
             -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
             "$base/api/merge-official-challenger-levels" | jq .
+
+          if [ "${VERIFY_SYNC:-false}" = "true" ]; then
+            echo
+            echo "=== sync-official-calendar (verification re-run) ==="
+            curl -sS --max-time 180 \
+              -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+              "$base/api/sync-official-calendar?year=2026" | head -c 2000
+            echo
+          fi
 
           if [ -n "$SEARCH" ]; then
             echo
