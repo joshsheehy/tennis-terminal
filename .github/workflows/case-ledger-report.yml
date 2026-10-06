@@ -22,6 +22,16 @@ on:
         description: 'Also re-run sync-official-calendar (verifies the source_url guard holds)'
         required: false
         default: 'false'
+      mergeFrom:
+        description: 'Optional: merge-tournaments from= slug (ghost)'
+        required: false
+      mergeTo:
+        description: 'Optional: merge-tournaments to= slug (canonical)'
+        required: false
+      mergeApply:
+        description: 'Apply the merge (otherwise dry-run only)'
+        required: false
+        default: 'false'
 
 jobs:
   report:
@@ -36,6 +46,9 @@ jobs:
           LIMIT: ${{ inputs.limit || '100' }}
           SEARCH: ${{ inputs.search || '' }}
           VERIFY_SYNC: ${{ inputs.verifySync || 'false' }}
+          MERGE_FROM: ${{ inputs.mergeFrom || '' }}
+          MERGE_TO: ${{ inputs.mergeTo || '' }}
+          MERGE_APPLY: ${{ inputs.mergeApply || 'false' }}
         run: |
           set -euo pipefail
           base="${APP_URL%/}"
@@ -71,6 +84,14 @@ jobs:
               -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
               "$base/api/sync-official-calendar?year=2026" | head -c 2000
             echo
+          fi
+
+          if [ -n "$MERGE_FROM" ] && [ -n "$MERGE_TO" ]; then
+            echo
+            echo "=== merge-tournaments (from=$MERGE_FROM to=$MERGE_TO apply=$MERGE_APPLY) ==="
+            curl -sS --max-time 60 \
+              -H "Accept: application/json" -H "X-Admin-Secret: $ADMIN_SECRET" \
+              "$base/api/merge-tournaments?from=$MERGE_FROM&to=$MERGE_TO&apply=$MERGE_APPLY" | jq .
           fi
 
           if [ -n "$SEARCH" ]; then
