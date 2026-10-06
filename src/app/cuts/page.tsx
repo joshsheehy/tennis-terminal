@@ -7,7 +7,11 @@ import { CURRENT_SEASON, isAvailableSeason } from '@/lib/seasons';
 export const dynamic = 'force-dynamic';
 
 const getCachedSchedule = unstable_cache(
-  async (year: number) => getScheduleForYear(year),
+  // Also pulls in next season's Week 1 carryover rows (early-December
+  // ATP/Challenger events tagged year+1 per the ATP's own season-year
+  // convention) so they show up under the December they're actually played
+  // in, instead of needing a visitor to already know to switch years.
+  async (year: number) => getScheduleForYear(year, { includeNextSeasonDecember: true }),
   ['schedule'],
   // Tag lets /api/sync-canonical and /api/hide-edition bust this cache
   // immediately via revalidateTag('schedule') instead of waiting 5 minutes.

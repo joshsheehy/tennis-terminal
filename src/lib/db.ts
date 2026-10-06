@@ -164,7 +164,11 @@ const EXACT_CHALLENGER_LEVEL_JOIN_SQL = `
   ) exact_challenger on true
 `;
 
-export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
+export async function getScheduleForYear(
+  year: number,
+  options?: { includeNextSeasonDecember?: boolean }
+): Promise<ScheduleRow[]> {
+  const includeNextSeasonDecember = options?.includeNextSeasonDecember ?? false;
   const result = await pool.query<ScheduleRow>(
     `
     with ranked as (
@@ -209,9 +213,26 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
       join tournaments t on t.id = te.tournament_id
       ${EXACT_CHALLENGER_LEVEL_JOIN_SQL}
       where te.status = 'held'
-        and te.year = $1
         and te.start_date is not null
-        -- Keep only dates that belong to the selected ATP season:
+        and (
+          te.year = $1
+          -- Also surface next season's Week 1 carryover rows (early-December
+          -- ATP/Challenger events whose tournament_editions.year is bumped to
+          -- $1 + 1 per getAtpEditionYearForStartDate) as part of THIS year's
+          -- calendar, since that's the physical month they're actually played
+          -- in and where a visitor looks for them. The season-year label
+          -- itself is untouched -- only this display query widens; deadline
+          -- math, cut predictions and everything else keyed on te.year still
+          -- sees the real (bumped) value.
+          or (
+            $2
+            and te.year = $1 + 1
+            and extract(year from te.start_date) = $1
+            and extract(month from te.start_date) = 12
+            and te.level not ilike 'ITF%'
+          )
+        )
+        -- Keep only dates that belong to the matched ATP season:
         -- normal rows start in the same calendar year, while Week 1 carryover
         -- rows may start in December of the previous calendar year.
         -- This blocks stale rows such as year=2026 with start_date='2025-03-17'.
@@ -238,15 +259,19 @@ export async function getScheduleForYear(year: number): Promise<ScheduleRow[]> {
     where rn = 1
     order by start_date asc, name asc
     `,
-    [year]
+    [year, includeNextSeasonDecember]
   );
 
   return result.rows.map((row) => ({
     ...row,
-    // Always recalculate the display week from the date + ATP season year.
+    // Recalculate the display week from the date + the REQUESTED year, not
+    // row.year -- a next-season December carryover row (row.year = year + 1)
+    // must show the week it falls in within THIS year's season, not week 1
+    // of next year's (which is where getAtpWeekForSeason would otherwise
+    // clamp a date 3-4 weeks before that season even starts).
     // This fixes bad stored historical weeks like Jan 6 showing in Week 1,
     // while the SQL season-date filter above prevents stale wrong-year rows.
-    week: getAtpWeekForSeason(row.start_date, row.year) ?? row.week,
+    week: getAtpWeekForSeason(row.start_date, year) ?? row.week,
   }));
 }
 
