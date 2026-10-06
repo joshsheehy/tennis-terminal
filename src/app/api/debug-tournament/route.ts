@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   const rows = await pool.query(
     `select t.id as tournament_id, t.slug, t.name, t.city, t.country, t.updated_at as tournament_updated_at,
-            te.year, te.week, te.status, te.source, te.source_url, te.updated_at as edition_updated_at
+            te.year, te.week, te.start_date, te.status, te.source, te.source_url, te.updated_at as edition_updated_at
      from tournaments t
      join tournament_editions te on te.tournament_id = t.id
      where t.slug ilike '%' || $1 || '%'
