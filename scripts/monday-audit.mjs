@@ -80,8 +80,11 @@ const HEALTH_ONLY = OPT('only') === 'health'
 const HANDOFF = FLAG('handoff') // the boss agent owns the findings; the audit stays quiet about them
 const STATE_FILE = OPT('state', 'monday-audit-state.json')
 const COVERAGE_WEEKS = parseInt(OPT('weeks', '2'), 10) // current week + N-1 ahead
-// D7's own, wider window: a detail sheet is worth having long before a cut is due.
-const DETAIL_SHEET_LOOKAHEAD_WEEKS = parseInt(OPT('detail-sheet-weeks', '8'), 10)
+// D7's own window: beyond this, a missing detail sheet isn't worth flagging — a code
+// and its ds.pdf often genuinely don't exist yet that far out. Inside it, D7 escalates
+// to critical once the tournament is DETAIL_SHEET_CRITICAL_WEEKS out or less.
+const DETAIL_SHEET_LOOKAHEAD_WEEKS = parseInt(OPT('detail-sheet-weeks', '4'), 10)
+const DETAIL_SHEET_CRITICAL_WEEKS = parseInt(OPT('detail-sheet-critical-weeks', '2'), 10)
 // A cut can only exist once its entry list is posted, which is after the deadline.
 const GRACE_DAYS = Number(OPT('grace', '3'))
 // In practice cuts are stored around the draw, not days after the entry deadline (in the first
@@ -1236,11 +1239,14 @@ async function runChecks(client, rows) {
   // /ds (src/lib/detail-sheet-index.ts) links to a tournament's detail sheet the moment
   // it has a resolvable ProTennisLive code — a calendar import finding a new tournament
   // (Fort Worth, e.g.) does not by itself get it a code, and without one /ds has nothing
-  // to link to. A wider lookahead than A1/A2's coverage window on purpose: a code is worth
-  // finding as soon as a tournament is on the calendar, long before its cut is due.
+  // to link to. Beyond DETAIL_SHEET_LOOKAHEAD_WEEKS out, a missing code isn't flagged at
+  // all — that far ahead, a code/ds.pdf often genuinely doesn't exist yet, so it's not a
+  // problem. Inside that window it's 'warn' (yellow) until DETAIL_SHEET_CRITICAL_WEEKS out,
+  // then 'critical' (red) — by then the detail sheet should realistically be up.
   await check('D7', 'Detail sheet available for upcoming Challenger/ATP editions', async () => {
     urlsBySlug ??= await loadCodeUrls(client)
     const lookaheadEnd = addDays(WEEK_START, 7 * DETAIL_SHEET_LOOKAHEAD_WEEKS)
+    const criticalEnd = addDays(WEEK_START, 7 * DETAIL_SHEET_CRITICAL_WEEKS)
     const upcoming = rows.filter((r) => levelGetsDetailSheet(r.level) && r.start >= RECENT_START && r.start < lookaheadEnd)
     const missing = upcoming.filter(
       (r) => !(resolveTournamentPtlCode(r.slug, [...(urlsBySlug.get(r.slug) ?? [])]) ?? overrideCodeFor(r.slug))
@@ -1250,7 +1256,7 @@ async function runChecks(client, rows) {
       'Detail sheet available for upcoming Challenger/ATP editions',
       missing.map((r) => item(`D7|${ek(r)}`, `${label(r)} · no ProTennisLive code, so no detail sheet on /ds`, r)),
       {
-        severity: 'warn',
+        severity: (active) => (active.some((i) => i.r.start < criticalEnd) ? 'critical' : 'warn'),
         detail: [`${upcoming.length - missing.length} of ${upcoming.length} Challenger/ATP editions in the next ${DETAIL_SHEET_LOOKAHEAD_WEEKS} weeks have a detail sheet`],
         note: 'No safe automatic remedy: finding a code means probing protennislive.com, which rate-limits hard (see ptl-code-sync.yml). Run that workflow, or import-ptl-code.yml if the code is already known, then this clears on its own.',
       }
