@@ -1,4 +1,5 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
+import { revalidateTag } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
 import { checkRankAnomaly } from '@/lib/cutoff-anomaly';
@@ -318,6 +319,15 @@ export async function GET(request: NextRequest) {
         year,
         error: err instanceof Error ? err.message : 'Unknown error',
       });
+    }
+  }
+
+  // Same cache-staleness gap as import-cutoffs/run-all/sync-atp-schedule.
+  if (imported.length > 0) {
+    try {
+      revalidateTag('schedule');
+    } catch {
+      // revalidateTag can throw outside the cache runtime; safe to swallow.
     }
   }
 

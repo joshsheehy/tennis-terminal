@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
 import { checkRankAnomaly } from '@/lib/cutoff-anomaly';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
@@ -330,6 +331,16 @@ export async function GET(request: NextRequest) {
       }
     } catch (err) {
       failed.push({ code, citySlug, year, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // Same cache-staleness gap as import-cutoffs/run-all: without this, a cut
+  // written here sits behind /cuts and /tournaments/[slug]'s 5-minute cache.
+  if (importCuts && imported.length > 0) {
+    try {
+      revalidateTag('schedule');
+    } catch {
+      // revalidateTag can throw outside the cache runtime; safe to swallow.
     }
   }
 

@@ -1,4 +1,5 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
+import { revalidateTag } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
 import { fetchAndParseOfficialPdfCutoff, isUpstreamRefused } from '@/lib/cutoff-pdf-parser';
@@ -697,6 +698,18 @@ export async function GET(request: NextRequest) {
   const processedUpTo = offset + processedCount;
   const hasMore = budgetExceeded || rateLimited ? true : processedUpTo < allTargets.length;
   const nextOffset = hasMore ? processedUpTo : null;
+
+  // Bust the 'schedule' tag so /cuts and /tournaments/[slug] show a newly
+  // imported cut immediately rather than up to 5 minutes stale -- that gap
+  // is what the monday-audit's D2 check kept catching as a page "not
+  // showing" data that was actually already in Postgres.
+  if (importedWithCuts.length > 0 || importedNullCuts.length > 0) {
+    try {
+      revalidateTag('schedule');
+    } catch {
+      // revalidateTag can throw outside the cache runtime; safe to swallow.
+    }
+  }
 
   return NextResponse.json({
     ok: true,

@@ -389,7 +389,11 @@ const getCachedDetail = unstable_cache(
   async (slug: string, limit: number, year: number) =>
     getTournamentDetailRowsBySlug(slug, limit, year),
   ['tournament-detail'],
-  { revalidate: 300 },
+  // Same 'schedule' tag /cuts uses, so a newly-imported cut shows up here
+  // immediately via revalidateTag('schedule') (see import-cutoffs) instead
+  // of waiting up to 5 minutes — that gap is exactly what the monday-audit's
+  // D2 check ("current-week pages show the stored cut") kept catching.
+  { revalidate: 300, tags: ['schedule'] },
 );
 
 export async function generateMetadata({

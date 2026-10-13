@@ -1,4 +1,5 @@
 import { AVAILABLE_SEASONS, EARLIEST_SEASON } from '@/lib/seasons';
+import { revalidateTag } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
 import { checkRankAnomaly } from '@/lib/cutoff-anomaly';
@@ -347,6 +348,17 @@ export async function GET(request: NextRequest) {
 
   const remaining = incomplete.length - processed;
   const hasMore = timedOut && remaining > 0;
+
+  // Same gap import-cutoffs had: without this, a cut filled here sits
+  // behind the 5-minute cache on /cuts and /tournaments/[slug] instead of
+  // showing up immediately.
+  if (filled > 0) {
+    try {
+      revalidateTag('schedule');
+    } catch {
+      // revalidateTag can throw outside the cache runtime; safe to swallow.
+    }
+  }
 
   return NextResponse.json({
     ok: true,
