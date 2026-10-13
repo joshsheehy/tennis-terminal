@@ -1,0 +1,46 @@
+name: Notify on Telegram
+
+# Thin, dispatchable wrapper around the same sendMessage call
+# scripts/boss/orchestrate.mjs already makes, for callers that have no other
+# way to reach TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID -- e.g. a scheduled cloud
+# agent, which runs outside this repo's GitHub Actions secrets and can only
+# act through `gh workflow run`. Sends exactly the text it's given; does not
+# decide what's worth notifying about.
+#
+#   gh workflow run notify-telegram.yml -f message="..."
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Message text (HTML parse_mode, same as the boss uses)'
+        required: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Send Telegram message
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MESSAGE: ${{ inputs.message }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo "::error::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not configured."
+            exit 1
+          fi
+          resp=$(curl -sS -w '\n%{http_code}' \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -H 'content-type: application/json' \
+            -d "$(jq -n --arg chat "$TELEGRAM_CHAT_ID" --arg text "$MESSAGE" \
+                  '{chat_id: $chat, text: $text, parse_mode: "HTML", disable_web_page_preview: true}')")
+          code=$(echo "$resp" | tail -n1)
+          body=$(echo "$resp" | sed '$d')
+          echo "$body"
+          if [ "$code" != "200" ]; then
+            echo "::error::Telegram send failed ($code)"
+            exit 1
+          fi
