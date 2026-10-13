@@ -67,6 +67,7 @@ export const PTL_CODE_OVERRIDES: Record<string, PtlCodeOverride> = {
   'chisinau-1': { code: '2993', confirmedFor: 2026, header: 'Moldova Open — Chisinau, Moldova' },
   cancun: { code: '3009', confirmedFor: 2026, header: 'Cancun Country Open — Cancun, Mexico' },
   'quebec-city': { code: '3103', confirmedFor: 2026, header: 'CHALLENGER BANQUE NATIONALE QUEBEC — Quebec City, Canada' },
+  'santa-cruz-de-la-sierra-2': { code: '3143', confirmedFor: 2026, header: 'Bolivia Open Santa Cruz de la Sierra 2 — Santa Cruz de la Sierra, Bolivia' },
   sion: { code: '3133', confirmedFor: 2026, header: 'Sion, Switzerland' },
 
   // NOT HERE ANY MORE: durham, centurion-3-centurion, centurion-4-centurion,

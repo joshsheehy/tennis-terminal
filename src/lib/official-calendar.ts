@@ -82,7 +82,17 @@ export function findCanonical(name: string, city: string, editionYear: number) {
         entry.edition.year === editionYear &&
         entry.edition.level.toLowerCase().includes('challenger') &&
         normalizeKey(entry.tournament.city) === cityKey &&
-        (normalizeKey(entry.tournament.name) === cityKey || normalizeKey(entry.tournament.name).startsWith(cityKey))
+        (normalizeKey(entry.tournament.name) === cityKey || normalizeKey(entry.tournament.name).startsWith(cityKey)) &&
+        // The INCOMING name must also be city-only-ish, not just the catalogue
+        // entry's. Without this, a city hosting two Challengers in the same
+        // year — "Santa Cruz de la Sierra" (catalogue, name === city) and
+        // "Santa Cruz de la Sierra 2" (a second, uncatalogued event) — had the
+        // "2" silently dropped: this branch matched on city alone and
+        // resolved to the WRONG tournament_id, overwriting that other
+        // event's real date with the incoming one's. Caught 2026-10-13 when
+        // registering Santa Cruz de la Sierra 2's PTL code corrupted the
+        // April Bolivia Open's 2026 edition.
+        (nameKey === cityKey || nameKey.startsWith(cityKey))
     ) ??
     ALL_EDITIONS.find((entry) => normalizeKey(entry.tournament.name) === nameKey)
   );
