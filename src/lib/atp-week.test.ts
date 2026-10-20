@@ -42,11 +42,24 @@ describe('getAtpWeekForSeason', () => {
 });
 
 describe('getAtpEditionYearForStartDate', () => {
-  it('assigns December starts to the following season', () => {
+  it('assigns only the week right before next season\'s Week 1 to the following season', () => {
     expect(getAtpEditionYearForStartDate('2025-12-29', 2025)).toBe(2026);
+    expect(getAtpEditionYearForStartDate('2026-12-28', 2026)).toBe(2027);
+    expect(getAtpEditionYearForStartDate('2024-12-30', 2024)).toBe(2025);
   });
 
-  it('keeps non-December starts on the requested year', () => {
+  it('keeps early-December starts in the season they are played in', () => {
+    expect(getAtpEditionYearForStartDate('2026-12-07', 2026)).toBe(2026);
+    expect(getAtpEditionYearForStartDate('2026-12-14', 2026)).toBe(2026);
+    expect(getAtpEditionYearForStartDate('2026-12-21', 2026)).toBe(2026);
+    expect(getAtpEditionYearForStartDate('2025-12-01', 2025)).toBe(2025);
+    expect(getAtpWeekForSeason('2026-12-07', 2026)).toBe(49);
+    expect(getAtpWeekForSeason('2026-12-14', 2026)).toBe(50);
+  });
+
+  it('goes by the date, not the requested year', () => {
     expect(getAtpEditionYearForStartDate('2026-01-05', 2026)).toBe(2026);
+    expect(getAtpEditionYearForStartDate('2027-01-11', 2026)).toBe(2027);
+    expect(getAtpEditionYearForStartDate('not-a-date', 2026)).toBe(2026);
   });
 });

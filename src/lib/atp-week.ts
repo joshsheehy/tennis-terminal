@@ -39,11 +39,41 @@ export function getAtpWeekForSeason(
   return Math.max(1, Math.floor(diffDays / 7) + 1);
 }
 
+// The ATP season a start date belongs to, decided by the date alone.
+//
+// Only the single week immediately before next season's Week 1 Monday (the
+// Dec 29/30 "week 1 carryover" events) counts toward next season. Everything
+// else in December -- the Dec 7 and Dec 14 Challengers -- is THIS season's
+// weeks 49-51. This used to bump every December date to year + 1, which filed
+// those events under week 1 of next January, and gave a tournament played both
+// in December and in next year's calendar two rows fighting over one
+// (tournament, year) slot, so they kept overwriting each other night to night.
+//
+// requestedYear is only a fallback for an unparseable date: a row's own date is
+// the truth, so a January row read out of a two-season PDF can never land on
+// (and overwrite) the requested season's edition of the same tournament.
 export function getAtpEditionYearForStartDate(
   startDate: string | Date,
   requestedYear: number
 ): number {
   const parsed = parseUtcDateOnly(startDate);
   if (!parsed) return requestedYear;
-  return parsed.getUTCMonth() === 11 ? parsed.getUTCFullYear() + 1 : requestedYear;
+  const calendarYear = parsed.getUTCFullYear();
+  const nextSeasonStart = getAtpSeasonStartDateUtc(calendarYear + 1);
+  return parsed.getTime() >= nextSeasonStart.getTime() - 7 * MS_PER_DAY ? calendarYear + 1 : calendarYear;
 }
+
+// SQL twins of the two functions above, so every query decides "which season
+// is this date in" exactly the way the importers do. getAtpSeasonStartDateUtc's
+// rule is the Monday of the week containing Jan 5.
+export const ATP_SEASON_START_SQL = (yearExpr: string) =>
+  `(date_trunc('week', make_date((${yearExpr})::int, 1, 5))::date)`;
+
+export const ATP_SEASON_FOR_DATE_SQL = (dateExpr: string) =>
+  `(extract(year from ${dateExpr})::int + case when ${dateExpr} >= ${ATP_SEASON_START_SQL(
+    `extract(year from ${dateExpr})::int + 1`
+  )} - 7 then 1 else 0 end)`;
+
+/** True when an edition's start_date belongs to the season in its year column. */
+export const EDITION_IN_ITS_SEASON_SQL = (alias = 'te') =>
+  `(${ATP_SEASON_FOR_DATE_SQL(`${alias}.start_date`)} = ${alias}.year)`;

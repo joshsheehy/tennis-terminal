@@ -116,11 +116,18 @@ async function ensureEditionRow(
        indoor, source, status, updated_at
      ) values ($1, $2, $3, $4, $5, $6, false, $7, 'held', now())
      on conflict (tournament_id, year) do update set
-       week = excluded.week,
-       start_date = excluded.start_date,
+       -- The official calendar PDF's date, week and source win over
+       -- JeffSackmann's: relabelling an official row here left it exposed to
+       -- the stale-row sweeps (which only exempt official rows), and a code
+       -- matched to the wrong same-city event moved the official event's date.
+       week = case when tournament_editions.source = 'atp_official_calendar_pdf'
+                   then tournament_editions.week else excluded.week end,
+       start_date = case when tournament_editions.source = 'atp_official_calendar_pdf'
+                         then tournament_editions.start_date else excluded.start_date end,
        level = excluded.level,
        surface = excluded.surface,
-       source = excluded.source,
+       source = case when tournament_editions.source = 'atp_official_calendar_pdf'
+                     then tournament_editions.source else excluded.source end,
        status = 'held',
        updated_at = now()
      returning id`,

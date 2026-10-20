@@ -92,6 +92,23 @@ jobs:
                           time.sleep(10 * attempt)
               raise RuntimeError(f'{url} failed after {retries} attempts: {last_error}')
 
+          # Put rows stored under the wrong season back first (the old rule
+          # filed every December start as next season's week 1 -- the 7/14
+          # Dec Challengers showed up in January 2027). Runs before the
+          # import so the import updates the moved row instead of creating
+          # a second one. Idempotent; a no-op once nothing is misfiled.
+          print('\n=== Fix season years ===', flush=True)
+          try:
+              out = request_json('/api/fix-season-years?apply=true', timeout=180, retries=2)
+              print(f"misfiled={out.get('misfiledCount')} moved={out.get('movedCount')} "
+                    f"folded={out.get('foldedDuplicateCount')} conflicts={out.get('conflictCount')}", flush=True)
+              for m in (out.get('moved') or [])[:60]:
+                  print(f"  moved {m.get('slug')} {m.get('from')} -> {m.get('to')} wk{m.get('week')} ({m.get('startDate')})", flush=True)
+              for c in out.get('conflicts') or []:
+                  print(f"  ! {c.get('slug')} {c.get('year')}: {c.get('startDate')} vs existing {c.get('otherStartDate')} -- left as is", flush=True)
+          except Exception as exc:
+              print(f'fix-season-years failed (non-fatal): {exc}', flush=True)
+
           imported_any = False
           parsed_any = False
           for path in sorted(glob.glob('/tmp/official-rows-*.json')):
@@ -129,6 +146,9 @@ jobs:
                   try:
                       out = request_json(path, timeout=280)
                       print(json.dumps(out)[:800], flush=True)
+                      for sk in out.get('skippedDistinct') or []:
+                          print(f"  kept separate (different events sharing code {sk.get('code')}): "
+                                f"{sk.get('ghost')} / {sk.get('winner')}", flush=True)
                   except Exception as exc:
                       print(f'non-fatal: {exc}', flush=True)
 
@@ -310,7 +330,8 @@ jobs:
               for r in aliases.get('results') or []:
                   if r.get('merged'):
                       print(f"  merged {r['aliasSlug']} -> {r['canonicalSlug']} "
-                            f"(moved={r.get('movedEditions')}, folded={r.get('mergedConflictYears')})", flush=True)
+                            f"(moved={r.get('movedEditions')}, folded={r.get('mergedConflictYears')}, "
+                            f"kept separate={r.get('keptDistinctEventYears')})", flush=True)
           except Exception as exc:
               print(f'non-fatal: {exc}', flush=True)
 

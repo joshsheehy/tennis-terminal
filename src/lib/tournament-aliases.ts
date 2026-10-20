@@ -76,7 +76,7 @@ export const TOURNAMENT_ALIASES: TournamentAlias[] = [
     aliasSlug: 'la-paz-1',
     canonicalSlug: 'la-paz',
     reason:
-      'Same La Paz Challenger (7 December 2026, week-1 carryover into the 2027 season) under two ' +
+      'Same La Paz Challenger (7 December 2026, 2026 week 49) under two ' +
       'names from two different revisions of the official combined calendar PDF (2026-09-10 called ' +
       'it "La Paz"; 2026-09-18, after a second La Paz event was added to the calendar, called it ' +
       '"La Paz 1" to disambiguate). No shared code to catch it via dedupe-by-code, so a one-off ' +

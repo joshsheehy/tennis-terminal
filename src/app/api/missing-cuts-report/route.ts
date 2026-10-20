@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool, ensureByesColumn } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { overrideCodeFor } from '@/lib/ptl-code-overrides';
+import { EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -210,16 +211,7 @@ export async function GET(request: NextRequest) {
       and te.year = $1
       and te.level not ilike 'ITF%'
       and te.start_date is not null
-      and (
-        (
-          extract(year from te.start_date) = te.year
-          and extract(month from te.start_date) <> 12
-        )
-        or (
-          extract(year from te.start_date) = te.year - 1
-          and extract(month from te.start_date) = 12
-        )
-      )
+      and ${EDITION_IN_ITS_SEASON_SQL('te')}
     group by te.id, t.slug, t.name, t.city, t.country, te.year, te.week, te.start_date, te.level, te.source_url
     order by te.start_date, t.name
     limit $2 offset $3

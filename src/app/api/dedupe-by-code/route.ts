@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, withTransaction } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { daysApart, DISTINCT_EVENT_MIN_DAYS } from '@/lib/official-calendar';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -141,6 +142,22 @@ async function findGroups(): Promise<CodeGroup[]> {
   return groups;
 }
 
+// "Tigre 1" vs "Tigre 2": both carry an event number and the numbers differ,
+// so they are two tournaments however close their dates. ("La Paz" vs "La Paz
+// 1" is not decisive -- the calendar renumbers an event once a second one in
+// the same city is added.)
+function eventNumber(t: TournamentRow): string | null {
+  return t.name.match(/\s(\d+)\s*(?:\(|$)/)?.[1] ?? t.slug.match(/-(\d+)(?:-|$)/)?.[1] ?? null;
+}
+
+function numberedDifferently(a: TournamentRow, b: TournamentRow): boolean {
+  const na = eventNumber(a);
+  const nb = eventNumber(b);
+  return na != null && nb != null && na !== nb;
+}
+
+const skippedDistinct: Array<{ winner: string; ghost: string; code: string }> = [];
+
 async function mergeGroup(group: CodeGroup) {
   const winner = pickWinner(group.tournaments);
   const ghosts = group.tournaments.filter((t) => t.id !== winner.id);
@@ -152,18 +169,33 @@ async function mergeGroup(group: CodeGroup) {
 
   for (const ghost of ghosts) {
     await withTransaction(async (client) => {
-      const ghostEditions = await client.query<{ id: string; year: number }>(
-        'select id, year from tournament_editions where tournament_id = $1',
+      const ghostEditions = await client.query<{ id: string; year: number; start_date: string | null }>(
+        'select id, year, start_date::text as start_date from tournament_editions where tournament_id = $1',
         [ghost.id]
       );
-      const winnerYears = await client.query<{ year: number; id: string }>(
-        'select id, year from tournament_editions where tournament_id = $1',
+      const winnerYears = await client.query<{ year: number; id: string; start_date: string | null }>(
+        'select id, year, start_date::text as start_date from tournament_editions where tournament_id = $1',
         [winner.id]
       );
-      const winnerYearMap = new Map(winnerYears.rows.map((r) => [r.year, r.id]));
+      const winnerYearMap = new Map(winnerYears.rows.map((r) => [r.year, r]));
+
+      // A shared code does not make two same-season editions one event. Tigre
+      // 1 (16 Feb) / Tigre 2 (23 Feb) and Chisinau 1 (May) / Chisinau (Nov)
+      // came to share a code and were folded together -- one deleted, its
+      // cuts poured into the other -- every night. If any same-year pair is
+      // 14+ days apart, or the two are numbered as different events, leave
+      // this ghost alone entirely.
+      const distinct = ghostEditions.rows.some((ed) => {
+        const w = winnerYearMap.get(ed.year);
+        return Boolean(w && ed.start_date && w.start_date && daysApart(ed.start_date, w.start_date) >= DISTINCT_EVENT_MIN_DAYS);
+      });
+      if (distinct || numberedDifferently(ghost, winner)) {
+        skippedDistinct.push({ winner: winner.slug, ghost: ghost.slug, code: group.code });
+        return;
+      }
 
       for (const ed of ghostEditions.rows) {
-        const winnerEditionId = winnerYearMap.get(ed.year);
+        const winnerEditionId = winnerYearMap.get(ed.year)?.id;
         if (winnerEditionId) {
           // If one duplicate has exact Challenger level metadata and the other
           // has older generic "Challenger" metadata, preserve the exact row's
@@ -272,6 +304,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  skippedDistinct.length = 0;
   const merged: Awaited<ReturnType<typeof mergeGroup>>[] = [];
   const errors: Array<{ code: string; error: string }> = [];
   for (const group of groups) {
@@ -288,6 +321,9 @@ export async function GET(request: NextRequest) {
     mergedGroupCount: merged.length,
     errorCount: errors.length,
     merged,
+    // Code-sharing pairs left alone because they are separate events.
+    skippedDistinctCount: skippedDistinct.length,
+    skippedDistinct: [...skippedDistinct],
     errors,
   });
 }

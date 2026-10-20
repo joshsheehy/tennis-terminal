@@ -5,6 +5,7 @@ import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { DISCONTINUED_TOURNAMENTS } from '@/lib/discontinued-tournaments';
 import { CANCELLED_EDITIONS } from '@/lib/cancelled-editions';
+import { EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -82,7 +83,7 @@ export async function GET() {
              updated_at = now()
          where te.year = $1
            and te.start_date is not null
-           and not (extract(month from te.start_date) = 12 and extract(year from te.start_date) = te.year)`,
+           and ${EDITION_IN_ITS_SEASON_SQL('te')}`,
         [year]
       )
     )
@@ -114,6 +115,12 @@ export async function GET() {
        )
        -- Official-calendar rows are authoritative even before cuts arrive.
        and te.source <> 'atp_official_calendar_pdf'
+       -- ...including one another importer has since re-labelled: import-
+       -- challenger-season rewrites source on every row it touches, which is
+       -- why only ~100 of the 272 official 2026 rows still said so. The
+       -- official calendar URL survives in source_url, so key off that too.
+       and coalesce(te.source_url, '') not ilike '%atppz.com%'
+       and coalesce(te.source_url, '') not ilike '%/calendar-pdfs/%'
      returning te.id, t.slug, te.level, te.week`,
     [canonicalSlugs2026]
   );

@@ -159,6 +159,12 @@ export async function GET() {
         -- even before any cut PDF is found (e.g. Fujairah 1 2026): cancelled
         -- events are already skipped at parse time, so never hide these.
         and te.source <> 'atp_official_calendar_pdf'
+        -- ...including one another importer has since re-labelled: import-
+        -- challenger-season rewrites source on every row it touches, which is
+        -- why only ~100 of the 272 official 2026 rows still said so. The
+        -- official calendar URL survives in source_url, so key off that too.
+        and coalesce(te.source_url, '') not ilike '%atppz.com%'
+        and coalesce(te.source_url, '') not ilike '%/calendar-pdfs/%'
       returning t.slug, te.year, te.status
       `,
       [year, slugsForYear]

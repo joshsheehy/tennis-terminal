@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     merged?: boolean;
     movedEditions?: number;
     mergedConflictYears?: number;
+    keptDistinctEventYears?: number[];
   }> = [];
 
   for (const alias of TOURNAMENT_ALIASES) {
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
       merged: true,
       movedEditions: summary.movedEditions,
       mergedConflictYears: summary.mergedConflictYears,
+      keptDistinctEventYears: summary.keptDistinctEventYears,
     });
   }
 

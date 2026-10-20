@@ -2,6 +2,18 @@ import slugify from 'slugify';
 import { pool } from './db';
 import { getAtpEditionYearForStartDate, getAtpWeekForSeason } from './atp-week';
 import { ALL_EDITIONS } from './tournament-data';
+import { TOURNAMENT_ALIASES } from './tournament-aliases';
+
+const ALIAS_TO_CANONICAL = new Map(TOURNAMENT_ALIASES.map((a) => [a.aliasSlug, a.canonicalSlug]));
+
+// Two start dates at least this far apart are two different events, never one
+// event that moved between PDF revisions (those shift by a week at most).
+export const DISTINCT_EVENT_MIN_DAYS = 14;
+
+export function daysApart(a: string | Date, b: string | Date) {
+  const toMs = (v: string | Date) => (v instanceof Date ? v.getTime() : new Date(`${String(v).slice(0, 10)}T00:00:00Z`).getTime());
+  return Math.abs(toMs(a) - toMs(b)) / 86400000;
+}
 
 // Shared logic for importing official ATP challenger-calendar rows, used by
 // /api/sync-official-calendar (server-side PDF parse) and
@@ -98,6 +110,54 @@ export function findCanonical(name: string, city: string, editionYear: number) {
   );
 }
 
+// A tournament can hold only one edition per season ((tournament_id, year) is
+// unique), but the official calendar has several cities hosting two separate
+// Challengers in one season under the same catalogue name: Soma Bay (19 Jan
+// and 30 Nov 2026), Bogotá (6 Jul and 30 Nov), Porto, Genoa, Istanbul,
+// Alicante, Guangzhou, Buenos Aires. Both rows resolved to the same slug, so
+// every night the later one overwrote the earlier one's date -- the earlier
+// event disappeared from the schedule while still holding its cuts.
+//
+// So: if the slug's edition for this season is a different event (14+ days
+// away), this row gets its own tournament. Which event keeps the main slug:
+// the one matching the static catalogue's date when the catalogue has one
+// (import-calendars rewrites that date every night, so fighting it would
+// flip-flop), otherwise the earlier one. Rows arrive in date order, so the
+// earlier event reclaims the main slug and the later one then moves aside.
+async function slugForDistinctEvent(
+  primarySlug: string,
+  row: OfficialCalendarRow,
+  editionYear: number,
+  catalogueDate: string | null
+): Promise<string> {
+  const ownSlug = slugify(row.name, { lower: true, strict: true, trim: true });
+  const candidates = Array.from(
+    new Set([primarySlug, ownSlug, `${primarySlug}-2`, `${primarySlug}-3`, `${primarySlug}-4`].filter(Boolean))
+  );
+  for (const candidate of candidates) {
+    if (candidate === primarySlug && catalogueDate) {
+      if (daysApart(catalogueDate, row.startDate) < DISTINCT_EVENT_MIN_DAYS) return candidate;
+      continue;
+    }
+    const existing = await pool.query<{ start_date: string | null }>(
+      `select te.start_date::text as start_date
+       from tournament_editions te
+       join tournaments t on t.id = te.tournament_id
+       where t.slug = $1 and te.year = $2`,
+      [candidate, editionYear]
+    );
+    const existingDate = existing.rows[0]?.start_date;
+    if (!existingDate) return candidate;
+    if (daysApart(existingDate, row.startDate) < DISTINCT_EVENT_MIN_DAYS) return candidate;
+    // The main slug currently holds a LATER event than this one: this one is
+    // the first of the pair, so it takes the main slug back.
+    if (candidate === primarySlug && !catalogueDate && row.startDate < existingDate) {
+      return candidate;
+    }
+  }
+  return candidates[candidates.length - 1];
+}
+
 export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear: number, dryRun: boolean) {
   const editionYear = getAtpEditionYearForStartDate(row.startDate, requestedYear);
   const week = getAtpWeekForSeason(row.startDate, editionYear) ?? row.week;
@@ -105,8 +165,18 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
   const name = canonical?.tournament.name ?? row.name;
   const city = canonical?.tournament.city ?? row.city;
   const country = canonical?.tournament.country ?? row.country;
-  const slug = canonical?.tournament.slug ?? fallbackSlugFor(name, city);
-  const code = canonical?.edition.protennislive_code ?? null;
+  const resolvedSlug = canonical?.tournament.slug ?? fallbackSlugFor(name, city);
+  // Write straight to the canonical row of a known alias. Writing the alias
+  // slug and leaving resolve-tournament-aliases to merge it back later meant
+  // the same four tournaments were deleted and re-created every single night.
+  const aliasedSlug = ALIAS_TO_CANONICAL.get(resolvedSlug) ?? resolvedSlug;
+  const catalogueDate =
+    canonical && canonical.edition.year === editionYear && ALIAS_TO_CANONICAL.get(resolvedSlug) == null
+      ? canonical.edition.start_date
+      : null;
+  const slug = await slugForDistinctEvent(aliasedSlug, row, editionYear, catalogueDate);
+  const isPrimarySlug = slug === aliasedSlug;
+  const code = isPrimarySlug ? canonical?.edition.protennislive_code ?? null : null;
   const sourceUrl = code ? `${row.sourcePdfUrl} | https://www.protennislive.com/posting/${editionYear}/${code}/` : row.sourcePdfUrl;
 
   // dryRun result carries isNew=null (we don't touch the DB to check).
@@ -122,7 +192,9 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
        country = excluded.country,
        updated_at = now()
      returning id`,
-    [slug, name, city, country]
+    // A second same-season event keeps its own calendar name ("Bogotá (Los
+    // Lagartos)", "Soma Bay") rather than the catalogue name of the first.
+    [slug, isPrimarySlug ? name : row.name, city, country]
   );
 
   // RETURNING (xmax = 0) distinguishes a fresh INSERT (xmax = 0) from an

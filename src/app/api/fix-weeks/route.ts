@@ -1,6 +1,7 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,8 +42,8 @@ export async function GET(request: NextRequest) {
     )
     where te.year = $1
       and te.start_date is not null
-      -- Skip the bad "same-year December" records (e.g. year=2025, start=2025-12-30)
-      and not (extract(month from te.start_date) = 12 and extract(year from te.start_date) = te.year)
+      -- Skip rows whose date is not in this season (e.g. year=2025, start=2025-12-30)
+      and ${EDITION_IN_ITS_SEASON_SQL('te')}
     returning
       te.id,
       te.start_date::text,

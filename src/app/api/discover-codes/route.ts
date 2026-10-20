@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { getKnownCodesForYear } from '@/lib/ptl-known-codes';
+import { EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
 
 type MissingEdition = {
   week: number | null;
@@ -174,16 +175,7 @@ async function getMissingEditionsFromDb(
       and te.status = 'held'
       and te.start_date is not null
       and (te.level ilike 'Challenger%' or te.level ~* 'ATP\\s*(250|500|1000)')
-      and (
-        (
-          extract(year from te.start_date) = te.year
-          and extract(month from te.start_date) <> 12
-        )
-        or (
-          extract(year from te.start_date) = te.year - 1
-          and extract(month from te.start_date) = 12
-        )
-      )
+      and ${EDITION_IN_ITS_SEASON_SQL('te')}
     `,
     [year]
   );

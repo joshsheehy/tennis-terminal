@@ -1,6 +1,7 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,10 +30,7 @@ export async function GET(request: NextRequest) {
        where te.status = 'held'
          and te.year = $1
          and te.start_date is not null
-         and not (
-           extract(month from te.start_date) = 12
-           and extract(year from te.start_date) = te.year
-         )
+         and ${EDITION_IN_ITS_SEASON_SQL('te')}
      )
      select week, count(*)::text as tournament_count
      from visible
@@ -47,8 +45,7 @@ export async function GET(request: NextRequest) {
      where te.status = 'held'
        and te.year = $1
        and te.start_date is not null
-       and extract(month from te.start_date) = 12
-       and extract(year from te.start_date) = te.year`,
+       and not ${EDITION_IN_ITS_SEASON_SQL('te')}`,
     [year]
   );
 

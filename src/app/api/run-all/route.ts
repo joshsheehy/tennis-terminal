@@ -5,6 +5,7 @@ import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
 import { checkRankAnomaly } from '@/lib/cutoff-anomaly';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -230,7 +231,7 @@ export async function GET(request: NextRequest) {
          )
          where te.year = $1
            and te.start_date is not null
-           and not (extract(month from te.start_date) = 12 and extract(year from te.start_date) = te.year)`,
+           and ${EDITION_IN_ITS_SEASON_SQL('te')}`,
         [year]
       )
     )
