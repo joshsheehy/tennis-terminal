@@ -101,7 +101,11 @@ jobs:
           try:
               out = request_json('/api/fix-season-years?apply=true', timeout=180, retries=2)
               print(f"misfiled={out.get('misfiledCount')} moved={out.get('movedCount')} "
-                    f"folded={out.get('foldedDuplicateCount')} conflicts={out.get('conflictCount')}", flush=True)
+                    f"folded={out.get('foldedDuplicateCount')} split={out.get('splitCount')} "
+                    f"conflicts={out.get('conflictCount')}", flush=True)
+              for m in out.get('split') or []:
+                  print(f"  split {m.get('slug')} -> {m.get('to')} {m.get('year')} ({m.get('startDate')}; "
+                        f"{m.get('otherStartDate')} is a different event)", flush=True)
               for m in (out.get('moved') or [])[:60]:
                   print(f"  moved {m.get('slug')} {m.get('from')} -> {m.get('to')} wk{m.get('week')} ({m.get('startDate')})", flush=True)
               for c in out.get('conflicts') or []:

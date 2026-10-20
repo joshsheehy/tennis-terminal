@@ -21,7 +21,9 @@ export const dynamic = 'force-dynamic';
 //   - one already exists for the SAME event (dates < 14 days apart, i.e. the
 //     fixed importer already re-created it): the misfiled row's cuts are
 //     folded into it, then the misfiled duplicate is dropped
-//   - one exists for a DIFFERENT event: reported, left untouched
+//   - one exists for a DIFFERENT event: the row moves (same id) to a sibling
+//     tournament "<slug>-2" for that season; reported as a conflict only if
+//     no free sibling slug exists
 //
 // Idempotent; wired into the nightly official-calendar sync ahead of the
 // import so nothing re-creates a row before it is moved.
@@ -38,6 +40,31 @@ type Misfiled = {
   start_date: string;
   level: string;
 };
+
+// First of <slug>-2..-4 that has no edition in that season yet.
+async function siblingWithFreeSeason(tournamentId: string, slug: string, year: number): Promise<string | null> {
+  for (const n of [2, 3, 4]) {
+    const candidate = `${slug}-${n}`;
+    const taken = await pool.query(
+      `select 1 from tournament_editions te join tournaments t on t.id = te.tournament_id
+       where t.slug = $1 and te.year = $2 and te.tournament_id <> $3`,
+      [candidate, year, tournamentId]
+    );
+    if (taken.rowCount === 0) return candidate;
+  }
+  return null;
+}
+
+async function ensureSibling(tournamentId: string, siblingSlug: string): Promise<string> {
+  const result = await pool.query<{ id: string }>(
+    `insert into tournaments (slug, name, city, country, updated_at)
+     select $2, name, city, country, now() from tournaments where id = $1
+     on conflict (slug) do update set updated_at = now()
+     returning id`,
+    [tournamentId, siblingSlug]
+  );
+  return result.rows[0].id;
+}
 
 export async function GET(request: NextRequest) {
   const apply = request.nextUrl.searchParams.get('apply') === 'true';
@@ -60,6 +87,7 @@ export async function GET(request: NextRequest) {
 
   const moved: Array<{ slug: string; from: number; to: number; startDate: string; week: number | null }> = [];
   const folded: Array<{ slug: string; from: number; to: number; startDate: string }> = [];
+  const split: Array<{ slug: string; to: string; year: number; startDate: string; otherStartDate: string | null }> = [];
   const conflicts: Array<{ slug: string; year: number; startDate: string; otherStartDate: string | null }> = [];
   const errors: Array<{ slug: string; error: string }> = [];
 
@@ -85,7 +113,23 @@ export async function GET(request: NextRequest) {
       }
 
       if (other.start_date && daysApart(other.start_date, row.start_date) >= DISTINCT_EVENT_MIN_DAYS) {
-        conflicts.push({ slug: row.slug, year: row.target_year, startDate: row.start_date, otherStartDate: other.start_date });
+        // A different event of the same tournament already holds that season.
+        // Leaving this row where it is would hide it from every season, so it
+        // moves (same id, everything attached) to a sibling tournament the way
+        // upsertOfficialRow splits a city's second event of a season.
+        const sibling = await siblingWithFreeSeason(row.tournament_id, row.slug, row.target_year);
+        if (!sibling) {
+          conflicts.push({ slug: row.slug, year: row.target_year, startDate: row.start_date, otherStartDate: other.start_date });
+          continue;
+        }
+        if (apply) {
+          const siblingId = await ensureSibling(row.tournament_id, sibling);
+          await pool.query(
+            `update tournament_editions set tournament_id = $2, year = $3, week = $4, updated_at = now() where id = $1`,
+            [row.id, siblingId, row.target_year, week]
+          );
+        }
+        split.push({ slug: row.slug, to: sibling, year: row.target_year, startDate: row.start_date, otherStartDate: other.start_date });
         continue;
       }
 
@@ -133,7 +177,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (apply && (moved.length || folded.length)) {
+  if (apply && (moved.length || folded.length || split.length)) {
     try {
       revalidateTag('schedule');
     } catch {
@@ -147,9 +191,11 @@ export async function GET(request: NextRequest) {
     misfiledCount: misfiled.rows.length,
     movedCount: moved.length,
     foldedDuplicateCount: folded.length,
+    splitCount: split.length,
     conflictCount: conflicts.length,
     moved,
     folded,
+    split,
     conflicts,
     errors,
     message: apply ? undefined : 'Dry run. Append ?apply=true to move these rows.',
