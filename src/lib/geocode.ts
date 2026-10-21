@@ -47,6 +47,8 @@ const COUNTRY_ALIASES: Record<string, string> = {
   uru: 'Uruguay',
   per: 'Peru',
   den: 'Denmark',
+  esa: 'El Salvador',
+  bot: 'Botswana',
 };
 
 // Same idea for individual city spellings that consistently miss.

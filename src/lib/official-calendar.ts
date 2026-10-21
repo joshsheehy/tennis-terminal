@@ -45,6 +45,25 @@ export const COUNTRY_BY_ATP_CODE: Record<string, string> = {
   RSA: 'South Africa', RWA: 'Rwanda', SMR: 'San Marino', SUI: 'Switzerland', SVK: 'Slovakia',
   THA: 'Thailand', TPE: 'Chinese Taipei', TUN: 'Tunisia', TUR: 'Turkey', UAE: 'United Arab Emirates',
   USA: 'United States', UZB: 'Uzbekistan', VIE: 'Vietnam',
+  // A code missing here used to fall through as the raw code itself, and the
+  // geocoder read it as something else: San Salvador "ESA" landed in Spain,
+  // Lima "PER" in Pernambuco, Brazil, and Gaborone "BOT" got no pin at all.
+  // These are the IOC codes the ATP uses -- several differ from ISO (DEN not
+  // DNK, URU not URY, ESA not SLV, GER, SUI, NED, POR, RSA...).
+  ALG: 'Algeria', ARM: 'Armenia', AZE: 'Azerbaijan', BAH: 'Bahamas', BAN: 'Bangladesh',
+  BAR: 'Barbados', BDI: 'Burundi', BEN: 'Benin', BLR: 'Belarus', BOT: 'Botswana',
+  BUR: 'Burkina Faso', CMR: 'Cameroon', COD: 'DR Congo', CRC: 'Costa Rica', CUB: 'Cuba',
+  DEN: 'Denmark', ESA: 'El Salvador', EST: 'Estonia', GAB: 'Gabon', GEO: 'Georgia',
+  GHA: 'Ghana', GUA: 'Guatemala', HON: 'Honduras', ISL: 'Iceland', JOR: 'Jordan',
+  KEN: 'Kenya', KGZ: 'Kyrgyzstan', KSA: 'Saudi Arabia', KUW: 'Kuwait', LAT: 'Latvia',
+  LBN: 'Lebanon', LIE: 'Liechtenstein', LTU: 'Lithuania', LUX: 'Luxembourg', MAC: 'Macau',
+  MAD: 'Madagascar', MAR: 'Morocco', MAS: 'Malaysia', MDV: 'Maldives', MKD: 'North Macedonia',
+  MLT: 'Malta', MNE: 'Montenegro', MON: 'Monaco', MRI: 'Mauritius', NAM: 'Namibia',
+  NCA: 'Nicaragua', NGR: 'Nigeria', OMA: 'Oman', PAK: 'Pakistan', PAN: 'Panama', PER: 'Peru',
+  PHI: 'Philippines', PUR: 'Puerto Rico', QAT: 'Qatar', RUS: 'Russia', SEN: 'Senegal',
+  SGP: 'Singapore', SLO: 'Slovenia', SRB: 'Serbia', SRI: 'Sri Lanka', SWE: 'Sweden',
+  SYR: 'Syria', TOG: 'Togo', TTO: 'Trinidad and Tobago', UGA: 'Uganda', UKR: 'Ukraine',
+  URU: 'Uruguay', VEN: 'Venezuela', ZAM: 'Zambia', ZIM: 'Zimbabwe',
 };
 
 export function normalizeKey(value: string) {
@@ -190,6 +209,16 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
        name = excluded.name,
        city = excluded.city,
        country = excluded.country,
+       -- A country stored as a bare 3-letter code was geocoded against that
+       -- code (San Salvador "ESA" -> Spain). When it gets corrected, drop the
+       -- pin so the nightly geocode step places it again with the real
+       -- country; the geocoder only ever fills coordinates that are missing.
+       latitude = case
+         when tournaments.country ~ '^[A-Z]{3}$' and tournaments.country is distinct from excluded.country
+           then null else tournaments.latitude end,
+       longitude = case
+         when tournaments.country ~ '^[A-Z]{3}$' and tournaments.country is distinct from excluded.country
+           then null else tournaments.longitude end,
        updated_at = now()
      returning id`,
     // A second same-season event keeps its own calendar name ("Bogotá (Los
