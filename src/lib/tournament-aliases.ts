@@ -82,4 +82,13 @@ export const TOURNAMENT_ALIASES: TournamentAlias[] = [
       '"La Paz 1" to disambiguate). No shared code to catch it via dedupe-by-code, so a one-off ' +
       'merge-tournaments run on 2026-10-06 recreated itself by 2026-10-12 on the next calendar sync.',
   },
+  {
+    aliasSlug: 'chisinau-1',
+    canonicalSlug: 'chisinau-chisinau',
+    reason:
+      'Same Chișinău Challenger 100 (25 May 2026): the official calendar calls it "Chisinau 1" (a ' +
+      'second Chisinau, "Chisinau 2", is 30 Nov and stays separate as chisinau-2) while the catalogue ' +
+      'calls it "Chișinău". dedupe-by-code only caught it on nights chisinau-1 had picked up a code, ' +
+      'so it sat on the schedule twice in between.',
+  },
 ];
