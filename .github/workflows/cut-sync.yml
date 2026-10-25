@@ -168,7 +168,7 @@ jobs:
           print(f"{report.get('missingEditionCount')} editions missing cuts, "
                 f"{report.get('missingDrawCount')} draws", flush=True)
 
-          audit = app_json(f'/api/code-audit?year={year}')
+          audit = app_json(f'/api/code-audit?year={year}&lookahead=9')
           print(f"code audit: {audit.get('summary')}", flush=True)
           by_slug = {m['slug']: m for m in missing}
           DRAW_FILES = {

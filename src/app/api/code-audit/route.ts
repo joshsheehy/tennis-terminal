@@ -44,6 +44,11 @@ function normalizeCity(city: string) {
 export async function GET(request: NextRequest) {
   await ensureByesColumn();
   const year = Number(request.nextUrl.searchParams.get('year') ?? new Date().getFullYear());
+  // ?lookahead=N also covers events starting in the next N days (max 14).
+  // cut-sync passes this: a Challenger's draw is published the Saturday
+  // before its Monday start, and with the default (started already) those
+  // events were invisible here until the draw was ~36 hours old.
+  const lookahead = Math.min(14, Math.max(0, Math.floor(Number(request.nextUrl.searchParams.get('lookahead') ?? 0)) || 0));
   if (!Number.isInteger(year)) {
     return NextResponse.json({ ok: false, error: 'Invalid year' }, { status: 400 });
   }
@@ -107,7 +112,7 @@ export async function GET(request: NextRequest) {
       and te.status = 'held'
       and te.level not ilike 'ITF%'
       and te.start_date is not null
-      and te.start_date <= current_date
+      and te.start_date <= current_date + $2::int
       and not exists (
         select 1 from cutoff_snapshots cs
         where cs.tournament_edition_id = te.id
@@ -117,7 +122,7 @@ export async function GET(request: NextRequest) {
       )
     order by te.start_date desc
     `,
-    [year]
+    [year, lookahead]
   );
 
   const recoverableByCity: unknown[] = [];
