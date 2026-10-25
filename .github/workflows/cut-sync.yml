@@ -39,6 +39,18 @@ on:
     # scan so an event whose code was found today gets its cuts the same run.
     - cron: '10 6 * * *'
     - cron: '10 18 * * *'
+    # Draw window: Challenger draws go up Saturday evening local time (so
+    # ~10:00 UTC for Asia through ~02:00 UTC Sunday for the Americas), ATP
+    # draws Friday-Sunday. Every three hours Friday-Monday on top of the two
+    # daily passes. GitHub starts scheduled runs late (3-5h on this repo), so
+    # more triggers is what actually shortens the wait.
+    - cron: '40 */3 * * 5,6,0,1'
+
+# Never two at once: overlapping runs would split protennislive.com's small
+# per-address request allowance and both get refused.
+concurrency:
+  group: cut-sync
+  cancel-in-progress: false
 
 jobs:
   fill:
@@ -181,20 +193,33 @@ jobs:
                   entry['candidate_urls_by_missing_draw'] = urls
           missing = list(by_slug.values())
 
-          # Most recently played first: those are the cuts someone is waiting on.
-          # Editions with no candidate URLs have no known code yet — the code
-          # scan owns those, nothing to fetch here.
-          def sort_key(m):
-              return m.get('start_date') or ''
-          today = datetime.date.today().isoformat()
+          # Look AHEAD, not just back. A Challenger's draw is made the Saturday
+          # evening before its Monday start, and ATP/Slam draws days earlier,
+          # so "start_date <= today" left every freshly published draw waiting
+          # until the event had already begun -- about 36 hours after the
+          # sheets went up. Anything starting within LOOKAHEAD_DAYS is fair
+          # game; an unpublished sheet costs one cheap placeholder request.
+          #
+          # Order: this week's and next week's events first (soonest start
+          # first), then older gaps most-recent-first. protennislive.com allows
+          # roughly forty requests per run, and spending them on July's
+          # unrecoverable misses is how a fresh weekend of draws went unfetched.
+          LOOKAHEAD_DAYS = 9
+          today_d = datetime.date.today()
+          horizon = (today_d + datetime.timedelta(days=LOOKAHEAD_DAYS)).isoformat()
+          current_from = (today_d - datetime.timedelta(days=7)).isoformat()
           playable = [
               m for m in missing
-              if (m.get('start_date') or '9999') <= today
+              if (m.get('start_date') or '9999') <= horizon
               and any((m.get('candidate_urls_by_missing_draw') or {}).values())
           ]
-          playable.sort(key=sort_key, reverse=True)
-          print(f'{len(playable)} of them have candidate URLs to try; '
-                f'taking the {edition_limit} most recent', flush=True)
+          current = sorted((m for m in playable if (m.get('start_date') or '') >= current_from),
+                           key=lambda m: m.get('start_date') or '', reverse=True)
+          older = sorted((m for m in playable if (m.get('start_date') or '') < current_from),
+                         key=lambda m: m.get('start_date') or '', reverse=True)
+          playable = current + older
+          print(f'{len(playable)} of them have candidate URLs to try ({len(current)} this/next week); '
+                f'taking the first {edition_limit}', flush=True)
 
           DRAW_FIELDS = {
               'singles_main': ('singles', 'main'),
@@ -203,7 +228,7 @@ jobs:
               'doubles_qualifying': ('doubles', 'qualifying'),
           }
 
-          stored = refused = absent = 0
+          stored = refused = absent = not_posted = 0
           deadline = time.monotonic() + 45 * 60
           for edition in playable[:edition_limit]:
               if time.monotonic() > deadline:
@@ -223,6 +248,15 @@ jobs:
                           break
                       if body is None:
                           continue
+                      # ProTennisLive's "Tournament Information Not Yet
+                      # Available" stand-in (200, ~2.6 KB): the draw is not out
+                      # yet, and the -1/md.pdf variants won't be either. Stop
+                      # here instead of spending two more requests and an
+                      # upload on each alternate filename.
+                      if len(body) < 4000:
+                          not_posted += 1
+                          print(f'  {draw_key}: not posted yet', flush=True)
+                          break
                       payload = json.dumps({
                           'url': url,
                           'slug': slug,
@@ -242,7 +276,7 @@ jobs:
                   else:
                       absent += 1
 
-          print(f'\nstored={stored} drawsWithNoUsablePdf={absent} refusedDraws={refused}', flush=True)
+          print(f'\nstored={stored} notPostedYet={not_posted} drawsWithNoUsablePdf={absent} refusedDraws={refused}', flush=True)
 
           health = app_json('/api/discovery-health')
           for source in health.get('sources') or []:
