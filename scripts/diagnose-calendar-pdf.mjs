@@ -124,7 +124,11 @@ function rebuildLinesFromPositionedItems(items) {
   }
   const lines = [];
   for (const group of groups) {
-    const left = group.filter((i) => i.x < i.pageWidth * 0.52);
+    // The notes column ("Cancelled", "Saturday final") sits at ~52-54% of
+    // the page width and the ATP-tour column starts at ~58%. At 0.52 the
+    // "Cancelled" marker (x 438.8 of 842) fell into the right-hand half, so
+    // every cancelled Challenger was imported as a live event.
+    const left = group.filter((i) => i.x < i.pageWidth * 0.56);
     const right = group.filter((i) => i.x >= i.pageWidth * 0.48);
     for (const side of [left, right]) {
       const text = side.sort((a, b) => a.x - b.x).map((i) => i.str).join(' ').replace(/\s+/g, ' ').trim();
@@ -221,6 +225,7 @@ function parseRows(lines) {
   let currentStartDate = null;
   let sectionYear = year;
   const rows = [];
+  const cancelled = [];
   const nearMisses = [];
   const transitions = [];
   const sectionPattern = /\b(20\d{2})\s+CALENDAR\b/i;
@@ -257,6 +262,14 @@ function parseRows(lines) {
     const notes = (match[7] ?? '').trim();
     if (/cancelled|postponed/i.test(notes)) {
       transitions.push(`SKIPPED (cancelled/postponed): ${match[3].trim()}`);
+      cancelled.push({
+        week: currentWeek,
+        startDate: currentStartDate,
+        name: match[3].trim().replace(/[•†‡*]+/g, '').trim(),
+        country: match[4].toUpperCase(),
+        levelNumber: match[5],
+        surfaceCode: match[6],
+      });
       continue;
     }
     rows.push({
@@ -270,11 +283,12 @@ function parseRows(lines) {
       notes,
     });
   }
-  return { rows, nearMisses, transitions };
+  return { rows, cancelled, nearMisses, transitions };
 }
 
 function analyze(lines) {
-  const { rows, nearMisses, transitions } = parseRows(lines);
+  const { rows, cancelled, nearMisses, transitions } = parseRows(lines);
+  rows.cancelled = cancelled;
 
   console.log('\n--- WEEK/SECTION TRANSITIONS SEEN BY PARSER ---');
   for (const t of transitions) console.log(t);
@@ -485,6 +499,16 @@ for (const url of urls) {
         year,
         sourcePdfUrl: url,
         rows: rows.map((r) => ({
+          week: r.week,
+          startDate: r.startDate,
+          name: r.name,
+          countryCode: r.country,
+          level: r.levelNumber,
+          surfaceCode: r.surfaceCode,
+        })),
+        // Marked "Cancelled"/"Postponed" in the PDF: the import hides any
+        // edition already on the site for these instead of upserting them.
+        cancelled: (rows.cancelled ?? []).map((r) => ({
           week: r.week,
           startDate: r.startDate,
           name: r.name,

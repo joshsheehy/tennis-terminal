@@ -92,7 +92,10 @@ function rebuildLinesFromPositionedItems(items: PositionedText[]) {
 
   const lines: string[] = [];
   for (const group of groups) {
-    const left = group.filter((item) => item.x < item.pageWidth * 0.52);
+    // 0.56, not 0.52: the "Cancelled" notes column sits at ~52-54% of the
+    // page width and was being cut off into the ATP-tour half (see
+    // scripts/diagnose-calendar-pdf.mjs).
+    const left = group.filter((item) => item.x < item.pageWidth * 0.56);
     const right = group.filter((item) => item.x >= item.pageWidth * 0.48);
     for (const side of [left, right]) {
       const text = side

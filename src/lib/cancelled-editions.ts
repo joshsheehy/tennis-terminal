@@ -85,4 +85,16 @@ export const CANCELLED_EDITIONS: CancelledEdition[] = [
     year: 2026,
     reason: 'Cancelled (26 Oct, per the calendar snapshot — confirm again closer to the date in case it is reinstated). ITF-level excluded by the sweep below.',
   },
+  {
+    pattern: 'torrevieja',
+    year: 2026,
+    reason:
+      'Alicante (Torrevieja), 19 Oct — marked Cancelled in both the 2026-10-08 Player Zone and atptour.com ' +
+      'calendars; ProTennisLive never posted a sheet for its code (3141). Does not match Alicante (Montemar).',
+  },
+  {
+    pattern: 'nova-lima',
+    year: 2026,
+    reason: 'Nova Lima (Belo Horizonte), 14 Dec — marked Cancelled in the 2026-10-08 and 2026-10-19 calendars.',
+  },
 ];

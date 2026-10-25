@@ -339,5 +339,27 @@ jobs:
           except Exception as exc:
               print(f'non-fatal: {exc}', flush=True)
 
+          # Hide anything the calendar now marks "Cancelled"/"Postponed".
+          # Last on purpose: restore-historical-status above re-holds any
+          # not_held row that has cuts, so a cancellation applied earlier
+          # would be undone in the same run.
+          print('\n=== Hide cancelled events ===', flush=True)
+          for path in sorted(glob.glob('/tmp/official-rows-*.json')):
+              payload = json.load(open(path))
+              cancelled_rows = payload.get('cancelled') or []
+              if not cancelled_rows:
+                  continue
+              try:
+                  out = request_json('/api/import-official-rows?apply=true', method='POST', data=json.dumps({
+                      'year': payload['year'], 'sourcePdfUrl': payload['sourcePdfUrl'],
+                      'rows': cancelled_rows, 'cancelled': True,
+                  }).encode(), timeout=120, retries=2)
+                  print(f"season {payload['year']}: {len(cancelled_rows)} cancelled in the PDF, "
+                        f"{out.get('hiddenCount')} hidden now", flush=True)
+                  for h in out.get('hidden') or []:
+                      print(f"  - hid {h.get('slug')} {h.get('year')} ({h.get('startDate')})", flush=True)
+              except Exception as exc:
+                  print(f'non-fatal: {exc}', flush=True)
+
           print('\nOfficial calendar sync complete.', flush=True)
           PY

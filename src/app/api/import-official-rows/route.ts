@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { EARLIEST_SEASON } from '@/lib/seasons';
+import { pool } from '@/lib/db';
 import {
   cleanName,
   deriveCity,
+  DISTINCT_EVENT_MIN_DAYS,
   normalizeSurface,
   upsertOfficialRow,
   COUNTRY_BY_ATP_CODE,
@@ -84,6 +86,65 @@ export async function POST(request: NextRequest) {
   }
   if (!Array.isArray(rows) || rows.length === 0 || rows.length > MAX_ROWS) {
     return NextResponse.json({ ok: false, error: `rows must be a non-empty array of <= ${MAX_ROWS}` }, { status: 400 });
+  }
+
+  // { ..., "cancelled": true }: these rows are marked "Cancelled"/"Postponed"
+  // in the PDF. Hide the edition already on the site for each (same slug the
+  // upsert would pick, start date within two weeks) instead of upserting it.
+  // Before this, a cancellation only disappeared once someone added it to
+  // cancelled-editions.ts by hand -- Alicante (Torrevieja) and Nova Lima sat
+  // on the schedule for weeks after the calendar marked them cancelled.
+  if ((body as { cancelled?: unknown }).cancelled === true) {
+    const hidden: Array<{ slug: string; year: number; startDate: string }> = [];
+    const notFound: Array<{ name: string; startDate: string }> = [];
+    for (const raw of rows) {
+      const { row } = validateRow(raw);
+      if (!row) continue;
+      const name = cleanName(row.name);
+      const { surface, indoor } = normalizeSurface(row.surfaceCode ?? 'H');
+      const resolved = await upsertOfficialRow(
+        {
+          name,
+          city: deriveCity(name),
+          country: row.countryCode ? COUNTRY_BY_ATP_CODE[row.countryCode] ?? row.countryCode : null,
+          week: row.week,
+          startDate: row.startDate,
+          level: `Challenger ${row.level}`,
+          surface,
+          indoor,
+          sourcePdfUrl,
+        },
+        year as number,
+        true
+      );
+      const match = `t.slug = $1
+           and te.year = $2
+           and te.status = 'held'
+           and te.level not ilike 'ITF%'
+           and abs(te.start_date - $3::date) < ${DISTINCT_EVENT_MIN_DAYS}`;
+      const result = await pool.query<{ slug: string; year: number }>(
+        apply
+          ? `update tournament_editions te
+             set status = 'not_held', updated_at = now()
+             from tournaments t
+             where te.tournament_id = t.id and ${match}
+             returning t.slug, te.year`
+          : `select t.slug, te.year from tournament_editions te
+             join tournaments t on t.id = te.tournament_id
+             where ${match}`,
+        [resolved.slug, resolved.year, row.startDate]
+      );
+      if (result.rows.length) hidden.push({ slug: resolved.slug, year: resolved.year, startDate: row.startDate });
+      else notFound.push({ name, startDate: row.startDate });
+    }
+    if (apply && hidden.length) {
+      try {
+        revalidateTag('schedule');
+      } catch {
+        // revalidateTag can throw outside the cache runtime; safe to swallow.
+      }
+    }
+    return NextResponse.json({ ok: true, apply, cancelled: true, hiddenCount: hidden.length, hidden, alreadyHiddenOrMissing: notFound });
   }
 
   const invalid: Array<{ index: number; error: string }> = [];
