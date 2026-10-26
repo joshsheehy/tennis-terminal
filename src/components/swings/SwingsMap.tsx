@@ -234,13 +234,14 @@ export default function SwingsMap({
         // load, since a style carries its own projection.
         map.setProjection({ type: 'globe' });
         applyLatinLabels(map);
+        if (isDarkRef.current) applyDarkTint(map);
         installRouteLayers(map);
         map.setSky({
-          'sky-color': isDarkRef.current ? '#0b1220' : '#9ec3e8',
+          'sky-color': isDarkRef.current ? '#151412' : '#9ec3e8',
           'sky-horizon-blend': 0.5,
-          'horizon-color': isDarkRef.current ? '#1a2438' : '#e8f0f8',
+          'horizon-color': isDarkRef.current ? '#24231f' : '#e8f0f8',
           'horizon-fog-blend': 0.6,
-          'fog-color': isDarkRef.current ? '#0b1220' : '#dbe6f0',
+          'fog-color': isDarkRef.current ? '#151412' : '#dbe6f0',
           'fog-ground-blend': 0.02,
         });
         readyRef.current = true;
@@ -311,6 +312,34 @@ export default function SwingsMap({
         ['get', 'name:latin'],
         ['get', 'name'],
       ]);
+    }
+  }
+
+  /**
+   * Lift the dark basemap toward the site's charcoal palette.
+   *
+   * The stock dark build is near-black land on near-black water with dim
+   * borders, so countries and coastlines were hard to make out. This repaints
+   * land, water, borders and place labels in lighter warm grays; layers the
+   * style doesn't have are skipped.
+   */
+  function applyDarkTint(map: MapLibreMap) {
+    const set = (id: string, prop: Parameters<MapLibreMap['setPaintProperty']>[1], value: string) => {
+      if (map.getLayer(id)) map.setPaintProperty(id, prop, value);
+    };
+    set('background', 'background-color', '#35332f');
+    set('water', 'fill-color', '#1e1e1d');
+    set('waterway', 'line-color', '#1e1e1d');
+    for (const id of ['landcover_wood', 'landuse_park', 'landuse_residential', 'landcover_glacier', 'landcover_ice_shelf']) {
+      set(id, 'fill-color', '#3b3935');
+    }
+    set('boundary_country_z0-4', 'line-color', '#77736b');
+    set('boundary_country_z5-', 'line-color', '#77736b');
+    set('boundary_state', 'line-color', '#4f4c47');
+    for (const layer of map.getStyle()?.layers ?? []) {
+      if (!layer.id.startsWith('place_') && layer.id !== 'water_name') continue;
+      set(layer.id, 'text-color', '#cbc6bd');
+      set(layer.id, 'text-halo-color', '#1c1b19');
     }
   }
 
