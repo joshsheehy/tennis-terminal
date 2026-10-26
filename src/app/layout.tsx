@@ -1,14 +1,17 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Archivo } from 'next/font/google';
 import './globals.css';
 import SiteNav from '@/components/SiteNav';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import { SITE_NAME, SITE_URL, SITE_DESCRIPTION } from '@/lib/brand';
 
 // Self-hosted at build time by next/font — no runtime request to Google.
-const inter = Inter({
+// Variable weight + width: body text runs at normal width, headings use a
+// slightly condensed cut (see h1–h3 in globals.css).
+const archivo = Archivo({
   subsets: ['latin'],
   display: 'swap',
+  axes: ['wdth'],
   variable: '--font-sans',
 });
 
@@ -74,7 +77,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b1220' },
+    { media: '(prefers-color-scheme: dark)', color: '#151412' },
   ],
 };
 
@@ -89,7 +92,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html lang="en" suppressHydrationWarning className={archivo.variable}>
       <head>
         {/* Runs before React hydrates to prevent a flash of the wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}` }} />

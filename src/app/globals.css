@@ -1,31 +1,31 @@
 @import "tailwindcss";
 
 /* ─── Design tokens ─────────────────────────────────────────────────────────
-   V2 visual system: soft app background + white raised cards, brand green as
+   V2 visual system: warm off-white / charcoal background + white raised cards, brand green as
    the single accent, layered shadows, and consistent radii. Every component
    class below reads only from these tokens so light/dark stay in lockstep. */
 
 :root {
-  --bg:                  #f6f7f9;
+  --bg:                  #f7f6f3;
   --surface:             #ffffff;
-  --surface-alt:         #fafbfc;
-  --surface-raised:      #f3f5f7;
-  --surface-subtle:      #f1f3f5;
-  --surface-tag:         #eef1f4;
-  --surface-table-head:  #f3f5f7;
+  --surface-alt:         #fbfaf8;
+  --surface-raised:      #f3f2ee;
+  --surface-subtle:      #f1efeb;
+  --surface-tag:         #ecebe6;
+  --surface-table-head:  #f3f2ee;
 
-  --text:                #1c2430;
-  --text-strong:         #0d1522;
-  --text-secondary:      #3d4b5f;
-  --text-muted:          #64748b;
-  --text-faint:          #94a3b8;
-  --text-placeholder:    #9aa7b8;
+  --text:                #24221f;
+  --text-strong:         #141311;
+  --text-secondary:      #48443e;
+  --text-muted:          #6b665e;
+  --text-faint:          #9b968d;
+  --text-placeholder:    #a39e95;
 
-  --border:              #e3e7ec;
-  --border-inner:        #edf0f3;
-  --border-table:        #e8ebef;
-  --border-table-head:   #dde2e8;
-  --border-tag:          #dde2e8;
+  --border:              #e5e2dc;
+  --border-inner:        #eeece7;
+  --border-table:        #e9e6e0;
+  --border-table-head:   #dedad3;
+  --border-tag:          #dedad3;
 
   /* Brand green from the TennisCuts logo. --brand is the raw logo color;
      --brand-ink is a darker cut that passes contrast for text and button
@@ -43,8 +43,8 @@
   --lvl-atp-bg:          rgba(37, 99, 235, 0.1);
   --lvl-ch:              #b45309;
   --lvl-ch-bg:           rgba(180, 83, 9, 0.1);
-  --lvl-itf:             #475569;
-  --lvl-itf-bg:          rgba(71, 85, 105, 0.1);
+  --lvl-itf:             #57534e;
+  --lvl-itf-bg:          rgba(87, 83, 78, 0.1);
 
   /* Surface dots */
   --surf-hard:           #3b82f6;
@@ -57,14 +57,14 @@
   --status-main:         #16a34a;
   --status-q:            #b45309;
   --status-out:          #dc2626;
-  --status-unknown:      #64748b;
+  --status-unknown:      #6b665e;
 
   /* Chart series color (validated against both surfaces). */
   --chart-bar:           #22863b;
 
-  --shadow-1:            0 1px 2px rgba(13, 21, 34, 0.05);
-  --shadow-2:            0 1px 3px rgba(13, 21, 34, 0.05), 0 6px 20px rgba(13, 21, 34, 0.06);
-  --shadow-pop:          0 8px 30px rgba(13, 21, 34, 0.12);
+  --shadow-1:            0 1px 2px rgba(20, 19, 17, 0.05);
+  --shadow-2:            0 1px 3px rgba(20, 19, 17, 0.05), 0 6px 20px rgba(20, 19, 17, 0.06);
+  --shadow-pop:          0 8px 30px rgba(20, 19, 17, 0.12);
 
   --r-sm:                8px;
   --r-md:                12px;
@@ -77,26 +77,26 @@
 }
 
 [data-theme="dark"] {
-  --bg:                  #0b1220;
-  --surface:             #121a2b;
-  --surface-alt:         #101726;
-  --surface-raised:      #1a2438;
-  --surface-subtle:      #172033;
-  --surface-tag:         #1c2740;
-  --surface-table-head:  #162034;
+  --bg:                  #151412;
+  --surface:             #1c1b19;
+  --surface-alt:         #191816;
+  --surface-raised:      #24231f;
+  --surface-subtle:      #211f1c;
+  --surface-tag:         #2a2824;
+  --surface-table-head:  #201f1c;
 
-  --text:                #dfe6ef;
-  --text-strong:         #f4f7fb;
-  --text-secondary:      #c0cbdc;
-  --text-muted:          #8b99ad;
-  --text-faint:          #64748b;
-  --text-placeholder:    #5d6b80;
+  --text:                #e8e5df;
+  --text-strong:         #f7f5f1;
+  --text-secondary:      #cbc6bd;
+  --text-muted:          #a19b91;
+  --text-faint:          #7d786f;
+  --text-placeholder:    #6e6962;
 
-  --border:              #232f46;
-  --border-inner:        #1e293d;
-  --border-table:        #22304a;
-  --border-table-head:   #33415c;
-  --border-tag:          #2c3a54;
+  --border:              #2e2c28;
+  --border-inner:        #272522;
+  --border-table:        #2d2b27;
+  --border-table-head:   #3b3934;
+  --border-tag:          #36332f;
 
   --brand-ink:           #2f9e3f;
   --brand-ink-hover:     #38b44a;
@@ -109,8 +109,8 @@
   --lvl-atp-bg:          rgba(96, 165, 250, 0.13);
   --lvl-ch:              #e5a13d;
   --lvl-ch-bg:           rgba(217, 158, 57, 0.13);
-  --lvl-itf:             #9fb0c6;
-  --lvl-itf-bg:          rgba(148, 163, 184, 0.13);
+  --lvl-itf:             #b5afa5;
+  --lvl-itf-bg:          rgba(181, 175, 165, 0.13);
 
   --surf-hard:           #60a5fa;
   --surf-clay:           #f59e0b;
@@ -120,7 +120,7 @@
   --status-main:         #4ade80;
   --status-q:            #fbbf24;
   --status-out:          #f87171;
-  --status-unknown:      #94a3b8;
+  --status-unknown:      #a19b91;
 
   --chart-bar:           #3CB043;
 
@@ -128,31 +128,31 @@
   --shadow-2:            0 1px 3px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
   --shadow-pop:          0 10px 34px rgba(0, 0, 0, 0.5);
 
-  --nav-glass:           rgba(18, 26, 43, 0.85);
+  --nav-glass:           rgba(28, 27, 25, 0.85);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg:                  #0b1220;
-    --surface:             #121a2b;
-    --surface-alt:         #101726;
-    --surface-raised:      #1a2438;
-    --surface-subtle:      #172033;
-    --surface-tag:         #1c2740;
-    --surface-table-head:  #162034;
+    --bg:                  #151412;
+    --surface:             #1c1b19;
+    --surface-alt:         #191816;
+    --surface-raised:      #24231f;
+    --surface-subtle:      #211f1c;
+    --surface-tag:         #2a2824;
+    --surface-table-head:  #201f1c;
 
-    --text:                #dfe6ef;
-    --text-strong:         #f4f7fb;
-    --text-secondary:      #c0cbdc;
-    --text-muted:          #8b99ad;
-    --text-faint:          #64748b;
-    --text-placeholder:    #5d6b80;
+    --text:                #e8e5df;
+    --text-strong:         #f7f5f1;
+    --text-secondary:      #cbc6bd;
+    --text-muted:          #a19b91;
+    --text-faint:          #7d786f;
+    --text-placeholder:    #6e6962;
 
-    --border:              #232f46;
-    --border-inner:        #1e293d;
-    --border-table:        #22304a;
-    --border-table-head:   #33415c;
-    --border-tag:          #2c3a54;
+    --border:              #2e2c28;
+    --border-inner:        #272522;
+    --border-table:        #2d2b27;
+    --border-table-head:   #3b3934;
+    --border-tag:          #36332f;
 
     --brand-ink:           #2f9e3f;
     --brand-ink-hover:     #38b44a;
@@ -165,8 +165,8 @@
     --lvl-atp-bg:          rgba(96, 165, 250, 0.13);
     --lvl-ch:              #e5a13d;
     --lvl-ch-bg:           rgba(217, 158, 57, 0.13);
-    --lvl-itf:             #9fb0c6;
-    --lvl-itf-bg:          rgba(148, 163, 184, 0.13);
+    --lvl-itf:             #b5afa5;
+    --lvl-itf-bg:          rgba(181, 175, 165, 0.13);
 
     --surf-hard:           #60a5fa;
     --surf-clay:           #f59e0b;
@@ -176,7 +176,7 @@
     --status-main:         #4ade80;
     --status-q:            #fbbf24;
     --status-out:          #f87171;
-    --status-unknown:      #94a3b8;
+    --status-unknown:      #a19b91;
 
     --chart-bar:           #3CB043;
 
@@ -184,7 +184,7 @@
     --shadow-2:            0 1px 3px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
     --shadow-pop:          0 10px 34px rgba(0, 0, 0, 0.5);
 
-    --nav-glass:           rgba(18, 26, 43, 0.85);
+    --nav-glass:           rgba(28, 27, 25, 0.85);
   }
 }
 
@@ -225,8 +225,11 @@ input {
   outline-offset: 2px;
 }
 
-h1, h2, h3 {
-  letter-spacing: -0.02em;
+h1, h2, h3,
+.page-title,
+.site-nav__brand {
+  font-stretch: 90%;
+  letter-spacing: -0.01em;
 }
 
 th,
@@ -359,7 +362,7 @@ td {
   margin: 0 0 10px;
   font-size: clamp(26px, 5vw, 34px);
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
   color: var(--text-strong);
 }
 .page-lede {
