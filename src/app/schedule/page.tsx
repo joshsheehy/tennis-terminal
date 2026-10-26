@@ -166,7 +166,6 @@ export default async function SchedulePage({
 
       <div className="sched-head" style={{ margin: '8px 0 8px' }}>
         <div>
-          <p className="eyebrow" style={{ marginBottom: 6 }}>Schedule</p>
           <h1 className="page-title" style={{ marginBottom: 6 }}>Your schedule</h1>
         </div>
         <ScheduleShareButton />

@@ -433,7 +433,6 @@ export default async function ListsPage({ searchParams }: { searchParams: Promis
   return (
     <main className="page">
       <div className={styles.hero}>
-        <p className="eyebrow">Entry lists</p>
         <h1 className="page-title">Week of Aug 17, 2026</h1>
         <p className="page-lede">
           Players who have pulled out stay on the list, crossed out. Alternate numbers move up as the players above them leave.

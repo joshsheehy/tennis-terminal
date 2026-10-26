@@ -48,7 +48,6 @@ const RULES: Array<{ category: string; rows: Array<[string, string]> }> = [
 export default function AlertsPage() {
   return (
     <main className="page page--slim">
-      <p className="eyebrow">Alerts</p>
       <h1 className="page-title" style={{ marginBottom: 8 }}>Entry deadline alerts</h1>
       <p className="page-lede" style={{ marginBottom: 24, fontSize: 16 }}>
         Get an email <strong>24 hours, 12 hours and/or 2 hours before</strong> each entry

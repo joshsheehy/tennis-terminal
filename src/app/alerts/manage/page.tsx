@@ -32,7 +32,6 @@ export default async function ManageAlertsPage({
 
   return (
     <main className="page page--tight">
-      <p className="eyebrow">Alerts</p>
       <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 20px', color: 'var(--text-strong)' }}>Edit your preferences</h1>
       <section className="card">
         <ManagePreferences

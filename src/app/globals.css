@@ -66,9 +66,9 @@
   --shadow-2:            0 1px 3px rgba(20, 19, 17, 0.05), 0 6px 20px rgba(20, 19, 17, 0.06);
   --shadow-pop:          0 8px 30px rgba(20, 19, 17, 0.12);
 
-  --r-sm:                8px;
-  --r-md:                12px;
-  --r-lg:                16px;
+  --r-sm:                6px;
+  --r-md:                8px;
+  --r-lg:                10px;
 
   /* Height of the global top nav; pages subtract this from full-viewport. */
   --nav-h:               52px;
@@ -256,9 +256,7 @@ td {
   gap: 12px;
   padding: 0 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--nav-glass);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  background: var(--surface);
 }
 .site-nav__brand {
   display: inline-flex;
@@ -283,6 +281,7 @@ td {
 }
 .site-nav__links {
   display: flex;
+  align-self: stretch;
   gap: 4px;
   overflow-x: auto;
   scrollbar-width: none;
@@ -290,32 +289,31 @@ td {
 }
 .site-nav__links::-webkit-scrollbar { display: none; }
 .site-nav__link {
-  padding: 6px 13px;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
   font-size: 14px;
   font-weight: 500;
   color: var(--text-muted);
   white-space: nowrap;
-  transition: color 140ms ease, background 140ms ease;
+  transition: color 140ms ease, border-color 140ms ease;
 }
 .site-nav__link:hover {
   color: var(--text-strong);
-  background: var(--surface-subtle);
 }
-.site-nav__link--on {
-  background: var(--brand-soft);
-  color: var(--brand-ink);
-  font-weight: 700;
-}
+.site-nav__link--on,
 .site-nav__link--on:hover {
-  background: var(--brand-soft);
-  color: var(--brand-ink);
+  color: var(--text-strong);
+  border-bottom-color: var(--brand-ink);
+  font-weight: 700;
 }
 .site-nav__theme {
   margin-left: auto;
   background: none;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   width: 32px;
   height: 32px;
   display: inline-flex;
@@ -336,7 +334,7 @@ td {
     gap: 16px;
   }
   .site-nav__brand { font-size: 16px; margin-right: 8px; }
-  .site-nav__link  { font-size: 14px; padding: 7px 14px; }
+  .site-nav__link  { font-size: 14px; padding: 0 12px; }
 }
 
 /* ─── Page scaffolding ──────────────────────────────────────────────────────── */
@@ -463,7 +461,7 @@ td {
   scrollbar-width: none;
   padding: 3px;
   gap: 2px;
-  border-radius: 999px;
+  border-radius: var(--r-md);
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: var(--shadow-1);
@@ -473,7 +471,7 @@ td {
 .year-tab { flex: 0 0 auto; }
 .year-tab {
   padding: 7px 18px;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   font-size: 14px;
   font-weight: 600;
   color: var(--text-muted);
@@ -841,14 +839,14 @@ td {
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   background: var(--surface-alt);
   margin-bottom: 12px;
 }
 .cut-trend__tab {
   padding: 4px 12px;
   border: none;
-  border-radius: 999px;
+  border-radius: 4px;
   background: none;
   font-size: 12px;
   font-weight: 600;
@@ -957,7 +955,7 @@ td {
 }
 .sched-card {
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--surface);
   padding: 14px 16px;
 }

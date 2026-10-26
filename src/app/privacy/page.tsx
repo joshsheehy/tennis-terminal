@@ -23,7 +23,6 @@ const pStyle: CSSProperties = {
 export default function PrivacyPage() {
   return (
     <main className="page page--slim">
-      <p className="eyebrow">Privacy</p>
       <h1 className="page-title" style={{ marginBottom: 8 }}>
         Privacy Policy
       </h1>

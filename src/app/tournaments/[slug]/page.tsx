@@ -534,7 +534,6 @@ export default async function TournamentDetailPage({
       </Link>
 
       <div className="detail-hero">
-        <p className="eyebrow">Tournament</p>
         <h1 className="page-title" style={{ fontSize: 28, marginBottom: 4 }}>{displayName(current.name)}</h1>
         <p className="detail-hero__place">
           {current.city}{current.country ? `, ${current.country}` : ''}

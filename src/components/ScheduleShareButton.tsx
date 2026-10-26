@@ -30,7 +30,7 @@ export default function ScheduleShareButton() {
 
   return (
     <button type="button" className="sched-btn" onClick={share} aria-label="Share this schedule">
-      {copied ? '✓ Link copied' : '🔗 Share'}
+      {copied ? 'Link copied' : 'Share'}
     </button>
   );
 }

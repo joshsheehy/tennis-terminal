@@ -650,7 +650,6 @@ export default function SwingsView({
             aria-label="Welcome"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="welcome-kicker">Tennis Cuts</p>
             <h2 className="welcome-title">Plan your season.</h2>
             <p className="welcome-copy">
               Build a week-by-week swing across ATP, Challenger and ITF events — and see

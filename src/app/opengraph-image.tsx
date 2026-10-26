@@ -9,7 +9,7 @@ export const alt = 'Tennis Cuts — entry cutoffs, schedules & swing planner for
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-const BG = '#0b1220';
+const BG = '#151412';
 
 export default async function OpengraphImage() {
   const domain = SITE_URL.replace(/^https?:\/\//, '');
@@ -26,8 +26,8 @@ export default async function OpengraphImage() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: `linear-gradient(125deg, ${BG} 0%, #0f1830 60%, #0d1a12 100%)`,
-          color: '#f8fafc',
+          background: BG,
+          color: '#f7f5f1',
           fontFamily: 'sans-serif',
           position: 'relative',
         }}
@@ -36,7 +36,7 @@ export default async function OpengraphImage() {
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <img src={logoSrc} width={148} height={148} alt="" />
           <div style={{ display: 'flex', marginLeft: 30, fontSize: 96, fontWeight: 800, letterSpacing: -2.5 }}>
-            <span style={{ color: '#f8fafc' }}>Tennis</span>
+            <span style={{ color: '#f7f5f1' }}>Tennis</span>
             {/* Negative margin closes the inter-span gap so it reads "TennisCuts" like the nav */}
             <span style={{ color: BRAND_GREEN, marginLeft: -4 }}>Cuts</span>
           </div>
@@ -49,7 +49,7 @@ export default async function OpengraphImage() {
             marginTop: 46,
             fontSize: 29,
             lineHeight: 1.4,
-            color: '#9aa7b8',
+            color: '#a19b91',
             textAlign: 'center',
             justifyContent: 'center',
           }}
