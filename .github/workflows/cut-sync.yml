@@ -213,8 +213,16 @@ jobs:
               if (m.get('start_date') or '9999') <= horizon
               and any((m.get('candidate_urls_by_missing_draw') or {}).values())
           ]
-          current = sorted((m for m in playable if (m.get('start_date') or '') >= current_from),
-                           key=lambda m: m.get('start_date') or '', reverse=True)
+          # Nearest to tomorrow first: the coming Monday's events (draws just
+          # made) lead, then this week's, then the week after (usually not
+          # posted yet, so last).
+          pivot = today_d + datetime.timedelta(days=1)
+          def closeness(m):
+              try:
+                  return abs((datetime.date.fromisoformat(m.get('start_date')) - pivot).days)
+              except Exception:
+                  return 999
+          current = sorted((m for m in playable if (m.get('start_date') or '') >= current_from), key=closeness)
           older = sorted((m for m in playable if (m.get('start_date') or '') < current_from),
                          key=lambda m: m.get('start_date') or '', reverse=True)
           playable = current + older
@@ -236,8 +244,13 @@ jobs:
                   break
               slug = edition['slug']
               print(f"\n{edition.get('start_date')} {slug} ({edition.get('level')})", flush=True)
+              singles_unposted = 0
               for draw_key, urls in (edition.get('candidate_urls_by_missing_draw') or {}).items():
                   if draw_key not in DRAW_FIELDS or not urls:
+                      continue
+                  # Both singles sheets still placeholders: the doubles draw
+                  # (made after them) won't be up either. Save the request.
+                  if draw_key.startswith('doubles') and singles_unposted >= 2:
                       continue
                   event_type, draw_type = DRAW_FIELDS[draw_key]
                   for url in urls:
@@ -255,6 +268,8 @@ jobs:
                       # upload on each alternate filename.
                       if len(body) < 4000:
                           not_posted += 1
+                          if draw_key.startswith('singles'):
+                              singles_unposted += 1
                           print(f'  {draw_key}: not posted yet', flush=True)
                           break
                       payload = json.dumps({
