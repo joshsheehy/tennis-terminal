@@ -7,12 +7,20 @@ import { NextRequest, NextResponse } from 'next/server';
 // Telegram can't supply our ADMIN_SECRET, so it authenticates itself with its
 // own secret_token header instead, checked inside that route. See that
 // route's header for why it exists as a public endpoint at all.
+// The account routes are public at this layer too: each checks the user's own
+// session inside the route (Postgres isn't reachable from edge middleware).
 const PUBLIC_API_PATHS = new Set([
   '/api/status',
   '/api/subscribe',
   '/api/unsubscribe',
   '/api/preferences',
   '/api/telegram-webhook',
+  '/api/auth/request-code',
+  '/api/auth/verify',
+  '/api/auth/logout',
+  '/api/auth/me',
+  '/api/saved',
+  '/api/account',
 ]);
 
 // The secret can be supplied three ways so both automation and a human in a

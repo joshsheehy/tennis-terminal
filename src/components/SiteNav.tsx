@@ -10,6 +10,8 @@ const LINKS = [
   // Swings (inspiration map) hidden for now — still reachable at /swings.
   { href: '/cuts', label: 'Cuts' },
   { href: '/alerts', label: 'Alerts' },
+  // Signed-out visitors are redirected from /account to /login.
+  { href: '/account', label: 'Saved' },
 ] as const;
 
 export default function SiteNav() {
@@ -35,6 +37,7 @@ export default function SiteNav() {
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
     if (href === '/cuts') return pathname.startsWith('/cuts') || pathname.startsWith('/tournaments');
+    if (href === '/account') return pathname.startsWith('/account') || pathname.startsWith('/login');
     return pathname.startsWith(href);
   };
 

@@ -6,6 +6,7 @@ import { CutoffSnapshot, ScheduleRow } from '@/lib/types';
 import { CURRENT_SEASON, EARLIEST_SEASON } from '@/lib/seasons';
 import { fridayBefore, googleFlightsUrl } from '@/lib/tournament-links';
 import ScheduleShareButton from '@/components/ScheduleShareButton';
+import SaveButton from '@/components/SaveButton';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -168,7 +169,14 @@ export default async function SchedulePage({
         <div>
           <h1 className="page-title" style={{ marginBottom: 6 }}>Your schedule</h1>
         </div>
-        <ScheduleShareButton />
+        <div className="sched-actions">
+          <SaveButton
+            editionIds={stops.map((s) => s.edition.edition_id)}
+            label="Save schedule"
+            savedLabel="Saved to My schedule"
+          />
+          <ScheduleShareButton />
+        </div>
       </div>
       <p className="page-lede" style={{ marginBottom: 18 }}>
         {stops.length} stop{stops.length === 1 ? '' : 's'}

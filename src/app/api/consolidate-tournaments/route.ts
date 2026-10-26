@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, withTransaction } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { repointSavedTournaments } from '@/lib/saved-tournaments-repoint';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -129,6 +130,7 @@ export async function GET(request: NextRequest) {
               [ed.id, targetEdition.rows[0].id]
             );
             await client.query('delete from cutoff_snapshots where tournament_edition_id = $1', [ed.id]);
+            await repointSavedTournaments(client, ed.id, targetEdition.rows[0].id);
             await client.query('delete from tournament_editions where id = $1', [ed.id]);
             skippedConflicts++;
           } else {

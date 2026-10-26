@@ -1,5 +1,6 @@
 import { ensureByesColumn, pool, withTransaction } from './db';
 import { daysApart, DISTINCT_EVENT_MIN_DAYS } from './official-calendar';
+import { repointSavedTournaments } from '@/lib/saved-tournaments-repoint';
 
 // The transactional core of /api/merge-tournaments, factored out so
 // /api/resolve-tournament-aliases can reuse it for the same-event duplicates
@@ -98,6 +99,7 @@ export async function mergeTournaments(ghostId: string, canonicalId: string): Pr
           [ed.id, targetId]
         );
         await client.query('delete from cutoff_snapshots where tournament_edition_id = $1', [ed.id]);
+        await repointSavedTournaments(client, ed.id, targetId);
         await client.query('delete from tournament_editions where id = $1', [ed.id]);
         mergedConflictYears += 1;
       } else {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, withTransaction } from '@/lib/db';
 import { cityKeySql } from '@/lib/city-key';
+import { repointSavedTournaments } from '@/lib/saved-tournaments-repoint';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -133,6 +134,7 @@ export async function GET(request: NextRequest) {
           );
 
           await client.query('delete from cutoff_snapshots where tournament_edition_id = $1::uuid', [dup.edition_id]);
+          await repointSavedTournaments(client, dup.edition_id, primary.edition_id);
           await client.query('delete from tournament_editions where id = $1::uuid', [dup.edition_id]);
 
           const editionCount = await client.query<{ cnt: string }>(

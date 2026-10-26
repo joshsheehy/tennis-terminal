@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache';
 import { pool, withTransaction } from '@/lib/db';
 import { ATP_SEASON_FOR_DATE_SQL, EDITION_IN_ITS_SEASON_SQL, getAtpWeekForSeason } from '@/lib/atp-week';
 import { daysApart, DISTINCT_EVENT_MIN_DAYS } from '@/lib/official-calendar';
+import { repointSavedTournaments } from '@/lib/saved-tournaments-repoint';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -168,6 +169,7 @@ export async function GET(request: NextRequest) {
                and coalesce(keep.source_url, '') !~ '/posting/\\d+/\\d+/'`,
             [row.id, other.id]
           );
+          await repointSavedTournaments(client, row.id, other.id);
           await client.query('delete from tournament_editions where id = $1', [row.id]);
         });
       }

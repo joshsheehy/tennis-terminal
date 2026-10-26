@@ -1,6 +1,7 @@
 import { EARLIEST_SEASON } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { savedTournamentsTableExists } from '@/lib/saved-tournaments-repoint';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -241,6 +242,17 @@ export async function GET(request: NextRequest) {
        join tournament_editions exact on exact.id = c.exact_edition_id
        where generic.id = c.generic_edition_id`
     );
+
+    // Saves on the exact edition move to the generic one it's merged into.
+    if (await savedTournamentsTableExists(client)) {
+      await client.query(
+        `insert into saved_tournaments (user_id, edition_id, created_at)
+         select s.user_id, c.generic_edition_id, s.created_at
+         from challenger_level_merge_candidates c
+         join saved_tournaments s on s.edition_id = c.exact_edition_id
+         on conflict (user_id, edition_id) do nothing`
+      );
+    }
 
     const deletedExactEditions = await client.query(
       `delete from tournament_editions te

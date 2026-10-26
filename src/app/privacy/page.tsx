@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="page-lede" style={{ marginBottom: 28, fontSize: 15 }}>
-        Last updated September 23, 2026. Tennis Cuts (tenniscuts.com) is a schedule and
+        Last updated October 26, 2026. Tennis Cuts (tenniscuts.com) is a schedule and
         entry-cutoff tracker for pro tennis. This page explains what we collect, why, and how to
         control it — in plain language, not legalese.
       </p>
@@ -44,15 +44,22 @@ export default function PrivacyPage() {
           advance-entry reminders, and which reminder windows you chose.
         </p>
         <p style={pStyle}>
-          There are no accounts or passwords today, we don&apos;t collect payment information
-          (the site is free), and we don&apos;t collect location data.
+          If you <a href="/login">create an account</a> to save tournaments, we store your email
+          address, the tournaments you save, and when you last signed in. Signing in works with a
+          one-time code we email you, so there are no passwords. To stop people from spamming
+          sign-in emails, we also keep the IP address each code was requested from.
+        </p>
+        <p style={pStyle}>
+          We don&apos;t collect payment information (the site is free), and we don&apos;t collect
+          location data.
         </p>
       </section>
 
       <section style={sectionStyle}>
         <h2 style={h2Style}>How we use it</h2>
         <p style={pStyle}>
-          Solely to send the entry-deadline alert emails you asked for and to run the site. We
+          Solely to send the entry-deadline alert emails you asked for, to sign you in and show
+          your saved schedule, and to run the site. We
           don&apos;t sell your email address or use it for marketing, and we don&apos;t use it for
           anything beyond what you signed up for.
         </p>
@@ -61,8 +68,8 @@ export default function PrivacyPage() {
       <section style={sectionStyle}>
         <h2 style={h2Style}>Who we share it with</h2>
         <p style={pStyle}>
-          <strong>Resend</strong> — the email-delivery service that sends alert emails on our
-          behalf. It processes your address only to deliver that message.
+          <strong>Resend</strong> — the email-delivery service that sends alert and sign-in
+          emails on our behalf. It processes your address only to deliver that message.
         </p>
         <p style={pStyle}>
           <strong>Railway</strong> — our hosting provider. Like virtually any hosted web app, it
@@ -78,8 +85,9 @@ export default function PrivacyPage() {
       <section style={sectionStyle}>
         <h2 style={h2Style}>Cookies &amp; local storage</h2>
         <p style={pStyle}>
-          We don&apos;t use tracking cookies. The only thing stored in your browser is your
-          light/dark theme preference, saved locally on your device — it&apos;s never sent to us.
+          We don&apos;t use tracking cookies. If you sign in, we set one cookie that keeps you
+          signed in for up to 90 days; it holds a random sign-in key and nothing else. Your
+          light/dark theme preference is saved locally on your device and never sent to us.
         </p>
       </section>
 
@@ -91,12 +99,18 @@ export default function PrivacyPage() {
           right away. If you&apos;d like your email address deleted outright rather than just
           marked inactive, contact us below and we&apos;ll remove it.
         </p>
+        <p style={pStyle}>
+          If you have an account, you can delete it any time from{' '}
+          <a href="/account">My schedule</a>. That permanently erases your account, your saved
+          tournaments, and your sign-in records right away. Alert emails are a separate signup
+          and keep their own unsubscribe link.
+        </p>
       </section>
 
       <section style={sectionStyle}>
         <h2 style={h2Style}>Changes</h2>
         <p style={pStyle}>
-          As we add features — accounts, push notifications, location-based trip planning —
+          As we add features — push notifications, location-based trip planning —
           we&apos;ll update this page to describe what&apos;s newly collected and why before those
           features ship.
         </p>

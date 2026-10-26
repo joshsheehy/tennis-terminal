@@ -5,7 +5,7 @@
 //
 // Bump CACHE_VERSION on any change to this file's caching behavior so
 // `activate` clears the old cache instead of serving stale logic forever.
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `tennis-cuts-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline';
 
@@ -32,6 +32,11 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+const PERSONAL_PREFIXES = ['/api/', '/account', '/login'];
+function isPersonal(url) {
+  return PERSONAL_PREFIXES.some((p) => url.pathname === p || url.pathname.startsWith(p.endsWith('/') ? p : `${p}/`));
+}
+
 // Next.js build assets are content-hashed (immutable) — safe to cache-first.
 function isImmutableAsset(url) {
   return url.pathname.startsWith('/_next/static/');
@@ -43,6 +48,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Signed-in, per-person responses never touch the cache: a cached /account
+  // page or /api/auth/me reply could otherwise be shown to whoever uses the
+  // phone next, signed out or as someone else.
+  if (isPersonal(url)) return;
 
   // Page navigations: network-first so data stays fresh, cached copy (or the
   // offline page) as the fallback when there's no connection.

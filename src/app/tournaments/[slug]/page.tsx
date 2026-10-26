@@ -3,6 +3,7 @@ import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import CutTrendChart, { type CutTrendPoint, type CutTrendSeries } from '@/components/CutTrendChart';
+import SaveButton from '@/components/SaveButton';
 import { getTournamentDetailRowsBySlug, getItfPriorYearCutEditions } from '@/lib/db';
 import { CutoffSnapshot } from '@/lib/types';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
@@ -538,6 +539,11 @@ export default async function TournamentDetailPage({
         <p className="detail-hero__place">
           {current.city}{current.country ? `, ${current.country}` : ''}
         </p>
+        {current.status !== 'not_held' && (
+          <div className="sched-actions" style={{ margin: '4px 0 12px' }}>
+            <SaveButton editionIds={[current.edition_id]} label={`Save ${current.year}`} savedLabel={`Saved ${current.year}`} />
+          </div>
+        )}
         <div className="meta-grid">
           {[
             ['Viewing year', year],

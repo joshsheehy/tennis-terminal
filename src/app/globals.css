@@ -1220,3 +1220,53 @@ td {
   white-space: nowrap;
 }
 .rules-card li .rules-what { color: var(--text-muted); }
+
+/* ─── Accounts: sign-in, My schedule, save buttons ──────────────────────────── */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+}
+.auth-form__label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.auth-form__code { letter-spacing: 6px; font-variant-numeric: tabular-nums; font-size: 20px; }
+.auth-form__alt { margin: 4px 0 0; font-size: 13px; color: var(--text-faint); }
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--brand-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.link-button[disabled] { opacity: 0.6; cursor: default; }
+.link-button--danger { color: var(--status-out); }
+.section-title {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.sched-btn--on { border-color: var(--brand-ink); color: var(--brand-ink); }
+.sched-btn[disabled] { opacity: 0.65; cursor: default; }
+.save-btn-wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.save-btn-wrap__error { font-size: 13px; }
+.btn--danger { background: var(--status-out); border-color: var(--status-out); color: #fff; }
+.account-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.account-actions__confirm {
+  border: 1px solid var(--status-out);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  max-width: 460px;
+}
+.account-actions__confirm p { margin: 0 0 10px; font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+.account-actions__row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Four nav links don't fit beside the wordmark on a phone: keep just the logo
+   (the link keeps its aria-label) and tighten the link padding. */
+@media (max-width: 440px) {
+  .site-nav__brand > span { display: none; }
+  .site-nav__link { padding: 0 8px; }
+}
