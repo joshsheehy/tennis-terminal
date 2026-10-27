@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- TennisCuts app icon (two-tone court, charcoal). Full-bleed square:
+       iOS and most launchers apply their own rounded mask. Rendered PNGs in
+       public/icons, src/app and ios/App/App/Assets.xcassets come from this. -->
+  <defs>
+    <linearGradient id="bgcharcoal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f2124"/><stop offset="1" stop-color="#16181a"/></linearGradient>
+    <linearGradient id="ctcharcoal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e3237"/><stop offset="1" stop-color="#2a2e33"/></linearGradient>
+    <linearGradient id="lncharcoal" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#4cb34f"/><stop offset="1" stop-color="#6fd36a"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bgcharcoal)"/>
+  <rect x="128" y="100" width="256" height="312" rx="18" fill="url(#ctcharcoal)"/>
+  <g fill="none" stroke="#f6f6f3">
+    <rect x="128" y="100" width="256" height="312" rx="18" stroke-width="16"/>
+    <path d="M136 256 H376" stroke-width="10" opacity=".6"/>
+    <path d="M136 178 H376 M136 334 H376 M256 178 V334" stroke-width="8" opacity=".4"/>
+  </g>
+  <path d="M92 382 L206 286 L276 322 L414 158" fill="none" stroke="#16181a" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M92 382 L206 286 L276 322 L414 158" fill="none" stroke="url(#lncharcoal)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="414" cy="158" r="30" fill="#6fd36a" stroke="#16181a" stroke-width="12"/>
+</svg>
