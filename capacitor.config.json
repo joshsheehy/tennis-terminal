@@ -1,0 +1,13 @@
+{
+  "appId": "com.tenniscuts.app",
+  "appName": "TennisCuts",
+  "webDir": "app-shell",
+  "server": {
+    "url": "https://tenniscuts.com",
+    "errorPath": "offline.html"
+  },
+  "ios": {
+    "appendUserAgent": "TennisCutsApp",
+    "backgroundColor": "#f7f6f3"
+  }
+}

@@ -20,6 +20,8 @@
     "predev": "node scripts/copy-maplibre-worker.mjs"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
     "maplibre-gl": "^6.9.1",
     "next": "^15.5.19",
     "pdf-parse": "^1.1.1",
@@ -30,6 +32,7 @@
     "slugify": "^1.6.6"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@eslint/eslintrc": "^3.3.5",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4.1.4",

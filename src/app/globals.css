@@ -70,8 +70,10 @@
   --r-md:                8px;
   --r-lg:                10px;
 
-  /* Height of the global top nav; pages subtract this from full-viewport. */
-  --nav-h:               52px;
+  /* Height of the global top nav; pages subtract this from full-viewport.
+     Includes the status-bar inset, which is 0 in a normal browser tab and
+     non-zero in the iOS app / home-screen app (viewport-fit=cover). */
+  --nav-h:               calc(52px + env(safe-area-inset-top, 0px));
   /* Translucent nav backdrop (matches --surface at ~85% opacity) */
   --nav-glass:           rgba(255, 255, 255, 0.85);
 }
@@ -254,7 +256,7 @@ td {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 12px;
+  padding: env(safe-area-inset-top, 0px) 12px 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
@@ -330,7 +332,7 @@ td {
 
 @media (min-width: 640px) {
   .site-nav {
-    padding: 0 20px;
+    padding: env(safe-area-inset-top, 0px) 20px 0;
     gap: 16px;
   }
   .site-nav__brand { font-size: 16px; margin-right: 8px; }
