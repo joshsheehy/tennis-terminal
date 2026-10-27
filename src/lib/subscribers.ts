@@ -209,5 +209,66 @@ export async function releaseSend(subscriberId: string, alertKey: string): Promi
   );
 }
 
+// A signed-in account's alert preferences (the app's Alerts settings). Unlike
+// upsertSubscriber / updateCategoriesByToken, this never turns email back on
+// as a side effect: `emailOn` is set explicitly, so someone who wants push
+// only can keep their preferences with email off.
+export type AccountAlertPrefs = {
+  exists: boolean;
+  emailOn: boolean;
+  categories: Category[];
+  includeDoubles: boolean;
+  reminderHours: number[];
+};
+
+export async function getAlertPrefsForEmail(rawEmail: string): Promise<AccountAlertPrefs> {
+  await ensureSubscriberTables();
+  const result = await pool.query<Subscriber>(
+    `select id, email, active, categories, include_doubles, reminder_hours, unsubscribe_token
+       from alert_subscribers where email = $1`,
+    [rawEmail.trim().toLowerCase()]
+  );
+  const row = result.rows[0];
+  if (!row) {
+    return { exists: false, emailOn: false, categories: ['grandslam', 'atp', 'challenger'], includeDoubles: false, reminderHours: [24] };
+  }
+  return {
+    exists: true,
+    emailOn: row.active,
+    categories: row.categories,
+    includeDoubles: row.include_doubles,
+    reminderHours: normalizeReminderHours(row.reminder_hours),
+  };
+}
+
+export async function saveAlertPrefsForEmail(
+  rawEmail: string,
+  prefs: { categories: Category[]; includeDoubles: boolean; reminderHours: number[]; emailOn: boolean }
+): Promise<{ created: boolean; unsubscribeToken: string }> {
+  await ensureSubscriberTables();
+  const result = await pool.query<{ created: boolean; unsubscribe_token: string }>(
+    `insert into alert_subscribers (email, categories, include_doubles, reminder_hours, active, unsubscribed_at)
+     values ($1, $2, $3, $4, $5, case when $5 then null else now() end)
+     on conflict (email) do update
+       set categories = excluded.categories,
+           include_doubles = excluded.include_doubles,
+           reminder_hours = excluded.reminder_hours,
+           active = excluded.active,
+           unsubscribed_at = case
+             when excluded.active then null
+             else coalesce(alert_subscribers.unsubscribed_at, now())
+           end
+     returning (xmax = 0) as created, unsubscribe_token`,
+    [
+      rawEmail.trim().toLowerCase(),
+      prefs.categories,
+      prefs.includeDoubles,
+      normalizeReminderHours(prefs.reminderHours),
+      prefs.emailOn,
+    ]
+  );
+  return { created: result.rows[0].created, unsubscribeToken: result.rows[0].unsubscribe_token };
+}
+
 // Re-export so callers can reference the canonical list without a second import.
 export { CATEGORIES };

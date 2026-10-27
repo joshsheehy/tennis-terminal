@@ -5,7 +5,7 @@ export type ApiResult<T = Record<string, unknown>> = ({ ok: true } & T) | { ok: 
 
 export async function accountApi<T = Record<string, unknown>>(
   url: string,
-  method: 'GET' | 'POST' | 'DELETE' = 'GET',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
   body?: unknown
 ): Promise<ApiResult<T>> {
   try {

@@ -3,6 +3,7 @@ import { Archivo } from 'next/font/google';
 import './globals.css';
 import SiteNav from '@/components/SiteNav';
 import AppTabBar from '@/components/AppTabBar';
+import AppPushBoot from '@/components/AppPushBoot';
 import { APP_USER_AGENT_TOKEN } from '@/lib/nav';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import { SITE_NAME, SITE_URL, SITE_DESCRIPTION } from '@/lib/brand';
@@ -108,6 +109,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <SiteNav />
         {children}
         <AppTabBar />
+        <AppPushBoot />
       </body>
     </html>
   );

@@ -1,8 +1,12 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
+import AlertSettings from '@/components/AlertSettings';
 import AlertSignup from '@/components/AlertSignup';
 import AlertsRules from '@/components/AlertsRules';
 import { alertsTokenForEmail } from '@/lib/accounts';
 import { currentUserFromCookies } from '@/lib/auth-request';
+import { APP_USER_AGENT_TOKEN } from '@/lib/nav';
+import { getAlertPrefsForEmail } from '@/lib/subscribers';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,17 +57,33 @@ export default async function AlertsPage() {
   // address already gets alerts.
   const user = await currentUserFromCookies().catch(() => null);
   const alertsToken = user ? await alertsTokenForEmail(user.email).catch(() => null) : null;
+  // In the iOS app a signed-in account gets one settings screen for push and
+  // email together.
+  const inApp = ((await headers()).get('user-agent') ?? '').includes(APP_USER_AGENT_TOKEN);
+  const appPrefs = inApp && user ? await getAlertPrefsForEmail(user.email) : null;
 
   return (
     <main className="page page--slim">
       <h1 className="page-title" style={{ marginBottom: 8 }}>Entry deadline alerts</h1>
       <p className="page-lede" style={{ marginBottom: 24, fontSize: 16 }}>
-        Get an email <strong>24 hours, 12 hours and/or 2 hours before</strong> each entry
+        Get {inApp ? 'a push notification or email' : 'an email'} <strong>24 hours, 12 hours and/or 2 hours before</strong> each entry
         deadline. Choose the tours you care about and when to be reminded — we&apos;ll only
         send you what you pick.
       </p>
 
-      {alertsToken && user ? (
+      {appPrefs && user ? (
+        <section className="card alerts-card" style={{ marginBottom: 12 }}>
+          <AlertSettings
+            email={user.email}
+            initial={{
+              categories: appPrefs.categories,
+              includeDoubles: appPrefs.includeDoubles,
+              reminderHours: appPrefs.reminderHours,
+              emailOn: appPrefs.emailOn,
+            }}
+          />
+        </section>
+      ) : alertsToken && user ? (
         <section className="card alerts-card alerts-card--subscribed" style={{ marginBottom: 12 }}>
           <p className="alerts-subscribed__title">You&apos;re getting alerts</p>
           <p className="alerts-subscribed__line">
@@ -77,6 +97,11 @@ export default async function AlertsPage() {
         <section className="card alerts-card" style={{ marginBottom: 12 }}>
           <AlertSignup defaultEmail={user?.email ?? ''} />
         </section>
+      )}
+      {inApp && !user && (
+        <p className="alerts-settings__hint" style={{ marginBottom: 12 }}>
+          Want push notifications instead? <a href="/login?next=/alerts">Sign in</a> to turn them on.
+        </p>
       )}
       <p className="page-footnote" style={{ marginBottom: 32 }}>
         We only use your email to send the alerts you pick. See the{' '}

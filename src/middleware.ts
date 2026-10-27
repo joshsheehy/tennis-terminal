@@ -23,6 +23,11 @@ const PUBLIC_API_PATHS = new Set([
   '/api/account',
   // Read-only search over the public schedule (Saved page's Add picker).
   '/api/tournament-search',
+  // Signed-in only, checked in each route: the app's push + alert settings.
+  '/api/push/register',
+  '/api/push/unregister',
+  '/api/push/test',
+  '/api/alerts/prefs',
 ]);
 
 // The secret can be supplied three ways so both automation and a human in a

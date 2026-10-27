@@ -5,7 +5,7 @@ import { useState } from 'react';
 type Status = 'idle' | 'loading' | 'ok' | 'error';
 
 // Keep in sync with Category / CATEGORY_LABEL in src/lib/entry-deadlines.ts.
-const CATEGORY_OPTIONS: Array<{ key: string; label: string; defaultOn: boolean }> = [
+export const CATEGORY_OPTIONS: Array<{ key: string; label: string; defaultOn: boolean }> = [
   { key: 'grandslam', label: 'Grand Slam', defaultOn: true },
   { key: 'atp', label: 'ATP Tour (250 / 500 / 1000)', defaultOn: true },
   { key: 'challenger', label: 'ATP Challenger Tour', defaultOn: true },
@@ -13,7 +13,7 @@ const CATEGORY_OPTIONS: Array<{ key: string; label: string; defaultOn: boolean }
 ];
 
 // Keep in sync with REMINDER_WINDOWS in src/lib/entry-deadlines.ts.
-const REMINDER_OPTIONS: Array<{ hours: number; label: string; defaultOn: boolean }> = [
+export const REMINDER_OPTIONS: Array<{ hours: number; label: string; defaultOn: boolean }> = [
   { hours: 24, label: '24 hours before', defaultOn: true },
   { hours: 12, label: '12 hours before', defaultOn: false },
   { hours: 2, label: '2 hours before', defaultOn: false },

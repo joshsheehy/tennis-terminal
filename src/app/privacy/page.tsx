@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="page-lede" style={{ marginBottom: 28, fontSize: 15 }}>
-        Last updated October 26, 2026. Tennis Cuts (tenniscuts.com) is a schedule and
+        Last updated October 27, 2026. Tennis Cuts (tenniscuts.com) is a schedule and
         entry-cutoff tracker for pro tennis. This page explains what we collect, why, and how to
         control it — in plain language, not legalese.
       </p>
@@ -50,6 +50,11 @@ export default function PrivacyPage() {
           sign-in emails, we also keep the IP address each code was requested from.
         </p>
         <p style={pStyle}>
+          If you turn on push notifications in the TennisCuts iPhone app, we store the device
+          token Apple gives us for your phone, linked to your account, so we can send the
+          deadline alerts you chose there. Turning push off or signing out removes it.
+        </p>
+        <p style={pStyle}>
           We don&apos;t collect payment information (the site is free), and we don&apos;t collect
           location data.
         </p>
@@ -70,6 +75,10 @@ export default function PrivacyPage() {
         <p style={pStyle}>
           <strong>Resend</strong> — the email-delivery service that sends alert and sign-in
           emails on our behalf. It processes your address only to deliver that message.
+        </p>
+        <p style={pStyle}>
+          <strong>Apple</strong> — delivers push notifications to the iPhone app. It receives
+          your device token and the alert text, nothing else.
         </p>
         <p style={pStyle}>
           <strong>Railway</strong> — our hosting provider. Like virtually any hosted web app, it
@@ -110,7 +119,7 @@ export default function PrivacyPage() {
       <section style={sectionStyle}>
         <h2 style={h2Style}>Changes</h2>
         <p style={pStyle}>
-          As we add features — push notifications, location-based trip planning —
+          As we add features — location-based trip planning, for example —
           we&apos;ll update this page to describe what&apos;s newly collected and why before those
           features ship.
         </p>

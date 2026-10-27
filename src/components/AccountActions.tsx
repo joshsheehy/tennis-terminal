@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { accountApi } from '@/lib/account-client';
+import { disablePush } from '@/lib/native-push';
 
 // Sign out, and permanently delete the account. Deletion asks once more inline
 // (no browser confirm dialog) because it can't be undone.
@@ -12,6 +13,8 @@ export default function AccountActions() {
 
   async function signOut() {
     setBusy(true);
+    // Stop pushes to this phone before the session goes away.
+    await disablePush().catch(() => {});
     await accountApi('/api/auth/logout', 'POST', {});
     window.location.assign('/');
   }
@@ -19,6 +22,7 @@ export default function AccountActions() {
   async function deleteAccount() {
     setBusy(true);
     setError(null);
+    await disablePush().catch(() => {});
     const result = await accountApi('/api/account', 'DELETE', {});
     if (!result.ok) {
       setBusy(false);

@@ -43,3 +43,7 @@ shot.mjs
 # Monday audit output (also uploaded as a CI artifact)
 monday-audit-report.md
 monday-audit-state.json
+
+# Apple signing / push keys — never commit (APNS_PRIVATE_KEY lives in Railway)
+*.p8
+/app dev/

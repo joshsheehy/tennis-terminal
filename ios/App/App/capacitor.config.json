@@ -10,5 +10,16 @@
 		"appendUserAgent": "TennisCutsApp",
 		"backgroundColor": "#f7f6f3"
 	},
-	"packageClassList": []
+	"plugins": {
+		"PushNotifications": {
+			"presentationOptions": [
+				"banner",
+				"sound",
+				"list"
+			]
+		}
+	},
+	"packageClassList": [
+		"PushNotificationsPlugin"
+	]
 }

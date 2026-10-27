@@ -17,6 +17,9 @@ import {
   listActiveSubscribers,
   releaseSend,
 } from '@/lib/subscribers';
+import { ApnsClient, apnsConfigured } from '@/lib/apns';
+import { deadlinePushMessage, pushReminderKey } from '@/lib/push-alerts';
+import { deleteDeviceToken, listPushTargets, rememberDeviceEnv } from '@/lib/push-devices';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,21 +52,21 @@ export async function GET(request: NextRequest) {
   ]);
   const schedule = [...thisYear, ...nextYear];
 
-  if (!emailConfigured() && !dry) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          'RESEND_API_KEY is not set — cannot send. Set it on the server, or call with ?dry=1 to preview.',
-      },
-      { status: 503 }
-    );
-  }
+  // Email and push are independent: a missing Resend key must not stop push,
+  // and missing APNs settings must not stop email. A missing Resend key still
+  // fails the run (503) at the end — a silent green check once hid weeks of
+  // unsent alerts — but only after push has had its turn.
+  const emailReady = emailConfigured();
+  const emailMissing = {
+    ok: false,
+    error: 'RESEND_API_KEY is not set — cannot send. Set it on the server, or call with ?dry=1 to preview.',
+  };
 
   // Test mode: send whatever is currently inside the chosen windows to a single
   // address for the chosen categories (defaults: all categories, all windows).
   // Add &dbl=1 to include doubles advance entry.
   if (testEmail) {
+    if (!emailReady && !dry) return NextResponse.json(emailMissing, { status: 503 });
     const cats = normalizeCategoriesFromParam(params.get('cats'));
     const includeDoubles = params.get('dbl') === '1';
     const windows = normalizeReminderHours(
@@ -100,7 +103,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const subscribers = await listActiveSubscribers();
+  const subscribers = emailReady || dry ? await listActiveSubscribers() : [];
   const perSubscriber: Array<{
     email: string;
     categories: Category[];
@@ -184,9 +187,18 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Push results stay out of perSubscriber on purpose: the workflow's check
+  // fails the run for any perSubscriber entry with deadlines but sent=false.
+  const push = await sendDeadlinePushes(schedule, now, dry);
+
+  if (!emailReady && !dry) {
+    return NextResponse.json({ ...emailMissing, push }, { status: 503 });
+  }
+
   return NextResponse.json({
     ok: true,
     dry,
+    push,
     ranAt: now.toISOString(),
     subscribers: subscribers.length,
     deadlineHits: totalDeadlineHits,
@@ -205,4 +217,85 @@ function summarize(d: DueReminder) {
     dueWindows: d.dueWindows,
     tournamentStart: d.tournamentStart,
   };
+}
+
+type PushReport = {
+  skipped?: string;
+  targets: number;
+  notified: number;
+  failed: Array<{ email: string; reason: string }>;
+  devicesRemoved: number;
+};
+
+// Same deadlines and windows as the email, per account with a registered
+// device, claimed under push: keys so the two channels dedupe independently.
+async function sendDeadlinePushes(
+  schedule: Parameters<typeof dueReminderDeadlines>[0],
+  now: Date,
+  dry: boolean
+): Promise<PushReport> {
+  const report: PushReport = { targets: 0, notified: 0, failed: [], devicesRemoved: 0 };
+  if (!apnsConfigured() && !dry) return { ...report, skipped: 'APNs is not configured (APNS_* env vars unset)' };
+
+  let targets;
+  try {
+    targets = await listPushTargets();
+  } catch (err) {
+    return { ...report, skipped: `could not load push devices: ${err instanceof Error ? err.message : 'error'}` };
+  }
+  report.targets = targets.length;
+  const client = dry ? null : new ApnsClient();
+  try {
+    for (const target of targets) {
+      const due = dueReminderDeadlines(schedule, now, {
+        windows: normalizeReminderHours(target.reminder_hours),
+        categories: target.categories,
+        includeDoubles: target.include_doubles,
+      });
+      const won: DueReminder[] = [];
+      const wonKeys: string[] = [];
+      for (const d of due) {
+        let winner = false;
+        for (const w of d.dueWindows) {
+          const key = pushReminderKey(reminderKey(d, w));
+          if (dry || (await claimSend(target.id, key))) {
+            winner = true;
+            wonKeys.push(key);
+          }
+        }
+        if (winner) won.push(d);
+      }
+      const message = deadlinePushMessage(won);
+      if (!message || !client) {
+        if (message) report.notified += 1;
+        continue;
+      }
+
+      let delivered = false;
+      let lastReason = '';
+      for (const device of target.devices) {
+        const outcome = await client.send(device.token, message, device.env);
+        if (outcome.ok) {
+          delivered = true;
+          if (outcome.env !== device.env) await rememberDeviceEnv(device.token, outcome.env);
+        } else {
+          lastReason = outcome.reason || `HTTP ${outcome.status}`;
+          if (outcome.gone) {
+            await deleteDeviceToken(device.token);
+            report.devicesRemoved += 1;
+          }
+        }
+      }
+      if (delivered) {
+        report.notified += 1;
+      } else {
+        // Nothing reached any device: release so the next run retries.
+        await Promise.all(wonKeys.map((key) => releaseSend(target.id, key)));
+        report.failed.push({ email: target.email, reason: lastReason });
+      }
+    }
+  } finally {
+    client?.close();
+  }
+  return report;
 }

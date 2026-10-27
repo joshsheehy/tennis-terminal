@@ -1594,3 +1594,5 @@ html.in-app .alerts-rules__summary {
 html.in-app .alerts-rules__summary::after { content: '›'; font-size: 20px; color: var(--text-muted); transition: transform 160ms ease; }
 html.in-app .alerts-rules[open] .alerts-rules__summary::after { transform: rotate(90deg); }
 html.in-app .alerts-rules[open] { padding-bottom: 14px; }
+.alerts-settings__hint { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.alerts-settings__test { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
