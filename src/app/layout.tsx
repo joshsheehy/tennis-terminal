@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import { Archivo } from 'next/font/google';
 import './globals.css';
 import SiteNav from '@/components/SiteNav';
+import AppTabBar from '@/components/AppTabBar';
+import { APP_USER_AGENT_TOKEN } from '@/lib/nav';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import { SITE_NAME, SITE_URL, SITE_DESCRIPTION } from '@/lib/brand';
 
@@ -96,12 +98,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         {/* Runs before React hydrates to prevent a flash of the wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}` }} />
+        {/* Same timing for app mode: the iOS app tags its user agent, and .in-app
+            swaps the top links for the bottom tab bar before anything paints. */}
+        <script dangerouslySetInnerHTML={{ __html: `if(navigator.userAgent.indexOf(${JSON.stringify(APP_USER_AGENT_TOKEN)})!==-1)document.documentElement.classList.add('in-app');` }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </head>
       <body>
         <ServiceWorkerRegister />
         <SiteNav />
         {children}
+        <AppTabBar />
       </body>
     </html>
   );

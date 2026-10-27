@@ -345,7 +345,7 @@ td {
   max-width: 900px;
   margin: 0 auto;
   padding: 28px 16px 48px;
-  min-height: calc(100dvh - var(--nav-h));
+  min-height: calc(100dvh - var(--nav-h) - var(--tab-h));
 }
 .page--slim { max-width: 720px; }
 .page--tight { max-width: 560px; }
@@ -1272,3 +1272,51 @@ td {
   .site-nav__brand > span { display: none; }
   .site-nav__link { padding: 0 8px; }
 }
+
+/* ─── iOS app mode ──────────────────────────────────────────────────────────
+   <html class="in-app"> is set before first paint when the page is running
+   inside the TennisCuts iOS app (layout.tsx). The website never gets it.
+   --tab-h is the bottom tab bar's height (0 on the website); --bottom-safe is
+   the home-indicator spacing a bottom-anchored panel still has to add itself,
+   which the tab bar already covers in the app. */
+:root {
+  --tab-h: 0px;
+  --bottom-safe: env(safe-area-inset-bottom, 0px);
+}
+html.in-app {
+  --tab-h: calc(56px + env(safe-area-inset-bottom, 0px));
+  --bottom-safe: 0px;
+}
+html.in-app body { padding-bottom: var(--tab-h); }
+
+/* Top bar keeps the logo and theme toggle; the sections move to the bottom. */
+html.in-app .site-nav__links { display: none; }
+html.in-app .site-nav__brand > span { display: inline; }
+
+.app-tabbar { display: none; }
+html.in-app .app-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  display: flex;
+  height: var(--tab-h);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.app-tabbar__tab {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--text-muted);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-tabbar__tab--on { color: var(--brand-ink); }
+.app-tabbar__label { font-size: 11px; font-weight: 600; letter-spacing: 0.01em; }
+.app-tabbar__tab--on .app-tabbar__label { font-weight: 700; }

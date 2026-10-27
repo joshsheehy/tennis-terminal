@@ -4,15 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-
-const LINKS = [
-  { href: '/', label: 'Builder' },
-  // Swings (inspiration map) hidden for now — still reachable at /swings.
-  { href: '/cuts', label: 'Cuts' },
-  { href: '/alerts', label: 'Alerts' },
-  // Signed-out visitors are redirected from /account to /login.
-  { href: '/account', label: 'Saved' },
-] as const;
+import { NAV_LINKS, isNavActive } from '@/lib/nav';
 
 export default function SiteNav() {
   const pathname = usePathname();
@@ -34,12 +26,7 @@ export default function SiteNav() {
     setIsDark(next);
   }
 
-  const isActive = (href: string) => {
-    if (href === '/') return pathname === '/';
-    if (href === '/cuts') return pathname.startsWith('/cuts') || pathname.startsWith('/tournaments');
-    if (href === '/account') return pathname.startsWith('/account') || pathname.startsWith('/login');
-    return pathname.startsWith(href);
-  };
+  const isActive = (href: string) => isNavActive(href, pathname);
 
   return (
     <nav className="site-nav" aria-label="Primary">
@@ -50,7 +37,7 @@ export default function SiteNav() {
         </span>
       </Link>
       <div className="site-nav__links">
-        {LINKS.map((l) => (
+        {NAV_LINKS.map((l) => (
           <Link
             key={l.href}
             href={l.href}

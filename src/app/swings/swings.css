@@ -11,7 +11,7 @@
   /* Sits below the global top nav. position:relative so the absolutely
      positioned overlays + bottom sheet anchor here, not the viewport. */
   position: relative;
-  height: calc(100dvh - var(--nav-h));
+  height: calc(100dvh - var(--nav-h) - var(--tab-h));
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
@@ -743,7 +743,7 @@
 .maplibregl-canvas:focus { outline: none; }
 .maplibregl-ctrl-bottom-left {
   /* clear the collapsed mobile sheet + home indicator */
-  bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(94px + var(--bottom-safe));
   transition: bottom 0.22s ease;
 }
 .maplibregl-ctrl-group { display: none; }
@@ -911,7 +911,7 @@
   display: flex;
   flex-direction: column;
 }
-.sheet--collapsed { height: calc(84px + env(safe-area-inset-bottom, 0px)); }
+.sheet--collapsed { height: calc(84px + var(--bottom-safe)); }
 .sheet--half { height: 46dvh; }
 .sheet--full { height: 88dvh; }
 /* Grip row is the drag handle; touch-action:none lets a touch drag move the
@@ -937,7 +937,7 @@
   padding: 0;
 }
 .sheet-body {
-  padding: 4px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  padding: 4px 16px calc(20px + var(--bottom-safe));
   overflow-y: auto;
 }
 .sheet-summary { margin: 6px 0; font-size: 15px; color: var(--text-secondary); }
