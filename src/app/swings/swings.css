@@ -244,6 +244,28 @@
   transition: filter 140ms ease;
 }
 .builder-finish:hover { filter: brightness(1.06); }
+.builder-finish[disabled] { opacity: 0.65; cursor: default; }
+
+/* See summary + Save to schedule, side by side. */
+.builder-finish-row {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.builder-finish-row > .builder-finish,
+.builder-finish-row > .save-btn-wrap { flex: 1 1 0; margin: 0; }
+.builder-finish-row > .save-btn-wrap { flex-direction: column; align-items: stretch; gap: 4px; }
+.builder-finish-row .save-btn-wrap > .builder-finish { margin: 0; }
+.builder-finish--ghost {
+  background: var(--surface);
+  color: var(--text-strong);
+  border: 1px solid var(--border);
+}
+.builder-finish--saved {
+  background: var(--surface);
+  color: var(--brand-ink);
+  border: 1px solid var(--brand-ink);
+}
 
 .builder-jump--ghost {
   margin-top: 8px;

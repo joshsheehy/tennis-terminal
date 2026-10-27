@@ -6,21 +6,27 @@ import { accountApi, fetchMe, loginHref } from '@/lib/account-client';
 // Saves one or more editions to the signed-in user's schedule. One edition
 // (a tournament page) toggles save/unsave; several (a Builder schedule) saves
 // them all, and shows as saved once every one of them is. Signed-out visitors
-// are sent to /login and brought back here afterwards.
+// are sent to /login and brought back here afterwards. `schedule` forces the
+// save-them-all behavior even for one edition (the Builder's chain), and
+// `className` lets a caller restyle it.
 export default function SaveButton({
   editionIds,
   label = 'Save',
   savedLabel = 'Saved',
+  schedule = false,
+  className = 'sched-btn',
 }: {
   editionIds: string[];
   label?: string;
   savedLabel?: string;
+  schedule?: boolean;
+  className?: string;
 }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const single = editionIds.length === 1;
+  const single = editionIds.length === 1 && !schedule;
   const key = editionIds.join(',');
 
   useEffect(() => {
@@ -65,7 +71,7 @@ export default function SaveButton({
   // Already-saved schedules link to where they live rather than re-saving.
   if (saved && !single) {
     return (
-      <a href="/account" className="sched-btn">
+      <a href="/account" className={`${className} ${className}--saved`}>
         {savedLabel}
       </a>
     );
@@ -75,7 +81,7 @@ export default function SaveButton({
     <span className="save-btn-wrap">
       <button
         type="button"
-        className={`sched-btn${saved ? ' sched-btn--on' : ''}`}
+        className={`${className}${saved ? ` ${className}--on` : ''}`}
         onClick={toggle}
         disabled={busy || signedIn === null}
         aria-pressed={single ? saved : undefined}

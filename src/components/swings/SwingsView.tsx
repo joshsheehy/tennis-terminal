@@ -5,6 +5,7 @@ import { AVAILABLE_SEASONS } from '@/lib/seasons';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import dynamic from 'next/dynamic';
+import SaveButton from '@/components/SaveButton';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw } from '@/lib/swings-page-data';
 import { LevelGroup, levelRank } from '@/lib/swings';
@@ -1358,12 +1359,21 @@ function BuilderPanel({
               })}
             </ul>
 
-            <a
-              className="builder-finish"
-              href={`/schedule?build=${chain.map((e) => e.editionId).join(',')}&year=${year}`}
-            >
-              Complete schedule — see summary →
-            </a>
+            <div className="builder-finish-row">
+              <a
+                className="builder-finish builder-finish--ghost"
+                href={`/schedule?build=${chain.map((e) => e.editionId).join(',')}&year=${year}`}
+              >
+                See summary
+              </a>
+              <SaveButton
+                editionIds={chain.map((e) => e.editionId)}
+                schedule
+                className="builder-finish"
+                label="Save to schedule"
+                savedLabel="Saved: view schedule"
+              />
+            </div>
 
             {weekNav(`Week of ${weekDateLabel(year, selectedWeek)} — pick your next stop`)}
             {grouped.length === 0 ? (
