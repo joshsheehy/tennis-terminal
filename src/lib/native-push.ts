@@ -35,17 +35,21 @@ function trace(step: string, detail?: unknown) {
   console.log(`[push] ${step}`, detail === undefined ? '' : JSON.stringify(detail));
 }
 
+// Capacitor plugin objects are proxies that answer *every* property —
+// including `then`. Returned straight from an async function, the promise
+// machinery sees a "thenable" and waits on it forever (no prompt, no error).
+// So hand it back wrapped in a plain object.
 async function plugin() {
   trace('loading plugin');
   const mod = await import('@capacitor/push-notifications');
   trace('plugin loaded');
-  return mod.PushNotifications;
+  return { Push: mod.PushNotifications };
 }
 
 // Ask iOS for a device token. Resolves with it, or null if the user declined
 // or registration failed.
 async function obtainToken(promptIfNeeded: boolean): Promise<string | null> {
-  const Push = await plugin();
+  const { Push } = await plugin();
   trace('checkPermissions');
   let perm = await Push.checkPermissions();
   trace('permission', perm);
@@ -82,7 +86,7 @@ export async function enablePush(): Promise<EnableResult> {
   trace('enable');
   const token = await obtainToken(true);
   if (!token) {
-    const Push = await plugin();
+    const { Push } = await plugin();
     const perm = await Push.checkPermissions();
     return perm.receive === 'denied'
       ? { ok: false, reason: 'denied', message: 'Notifications are off for TennisCuts. Turn them on in iPhone Settings → TennisCuts → Notifications.' }
@@ -115,7 +119,7 @@ export async function refreshPushRegistration(): Promise<void> {
 
 // Tapping a notification opens the page it points at (e.g. /alerts).
 export async function listenForNotificationTaps(): Promise<void> {
-  const Push = await plugin();
+  const { Push } = await plugin();
   await Push.addListener('pushNotificationActionPerformed', (action) => {
     const url = (action.notification.data as { url?: unknown } | undefined)?.url;
     if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) {
