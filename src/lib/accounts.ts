@@ -1,3 +1,4 @@
+import type { PoolClient } from 'pg';
 import { pool, withTransaction } from './db';
 import {
   CODES_PER_EMAIL_PER_HOUR,
@@ -144,20 +145,32 @@ export async function verifyLoginCode(email: string, code: string): Promise<Veri
     }
 
     await client.query(`update login_codes set consumed_at = now() where id = $1`, [row.id]);
-    const user = await client.query<User>(
-      `insert into users (email, last_login_at) values ($1, now())
-       on conflict (email) do update set last_login_at = now()
-       returning id, email`,
-      [email]
-    );
-    const token = generateSessionToken();
-    await client.query(
-      `insert into user_sessions (user_id, token_hash, expires_at)
-       values ($1, $2, now() + make_interval(days => $3))`,
-      [user.rows[0].id, sha256Hex(token), SESSION_TTL_DAYS]
-    );
-    return { ok: true, user: user.rows[0], token } as const;
+    return { ok: true, ...(await openSession(client, email)) } as const;
   });
+}
+
+// Create the user if needed and start a session for them.
+async function openSession(client: PoolClient, email: string): Promise<{ user: User; token: string }> {
+  const user = await client.query<User>(
+    `insert into users (email, last_login_at) values ($1, now())
+     on conflict (email) do update set last_login_at = now()
+     returning id, email`,
+    [email]
+  );
+  const token = generateSessionToken();
+  await client.query(
+    `insert into user_sessions (user_id, token_hash, expires_at)
+     values ($1, $2, now() + make_interval(days => $3))`,
+    [user.rows[0].id, sha256Hex(token), SESSION_TTL_DAYS]
+  );
+  return { user: user.rows[0], token };
+}
+
+// Sign-in for the App Store review account, whose fixed code was already
+// checked by the caller (see reviewLoginCheck in auth-core.ts).
+export async function openReviewSession(email: string): Promise<{ user: User; token: string }> {
+  await ensureAccountTables();
+  return withTransaction((client) => openSession(client, email));
 }
 
 export async function getUserBySessionToken(token: string | null): Promise<User | null> {

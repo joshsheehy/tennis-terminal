@@ -103,3 +103,21 @@ export function originAllowed(origin: string | null, allowedHosts: (string | nul
   }
   return allowedHosts.some((h) => typeof h === 'string' && h.toLowerCase() === host);
 }
+
+// App Store review sign-in. Apple's reviewers can't receive our emailed codes,
+// so one dedicated address (REVIEW_LOGIN_EMAIL) accepts a fixed code
+// (REVIEW_LOGIN_CODE) instead. Both must be set, and only that exact address
+// is affected — every other sign-in still needs an emailed code.
+export type ReviewCheck = 'not-review' | 'ok' | 'bad-code';
+
+export function reviewLoginCheck(
+  email: string,
+  code: string | null,
+  env: Record<string, string | undefined>
+): ReviewCheck {
+  const reviewEmail = normalizeEmail(env.REVIEW_LOGIN_EMAIL);
+  const reviewCode = normalizeCode(env.REVIEW_LOGIN_CODE);
+  if (!reviewEmail || !reviewCode || email !== reviewEmail) return 'not-review';
+  if (!code) return 'bad-code';
+  return hashesMatch(sha256Hex(code), sha256Hex(reviewCode)) ? 'ok' : 'bad-code';
+}

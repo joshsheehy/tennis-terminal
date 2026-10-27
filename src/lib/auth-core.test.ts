@@ -9,6 +9,7 @@ import {
   originAllowed,
   parseEditionIds,
   safeNextPath,
+  reviewLoginCheck,
   sessionTokenFrom,
 } from './auth-core';
 
@@ -98,5 +99,20 @@ describe('originAllowed', () => {
     expect(originAllowed('https://evil.com', hosts)).toBe(false);
     expect(originAllowed('https://tenniscuts.com.evil.com', hosts)).toBe(false);
     expect(originAllowed('null', hosts)).toBe(false);
+  });
+});
+
+describe('reviewLoginCheck', () => {
+  const env = { REVIEW_LOGIN_EMAIL: 'Review@TennisCuts.com', REVIEW_LOGIN_CODE: '482915' };
+  it('accepts the fixed code for the review address only', () => {
+    expect(reviewLoginCheck('review@tenniscuts.com', '482915', env)).toBe('ok');
+    expect(reviewLoginCheck('review@tenniscuts.com', '000000', env)).toBe('bad-code');
+    expect(reviewLoginCheck('review@tenniscuts.com', null, env)).toBe('bad-code');
+    expect(reviewLoginCheck('someone@example.com', '482915', env)).toBe('not-review');
+  });
+  it('is off unless both settings are present and valid', () => {
+    expect(reviewLoginCheck('review@tenniscuts.com', '482915', {})).toBe('not-review');
+    expect(reviewLoginCheck('review@tenniscuts.com', '482915', { REVIEW_LOGIN_EMAIL: 'review@tenniscuts.com' })).toBe('not-review');
+    expect(reviewLoginCheck('review@tenniscuts.com', '12', { ...env, REVIEW_LOGIN_CODE: '12' })).toBe('not-review');
   });
 });

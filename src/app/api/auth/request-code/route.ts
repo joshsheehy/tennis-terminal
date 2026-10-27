@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { issueLoginCode } from '@/lib/accounts';
-import { LOGIN_CODE_TTL_MINUTES, normalizeEmail } from '@/lib/auth-core';
+import { LOGIN_CODE_TTL_MINUTES, normalizeEmail, reviewLoginCheck } from '@/lib/auth-core';
 import { clientIp, rejectUnsafeWrite } from '@/lib/auth-request';
 import { renderLoginCodeEmail } from '@/lib/login-email';
 import { emailConfigured, sendEmail } from '@/lib/email';
@@ -23,6 +23,11 @@ export async function POST(request: NextRequest) {
   const email = normalizeEmail(body.email);
   if (!email) {
     return NextResponse.json({ ok: false, error: 'Please enter a valid email address.' }, { status: 400 });
+  }
+
+  // The App Store review account signs in with a fixed code: nothing to send.
+  if (reviewLoginCheck(email, null, process.env) !== 'not-review') {
+    return NextResponse.json({ ok: true });
   }
 
   const isDev = process.env.NODE_ENV === 'development';
