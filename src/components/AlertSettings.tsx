@@ -70,15 +70,24 @@ export default function AlertSettings({ email, initial }: { email: string; initi
   async function togglePush() {
     setPushBusy(true);
     setError(null);
-    if (pushOn) {
-      await disablePush();
-      setPushOn(false);
-    } else {
-      const result = await enablePush();
-      if (result.ok) setPushOn(true);
-      else setError(result.message);
+    try {
+      if (pushOn) {
+        await disablePush();
+        setPushOn(false);
+      } else {
+        const result = await enablePush();
+        if (result.ok) setPushOn(true);
+        else setError(result.message);
+      }
+    } catch (err) {
+      // Surface the plugin's own message — a silent failure leaves the switch
+      // stuck with no clue why.
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[push] toggle failed', err);
+      setError(`Couldn't turn on push: ${message}`);
+    } finally {
+      setPushBusy(false);
     }
-    setPushBusy(false);
   }
 
   async function sendTest() {
