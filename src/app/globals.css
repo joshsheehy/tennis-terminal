@@ -1320,3 +1320,129 @@ html.in-app .app-tabbar {
 .app-tabbar__tab--on { color: var(--brand-ink); }
 .app-tabbar__label { font-size: 11px; font-weight: 600; letter-spacing: 0.01em; }
 .app-tabbar__tab--on .app-tabbar__label { font-weight: 700; }
+
+/* ─── Saved page ──────────────────────────────────────────────────────────── */
+.saved { margin-bottom: 32px; }
+.saved__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.saved-tabs {
+  display: inline-flex;
+  flex: 1 1 auto;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.saved-tabs__tab {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.saved-tabs__tab--on { background: var(--brand-ink); color: #fff; }
+.saved-tabs__count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 18px;
+  background: var(--bg);
+  color: var(--text-muted);
+}
+.saved-tabs__tab--on .saved-tabs__count { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.saved__edit { font-size: 14px; font-weight: 600; text-decoration: none; }
+.saved__empty { margin: 20px 0; font-size: 14px; color: var(--text-muted); }
+
+.saved-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+.saved-row { display: flex; align-items: center; }
+.saved-row + .saved-row { border-top: 1px solid var(--border); }
+.saved-row__link {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  color: inherit;
+  text-decoration: none;
+}
+.saved-row__date {
+  flex: 0 0 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 0;
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  line-height: 1.1;
+}
+.saved-row__month { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--text-muted); }
+.saved-row__day { font-size: 18px; font-weight: 700; color: var(--text-strong); }
+.saved-row--current .saved-row__date { background: var(--brand-ink); }
+.saved-row--current .saved-row__month,
+.saved-row--current .saved-row__day { color: #fff; }
+.saved-row--past .saved-row__name { color: var(--text-secondary); }
+.saved-row__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.saved-row__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.saved-row__meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.saved-row__when { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.saved-row--current .saved-row__when { color: var(--brand-ink); }
+.saved-row__remove {
+  flex: 0 0 auto;
+  margin-right: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--status-out);
+  border-radius: var(--r-sm);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--status-out);
+  cursor: pointer;
+}
+.saved__actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+.account-box {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.account-box__line { margin: 0 0 10px; font-size: 14px; color: var(--text-secondary); }
+/* Editing: the Remove button takes the "when" label's place so names keep room. */
+.saved--editing .saved-row__when { display: none; }
