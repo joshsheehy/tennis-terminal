@@ -26,5 +26,6 @@ export function backLinkFor(
   if (path === '/swings') return { href: from, label: '← Back to the map' };
   if (path === '/schedule') return { href: from, label: '← Back to your schedule' };
   if (path === '/cuts') return { href: from, label: `← Back to ${year} schedule` };
+  if (path === '/account') return { href: from, label: '← Back to Saved' };
   return { href: from, label: '← Back' };
 }

@@ -421,6 +421,14 @@ export default function SwingsMap({
       .addTo(map);
     openPopupRef.current = popup;
     const element = popup.getElement();
+    // "View tournament →" returns here (with the built schedule, which lives in
+    // the URL) rather than to the tournament page's default /cuts.
+    const here = `${window.location.pathname}${window.location.search}`;
+    (element as HTMLElement | undefined)?.querySelectorAll('a.swing-popup__link').forEach((a: Element) => {
+      const url = new URL(a.getAttribute('href') ?? '', window.location.origin);
+      url.searchParams.set('from', here);
+      a.setAttribute('href', `${url.pathname}${url.search}`);
+    });
     if (element && onOpen) onOpen(element);
   }
 

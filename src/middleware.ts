@@ -21,6 +21,8 @@ const PUBLIC_API_PATHS = new Set([
   '/api/auth/me',
   '/api/saved',
   '/api/account',
+  // Read-only search over the public schedule (Saved page's Add picker).
+  '/api/tournament-search',
 ]);
 
 // The secret can be supplied three ways so both automation and a human in a

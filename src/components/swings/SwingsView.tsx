@@ -386,15 +386,23 @@ export default function SwingsView({
     () => chainIds.map((id) => eventById.get(id)).filter((e): e is SwingMapEvent => !!e),
     [chainIds, eventById]
   );
-  const anchor = chain[chain.length - 1] ?? null;
+  // The stop you'd be travelling on from to reach the week being browsed: the
+  // latest stop before it, or the first stop when browsing ahead of them all.
+  // Candidates are ranked by their relation (same city/country…) to this stop.
+  const refStop = useMemo(() => {
+    if (chain.length === 0) return null;
+    const before = chain.filter((e) => e.week < selectedWeek);
+    if (before.length) return before.reduce((a, b) => (b.week >= a.week ? b : a));
+    return chain.reduce((a, b) => (b.week < a.week ? b : a));
+  }, [chain, selectedWeek]);
 
   // The builder offers exactly one week at a time — `selectedWeek` is the week
   // currently being chosen. Candidates are all that week's events (current
   // filters), ranked relative to the last stop (same country first).
   const candidates: RankedCandidate<SwingMapEvent>[] = useMemo(() => {
     if (mode !== 'build') return [];
-    if (anchor) {
-      return buildCandidates(data.events, anchor, { week: selectedWeek, excludeEditionIds: chainIds })
+    if (refStop) {
+      return buildCandidates(data.events, refStop, { week: selectedWeek, excludeEditionIds: chainIds })
         .filter((c) => surfaceOk(c.event.surface));
     }
     // No anchor yet: the selected week's events are the start options,
@@ -404,13 +412,16 @@ export default function SwingsView({
       .sort((a, b) => levelRank(b.level) - levelRank(a.level) || a.name.localeCompare(b.name))
       .map((event) => ({ event, tier: 'same-region' as CandidateTier, distanceKm: null, weekGap: 0, sameSurface: true }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, anchor, data.events, chainIds, selectedWeek, surfaces]);
+  }, [mode, refStop, data.events, chainIds, selectedWeek, surfaces]);
 
   const addStop = (editionId: string) => {
     if (chainIds.includes(editionId)) return;
     const ev = eventById.get(editionId);
     if (!ev) return;
-    const next = [...chainIds, editionId];
+    // Keep the schedule in week order, so a stop added to an earlier week
+    // (San Diego after Cleveland) slots in before it rather than after.
+    const weekOf = (id: string) => eventById.get(id)?.week ?? Number.MAX_SAFE_INTEGER;
+    const next = [...chainIds, editionId].sort((a, b) => weekOf(a) - weekOf(b));
     setChainIds(next);
     // Advance straight to the next week that has events (skipping empty
     // weeks), so the user is never dropped onto a dead week.
@@ -723,6 +734,7 @@ export default function SwingsView({
 
       {mode === 'build' ? (
         <BuilderPanel
+          backTo={returnHref()}
           state={sheet}
           setState={setSheet}
           year={data.year}
@@ -753,6 +765,7 @@ export default function SwingsView({
         />
       ) : (
         <BottomSheet
+          backTo={returnHref()}
           state={sheet}
           setState={setSheet}
           year={data.year}
@@ -849,6 +862,7 @@ function BuilderPanel({
   state,
   setState,
   year,
+  backTo,
   chain,
   candidates,
   summary,
@@ -874,6 +888,8 @@ function BuilderPanel({
   cutRefs,
   imperial,
 }: {
+  /** Where a tournament page's back link returns to (this view, schedule kept). */
+  backTo: string;
   state: SheetState;
   setState: (s: SheetState) => void;
   year: number;
@@ -1315,7 +1331,7 @@ function BuilderPanel({
                   <li key={e.editionId} className="itinerary-row">
                     <span className="itinerary-week">{i + 1}. {weekDateLabel(year, e.week)}</span>
                     <span className="itinerary-main">
-                      <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
+                      <a className="itinerary-link" href={`/tournaments/${e.slug}?year=${year}&from=${encodeURIComponent(backTo)}`}>{e.name}</a>
                       <button
                         type="button"
                         className="info-dot"
@@ -1401,12 +1417,15 @@ function BottomSheet({
   state,
   setState,
   year,
+  backTo,
   swingsThisWeek,
   nearestUpcoming,
   activeSwing,
   onPickSwing,
   onJumpToWeek,
 }: {
+  /** Where a tournament page's back link returns to (this view, schedule kept). */
+  backTo: string;
   state: SheetState;
   setState: (s: SheetState) => void;
   year: number;
@@ -1453,7 +1472,7 @@ function BottomSheet({
               row.events.map((e) => (
                 <li key={e.slug + row.week} className="itinerary-row">
                   <span className="itinerary-week">{weekDateLabel(year, row.week)}</span>
-                  <a className="itinerary-link" href={`/tournaments/${e.slug}`}>{e.name}</a>
+                  <a className="itinerary-link" href={`/tournaments/${e.slug}?year=${year}&from=${encodeURIComponent(backTo)}`}>{e.name}</a>
                   <span className="itinerary-meta">{e.surface}</span>
                 </li>
               ))

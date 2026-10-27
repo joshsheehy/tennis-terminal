@@ -155,6 +155,8 @@ export default async function SchedulePage({
     return ad < bd ? -1 : ad > bd ? 1 : 0;
   });
 
+  // Tournament pages opened from here come back to this itinerary.
+  const selfHref = `/schedule?build=${encodeURIComponent(ids.join(','))}${year ? `&year=${encodeURIComponent(year)}` : ''}`;
   const backHref = `/?build=${encodeURIComponent(ids.join(','))}${year ? `&year=${encodeURIComponent(year)}` : ''}`;
   const surfaces = Array.from(new Set(stops.map((s) => s.edition.surface))).filter(Boolean);
   const first = stops[0].edition;
@@ -224,7 +226,7 @@ export default async function SchedulePage({
                 <div className="sched-card__top">
                   <div className="sched-card__title">
                     <span className="sched-card__num">{i + 1}</span>
-                    <a href={`/tournaments/${e.slug}`} className="sched-card__name">
+                    <a href={`/tournaments/${e.slug}?year=${e.year}&from=${encodeURIComponent(selfHref)}`} className="sched-card__name">
                       {displayName(e.name)}
                     </a>
                   </div>

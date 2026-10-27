@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import AccountActions from '@/components/AccountActions';
 import SavedTournaments from '@/components/SavedTournaments';
@@ -55,16 +54,7 @@ export default async function AccountPage() {
         Saved
       </h1>
 
-      {items.length === 0 ? (
-        <div className="rules-card" style={{ marginBottom: 28 }}>
-          <p style={{ margin: 0 }}>
-            Nothing saved yet. Tap <strong>Save</strong> on any tournament, or build a run of weeks
-            in the <Link href="/">Builder</Link> and tap <strong>Save to schedule</strong>.
-          </p>
-        </div>
-      ) : (
-        <SavedTournaments groups={withLabels} initialPhase={defaultPhase(grouped)} />
-      )}
+      <SavedTournaments groups={withLabels} initialPhase={defaultPhase(grouped)} />
 
       <section className="account-box">
         <h2 className="section-title">Account</h2>

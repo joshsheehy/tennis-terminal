@@ -89,10 +89,25 @@ describe('buildCandidates', () => {
     expect(out).toHaveLength(2);
   });
 
-  it('returns nothing for a week at or before the anchor', () => {
+  it('still offers an earlier week when the user browses back to it', () => {
+    // Cleveland (wk 26) added first; going back to wk 24 must show San Diego.
     const anchor = ev({ ...cary, week: 26 });
-    const events = [anchor, ev({ ...lexington, week: 26 })];
-    expect(buildCandidates(events, anchor, { week: 26 })).toHaveLength(0);
+    const earlier = ev({ ...lexington, week: 24 });
+    const out = buildCandidates([anchor, earlier], anchor, { week: 24 });
+    expect(out.map((c) => c.event.editionId)).toEqual([earlier.editionId]);
+  });
+
+  it('never re-offers a stop already on the schedule, even in its own week', () => {
+    const anchor = ev({ ...cary, week: 26 });
+    const sameWeek = ev({ ...lexington, week: 26 });
+    const out = buildCandidates([anchor, sameWeek], anchor, { week: 26 });
+    expect(out.map((c) => c.event.editionId)).toEqual([sameWeek.editionId]);
+  });
+
+  it('only suggests later weeks when no week is being browsed', () => {
+    const anchor = ev({ ...cary, week: 26 });
+    const events = [anchor, ev({ ...lexington, week: 25 }), ev({ ...granby, week: 27 })];
+    expect(buildCandidates(events, anchor).map((c) => c.event.week)).toEqual([27]);
   });
 
   it('orders highest level first within a tier (level beats distance)', () => {

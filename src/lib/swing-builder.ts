@@ -117,10 +117,12 @@ export function buildCandidates<T extends BuildEvent>(
   const exclude = new Set(options.excludeEditionIds ?? []);
   exclude.add(anchor.editionId);
 
+  // A specific week the user is browsing shows all of that week's events, even
+  // one before the anchor — filling in an earlier week (San Diego before an
+  // already-added Cleveland) is a normal way to build. With no week given,
+  // suggestions only look forward from the anchor.
   const inRange = (week: number) =>
-    options.week != null
-      ? week === options.week && week > anchor.week
-      : week > anchor.week && week <= anchor.week + maxWeekGap;
+    options.week != null ? week === options.week : week > anchor.week && week <= anchor.week + maxWeekGap;
 
   const anchorFamily = surfaceFamily(anchor.surface);
   const ranked = events

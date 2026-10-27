@@ -1446,3 +1446,151 @@ html.in-app .app-tabbar {
 .account-box__line { margin: 0 0 10px; font-size: 14px; color: var(--text-secondary); }
 /* Editing: the Remove button takes the "when" label's place so names keep room. */
 .saved--editing .saved-row__when { display: none; }
+
+/* Saved page: "+ Add tournament" and its search picker. */
+.saved__add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px dashed var(--brand-ink);
+  border-radius: var(--r-md);
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--brand-ink);
+  cursor: pointer;
+}
+.saved__add span { font-size: 18px; line-height: 1; }
+.add-picker {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.add-picker__head { display: flex; align-items: center; gap: 10px; }
+.add-picker__input { flex: 1 1 auto; min-width: 0; }
+.add-picker__close { font-size: 14px; font-weight: 600; text-decoration: none; }
+.add-picker__hint { margin: 10px 2px 2px; font-size: 13px; color: var(--text-muted); }
+.add-picker__list { margin-top: 10px; max-height: 55vh; overflow-y: auto; }
+.add-picker__add {
+  flex: 0 0 auto;
+  margin-right: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--brand-ink);
+  border-radius: var(--r-sm);
+  background: var(--brand-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+}
+.add-picker__add--done { background: none; color: var(--brand-ink); cursor: default; }
+
+/* ─── Alerts page ─────────────────────────────────────────────────────────── */
+.alerts-rules__summary {
+  list-style: none;
+  cursor: pointer;
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.alerts-rules__summary::-webkit-details-marker { display: none; }
+.alerts-subscribed__title { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--text-strong); }
+.alerts-subscribed__line { margin: 0 0 14px; font-size: 14px; color: var(--text-secondary); }
+
+/* App: iOS Settings-style grouped lists with switches instead of boxed
+   checkboxes, and the rules reference collapsed to one row. Inline styles on
+   the form's elements are the website's layout, hence the !important. */
+html.in-app .alerts-card { padding: 0; border: 0; background: none; box-shadow: none; }
+html.in-app .alerts-card--subscribed {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+html.in-app .alerts-form { gap: 18px !important; }
+html.in-app .alerts-group {
+  display: block !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-md);
+  padding: 0 !important;
+  background: var(--surface);
+  overflow: hidden;
+}
+html.in-app .alerts-group > legend {
+  float: left;
+  width: 100%;
+  margin: 0 !important;
+  padding: 10px 14px 6px !important;
+  font-size: 12px !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+html.in-app .alerts-reminders { display: block !important; clear: both; }
+html.in-app .alerts-group .check-option {
+  clear: both;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+}
+html.in-app .alerts-group--doubles .check-option { border-top: 0; }
+html.in-app .alerts-group__note { margin: -4px 14px 12px !important; }
+html.in-app .alerts-group .check-option input {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  width: 46px;
+  height: 28px;
+  margin: 0;
+  border-radius: 14px;
+  background: var(--border);
+  transition: background 160ms ease;
+  cursor: pointer;
+}
+html.in-app .alerts-group .check-option input::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 160ms ease;
+}
+html.in-app .alerts-group .check-option input:checked { background: var(--brand-ink); }
+html.in-app .alerts-group .check-option input:checked::before { transform: translateX(18px); }
+html.in-app .alerts-submit { flex-direction: column; }
+html.in-app .alerts-submit > * { width: 100%; flex: none !important; }
+html.in-app .alerts-rules {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 0 14px;
+}
+html.in-app .alerts-rules__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 14px 0;
+  font-size: 15px;
+}
+html.in-app .alerts-rules__summary::after { content: '›'; font-size: 20px; color: var(--text-muted); transition: transform 160ms ease; }
+html.in-app .alerts-rules[open] .alerts-rules__summary::after { transform: rotate(90deg); }
+html.in-app .alerts-rules[open] { padding-bottom: 14px; }

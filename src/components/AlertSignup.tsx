@@ -19,8 +19,9 @@ const REMINDER_OPTIONS: Array<{ hours: number; label: string; defaultOn: boolean
   { hours: 2, label: '2 hours before', defaultOn: false },
 ];
 
-export default function AlertSignup() {
-  const [email, setEmail] = useState('');
+// `defaultEmail` pre-fills the address for a signed-in visitor.
+export default function AlertSignup({ defaultEmail = '' }: { defaultEmail?: string }) {
+  const [email, setEmail] = useState(defaultEmail);
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(CATEGORY_OPTIONS.filter((c) => c.defaultOn).map((c) => c.key))
   );
@@ -79,7 +80,7 @@ export default function AlertSignup() {
       if (res.ok && data.ok) {
         setStatus('ok');
         setMessage(data.message ?? "You're signed up.");
-        setEmail('');
+        setEmail(defaultEmail);
       } else {
         setStatus('error');
         setMessage(data.error ?? 'Something went wrong. Please try again.');
@@ -91,8 +92,8 @@ export default function AlertSignup() {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <form onSubmit={handleSubmit} className="alerts-form" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <fieldset className="alerts-group" style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <legend style={{ padding: 0, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
           Which deadlines do you want?
         </legend>
@@ -111,22 +112,22 @@ export default function AlertSignup() {
         ))}
       </fieldset>
 
-      <div style={{ borderTop: '1px solid var(--border, #e5e7eb)', paddingTop: 12 }}>
+      <div className="alerts-group alerts-group--doubles" style={{ borderTop: '1px solid var(--border, #e5e7eb)', paddingTop: 12 }}>
         <label className={`check-option${doubles ? ' check-option--on' : ''}`}>
           <input type="checkbox" checked={doubles} onChange={() => setDoubles((v) => !v)} />
           Also send doubles (advance entry)
         </label>
-        <p style={{ margin: '6px 0 0 28px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+        <p className="alerts-group__note" style={{ margin: '6px 0 0 28px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
           Adds the doubles advance-entry deadline for the tours you picked. On-site
           doubles sign-ins aren&apos;t tracked.
         </p>
       </div>
 
-      <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <fieldset className="alerts-group" style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <legend style={{ padding: 0, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
           When should we email you?
         </legend>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="alerts-reminders" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {REMINDER_OPTIONS.map((opt) => (
             <label
               key={opt.hours}
@@ -143,7 +144,7 @@ export default function AlertSignup() {
         </div>
       </fieldset>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="alerts-submit" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input
           type="email"
           required

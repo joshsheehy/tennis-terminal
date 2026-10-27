@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import AddTournamentPicker from '@/components/AddTournamentPicker';
 import { accountApi } from '@/lib/account-client';
 import type { Phase, SavedItem } from '@/lib/saved-schedule';
 
@@ -47,9 +48,11 @@ export default function SavedTournaments({
   const [phase, setPhase] = useState<Phase>(initialPhase);
   const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const rows = groups[phase];
   const upcomingIds = groups.upcoming.map((r) => r.editionId).join(',');
   const anySaved = TABS.some((t) => groups[t.key].length > 0);
+  const savedIds = TABS.flatMap((t) => groups[t.key].map((r) => r.editionId));
 
   async function remove(id: string) {
     setRemoving(id);
@@ -76,22 +79,40 @@ export default function SavedTournaments({
             </button>
           ))}
         </div>
-        {anySaved && (
-          <button type="button" className="link-button saved__edit" onClick={() => setEditing((e) => !e)}>
-            {editing ? 'Done' : 'Edit'}
-          </button>
-        )}
+        <button
+          type="button"
+          className="link-button saved__edit"
+          onClick={() => {
+            setEditing((e) => !e);
+            setPicking(false);
+          }}
+        >
+          {editing ? 'Done' : 'Edit'}
+        </button>
       </div>
 
+      {(editing || !anySaved) &&
+        (picking ? (
+          <AddTournamentPicker savedIds={savedIds} onClose={() => setPicking(false)} />
+        ) : (
+          <button type="button" className="saved__add" onClick={() => setPicking(true)}>
+            <span aria-hidden="true">+</span> Add tournament
+          </button>
+        ))}
+
       {rows.length === 0 ? (
-        <p className="saved__empty">{anySaved ? EMPTY[phase] : null}</p>
+        <p className="saved__empty">
+          {anySaved
+            ? EMPTY[phase]
+            : 'Nothing saved yet. Add a tournament above, tap Save on any tournament page, or build a run in the Builder and tap Save to schedule.'}
+        </p>
       ) : (
         <ul className="saved-list">
           {rows.map((r) => {
             const b = badge(r.start);
             return (
               <li key={r.editionId} className={`saved-row saved-row--${phase}`}>
-                <Link href={`/tournaments/${r.slug}?year=${r.year}`} className="saved-row__link">
+                <Link href={`/tournaments/${r.slug}?year=${r.year}&from=%2Faccount`} className="saved-row__link">
                   <span className="saved-row__date" aria-hidden="true">
                     <span className="saved-row__month">{b.month}</span>
                     <span className="saved-row__day">{b.day}</span>

@@ -14,6 +14,7 @@ describe('backLinkFor', () => {
     expect(backLinkFor('/swings?build=a', CURRENT_SEASON).label).toBe('← Back to the map');
     expect(backLinkFor('/schedule?build=a', CURRENT_SEASON).label).toBe('← Back to your schedule');
     expect(backLinkFor('/cuts?year=2026', CURRENT_SEASON).label).toBe(`← Back to ${CURRENT_SEASON} schedule`);
+    expect(backLinkFor('/account', CURRENT_SEASON)).toEqual({ href: '/account', label: '← Back to Saved' });
   });
 
   it('falls back to the cuts schedule when no origin is given', () => {
