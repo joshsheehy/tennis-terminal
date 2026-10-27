@@ -30,18 +30,30 @@ function storeToken(token: string | null) {
   }
 }
 
+// Step-by-step trace, visible in the iOS app's console (Xcode / devicectl).
+function trace(step: string, detail?: unknown) {
+  console.log(`[push] ${step}`, detail === undefined ? '' : JSON.stringify(detail));
+}
+
 async function plugin() {
-  return (await import('@capacitor/push-notifications')).PushNotifications;
+  trace('loading plugin');
+  const mod = await import('@capacitor/push-notifications');
+  trace('plugin loaded');
+  return mod.PushNotifications;
 }
 
 // Ask iOS for a device token. Resolves with it, or null if the user declined
 // or registration failed.
 async function obtainToken(promptIfNeeded: boolean): Promise<string | null> {
   const Push = await plugin();
+  trace('checkPermissions');
   let perm = await Push.checkPermissions();
+  trace('permission', perm);
   if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
     if (!promptIfNeeded) return null;
+    trace('requestPermissions');
     perm = await Push.requestPermissions();
+    trace('permission after prompt', perm);
   }
   if (perm.receive !== 'granted') return null;
 
@@ -57,6 +69,7 @@ async function obtainToken(promptIfNeeded: boolean): Promise<string | null> {
     const ok = Push.addListener('registration', (t) => done(t.value));
     const fail = Push.addListener('registrationError', () => done(null));
     setTimeout(() => done(null), 15_000);
+    trace('register');
     Push.register();
   });
 }
@@ -66,6 +79,7 @@ export type EnableResult = { ok: true } | { ok: false; reason: 'denied' | 'faile
 // Turn push on for this phone: permission prompt (first time), token, then
 // tie the token to the signed-in account.
 export async function enablePush(): Promise<EnableResult> {
+  trace('enable');
   const token = await obtainToken(true);
   if (!token) {
     const Push = await plugin();
