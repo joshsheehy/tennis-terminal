@@ -186,3 +186,24 @@ describe('WeekTournamentPicker pill filtering', () => {
     expect(openAfter).toBeLessThanOrEqual(openBefore);
   });
 });
+
+describe('WeekTournamentPicker opens the current week', () => {
+  // Dates reach the client as full ISO timestamps (a pg date through JSON);
+  // the current-week lookup used to turn those into Invalid Date and open nothing.
+  it('opens the week containing today when dates are full timestamps', () => {
+    const iso = (d: Date) => d.toISOString();
+    const thisMonday = new Date();
+    thisMonday.setUTCHours(0, 0, 0, 0);
+    thisMonday.setUTCDate(thisMonday.getUTCDate() - ((thisMonday.getUTCDay() + 6) % 7));
+    const weeksFromNow = (n: number) => new Date(thisMonday.getTime() + n * 7 * 86_400_000);
+    const rows = [
+      row({ slug: 'past', name: 'Past Event', week: 10, start_date: iso(weeksFromNow(-3)), level: 'Challenger 50', surface: 'Hard' }),
+      row({ slug: 'now', name: 'Current Event', week: 11, start_date: iso(weeksFromNow(0)), level: 'Challenger 50', surface: 'Hard' }),
+      row({ slug: 'next', name: 'Next Event', week: 12, start_date: iso(weeksFromNow(1)), level: 'Challenger 50', surface: 'Hard' }),
+    ];
+    const { container } = render(<WeekTournamentPicker tournaments={rows} />);
+    expect(details(container, '11').open).toBe(true);
+    expect(details(container, '10').open).toBe(false);
+    expect(details(container, '12').open).toBe(false);
+  });
+});

@@ -52,3 +52,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
     }
 }
+
+// The app's root screen (Main.storyboard). Adds iOS's swipe-from-the-left-
+// edge Back gesture, so any page can be left even if it has no Back link.
+class MainViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        webView?.allowsBackForwardNavigationGestures = true
+    }
+}

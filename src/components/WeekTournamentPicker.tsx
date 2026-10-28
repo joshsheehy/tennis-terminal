@@ -134,9 +134,13 @@ function TournamentRowBody({
 
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
+// Dates arrive either as "YYYY-MM-DD" or as a full ISO timestamp (a pg date
+// serialized through JSON), so read only the calendar-day part — appending
+// "T00:00:00Z" to a full timestamp made an Invalid Date, which silently broke
+// the current-week auto-open and multi-week events.
 function parseDate(s: string | null) {
   if (!s) return null;
-  const d = new Date(`${s}T00:00:00Z`);
+  const d = new Date(`${s.slice(0, 10)}T00:00:00Z`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
@@ -267,8 +271,8 @@ export default function WeekTournamentPicker({
     let bestKey: string | null = null;
     let bestTime = -Infinity;
     for (const g of weekGroups) {
-      if (!g.startDate) continue;
-      const t = new Date(g.startDate + 'T00:00:00Z').getTime();
+      const t = parseDate(g.startDate)?.getTime();
+      if (t == null) continue;
       if (t <= today && t > bestTime) {
         bestTime = t;
         bestKey = g.key;

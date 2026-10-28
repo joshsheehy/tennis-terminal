@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NAV_LINKS, NavKey, isNavActive } from '@/lib/nav';
+import { useEffect } from 'react';
+import { APP_USER_AGENT_TOKEN, NAV_LINKS, NavKey, isNavActive } from '@/lib/nav';
 
 // Bottom tab bar for the iOS app. Rendered on every page but hidden by CSS
 // unless <html> carries .in-app (set before first paint by the head script in
@@ -33,7 +34,27 @@ const ICONS: Record<NavKey, React.ReactNode> = {
   saved: <path d="M6 3.5h12v17l-6-4.2-6 4.2z" />,
 };
 
+// <html class="in-app"> is set by a head script before first paint, outside
+// React. If React ever re-renders the root (e.g. recovering from a hydration
+// mismatch), it resets <html>'s className and drops it — the app then shows
+// the website layout (top links, no tab bar) with no way back. Re-apply it
+// whenever the class attribute changes.
+function useKeepAppMode() {
+  useEffect(() => {
+    if (!navigator.userAgent.includes(APP_USER_AGENT_TOKEN)) return;
+    const root = document.documentElement;
+    const apply = () => {
+      if (!root.classList.contains('in-app')) root.classList.add('in-app');
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+}
+
 export default function AppTabBar() {
+  useKeepAppMode();
   const pathname = usePathname();
   return (
     <nav className="app-tabbar" aria-label="Sections">
