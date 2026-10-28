@@ -802,8 +802,20 @@ function Timeline({
   onSelect: (week: number) => void;
 }) {
   const selectedRef = useRef<HTMLButtonElement>(null);
+  const scrolledOnce = useRef(false);
   useEffect(() => {
-    selectedRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    // First time: jump straight there, and again once layout has settled (the
+    // map and sheet mounting can cancel a smooth scroll mid-way, leaving the
+    // strip parked months away from the selected week). After that, glide.
+    const go = (behavior: ScrollBehavior) =>
+      selectedRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior });
+    if (!scrolledOnce.current) {
+      scrolledOnce.current = true;
+      go('auto');
+      const t = window.setTimeout(() => go('auto'), 600);
+      return () => window.clearTimeout(t);
+    }
+    go('smooth');
   }, [selectedWeek]);
 
   // Group consecutive weeks by the month their Monday falls in.

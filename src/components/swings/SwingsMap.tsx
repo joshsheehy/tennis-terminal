@@ -224,6 +224,7 @@ export default function SwingsMap({
       );
 
       mapRef.current = map;
+      map.once('load', () => fitRef.current());
 
       // A style swap drops every source and layer we added, so the route
       // layers are installed on each style load rather than once at startup.
@@ -277,8 +278,11 @@ export default function SwingsMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, swings, visibleSwingIndexes, selectedSwingIndex, builderActive, builderPath]);
 
-  // Re-frame the map when the focus set changes (e.g. a new week is picked).
-  useEffect(() => {
+  // Re-frame the map on the current focus set. Kept in a ref so the map's own
+  // 'load' handler can run it too: maplibre loads asynchronously, so the first
+  // fit request usually arrives before the map exists and would be lost.
+  const fitRef = useRef<() => void>(() => {});
+  fitRef.current = () => {
     const map = mapRef.current;
     const maplibregl = mlRef.current;
     if (!map || !maplibregl || fitPoints.length === 0) return;
@@ -298,7 +302,11 @@ export default function SwingsMap({
       ? { top: 150, bottom: Math.round(box.clientHeight * 0.48) + 16, left: 40, right: 40 }
       : 56;
     map.fitBounds(bounds, { padding, maxZoom: 7 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  };
+
+  // Re-frame when the focus set changes (e.g. a new week is picked).
+  useEffect(() => {
+    fitRef.current();
   }, [fitNonce]);
 
   /**
