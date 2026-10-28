@@ -295,12 +295,16 @@ export default function SwingsMap({
     // On phones the bottom sheet covers roughly the lower half of the map and
     // the filters + calendar float over the top, so frame the points in the
     // part of the map that's actually visible.
+    // Measure what actually covers the map rather than guessing.
     const box = map.getContainer();
+    const area = box.getBoundingClientRect();
+    const floatEl = document.querySelector('.swings-float');
+    const sheetEl = document.querySelector('.sheet');
+    const top = floatEl ? Math.max(0, floatEl.getBoundingClientRect().bottom - area.top) + 24 : 56;
+    const bottom = sheetEl ? Math.max(0, area.bottom - sheetEl.getBoundingClientRect().top) + 24 : 56;
     // (Short screens, e.g. landscape, can't fit those margins; use a plain one.)
-    const phone = box.clientWidth < 900 && box.clientHeight > 520;
-    const padding = phone
-      ? { top: 150, bottom: Math.round(box.clientHeight * 0.48) + 16, left: 40, right: 40 }
-      : 56;
+    const phone = box.clientWidth < 900 && top + bottom < area.height - 120;
+    const padding = phone ? { top, bottom, left: 40, right: 40 } : 56;
     map.fitBounds(bounds, { padding, maxZoom: 7 });
   };
 
