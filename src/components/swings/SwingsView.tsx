@@ -1121,7 +1121,12 @@ function BuilderPanel({
   // flips to the compact inputs when editing or before a ranking is set.
   const rankBar = (
     <div className="rank-bar">
-      {showRank && !editingRank ? (
+      {!showRank && !editingRank ? (
+        // Before any ranking: one tidy line instead of two empty boxes.
+        <button className="rank-bar-prompt" onClick={() => setEditingRank(true)}>
+          <span aria-hidden="true">+</span> Add your ranking to see your entry chances
+        </button>
+      ) : showRank && !editingRank ? (
         <button className="rank-bar-display" onClick={() => setEditingRank(true)}>
           <span className="rank-bar-you">You</span>
           {rankSingles != null && <span className="rank-bar-val">#{rankSingles} singles</span>}
@@ -1132,17 +1137,19 @@ function BuilderPanel({
       ) : (
         <div className="rank-bar-form">
           {rankFields}
-          {showRank && (
+          {(showRank || editingRank) && (
             <div className="rank-bar-actions">
-              <button
-                className="rank-bar-clear"
-                onClick={() => {
-                  onRankSingles(null);
-                  onRankDoubles(null);
-                }}
-              >
-                Clear
-              </button>
+              {showRank && (
+                <button
+                  className="rank-bar-clear"
+                  onClick={() => {
+                    onRankSingles(null);
+                    onRankDoubles(null);
+                  }}
+                >
+                  Clear
+                </button>
+              )}
               <button className="rank-bar-done" onClick={() => setEditingRank(false)}>
                 Done
               </button>

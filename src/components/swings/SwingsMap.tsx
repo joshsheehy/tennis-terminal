@@ -288,7 +288,16 @@ export default function SwingsMap({
     }
     const bounds = new maplibregl.LngLatBounds();
     for (const [lat, lng] of fitPoints) bounds.extend([lng, lat]);
-    map.fitBounds(bounds, { padding: 56, maxZoom: 7 });
+    // On phones the bottom sheet covers roughly the lower half of the map and
+    // the filters + calendar float over the top, so frame the points in the
+    // part of the map that's actually visible.
+    const box = map.getContainer();
+    // (Short screens, e.g. landscape, can't fit those margins; use a plain one.)
+    const phone = box.clientWidth < 900 && box.clientHeight > 520;
+    const padding = phone
+      ? { top: 150, bottom: Math.round(box.clientHeight * 0.48) + 16, left: 40, right: 40 }
+      : 56;
+    map.fitBounds(bounds, { padding, maxZoom: 7 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitNonce]);
 

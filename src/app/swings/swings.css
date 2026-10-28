@@ -1101,3 +1101,63 @@
   .maplibregl-ctrl-group { display: block; }
   .maplibregl-ctrl-bottom-left { bottom: 0; }
 }
+
+/* ─── iOS app: Builder polish ─────────────────────────────────────────────
+   App-only (html.in-app). Bigger, easier-to-hit season calendar; a softer
+   control cluster; tidier sheet; tournament options as tappable cards. */
+
+/* Fade the top of the map behind the floating controls so stray place
+   names don't peek out between them. */
+html.in-app .swings-root::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 170px;
+  z-index: 1050;
+  pointer-events: none;
+  background: linear-gradient(var(--bg) 55%, transparent);
+}
+
+html.in-app .swings-filters { padding: 5px 6px; gap: 5px; border-radius: 12px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); }
+
+/* Season calendar: ~36pt-wide weeks, thicker and taller bars. */
+html.in-app .timeline { gap: 14px; padding: 8px 10px 6px; border-radius: 14px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); }
+html.in-app .timeline__month-label { font-size: 11px; margin: 0 0 3px 5px; }
+html.in-app .timeline__weeks { gap: 3px; }
+html.in-app .timeline__week { width: 36px; padding: 8px 0 3px; gap: 4px; border-radius: 9px; }
+html.in-app .timeline__bar { width: 20px; border-radius: 4px 4px 2px 2px; transform: scaleY(1.22); transform-origin: bottom; }
+html.in-app .timeline__day { min-width: 28px; padding: 2px 0; border-radius: 7px; font-size: 12.5px; }
+
+/* Sheet: soft filled rank boxes, roomier headers. */
+html.in-app .rank-input { padding: 10px 12px; border-radius: 12px; background: var(--bg); border-color: transparent; }
+html.in-app .sheet-title { font-size: 20px; }
+html.in-app .badge { border-radius: 999px; font-size: 12px; padding: 4px 10px; }
+html.in-app .weeknav__btn { width: 40px; height: 40px; font-size: 18px; }
+html.in-app .weeknav__title { font-size: 12px; letter-spacing: 0.06em; }
+
+/* Tournament options as tappable cards. */
+html.in-app .cand-group-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; margin: 14px 0 8px; }
+html.in-app .cand-row { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 8px; }
+html.in-app .cand-name { font-size: 16px; }
+html.in-app .cand-add { padding: 8px 14px; border-radius: 999px; font-size: 14px; }
+
+/* Collapsed "add your ranking" prompt (before any ranking is entered). */
+.rank-bar-prompt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px dashed var(--brand-ink);
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.rank-bar-prompt span[aria-hidden] { font-size: 17px; line-height: 1; }
