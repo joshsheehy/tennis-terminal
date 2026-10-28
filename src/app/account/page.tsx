@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AccountActions from '@/components/AccountActions';
 import SavedTournaments from '@/components/SavedTournaments';
 import { alertsTokenForEmail, listSavedEditionIds } from '@/lib/accounts';
 import { currentUserFromCookies } from '@/lib/auth-request';
 import { getEditionsWithCutoffsByIds } from '@/lib/db';
+import { APP_USER_AGENT_TOKEN } from '@/lib/nav';
 import { defaultPhase, groupSaved, relativeLabel, type Phase, type SavedItem } from '@/lib/saved-schedule';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +32,7 @@ export default async function AccountPage() {
 
   const [ids, alertsToken] = await Promise.all([listSavedEditionIds(user.id), alertsTokenForEmail(user.email)]);
   const rows = await getEditionsWithCutoffsByIds(ids);
+  const inApp = ((await headers()).get('user-agent') ?? '').includes(APP_USER_AGENT_TOKEN);
   const today = new Date().toISOString().slice(0, 10);
 
   const items: SavedItem[] = rows.map(({ edition: e }) => ({
@@ -62,11 +65,17 @@ export default async function AccountPage() {
           Signed in as <strong>{user.email}</strong>
         </p>
         <p className="account-box__line">
-          {alertsToken ? (
+          {inApp ? (
+            // The app's Alerts tab holds every alert setting (push and email).
+            <a href="/alerts">Alert settings</a>
+          ) : alertsToken ? (
             <a href={`/alerts/manage?token=${encodeURIComponent(alertsToken)}`}>Manage email alerts</a>
           ) : (
             <a href="/alerts">Get email alerts before entry deadlines</a>
           )}
+        </p>
+        <p className="account-box__line">
+          <a href="/support">Help &amp; support</a> · <a href="/privacy">Privacy policy</a>
         </p>
         <AccountActions />
       </section>

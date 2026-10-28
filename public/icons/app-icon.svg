@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- TennisCuts app icon (two-tone court, charcoal). Full-bleed square:
+  <!-- TennisCuts app icon (two-tone court, charcoal, tennis-ball end). Full-bleed square:
        iOS and most launchers apply their own rounded mask. Rendered PNGs in
        public/icons, src/app and ios/App/App/Assets.xcassets come from this. -->
   <defs>
@@ -16,5 +16,15 @@
   </g>
   <path d="M92 382 L206 286 L276 322 L414 158" fill="none" stroke="#16181a" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M92 382 L206 286 L276 322 L414 158" fill="none" stroke="url(#lncharcoal)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="414" cy="158" r="30" fill="#6fd36a" stroke="#16181a" stroke-width="12"/>
+  
+  <defs>
+    <radialGradient id="bfb" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#f1fb72"/><stop offset=".6" stop-color="#d9ec3e"/><stop offset="1" stop-color="#b5cc22"/></radialGradient>
+    <clipPath id="bcb"><circle cx="410" cy="162" r="44"/></clipPath>
+  </defs>
+  <circle cx="410" cy="162" r="57" fill="#16181a"/>
+  <circle cx="410" cy="162" r="44" fill="url(#bfb)"/>
+  <g clip-path="url(#bcb)" fill="none" stroke="#fbfdf2" stroke-width="7.5" stroke-linecap="round">
+    <circle cx="353.68" cy="155.4" r="40.480000000000004"/>
+    <circle cx="466.32" cy="168.6" r="40.480000000000004"/>
+  </g>
 </svg>
