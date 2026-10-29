@@ -1056,6 +1056,9 @@ td {
   cursor: pointer;
 }
 .sched-btn:hover { border-color: var(--brand-ink); color: var(--brand-ink); }
+/* Share is a headline feature of the itinerary, so it gets the brand colour. */
+.sched-btn--share { border: 1.5px solid var(--brand-ink); background: var(--surface); color: var(--brand-ink); }
+.sched-btn--share:hover { background: var(--brand-soft); }
 .sched-btn--ghost { color: var(--text-faint); }
 .sched-ref { font-size: 11px; color: var(--text-faint); margin-left: auto; }
 
