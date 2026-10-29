@@ -45,4 +45,12 @@ describe('scheduleShareText', () => {
     expect(scheduleShareText([stop('Lille', '2026-11-09', '2026-11-15')]).description).toMatch(/^A 1-stop tennis schedule: Lille/);
     expect(scheduleShareText([]).title).toBe('A tennis schedule · TennisCuts');
   });
+
+  it('assumes a one-week event when the last stop has no end date', () => {
+    const t = scheduleShareText([
+      stop('Knoxville', '2026-11-09', '2026-11-15'),
+      { name: 'Champaign', city: 'Champaign', level: 'Challenger 50', start: '2026-11-16', end: null },
+    ]);
+    expect(t.title).toBe('Knoxville → Champaign · Nov 9–22, 2026');
+  });
 });

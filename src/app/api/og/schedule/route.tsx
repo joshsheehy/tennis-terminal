@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server';
 import { parseEditionIds } from '@/lib/auth-core';
 import { BRAND_GREEN, SITE_URL } from '@/lib/brand';
 import { getEditionsWithCutoffsByIds } from '@/lib/db';
-import { dateSpan, shortDate, toShareStops } from '@/lib/schedule-share';
+import { dateSpan, shortDate, stopEnd, toShareStops } from '@/lib/schedule-share';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
   const logoSrc = `data:image/png;base64,${logo.toString('base64')}`;
   const first = stops[0];
   const last = stops[stops.length - 1];
-  const span = first?.start && (last?.end ?? last?.start) ? dateSpan(first.start, (last.end ?? last.start)!) : '';
+  const lastDay = last ? stopEnd(last) : null;
+  const span = first?.start && lastDay ? dateSpan(first.start, lastDay) : '';
   const shown = stops.slice(0, MAX_ROWS);
   const more = stops.length - shown.length;
 

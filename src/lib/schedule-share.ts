@@ -58,6 +58,15 @@ function listNames(names: string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
+// When a stop has no end date, assume the usual one-week event.
+export function stopEnd(stop: ShareStop): string | null {
+  if (stop.end) return stop.end;
+  if (!stop.start) return null;
+  const d = new Date(`${stop.start}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 6);
+  return d.toISOString().slice(0, 10);
+}
+
 export function scheduleShareText(stops: ShareStop[]): { title: string; description: string } {
   if (stops.length === 0) {
     return { title: 'A tennis schedule · TennisCuts', description: 'Plan your season on TennisCuts.' };
@@ -68,7 +77,8 @@ export function scheduleShareText(stops: ShareStop[]): { title: string; descript
     stops.length <= 3
       ? stops.map((s) => s.name).join(' → ')
       : `${first.name} → ${last.name} (${stops.length} stops)`;
-  const span = first.start && (last.end ?? last.start) ? ` · ${dateSpan(first.start, (last.end ?? last.start)!)}` : '';
+  const lastDay = stopEnd(last);
+  const span = first.start && lastDay ? ` · ${dateSpan(first.start, lastDay)}` : '';
   const detail = stops
     .slice(0, 4)
     .map((s) => `${s.name} (${s.level}${s.start ? `, ${shortDate(s.start)}` : ''})`);
