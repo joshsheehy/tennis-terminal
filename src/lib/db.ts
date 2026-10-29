@@ -344,7 +344,9 @@ export async function getEditionsWithCutoffsByIds(
       te.indoor,
       te.source,
       te.source_url,
-      te.status
+      te.status,
+      t.latitude,
+      t.longitude
     from tournament_editions te
     join tournaments t on t.id = te.tournament_id
     where te.id = any($1::uuid[])

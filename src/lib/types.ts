@@ -18,6 +18,10 @@ export type ScheduleRow = {
   // catalogue). Optional because the schedule query doesn't select it.
   source_url?: string | null;
   status: string;
+  // Tournament coordinates, selected by getEditionsWithCutoffsByIds (the
+  // itinerary uses them to find each stop's nearest airport).
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type CutoffSnapshot = {

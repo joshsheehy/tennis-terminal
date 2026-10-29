@@ -237,7 +237,7 @@ export default async function SchedulePage({
           // length still lands on the travel day that actually gets you here
           // on time, not some arbitrary midpoint.
           const flightDate = prev ? fridayBefore(e.start_date) : null;
-          const flights = prev ? googleFlightsUrl(prev.city, e.city, flightDate) : null;
+          const flights = prev ? googleFlightsUrl(prev.city, e.city, flightDate, prev, e) : null;
           return (
             <div key={e.edition_id} className="sched-stop">
               {prev && flights && (

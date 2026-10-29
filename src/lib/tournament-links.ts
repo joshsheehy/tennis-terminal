@@ -141,14 +141,18 @@ export function fridayBefore(startDate: string | Date | null | undefined): strin
 // trip_type field, since each leg of a swing is a one-way hop to the next
 // stop, not a round trip. The date pins to the Friday between the two
 // tournaments when we know it.
+type Coords = { latitude?: number | null; longitude?: number | null } | null | undefined;
+
 export function googleFlightsUrl(
   fromCity: string,
   toCity: string,
-  dateISO?: string | null
+  dateISO?: string | null,
+  fromCoords?: Coords,
+  toCoords?: Coords
 ): string {
   if (dateISO) {
-    const fromIata = airportFor(fromCity);
-    const toIata = airportFor(toCity);
+    const fromIata = airportFor(fromCity, fromCoords);
+    const toIata = airportFor(toCity, toCoords);
     if (fromIata && toIata) return googleFlightsResultsUrl(fromIata, toIata, dateISO);
   }
   const q = dateISO
