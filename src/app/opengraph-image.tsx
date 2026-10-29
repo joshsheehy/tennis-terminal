@@ -13,7 +13,7 @@ const BG = '#151412';
 
 export default async function OpengraphImage() {
   const domain = SITE_URL.replace(/^https?:\/\//, '');
-  const logo = await readFile(join(process.cwd(), 'public', 'logo-mark.png'));
+  const logo = await readFile(join(process.cwd(), 'public', 'logo-mark-v2.png'));
   const logoSrc = `data:image/png;base64,${logo.toString('base64')}`;
 
   return new ImageResponse(

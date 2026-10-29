@@ -21,7 +21,7 @@ export function managePrefsUrl(origin: string, token: string): string {
 // it reserves space and can't blow up if the client scales oddly.
 function brandHeaderHtml(origin: string): string {
   return `<div style="margin:0 0 16px;line-height:1">
-      <img src="${origin}/logo-mark.png" width="28" height="28" alt="Tennis Cuts" style="vertical-align:middle;margin-right:8px;border:0" />
+      <img src="${origin}/logo-mark-v2.png" width="28" height="28" alt="Tennis Cuts" style="vertical-align:middle;margin-right:8px;border:0" />
       <span style="font-size:20px;font-weight:700;color:#111;vertical-align:middle">Tennis<span style="color:#3CB043">Cuts</span></span>
     </div>`;
 }

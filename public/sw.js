@@ -5,7 +5,7 @@
 //
 // Bump CACHE_VERSION on any change to this file's caching behavior so
 // `activate` clears the old cache instead of serving stale logic forever.
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `tennis-cuts-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline';
 
@@ -14,7 +14,7 @@ const PRECACHE_URLS = [
   OFFLINE_URL,
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  '/logo-mark.png',
+  '/logo-mark-v2.png',
 ];
 
 self.addEventListener('install', (event) => {

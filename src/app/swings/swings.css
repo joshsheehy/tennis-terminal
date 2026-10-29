@@ -1131,17 +1131,22 @@ html.in-app .timeline__bar { width: 20px; border-radius: 4px 4px 2px 2px; transf
 html.in-app .timeline__day { min-width: 28px; padding: 2px 0; border-radius: 7px; font-size: 12.5px; }
 
 /* Sheet: soft filled rank boxes, roomier headers. */
-html.in-app .rank-input { padding: 10px 12px; border-radius: 12px; background: var(--bg); border-color: transparent; }
-html.in-app .sheet-title { font-size: 20px; }
-html.in-app .badge { border-radius: 999px; font-size: 12px; padding: 4px 10px; }
-html.in-app .weeknav__btn { width: 40px; height: 40px; font-size: 18px; }
-html.in-app .weeknav__title { font-size: 12px; letter-spacing: 0.06em; }
+html.in-app .rank-input { padding: 8px 11px; border-radius: 10px; background: var(--bg); border-color: transparent; font-size: 16px; }
+html.in-app .sheet-title { font-size: 16px; }
+html.in-app .builder-clear { font-size: 12px; padding: 4px 10px; }
+html.in-app .itinerary-row { padding-top: 7px; padding-bottom: 7px; }
+html.in-app .itinerary-week { font-size: 11px; min-width: 52px; }
+html.in-app .itinerary-link { font-size: 13.5px; }
+html.in-app .builder-finish { padding: 9px 12px; font-size: 13px; border-radius: 9px; }
+html.in-app .badge { border-radius: 999px; font-size: 11px; padding: 3px 9px; }
+html.in-app .weeknav__btn { width: 34px; height: 34px; font-size: 16px; }
+html.in-app .weeknav__title { font-size: 11px; letter-spacing: 0.04em; }
 
 /* Tournament options as tappable cards. */
-html.in-app .cand-group-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; margin: 14px 0 8px; }
-html.in-app .cand-row { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 8px; }
-html.in-app .cand-name { font-size: 16px; }
-html.in-app .cand-add { padding: 8px 14px; border-radius: 999px; font-size: 14px; }
+html.in-app .cand-group-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin: 12px 0 6px; }
+html.in-app .cand-row { padding: 9px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 6px; }
+html.in-app .cand-name { font-size: 14px; }
+html.in-app .cand-add { padding: 6px 12px; border-radius: 999px; font-size: 12.5px; }
 
 /* Collapsed "add your ranking" prompt (before any ranking is entered). */
 .rank-bar-prompt {
@@ -1149,12 +1154,12 @@ html.in-app .cand-add { padding: 8px 14px; border-radius: 999px; font-size: 14px
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 11px 14px;
+  padding: 8px 12px;
   border: 1px dashed var(--brand-ink);
-  border-radius: 12px;
+  border-radius: 10px;
   background: none;
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--brand-ink);
   text-align: left;
