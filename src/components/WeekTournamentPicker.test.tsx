@@ -207,3 +207,19 @@ describe('WeekTournamentPicker opens the current week', () => {
     expect(details(container, '12').open).toBe(false);
   });
 });
+
+describe('WeekTournamentPicker with Date-object start dates', () => {
+  // Older seasons hand the picker real Date objects; String#slice on those
+  // crashed the whole page ("e.slice is not a function").
+  it('renders and opens the current week when start_date is a Date', () => {
+    const thisMonday = new Date();
+    thisMonday.setUTCHours(0, 0, 0, 0);
+    thisMonday.setUTCDate(thisMonday.getUTCDate() - ((thisMonday.getUTCDay() + 6) % 7));
+    const rows = [
+      row({ slug: 'now', name: 'Current Event', week: 11, start_date: thisMonday as unknown as string, end_date: thisMonday as unknown as string, level: 'Challenger 50', surface: 'Hard' }),
+      row({ slug: 'old', name: 'Old Event', week: 2, start_date: new Date('2024-01-08T00:00:00Z') as unknown as string, end_date: new Date('2024-01-14T00:00:00Z') as unknown as string, level: 'ATP 250', surface: 'Hard' }),
+    ];
+    const { container } = render(<WeekTournamentPicker tournaments={rows} />);
+    expect(details(container, '11').open).toBe(true);
+  });
+});

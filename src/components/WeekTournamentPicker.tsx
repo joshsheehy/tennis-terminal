@@ -138,9 +138,11 @@ const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 // serialized through JSON), so read only the calendar-day part — appending
 // "T00:00:00Z" to a full timestamp made an Invalid Date, which silently broke
 // the current-week auto-open and multi-week events.
-function parseDate(s: string | null) {
+function parseDate(s: string | Date | null) {
   if (!s) return null;
-  const d = new Date(`${s.slice(0, 10)}T00:00:00Z`);
+  // Some seasons' rows carry real Date objects rather than strings.
+  const day = s instanceof Date ? s.toISOString().slice(0, 10) : String(s).slice(0, 10);
+  const d = new Date(`${day}T00:00:00Z`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
