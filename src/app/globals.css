@@ -1530,10 +1530,8 @@ html.in-app .alerts-group > legend {
   width: 100%;
   margin: 0 !important;
   padding: 10px 14px 6px !important;
-  font-size: 12px !important;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 13px !important;
+  font-weight: 600;
   color: var(--text-muted);
 }
 html.in-app .alerts-reminders { display: block !important; clear: both; }
@@ -1596,3 +1594,35 @@ html.in-app .alerts-rules[open] .alerts-rules__summary::after { transform: rotat
 html.in-app .alerts-rules[open] { padding-bottom: 14px; }
 .alerts-settings__hint { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 .alerts-settings__test { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+
+/* App: sentence case instead of all-caps, letter-spaced mini labels, which
+   read as template-y on a phone ("Week of Nov 23 — pick your next stop"). */
+html.in-app .weeknav__title,
+html.in-app .cand-group-head,
+html.in-app .meta-grid__label,
+html.in-app .cut-trend__label,
+html.in-app .sched-cut__label,
+html.in-app .cut-table__head span,
+html.in-app .tinfo-label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+html.in-app .weeknav__title,
+html.in-app .meta-grid__label,
+html.in-app .cut-trend__label,
+html.in-app .tinfo-label { font-size: 13px; }
+html.in-app .cand-group-head { font-size: 12.5px; }
+
+/* App top bar: the current screen's name, centred, like iOS. The logo lives
+   on the app icon and launch screen; light/dark follows the iPhone setting. */
+.site-nav__title { display: none; }
+html.in-app .site-nav__brand,
+html.in-app .site-nav__theme { display: none; }
+html.in-app .site-nav { justify-content: center; }
+html.in-app .site-nav__title {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-strong);
+}

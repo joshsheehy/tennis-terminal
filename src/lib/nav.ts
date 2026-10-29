@@ -19,6 +19,17 @@ export function isNavActive(href: string, pathname: string): boolean {
   return pathname.startsWith(href);
 }
 
+// The iOS app's top bar shows the current screen's name instead of the logo.
+export function screenTitle(pathname: string): string {
+  const tab = NAV_LINKS.find((l) => isNavActive(l.href, pathname));
+  if (tab) return tab.label;
+  if (pathname.startsWith('/schedule')) return 'Schedule';
+  if (pathname.startsWith('/swings')) return 'Map';
+  if (pathname.startsWith('/support')) return 'Support';
+  if (pathname.startsWith('/privacy')) return 'Privacy';
+  return 'TennisCuts';
+}
+
 // The iOS app (Capacitor) appends this to its user agent
 // (capacitor.config.json ios.appendUserAgent).
 export const APP_USER_AGENT_TOKEN = 'TennisCutsApp';

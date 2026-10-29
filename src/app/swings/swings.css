@@ -1140,10 +1140,10 @@ html.in-app .itinerary-link { font-size: 13.5px; }
 html.in-app .builder-finish { padding: 9px 12px; font-size: 13px; border-radius: 9px; }
 html.in-app .badge { border-radius: 999px; font-size: 11px; padding: 3px 9px; }
 html.in-app .weeknav__btn { width: 34px; height: 34px; font-size: 16px; }
-html.in-app .weeknav__title { font-size: 11px; letter-spacing: 0.04em; }
+html.in-app .weeknav__title { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
 
 /* Tournament options as tappable cards. */
-html.in-app .cand-group-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin: 12px 0 6px; }
+html.in-app .cand-group-head { font-size: 12.5px; font-weight: 600; margin: 12px 0 6px; }
 html.in-app .cand-row { padding: 9px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 6px; }
 html.in-app .cand-name { font-size: 14px; }
 html.in-app .cand-add { padding: 6px 12px; border-radius: 999px; font-size: 12.5px; }

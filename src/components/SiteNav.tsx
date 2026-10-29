@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { NAV_LINKS, isNavActive } from '@/lib/nav';
+import { NAV_LINKS, isNavActive, screenTitle } from '@/lib/nav';
 
 export default function SiteNav() {
   const pathname = usePathname();
@@ -30,6 +30,8 @@ export default function SiteNav() {
 
   return (
     <nav className="site-nav" aria-label="Primary">
+      {/* Shown only in the iOS app (CSS), where it replaces the logo. */}
+      <span className="site-nav__title">{screenTitle(pathname)}</span>
       <Link href="/" className="site-nav__brand" aria-label="Tennis Cuts — home">
         <Image className="site-nav__logo" src="/logo-mark-v2.png" width={24} height={24} alt="" priority />
         <span>

@@ -98,7 +98,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning className={archivo.variable}>
       <head>
         {/* Runs before React hydrates to prevent a flash of the wrong theme */}
-        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}` }} />
+        {/* (The iOS app skips the stored choice and follows the iPhone's light/dark setting.) */}
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('theme');if((t==='dark'||t==='light')&&navigator.userAgent.indexOf(${JSON.stringify(APP_USER_AGENT_TOKEN)})===-1)document.documentElement.setAttribute('data-theme',t);}catch(e){}` }} />
         {/* Same timing for app mode: the iOS app tags its user agent, and .in-app
             swaps the top links for the bottom tab bar before anything paints. */}
         <script dangerouslySetInnerHTML={{ __html: `if(navigator.userAgent.indexOf(${JSON.stringify(APP_USER_AGENT_TOKEN)})!==-1)document.documentElement.classList.add('in-app');` }} />
