@@ -38,7 +38,7 @@ export default function SiteNav() {
     <nav className={`site-nav${showsBrandInApp(pathname) ? ' site-nav--brand' : ''}`} aria-label="Primary">
       {/* Shown only in the iOS app (CSS), where it replaces the logo. */}
       <span className="site-nav__title">{screenTitle(pathname)}</span>
-      <Link href="/" className="site-nav__brand" aria-label="Tennis Cuts — home">
+      <Link href="/" className="site-nav__brand" aria-label="TennisCuts — home">
         <Image className="site-nav__logo" src="/logo-mark-v2.png" width={24} height={24} alt="" priority />
         <span>
           Tennis<span className="site-nav__brand-cut">Cuts</span>

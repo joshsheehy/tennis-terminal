@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     ? `<a href="/alerts/manage?token=${encodeURIComponent(token)}">Change your preferences instead</a>`
     : `<a href="/alerts">Manage alerts</a>`;
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Unsubscribe</title></head><body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.5"><h1 style="font-size:1.25rem">Tennis Cuts alerts</h1><p>${message}</p><p>${back}</p></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Unsubscribe</title></head><body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.5"><h1 style="font-size:1.25rem">TennisCuts alerts</h1><p>${message}</p><p>${back}</p></body></html>`;
 
   return new NextResponse(html, {
     status: email ? 200 : 400,

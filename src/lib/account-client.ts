@@ -22,7 +22,7 @@ export async function accountApi<T = Record<string, unknown>>(
     }
     return { ...data, ok: true };
   } catch {
-    return { ok: false, error: "Couldn't reach Tennis Cuts. Check your connection.", status: 0 };
+    return { ok: false, error: "Couldn't reach TennisCuts. Check your connection.", status: 0 };
   }
 }
 

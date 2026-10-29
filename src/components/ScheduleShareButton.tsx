@@ -13,7 +13,7 @@ export default function ScheduleShareButton() {
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
     if (nav.share) {
       try {
-        await nav.share({ title: 'My Tennis Cuts schedule', url });
+        await nav.share({ title: 'My TennisCuts schedule', url });
         return;
       } catch {
         // user dismissed the sheet, or share failed — fall through to copy

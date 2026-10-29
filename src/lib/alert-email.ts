@@ -21,7 +21,7 @@ export function managePrefsUrl(origin: string, token: string): string {
 // it reserves space and can't blow up if the client scales oddly.
 function brandHeaderHtml(origin: string): string {
   return `<div style="margin:0 0 16px;line-height:1">
-      <img src="${origin}/logo-mark-v2.png" width="28" height="28" alt="Tennis Cuts" style="vertical-align:middle;margin-right:8px;border:0" />
+      <img src="${origin}/logo-mark-v2.png" width="28" height="28" alt="TennisCuts" style="vertical-align:middle;margin-right:8px;border:0" />
       <span style="font-size:20px;font-weight:700;color:#111;vertical-align:middle">Tennis<span style="color:#3CB043">Cuts</span></span>
     </div>`;
 }
@@ -204,7 +204,7 @@ export function renderDigest(
       <a href="${unsubUrl}" style="display:inline-block;padding:8px 14px;border:1px solid #ddd;border-radius:6px;color:#888;text-decoration:none;font-size:13px;margin-left:6px">Unsubscribe</a>
     </div>
     <p style="color:#999;font-size:12px;margin:16px 0 0">
-      You're receiving this because you signed up for Tennis Cuts alerts.
+      You're receiving this because you signed up for TennisCuts alerts.
     </p>
   </div>
 </body>
@@ -216,7 +216,7 @@ export function renderDigest(
     sections
       .map((s) => `${s.title.toUpperCase()}\n` + s.deadlines.map(textLine).join('\n'))
       .join('\n\n') +
-    `\n\nEdit preferences: ${manageUrl}\nUnsubscribe: ${unsubUrl}\n\nTennis Cuts`;
+    `\n\nEdit preferences: ${manageUrl}\nUnsubscribe: ${unsubUrl}\n\nTennisCuts`;
 
   return { subject, html, text };
 }
@@ -242,7 +242,7 @@ export function renderWelcome(opts: {
     ? `<li style="margin:2px 0">Doubles (advance entry)</li>`
     : '';
 
-  const subject = "You're subscribed to Tennis Cuts entry-deadline alerts";
+  const subject = "You're subscribed to TennisCuts entry-deadline alerts";
   const preheader = "You're all set — we'll email you ~24 hours before each entry deadline.";
 
   const html = `<!doctype html>
@@ -280,12 +280,12 @@ export function renderWelcome(opts: {
 </html>`;
 
   const text =
-    `You're subscribed to Tennis Cuts entry-deadline alerts.\n\n` +
+    `You're subscribed to TennisCuts entry-deadline alerts.\n\n` +
     `You'll get an email about 24 hours before each entry deadline for:\n` +
     catNames.map((n) => `- ${n}`).join('\n') +
     (includeDoubles ? `\n- Doubles (advance entry)` : '') +
     `\n\nSingles main draw and qualifying are always included. No confirmation needed.\n\n` +
-    `Edit preferences: ${manageUrl}\nUnsubscribe: ${unsubUrl}\n\nTennis Cuts`;
+    `Edit preferences: ${manageUrl}\nUnsubscribe: ${unsubUrl}\n\nTennisCuts`;
 
   return { subject, html, text };
 }

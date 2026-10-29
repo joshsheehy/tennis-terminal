@@ -5,7 +5,7 @@ import { shareMetadata } from '@/lib/share-meta';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: 'What Tennis Cuts collects, why, and how to control it.',
+  description: 'What TennisCuts collects, why, and how to control it.',
   ...shareMetadata({
     title: `Privacy Policy · ${SITE_NAME}`,
     description: 'What TennisCuts collects, why, and how to control it.',
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="page-lede" style={{ marginBottom: 28, fontSize: 15 }}>
-        Last updated October 27, 2026. Tennis Cuts (tenniscuts.com) is a schedule and
+        Last updated October 27, 2026. TennisCuts (tenniscuts.com) is a schedule and
         entry-cutoff tracker for pro tennis. This page explains what we collect, why, and how to
         control it — in plain language, not legalese.
       </p>

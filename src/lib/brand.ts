@@ -1,8 +1,8 @@
-// Single source of truth for the Tennis Cuts brand — used by metadata,
+// Single source of truth for the TennisCuts brand — used by metadata,
 // the OG/Twitter image, robots and the sitemap.
 
 export const SITE_URL = 'https://tenniscuts.com';
-export const SITE_NAME = 'Tennis Cuts';
+export const SITE_NAME = 'TennisCuts';
 
 // The link-preview / meta description. Keep it ~155 chars and keyword-rich.
 export const SITE_DESCRIPTION =

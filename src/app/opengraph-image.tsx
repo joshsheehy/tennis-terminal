@@ -5,7 +5,7 @@ import { SITE_URL, BRAND_GREEN } from '@/lib/brand';
 
 // The image shown when tenniscuts.com is shared (link previews, social cards).
 // Kept deliberately minimal: logo lockup, one description line, the domain.
-export const alt = 'Tennis Cuts — entry cutoffs, schedules & swing planner for the pro tennis tour';
+export const alt = 'TennisCuts — entry cutoffs, schedules & swing planner for the pro tennis tour';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

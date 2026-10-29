@@ -8,7 +8,7 @@ import { shareMetadata } from '@/lib/share-meta';
 // where the numbers come from).
 export const metadata: Metadata = {
   title: 'Support',
-  description: 'Help with Tennis Cuts: sign-in, alerts, your account, and where the data comes from.',
+  description: 'Help with TennisCuts: sign-in, alerts, your account, and where the data comes from.',
   ...shareMetadata({
     title: `Support · ${SITE_NAME}`,
     description: 'Help with TennisCuts: sign-in, alerts, your account, and where the data comes from.',
@@ -87,7 +87,7 @@ export default function SupportPage() {
           Spot something wrong? Email us and we&apos;ll fix it.
         </p>
         <p style={pStyle}>
-          Tennis Cuts is an independent tool and isn&apos;t affiliated with or endorsed by the ATP,
+          TennisCuts is an independent tool and isn&apos;t affiliated with or endorsed by the ATP,
           the ITF or any tournament.
         </p>
       </section>

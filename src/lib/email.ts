@@ -3,7 +3,7 @@
 // other service with plain fetch). Set these on Railway:
 //
 //   RESEND_API_KEY   - from https://resend.com (free tier is plenty for this)
-//   ALERT_FROM_EMAIL - a verified sender, e.g. "Tennis Cuts <alerts@yourdomain>".
+//   ALERT_FROM_EMAIL - a verified sender, e.g. "TennisCuts <alerts@yourdomain>".
 //                      Before you verify a domain, Resend lets you send from
 //                      "onboarding@resend.dev" to your OWN account email — ideal
 //                      for testing with yourself.
@@ -17,7 +17,7 @@ export function emailConfigured(): boolean {
 }
 
 export function fromAddress(): string {
-  return process.env.ALERT_FROM_EMAIL || 'Tennis Cuts <onboarding@resend.dev>';
+  return process.env.ALERT_FROM_EMAIL || 'TennisCuts <onboarding@resend.dev>';
 }
 
 // One-click unsubscribe headers (RFC 8058). Gmail/Yahoo bulk-sender rules
