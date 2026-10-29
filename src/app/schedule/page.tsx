@@ -5,6 +5,7 @@ import type { TournamentDetailRow } from '@/lib/db';
 import { CutoffSnapshot, ScheduleRow } from '@/lib/types';
 import { CURRENT_SEASON, EARLIEST_SEASON } from '@/lib/seasons';
 import { fridayBefore, googleFlightsUrl } from '@/lib/tournament-links';
+import { backLinkFor } from '@/lib/back-link';
 import ScheduleShareButton from '@/components/ScheduleShareButton';
 import SaveButton from '@/components/SaveButton';
 import { parseEditionIds } from '@/lib/auth-core';
@@ -158,9 +159,9 @@ function CutChip({ label, value, open = false }: { label: string; value: number 
 export default async function SchedulePage({
   searchParams,
 }: {
-  searchParams: Promise<{ build?: string; year?: string }>;
+  searchParams: Promise<{ build?: string; year?: string; from?: string }>;
 }) {
-  const { build, year } = await searchParams;
+  const { build, year, from } = await searchParams;
   const ids = (build ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
   // Bare /schedule (no picks) keeps its old behaviour: send people to the calendar.
@@ -186,9 +187,12 @@ export default async function SchedulePage({
     return ad < bd ? -1 : ad > bd ? 1 : 0;
   });
 
+  const builderHref = `/?build=${encodeURIComponent(ids.join(','))}${year ? `&year=${encodeURIComponent(year)}` : ''}`;
+  // Back goes where you came from (?from=, e.g. Saved); otherwise the Builder.
+  const safeFrom = from && from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/\\') ? from : null;
+  const back = safeFrom ? backLinkFor(safeFrom, CURRENT_SEASON) : { href: builderHref, label: '← Back to builder' };
   // Tournament pages opened from here come back to this itinerary.
-  const selfHref = `/schedule?build=${encodeURIComponent(ids.join(','))}${year ? `&year=${encodeURIComponent(year)}` : ''}`;
-  const backHref = `/?build=${encodeURIComponent(ids.join(','))}${year ? `&year=${encodeURIComponent(year)}` : ''}`;
+  const selfHref = `/schedule?build=${encodeURIComponent(ids.join(','))}${year ? `&year=${encodeURIComponent(year)}` : ''}${safeFrom ? `&from=${encodeURIComponent(safeFrom)}` : ''}`;
   const surfaces = Array.from(new Set(stops.map((s) => s.edition.surface))).filter(Boolean);
   const first = stops[0].edition;
   const last = stops[stops.length - 1].edition;
@@ -196,7 +200,7 @@ export default async function SchedulePage({
 
   return (
     <main className="page page--slim">
-      <a href={backHref} className="back-link">← Back to builder</a>
+      <a href={back.href} className="back-link">{back.label}</a>
 
       <div className="sched-head" style={{ margin: '8px 0 8px' }}>
         <div>

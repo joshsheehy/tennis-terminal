@@ -145,7 +145,7 @@ export default function SavedTournaments({
 
       {phase === 'upcoming' && groups.upcoming.length > 0 && (
         <div className="saved__actions">
-          <a href={`/schedule?build=${encodeURIComponent(upcomingIds)}`} className="sched-btn">
+          <a href={`/schedule?build=${encodeURIComponent(upcomingIds)}&from=%2Faccount`} className="sched-btn">
             View itinerary
           </a>
           <a href={`/?build=${encodeURIComponent(upcomingIds)}`} className="sched-btn">

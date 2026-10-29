@@ -68,7 +68,6 @@ export default function AlertSettings({ email, initial }: { email: string; initi
   const toggleIn = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
   async function togglePush() {
-    console.log('[push] switch tapped', JSON.stringify({ pushOn }));
     setPushBusy(true);
     setError(null);
     try {

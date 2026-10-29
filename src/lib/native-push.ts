@@ -30,19 +30,12 @@ function storeToken(token: string | null) {
   }
 }
 
-// Step-by-step trace, visible in the iOS app's console (Xcode / devicectl).
-function trace(step: string, detail?: unknown) {
-  console.log(`[push] ${step}`, detail === undefined ? '' : JSON.stringify(detail));
-}
-
 // Capacitor plugin objects are proxies that answer *every* property —
 // including `then`. Returned straight from an async function, the promise
 // machinery sees a "thenable" and waits on it forever (no prompt, no error).
 // So hand it back wrapped in a plain object.
 async function plugin() {
-  trace('loading plugin');
   const mod = await import('@capacitor/push-notifications');
-  trace('plugin loaded');
   return { Push: mod.PushNotifications };
 }
 
@@ -50,14 +43,10 @@ async function plugin() {
 // or registration failed.
 async function obtainToken(promptIfNeeded: boolean): Promise<string | null> {
   const { Push } = await plugin();
-  trace('checkPermissions');
   let perm = await Push.checkPermissions();
-  trace('permission', perm);
   if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
     if (!promptIfNeeded) return null;
-    trace('requestPermissions');
     perm = await Push.requestPermissions();
-    trace('permission after prompt', perm);
   }
   if (perm.receive !== 'granted') return null;
 
@@ -73,7 +62,6 @@ async function obtainToken(promptIfNeeded: boolean): Promise<string | null> {
     const ok = Push.addListener('registration', (t) => done(t.value));
     const fail = Push.addListener('registrationError', () => done(null));
     setTimeout(() => done(null), 15_000);
-    trace('register');
     Push.register();
   });
 }
@@ -83,7 +71,6 @@ export type EnableResult = { ok: true } | { ok: false; reason: 'denied' | 'faile
 // Turn push on for this phone: permission prompt (first time), token, then
 // tie the token to the signed-in account.
 export async function enablePush(): Promise<EnableResult> {
-  trace('enable');
   const token = await obtainToken(true);
   if (!token) {
     const { Push } = await plugin();
