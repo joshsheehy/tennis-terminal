@@ -1626,3 +1626,7 @@ html.in-app .site-nav__title {
   font-weight: 700;
   color: var(--text-strong);
 }
+html.in-app .site-nav--brand { justify-content: flex-start; }
+html.in-app .site-nav--brand .site-nav__brand { display: inline-flex; }
+html.in-app .site-nav--brand .site-nav__brand > span { display: inline; }
+html.in-app .site-nav--brand .site-nav__title { display: none; }

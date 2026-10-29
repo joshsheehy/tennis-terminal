@@ -7,12 +7,43 @@ import { CURRENT_SEASON, EARLIEST_SEASON } from '@/lib/seasons';
 import { fridayBefore, googleFlightsUrl } from '@/lib/tournament-links';
 import ScheduleShareButton from '@/components/ScheduleShareButton';
 import SaveButton from '@/components/SaveButton';
+import { parseEditionIds } from '@/lib/auth-core';
+import { scheduleShareText, toShareStops } from '@/lib/schedule-share';
+import { shareMetadata } from '@/lib/share-meta';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = {
-  title: 'Your schedule',
-  robots: { index: false },
-};
+
+// A shared /schedule link previews as the swing itself — route, dates, stops —
+// with an image of it, rather than the homepage's generic card.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ build?: string; year?: string }>;
+}): Promise<Metadata> {
+  const { build, year } = await searchParams;
+  const ids = parseEditionIds(build ?? '');
+  const base: Metadata = { title: 'Your schedule', robots: { index: false } };
+  if (ids.length === 0) return base;
+  try {
+    const stops = toShareStops((await getEditionsWithCutoffsByIds(ids)).map((r) => r.edition));
+    const { title, description } = scheduleShareText(stops);
+    const buildParam = encodeURIComponent(ids.join(','));
+    const path = `/schedule?build=${buildParam}${year ? `&year=${encodeURIComponent(year)}` : ''}`;
+    return {
+      ...base,
+      description,
+      ...shareMetadata({
+        title,
+        description,
+        path,
+        image: `/api/og/schedule?build=${buildParam}`,
+        imageAlt: title,
+      }),
+    };
+  } catch {
+    return base;
+  }
+}
 
 // --- cut extraction (compact, mirrors the tournament page's logic) ----------
 function findCut(cutoffs: CutoffSnapshot[], event: 'singles' | 'doubles', draw: 'main' | 'qualifying') {

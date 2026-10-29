@@ -7,6 +7,8 @@ import { alertsTokenForEmail } from '@/lib/accounts';
 import { currentUserFromCookies } from '@/lib/auth-request';
 import { APP_USER_AGENT_TOKEN } from '@/lib/nav';
 import { getAlertPrefsForEmail } from '@/lib/subscribers';
+import { SITE_NAME } from '@/lib/brand';
+import { shareMetadata } from '@/lib/share-meta';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +16,11 @@ export const metadata: Metadata = {
   title: 'Entry deadline alerts',
   description:
     'Get an email 24, 12 or 2 hours before ATP, Challenger, ITF and Grand Slam entry deadlines.',
+  ...shareMetadata({
+    title: `Entry deadline alerts · ${SITE_NAME}`,
+    description: 'Get a heads-up 24, 12 or 2 hours before ATP, Challenger, ITF and Grand Slam entry deadlines.',
+    path: '/alerts',
+  }),
 };
 
 // Grand Slams lead everywhere (signup form, emails, this list) — they're the

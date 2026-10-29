@@ -6,6 +6,10 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { NAV_LINKS, isNavActive, screenTitle } from '@/lib/nav';
 
+function showsBrandInApp(pathname: string) {
+  return pathname === '/' || pathname.startsWith('/schedule');
+}
+
 export default function SiteNav() {
   const pathname = usePathname();
   const [isDark, setIsDark] = useState<boolean | null>(null);
@@ -29,7 +33,9 @@ export default function SiteNav() {
   const isActive = (href: string) => isNavActive(href, pathname);
 
   return (
-    <nav className="site-nav" aria-label="Primary">
+    // In the iOS app, the home screen (Builder) and the shareable itinerary
+    // keep the logo; other screens show their name instead.
+    <nav className={`site-nav${showsBrandInApp(pathname) ? ' site-nav--brand' : ''}`} aria-label="Primary">
       {/* Shown only in the iOS app (CSS), where it replaces the logo. */}
       <span className="site-nav__title">{screenTitle(pathname)}</span>
       <Link href="/" className="site-nav__brand" aria-label="Tennis Cuts — home">

@@ -28,6 +28,8 @@ const PUBLIC_API_PATHS = new Set([
   '/api/push/unregister',
   '/api/push/test',
   '/api/alerts/prefs',
+  // Link-preview image for shared schedules (read-only, public data).
+  '/api/og/schedule',
 ]);
 
 // The secret can be supplied three ways so both automation and a human in a

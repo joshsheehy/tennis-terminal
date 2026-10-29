@@ -1,9 +1,16 @@
 import type { Metadata } from 'next';
 import type { CSSProperties } from 'react';
+import { SITE_NAME } from '@/lib/brand';
+import { shareMetadata } from '@/lib/share-meta';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description: 'What Tennis Cuts collects, why, and how to control it.',
+  ...shareMetadata({
+    title: `Privacy Policy · ${SITE_NAME}`,
+    description: 'What TennisCuts collects, why, and how to control it.',
+    path: '/privacy',
+  }),
 };
 
 const sectionStyle: CSSProperties = { margin: '0 0 24px' };

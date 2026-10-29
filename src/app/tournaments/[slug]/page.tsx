@@ -11,6 +11,7 @@ import { CURRENT_SEASON, EARLIEST_SEASON, isAvailableSeason } from '@/lib/season
 import { backLinkFor } from '@/lib/back-link';
 import { resolveTournamentPtlCode } from '@/lib/tournament-links';
 import { SITE_NAME, SITE_URL } from '@/lib/brand';
+import { shareMetadata } from '@/lib/share-meta';
 
 // Look up the most recent protennislive_code we know for a slug, so the
 // CutoffTable can render a "PDF source" link even when no cuts snapshot
@@ -426,13 +427,7 @@ export async function generateMetadata({
       title,
       description,
       alternates: { canonical: path },
-      openGraph: {
-        type: 'article',
-        url: `${SITE_URL}${path}`,
-        title: `${title} · ${SITE_NAME}`,
-        description,
-      },
-      twitter: { card: 'summary_large_image', title: `${title} · ${SITE_NAME}`, description },
+      ...shareMetadata({ title: `${title} · ${SITE_NAME}`, description, path }),
     };
   } catch {
     // Don't let a metadata/DB hiccup break the page render.

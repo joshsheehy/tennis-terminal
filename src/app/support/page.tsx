@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import type { CSSProperties } from 'react';
+import { SITE_NAME } from '@/lib/brand';
+import { shareMetadata } from '@/lib/share-meta';
 
 // The App Store "Support URL": how to reach us, plus answers to the questions
 // people actually hit (sign-in codes, notifications, deleting an account,
@@ -7,6 +9,11 @@ import type { CSSProperties } from 'react';
 export const metadata: Metadata = {
   title: 'Support',
   description: 'Help with Tennis Cuts: sign-in, alerts, your account, and where the data comes from.',
+  ...shareMetadata({
+    title: `Support · ${SITE_NAME}`,
+    description: 'Help with TennisCuts: sign-in, alerts, your account, and where the data comes from.',
+    path: '/support',
+  }),
 };
 
 const sectionStyle: CSSProperties = { margin: '0 0 24px' };
