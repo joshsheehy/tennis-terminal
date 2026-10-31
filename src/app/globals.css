@@ -1447,6 +1447,42 @@ html.in-app .app-tabbar {
   border-top: 1px solid var(--border);
 }
 .account-box__line { margin: 0 0 10px; font-size: 14px; color: var(--text-secondary); }
+
+/* Saved page: one-tap alerts offer for accounts without alert preferences. */
+.alert-offer {
+  margin: 0 0 20px;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand-ink);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.alert-offer__head { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
+.alert-offer__head svg { flex-shrink: 0; color: var(--brand-ink); }
+.alert-offer__title { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-strong); }
+.alert-offer__text { margin: 0 0 14px; font-size: 14px; line-height: 1.5; color: var(--text-secondary); }
+.alert-offer__text--last { margin-bottom: 0; }
+.alert-offer__text strong { color: var(--text-strong); font-weight: 650; }
+.alert-offer__text a { color: var(--brand-ink); font-weight: 600; }
+.alert-offer__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.alert-offer__actions .btn { padding: 9px 16px; font-size: 14px; }
+.alert-offer__later {
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.alert-offer__later:hover { color: var(--text); }
+.alert-offer__error { margin: 10px 0 0; font-size: 13px; }
+.alert-offer__fine { margin: 10px 0 0; font-size: 12px; color: var(--text-faint); }
+.alert-offer__fine a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
+.alert-offer--done { border-left-color: var(--status-main); }
+.alert-offer--done .alert-offer__head svg { color: var(--status-main); }
+html.in-app .alert-offer__actions { flex-direction: column; align-items: stretch; gap: 8px; }
+html.in-app .alert-offer__actions .btn { width: 100%; padding: 12px 16px; font-size: 15px; }
 /* Editing: the Remove button takes the "when" label's place so names keep room. */
 .saved--editing .saved-row__when { display: none; }
 

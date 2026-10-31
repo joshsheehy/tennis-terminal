@@ -2,12 +2,14 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AccountActions from '@/components/AccountActions';
+import AlertOffer from '@/components/AlertOffer';
 import SavedTournaments from '@/components/SavedTournaments';
 import { alertsTokenForEmail, listSavedEditionIds } from '@/lib/accounts';
 import { currentUserFromCookies } from '@/lib/auth-request';
 import { getEditionsWithCutoffsByIds } from '@/lib/db';
 import { APP_USER_AGENT_TOKEN } from '@/lib/nav';
 import { defaultPhase, groupSaved, relativeLabel, type Phase, type SavedItem } from '@/lib/saved-schedule';
+import { getAlertPrefsForEmail } from '@/lib/subscribers';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -30,7 +32,12 @@ export default async function AccountPage() {
   const user = await currentUserFromCookies();
   if (!user) redirect('/login?next=/account');
 
-  const [ids, alertsToken] = await Promise.all([listSavedEditionIds(user.id), alertsTokenForEmail(user.email)]);
+  const [ids, alertsToken, alertPrefs] = await Promise.all([
+    listSavedEditionIds(user.id),
+    alertsTokenForEmail(user.email),
+    // Only for the alerts offer; a failed lookup just means no offer.
+    getAlertPrefsForEmail(user.email).catch(() => null),
+  ]);
   const rows = await getEditionsWithCutoffsByIds(ids);
   const inApp = ((await headers()).get('user-agent') ?? '').includes(APP_USER_AGENT_TOKEN);
   const today = new Date().toISOString().slice(0, 10);
@@ -56,6 +63,9 @@ export default async function AccountPage() {
       <h1 className="page-title" style={{ marginBottom: 16 }}>
         Saved
       </h1>
+
+      {/* Any stored preferences — even email switched off — mean they've already chosen. */}
+      {alertPrefs && !alertPrefs.exists && <AlertOffer email={user.email} />}
 
       <SavedTournaments groups={withLabels} initialPhase={defaultPhase(grouped)} />
 
