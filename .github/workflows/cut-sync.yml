@@ -307,7 +307,14 @@ jobs:
           # Being refused throughout means this run collected nothing and the
           # next one would do the same. Fail so it is visible rather than
           # looking like a season with no PDFs published in it.
-          if refused and stored == 0:
+          #
+          # "Throughout" matters: with runs every few hours on draw days, most
+          # runs legitimately store nothing (every sheet answered "not posted
+          # yet") and then run out of the per-run allowance on old gaps at the
+          # end of the list. That is protennislive.com serving us fine, not
+          # blocking us -- failing on it made three healthy runs on 2026-10-31
+          # show red. Only fail when no request got any answer at all.
+          if refused and stored == 0 and not_posted == 0 and absent == 0:
               raise RuntimeError(
                   f'Every draw attempted was refused ({refused}). protennislive.com is not '
                   'serving this runner either — the fetch needs another route.'
