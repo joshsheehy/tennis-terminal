@@ -42,9 +42,9 @@ export const metadata: Metadata = {
     'pro tennis schedule',
   ],
   category: 'sports',
-  alternates: {
-    canonical: '/',
-  },
+  // No site-wide canonical: an inherited '/' told Google that /alerts,
+  // /privacy and /support were copies of the homepage. Pages that need one
+  // (home, tournaments, /cuts) set their own; the rest self-canonicalize.
   // Standalone-mode presentation for "Add to Home Screen" on iOS Safari
   // (manifest.ts covers Android/Chrome's install prompt).
   appleWebApp: {
@@ -84,13 +84,29 @@ export const viewport: Viewport = {
   ],
 };
 
+// Brand signals for search: Google tends to read "tenniscuts" as a typo of a
+// bigger site, so spell out the name, its variants and the logo.
 const jsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  name: SITE_NAME,
-  alternateName: 'TennisCuts',
-  url: SITE_URL,
-  description: SITE_DESCRIPTION,
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      name: SITE_NAME,
+      alternateName: ['Tennis Cuts', 'tenniscuts.com'],
+      url: SITE_URL,
+      description: SITE_DESCRIPTION,
+      publisher: { '@id': `${SITE_URL}/#organization` },
+    },
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: SITE_NAME,
+      alternateName: 'Tennis Cuts',
+      url: SITE_URL,
+      logo: `${SITE_URL}/icons/icon-512.png`,
+    },
+  ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

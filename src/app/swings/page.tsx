@@ -1,9 +1,13 @@
+import type { Metadata } from 'next';
 import SwingsView from '@/components/swings/SwingsView';
 import { getSwingsPageData } from '@/lib/swings-page-data';
 import { CURRENT_SEASON, isAvailableSeason } from '@/lib/seasons';
 import { DEFAULT_LEVEL_SCOPE, parseScopeKey } from '@/lib/swings';
 
 export const dynamic = 'force-dynamic';
+
+// Hidden from the nav; the same view as the homepage, so point search there.
+export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 // Swings = the inspiration view: explore detected travel chains on the map.
 // Lands in Explore mode; the in-page toggle flips to Build. Filters sync to URL
