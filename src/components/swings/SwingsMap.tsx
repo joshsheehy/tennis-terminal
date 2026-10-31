@@ -127,6 +127,8 @@ export type MapEvent = SwingMapEvent & {
   tier?: CandidateTier;
   /** Entry-status tint for a chain dot once a ranking is entered. */
   statusColor?: string;
+  /** Candidate in a week that already has a stop: its popup offers no Add button. */
+  addLocked?: boolean;
   /** Pre-formatted reference-cut line for the popup (e.g. "2025 cut · MD #245 · Q #390"). */
   cutText?: string;
 };
@@ -597,7 +599,7 @@ export default function SwingsMap({
           event.longitude,
           `<div class="cand-dot" style="--dot:${color}">${event.week}</div>`,
           {
-            popupHtml: popupHtml(event, true),
+            popupHtml: popupHtml(event, !event.addLocked),
             onPopupOpen: (element) => {
               element.querySelector('.swing-popup__add')?.addEventListener('click', () => {
                 onPickRef.current(event.editionId);

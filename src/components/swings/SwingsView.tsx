@@ -386,6 +386,9 @@ export default function SwingsView({
     () => chainIds.map((id) => eventById.get(id)).filter((e): e is SwingMapEvent => !!e),
     [chainIds, eventById]
   );
+  // One tournament per week: a week that already has a stop still lists its
+  // other events (to compare), but none of them can be added.
+  const bookedWeeks = useMemo(() => new Set(chain.map((e) => e.week)), [chain]);
   // The stop you'd be travelling on from to reach the week being browsed: the
   // latest stop before it, or the first stop when browsing ahead of them all.
   // Candidates are ranked by their relation (same city/country…) to this stop.
@@ -417,7 +420,7 @@ export default function SwingsView({
   const addStop = (editionId: string) => {
     if (chainIds.includes(editionId)) return;
     const ev = eventById.get(editionId);
-    if (!ev) return;
+    if (!ev || bookedWeeks.has(ev.week)) return;
     // Keep the schedule in week order, so a stop added to an earlier week
     // (San Diego after Cleveland) slots in before it rather than after.
     const weekOf = (id: string) => eventById.get(id)?.week ?? Number.MAX_SAFE_INTEGER;
@@ -521,9 +524,10 @@ export default function SwingsView({
         builderRole: 'candidate' as const,
         tier: c.tier,
         cutText: cutTextFor(c.event.slug),
+        addLocked: bookedWeeks.has(c.event.week),
       }));
     return [...chainEvents, ...candEvents];
-  }, [mode, chain, candidates, rankSingles, rankDoubles, singlesStatuses, doublesStatuses, cutTextFor]);
+  }, [mode, chain, candidates, bookedWeeks, rankSingles, rankDoubles, singlesStatuses, doublesStatuses, cutTextFor]);
 
   const fitPoints: [number, number][] = useMemo(() => {
     if (mode === 'build') {
@@ -748,10 +752,13 @@ export default function SwingsView({
           lastStopWeek={lastStopWeek}
           resumeWeek={resumeWeek}
           onGoToWeek={setSelectedWeek}
+          bookedStop={chain.find((e) => e.week === selectedWeek) ?? null}
           onAdd={addStop}
           onRemove={removeStop}
           onClear={clearChain}
-          onInfo={(event, canAdd) => setInfoEvent({ event, canAdd: Boolean(canAdd) })}
+          onInfo={(event, canAdd) =>
+            setInfoEvent({ event, canAdd: Boolean(canAdd) && !bookedWeeks.has(event.week) })
+          }
           rankSingles={rankSingles}
           rankDoubles={rankDoubles}
           onRankSingles={updateRankSingles}
@@ -885,6 +892,7 @@ function BuilderPanel({
   lastStopWeek,
   resumeWeek,
   onGoToWeek,
+  bookedStop,
   onAdd,
   onRemove,
   onClear,
@@ -917,6 +925,8 @@ function BuilderPanel({
   lastStopWeek: number | null;
   resumeWeek: number | null;
   onGoToWeek: (week: number) => void;
+  /** The stop already on the schedule for the week being browsed, if any — its rivals can't be added. */
+  bookedStop: SwingMapEvent | null;
   onAdd: (editionId: string) => void;
   onRemove: (index: number) => void;
   onClear: () => void;
@@ -1054,17 +1064,21 @@ function BuilderPanel({
               )}
             </span>
           )}
-          <button
-            type="button"
-            className="cand-add"
-            aria-label={`Add ${c.event.name} to schedule`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAdd(c.event.editionId);
-            }}
-          >
-            ＋ Add
-          </button>
+          {bookedStop ? (
+            <span className="cand-booked">Week booked</span>
+          ) : (
+            <button
+              type="button"
+              className="cand-add"
+              aria-label={`Add ${c.event.name} to schedule`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd(c.event.editionId);
+              }}
+            >
+              ＋ Add
+            </button>
+          )}
         </div>
       </li>
     );
@@ -1415,6 +1429,12 @@ function BuilderPanel({
               emptyWeek
             ) : (
               <>
+                {bookedStop && (
+                  <p className="week-booked-note" role="note">
+                    You&rsquo;re playing <strong>{bookedStop.name}</strong> this week. Remove it from
+                    your schedule to pick a different event.
+                  </p>
+                )}
                 {grouped.map((g) => (
                   <div key={g.tier} className="cand-group">
                     <p className={`cand-group-head cand-tier--${g.tier}`}>{TIER_LABELS[g.tier]}</p>
