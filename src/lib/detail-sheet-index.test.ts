@@ -37,6 +37,12 @@ describe('buildDetailSheetIndex', () => {
     expect(index.map((e) => e.name)).toEqual(['Plovdiv 2', 'Plovdiv 10']);
   });
 
+  it('lists a first-season event whose code is only in ptl-code-overrides.ts', () => {
+    const index = buildDetailSheetIndex([edition({ slug: 'kingston-2', name: 'Kingston 2', source_url: null })]);
+    expect(index).toHaveLength(1);
+    expect(index[0].sheets[0].url).toBe('https://www.protennislive.com/posting/2026/3129/ds.pdf');
+  });
+
   it('makes one row per tournament with a link for every year, newest first', () => {
     const index = buildDetailSheetIndex([
       edition({ slug: 'zz-sion', name: 'Sion', year: 2024, source_url: 'https://www.protennislive.com/posting/2024/9030/mds.pdf' }),

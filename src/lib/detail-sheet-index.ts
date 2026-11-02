@@ -1,3 +1,4 @@
+import { overrideCodeFor } from './ptl-code-overrides';
 import { detailSheetUrl, levelGetsDetailSheet, resolveTournamentPtlCode } from './tournament-links';
 
 // The index behind /ds: every tournament that has a ProTennisLive detail sheet,
@@ -70,10 +71,13 @@ export function buildDetailSheetIndex(
     const newestFirst = [...list].sort((a, b) => b.year - a.year);
     const newest = newestFirst[0];
 
-    const code = resolveTournamentPtlCode(slug, [
-      ...newestFirst.map((edition) => edition.source_url),
-      ...(urlsBySlug.get(slug) ?? []),
-    ]);
+    // A first-season event's code is often only in ptl-code-overrides.ts until its
+    // cut is imported — which is weeks after its detail sheet is posted.
+    const code =
+      resolveTournamentPtlCode(slug, [
+        ...newestFirst.map((edition) => edition.source_url),
+        ...(urlsBySlug.get(slug) ?? []),
+      ]) ?? overrideCodeFor(slug);
     if (!code) continue; // no code, so no sheet to link to
 
     const years = [...new Set(newestFirst.map((edition) => edition.year))];

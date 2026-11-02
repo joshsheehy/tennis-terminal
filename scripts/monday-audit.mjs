@@ -83,7 +83,10 @@ const COVERAGE_WEEKS = parseInt(OPT('weeks', '2'), 10) // current week + N-1 ahe
 // D7's own window: beyond this, a missing detail sheet isn't worth flagging — a code
 // and its ds.pdf often genuinely don't exist yet that far out. Inside it, D7 escalates
 // to critical once the tournament is DETAIL_SHEET_CRITICAL_WEEKS out or less.
-const DETAIL_SHEET_LOOKAHEAD_WEEKS = parseInt(OPT('detail-sheet-weeks', '4'), 10)
+// Six weeks, not four: the window starts at this week's Monday, so four only reached
+// three weeks past the audit and missed sheets players were already planning around
+// (the Nov 23 week went unflagged on Nov 1 with three events lacking a code).
+const DETAIL_SHEET_LOOKAHEAD_WEEKS = parseInt(OPT('detail-sheet-weeks', '6'), 10)
 const DETAIL_SHEET_CRITICAL_WEEKS = parseInt(OPT('detail-sheet-critical-weeks', '2'), 10)
 // A cut can only exist once its entry list is posted, which is after the deadline.
 const GRACE_DAYS = Number(OPT('grace', '3'))

@@ -69,6 +69,18 @@ export const PTL_CODE_OVERRIDES: Record<string, PtlCodeOverride> = {
   'quebec-city': { code: '3103', confirmedFor: 2026, header: 'CHALLENGER BANQUE NATIONALE QUEBEC — Quebec City, Canada' },
   'santa-cruz-de-la-sierra-2': { code: '3143', confirmedFor: 2026, header: 'Bolivia Open Santa Cruz de la Sierra 2 — Santa Cruz de la Sierra, Bolivia' },
   sion: { code: '3133', confirmedFor: 2026, header: 'Sion, Switzerland' },
+  // Late-2026 events, codes read from the ATP Challenger calendar (each link's
+  // dates matched) and confirmed against the detail sheet's site block.
+  ankara: { code: '3205', confirmedFor: 2026, header: 'Atak Pro Spor Kulübü — Ankara, Turkey' },
+  'monastir-2': { code: '3161', confirmedFor: 2026, header: 'Holiday Village Skanes — Monastir, Tunisia (23–29 Nov)' },
+  'san-salvador': { code: '3199', confirmedFor: 2026, header: 'Complejo Deportivo de Ciudad Merliot — San Salvador, El Salvador' },
+  'bogota-los-lagartos': { code: '3041', confirmedFor: 2026, header: 'Club Los Lagartos — Bogota, Colombia' },
+  'chisinau-2': { code: '3145', confirmedFor: 2026, header: 'National Tennis Center (NTC) — Chisinau, Moldova' },
+  'soma-bay': { code: '3039', confirmedFor: 2026, header: 'S Tennis Academy — Somabay, Egypt (30 Nov–6 Dec)' },
+  trnava: { code: '3177', confirmedFor: 2026, header: 'TC Empire Trnava — Trnava, Slovakia' },
+  copenhagen: { code: '3179', confirmedFor: 2026, header: 'Kjøbenhavns Boldklub Tennis — Frederiksberg, Denmark' },
+  'la-paz': { code: '3147', confirmedFor: 2026, header: 'Club de Tenis La Paz — La Paz, Bolivia' },
+  'monastir-3': { code: '3163', confirmedFor: 2026, header: 'Holiday Village Skanes — Monastir, Tunisia (7–13 Dec)' },
 
   // NOT HERE ANY MORE: durham, centurion-3-centurion, centurion-4-centurion,
   // fujairah-1. All four looked like undiscovered codes — a code that resolved
