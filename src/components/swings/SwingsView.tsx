@@ -580,14 +580,19 @@ export default function SwingsView({
     if (next.size === 0) return; // keep at least one level on
     pushParams((p) => p.set('scope', [...next].join('+')));
   };
+  // Surface filtering runs on data already in the page, so only the URL
+  // changes: router.push re-fetched the whole Builder payload (~260 KB) from
+  // the server, which on a slow connection left the pill looking dead.
+  // Next keeps useSearchParams in sync with history.pushState.
   const toggleSurface = (s: string) => {
     const next = new Set(surfaces ?? []);
     if (next.has(s)) next.delete(s);
     else next.add(s);
-    pushParams((p) => {
-      if (next.size === 0) p.delete('surface');
-      else p.set('surface', [...next].join(','));
-    });
+    const qs = new URLSearchParams(params.toString());
+    if (next.size === 0) qs.delete('surface');
+    else qs.set('surface', [...next].join(','));
+    const query = qs.toString();
+    window.history.pushState(null, '', query ? `${pathname}?${query}` : pathname);
   };
 
   return (

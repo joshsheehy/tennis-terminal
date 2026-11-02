@@ -225,6 +225,14 @@ export default function SwingsMap({
         'bottom-left'
       );
 
+      // OpenFreeMap's styles name sprite images their sprite sheet doesn't
+      // have (the dark build's forest "wood-pattern", "circle-11"). Hand the
+      // map a transparent pixel for any of them rather than leaving a pattern
+      // fill to draw from a missing texture.
+      map.setMissingStyleImageResolver((id) => {
+        if (!map.hasImage(id)) map.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) });
+      });
+
       mapRef.current = map;
       map.once('load', () => fitRef.current());
 
