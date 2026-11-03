@@ -57,15 +57,14 @@ describe('summarizeClimate and weatherLine', () => {
     const days = [...Array(7)].map((_, i) => day(24, 18, i < 2 ? 5 : 0)).concat([...Array(7)].map((_, i) => day(26, 20, i < 1 ? 3 : 0.4)));
     const summary = summarizeClimate(days, 2);
     expect(summary).toEqual({ high: 25, low: 19, rainDays: 1.5, humidity: 80, wind: 20 });
-    expect(weatherLine(summary!)).toBe('25° / 19°C · 2 rainy days · 80% humidity · 20 km/h wind');
   });
 
-  it('says "1 rainy day", not "1 rainy days"', () => {
-    expect(weatherLine({ high: 29, low: 20, rainDays: 1.4, humidity: 70, wind: 14 })).toBe('29° / 20°C · 1 rainy day · 70% humidity · 14 km/h wind');
+  it('shows only the average high and low', () => {
+    expect(weatherLine({ high: 29, low: 20 })).toBe('29° / 20°C');
   });
 
   it('has nothing to say without temperatures', () => {
     expect(summarizeClimate([], 5)).toBeNull();
-    expect(weatherLine({ high: null, low: null, rainDays: 2, humidity: null, wind: null })).toBeNull();
+    expect(weatherLine({ high: null, low: null })).toBeNull();
   });
 });

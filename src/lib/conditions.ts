@@ -95,17 +95,10 @@ export function summarizeClimate(days: DailyWeather[], windowCount: number): Cli
   };
 }
 
-/** "25° / 20°C · 4 rainy days · 82% humidity · 21 km/h wind" — parts with no data are left out. */
-export function weatherLine(c: ClimateSummary): string | null {
+/** "25° / 20°C": the week's average high and low. */
+export function weatherLine(c: Pick<ClimateSummary, 'high' | 'low'>): string | null {
   if (c.high == null || c.low == null) return null;
-  const parts = [`${c.high}° / ${c.low}°C`];
-  if (c.rainDays != null) {
-    const days = Math.round(c.rainDays);
-    parts.push(`${days} rainy ${days === 1 ? 'day' : 'days'}`);
-  }
-  if (c.humidity != null) parts.push(`${c.humidity}% humidity`);
-  if (c.wind != null) parts.push(`${c.wind} km/h wind`);
-  return parts.join(' · ');
+  return `${c.high}° / ${c.low}°C`;
 }
 
 export function hasAnyConditions(c: EditionConditions | undefined): c is EditionConditions {
