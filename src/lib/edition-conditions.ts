@@ -173,10 +173,11 @@ const SHEET_RECHECK_DAYS = 3;
 /**
  * ATP/Challenger editions starting from last week to `weeks` ahead whose
  * detail sheet hasn't been read, or was read with a blank and is due a re-read.
+ * `recheck` re-reads every incomplete sheet now, without waiting.
  * The code comes from the same places /ds uses (catalogue, stored posting
  * URLs, ptl-code-overrides.ts).
  */
-export async function sheetTargets(weeks: number, limit: number): Promise<SheetTarget[]> {
+export async function sheetTargets(weeks: number, limit: number, recheck = false): Promise<SheetTarget[]> {
   await ensureConditionsTable();
   const editions = await pool.query<{ editionId: string; slug: string; name: string; startDate: string; year: number; level: string; sourceUrl: string | null }>(
     `select te.id as "editionId", t.slug, t.name, te.start_date::text as "startDate", te.year, te.level, te.source_url as "sourceUrl"
@@ -187,9 +188,9 @@ export async function sheetTargets(weeks: number, limit: number): Promise<SheetT
        and te.start_date between current_date - 7 and current_date + ($1::int * 7)
        and (ec.sheet_checked_at is null
             or ((ec.ball is null or ec.court_brand is null)
-                and ec.sheet_checked_at < now() - ($2::int * interval '1 day')))
+                and ($3 or ec.sheet_checked_at < now() - ($2::int * interval '1 day'))))
      order by te.start_date, t.name`,
-    [weeks, SHEET_RECHECK_DAYS]
+    [weeks, SHEET_RECHECK_DAYS, recheck]
   );
   const eligible = editions.rows.filter((row) => levelGetsDetailSheet(row.level));
   if (eligible.length === 0) return [];

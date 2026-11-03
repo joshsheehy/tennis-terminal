@@ -25,6 +25,10 @@ on:
         description: 'Maximum detail sheets to download this run'
         required: false
         default: '20'
+      recheck:
+        description: 'Re-read every incomplete sheet now instead of after three days'
+        required: false
+        default: 'false'
   schedule:
     - cron: '25 14 * * *'
 
@@ -41,6 +45,7 @@ jobs:
       ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
       WEEKS: ${{ inputs.weeks || '8' }}
       SHEETS: ${{ inputs.sheets || '20' }}
+      RECHECK: ${{ inputs.recheck == 'true' && '1' || '0' }}
     steps:
       - name: Weather and elevation (Open-Meteo, via production)
         run: |
@@ -60,7 +65,7 @@ jobs:
           base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
           ua='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
           targets=$(curl --fail-with-body -sS --max-time 60 -H "X-Admin-Secret: $ADMIN_SECRET" \
-            "$base/api/conditions/sheet?weeks=6&limit=$SHEETS")
+            "$base/api/conditions/sheet?weeks=6&limit=$SHEETS&recheck=$RECHECK")
           echo "$(echo "$targets" | jq '.count') sheets to read"
           echo "$targets" | jq -c '.targets[]' | while read -r t; do
             id=$(echo "$t" | jq -r '.editionId'); url=$(echo "$t" | jq -r '.url'); name=$(echo "$t" | jq -r '.name')

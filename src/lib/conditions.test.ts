@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { climateWindows, parseSheetConditions, summarizeClimate, weatherLine } from './conditions';
+import { joinRows } from './pdf-row-text';
 
 // Site blocks from real 2026 detail sheets, as extractRowText returns them (cells joined by tabs).
 const YOKOHAMA = [
@@ -22,6 +23,21 @@ describe('parseSheetConditions', () => {
   it('leaves fields the tournament left blank as null', () => {
     expect(parseSheetConditions(ANKARA)).toEqual({ surface: null, courtBrand: null, ball: null });
     expect(parseSheetConditions(MONASTIR_2)).toEqual({ surface: 'Outdoor Hard', courtBrand: 'Greenset', ball: null });
+  });
+
+  it('reads values printed a fraction of a point off their label (Ankara 2026)', () => {
+    // Real positions from the sheet: each value sits 0.1 pt above its label.
+    const at = (x: number, y: number, str: string) => ({ x, y, str });
+    const rows = joinRows([
+      at(33.2, 922.5, 'Atak Pro Spor Kulübü'), at(238.4, 922.4, 'SURFACE:'), at(342.9, 922.5, 'Indoor Hard'),
+      at(520.8, 922.4, 'LAUNDRY:'), at(613.2, 922.5, 'In the hotel'),
+      at(33.2, 910.5, 'Çamlıca Mah. 147. Cad. No: 23/8'), at(238.4, 910.4, 'SURFACE BRAND:'), at(342.9, 910.5, 'Terraco Flexipave'),
+      at(520.8, 910.4, 'LAUNDRY COST:'), at(613.2, 910.5, '€6/kg'),
+      at(33.2, 898.5, 'Macunköy Eğitim ve Spor Tesisi'), at(238.4, 898.4, 'BALL:'), at(342.9, 898.5, 'Dunlop ATP Hard'),
+      at(520.8, 898.4, 'FOOD:'), at(613.2, 898.5, 'Restaurant on site, Buffet style (11:30-15:00)'),
+    ]);
+    expect(rows).toHaveLength(3);
+    expect(parseSheetConditions(rows.join('\n'))).toEqual({ surface: 'Indoor Hard', courtBrand: 'Terraco Flexipave', ball: 'Dunlop ATP Hard' });
   });
 
   it('reads a label and value that arrive as one cell', () => {

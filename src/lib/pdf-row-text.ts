@@ -4,6 +4,29 @@
 
 type PdfTextItem = { str: string; transform: number[] };
 
+export type PositionedText = { x: number; y: number; str: string };
+
+// Cells of one table row can sit a fraction of a point apart: on Ankara's
+// 2026 sheet "BALL:" is at y=898.4 and its value at y=898.5, which rounding
+// to whole points put on different lines. Rows here are 8–12 points apart.
+const SAME_ROW_POINTS = 2;
+
+/** One tab-joined line per visual row, top to bottom, cells left to right. */
+export function joinRows(items: PositionedText[]): string[] {
+  const rows: Array<{ y: number; cells: PositionedText[] }> = [];
+  for (const item of [...items].sort((a, b) => b.y - a.y)) {
+    const row = rows[rows.length - 1];
+    if (row && row.y - item.y <= SAME_ROW_POINTS) row.cells.push(item);
+    else rows.push({ y: item.y, cells: [item] });
+  }
+  return rows.map((row) =>
+    row.cells
+      .sort((a, b) => a.x - b.x)
+      .map((cell) => cell.str)
+      .join('\t')
+  );
+}
+
 /**
  * Text with the table rows intact.
  *
@@ -42,23 +65,14 @@ export async function extractRowText(buffer: Buffer): Promise<string> {
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
       const page = await doc.getPage(pageNumber);
       const content = await page.getTextContent();
-      const rows = new Map<number, Array<[number, string]>>();
+      const items: PositionedText[] = [];
       for (const raw of content.items) {
         const item = raw as Partial<PdfTextItem>;
         if (typeof item.str !== 'string' || !item.str.trim()) continue;
         if (!Array.isArray(item.transform) || item.transform.length < 6) continue;
-        const y = Math.round(item.transform[5]);
-        if (!rows.has(y)) rows.set(y, []);
-        rows.get(y)?.push([item.transform[4], item.str]);
+        items.push({ x: item.transform[4], y: item.transform[5], str: item.str });
       }
-      for (const y of [...rows.keys()].sort((a, b) => b - a)) {
-        lines.push(
-          (rows.get(y) ?? [])
-            .sort((a, b) => a[0] - b[0])
-            .map(([, str]) => str)
-            .join('\t')
-        );
-      }
+      lines.push(...joinRows(items));
     }
   } finally {
     await doc.destroy().catch(() => undefined);

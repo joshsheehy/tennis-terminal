@@ -12,14 +12,14 @@ export const dynamic = 'force-dynamic';
 // downloading (.github/workflows/conditions-sync.yml) — the same split as
 // cut-sync.yml and /api/import-pdf-direct.
 //
-//   GET  /api/conditions/sheet?weeks=6&limit=25   -> sheets to fetch
+//   GET  /api/conditions/sheet?weeks=6&limit=25[&recheck=1]  -> sheets to fetch
 //   POST /api/conditions/sheet?editionId=…&url=…  <- the PDF bytes
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const weeks = Math.min(26, Math.max(1, Number(params.get('weeks') ?? 6)));
   const limit = Math.min(100, Math.max(1, Number(params.get('limit') ?? 25)));
-  const targets = await sheetTargets(weeks, limit);
+  const targets = await sheetTargets(weeks, limit, params.get('recheck') === '1');
   return NextResponse.json({ ok: true, weeks, count: targets.length, targets });
 }
 
