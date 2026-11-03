@@ -1,0 +1,75 @@
+name: Conditions sync (weather, elevation, ball, court)
+
+# Fills the Conditions block on the Builder's info card for upcoming events.
+#
+# 1. Weather + elevation: /api/conditions/climate asks Open-Meteo from Railway,
+#    time-budgeted, so this step just repeats the call while hasMore is true.
+# 2. Ball + court brand: detail-sheet PDFs, downloaded HERE rather than on
+#    Railway because protennislive.com rate-limits Railway's shared egress (see
+#    cut-sync.yml's header). /api/conditions/sheet names the sheets still to
+#    read; each one's bytes are POSTed back for parsing.
+#
+# Budget: cut-sync.yml collects cuts from the same host, which allows a rested
+# address about forty requests. This job takes at most 20, twenty seconds
+# apart, stops at the first 429, and runs once a day away from cut-sync's
+# 06:10 / 18:10 passes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      weeks:
+        description: 'How many weeks ahead to fill'
+        required: false
+        default: '8'
+      sheets:
+        description: 'Maximum detail sheets to download this run'
+        required: false
+        default: '20'
+  schedule:
+    - cron: '25 14 * * *'
+
+concurrency:
+  group: conditions-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_URL: ${{ secrets.APP_URL }}
+      ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+      WEEKS: ${{ inputs.weeks || '8' }}
+      SHEETS: ${{ inputs.sheets || '20' }}
+    steps:
+      - name: Weather and elevation (Open-Meteo, via production)
+        run: |
+          set -euo pipefail
+          base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
+          for i in $(seq 1 30); do
+            res=$(curl --fail-with-body -sS --max-time 90 -X POST -H "X-Admin-Secret: $ADMIN_SECRET" \
+              "$base/api/conditions/climate?weeks=$WEEKS&budgetMs=40000")
+            echo "$res" | jq -c '{saved, remaining, hasMore, failed}'
+            [ "$(echo "$res" | jq -r '.hasMore')" = "true" ] || break
+            sleep 20
+          done
+
+      - name: Ball and court brand (detail sheets, fetched from this runner)
+        run: |
+          set -euo pipefail
+          base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
+          ua='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+          targets=$(curl --fail-with-body -sS --max-time 60 -H "X-Admin-Secret: $ADMIN_SECRET" \
+            "$base/api/conditions/sheet?weeks=6&limit=$SHEETS")
+          echo "$(echo "$targets" | jq '.count') sheets to read"
+          echo "$targets" | jq -c '.targets[]' | while read -r t; do
+            id=$(echo "$t" | jq -r '.editionId'); url=$(echo "$t" | jq -r '.url'); name=$(echo "$t" | jq -r '.name')
+            code=$(curl -sS -A "$ua" -o sheet.pdf -w '%{http_code}' --max-time 60 "$url" || echo 000)
+            if [ "$code" = "429" ]; then echo "429 from protennislive.com at $name; stopping for today"; break; fi
+            if [ "$code" != "200" ]; then echo "$name: HTTP $code, skipped"; sleep 20; continue; fi
+            curl --fail-with-body -sS --max-time 60 -X POST -H "X-Admin-Secret: $ADMIN_SECRET" \
+              -H 'Content-Type: application/pdf' --data-binary @sheet.pdf \
+              "$base/api/conditions/sheet?editionId=$id&url=$(jq -rn --arg u "$url" '$u|@uri')" \
+              | jq -c '{bytes, ball, courtBrand, surface}' | sed "s/^/$name: /" || echo "$name: upload failed"
+            sleep 20
+          done

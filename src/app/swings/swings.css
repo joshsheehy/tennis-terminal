@@ -423,6 +423,12 @@
   transition: background 140ms ease;
 }
 .tinfo-open:hover { background: var(--brand-ink-hover); }
+/* Conditions block: label/value rows under the cut history. */
+.tinfo-cond { margin: 14px 0 6px; padding-top: 12px; border-top: 1px solid var(--border-inner); }
+.tinfo-cond dl { display: grid; grid-template-columns: max-content 1fr; gap: 7px 14px; margin: 6px 0 0; font-size: 13px; line-height: 1.35; }
+.tinfo-cond__row { display: contents; }
+.tinfo-cond dt { color: var(--text-muted); }
+.tinfo-cond dd { margin: 0; color: var(--text-strong); font-weight: 550; }
 .tinfo-add {
   width: 100%;
   border: none;

@@ -8,6 +8,8 @@ import dynamic from 'next/dynamic';
 import SaveButton from '@/components/SaveButton';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw } from '@/lib/swings-page-data';
+import type { EditionConditions } from '@/lib/conditions';
+import ConditionsBlock from './ConditionsBlock';
 import { LevelGroup, levelRank } from '@/lib/swings';
 import {
   CandidateTier,
@@ -727,6 +729,7 @@ export default function SwingsView({
           event={infoEvent.event}
           series={data.cutSeries[infoEvent.event.slug]}
           refs={data.cutRefs[infoEvent.event.slug]}
+          conditions={data.conditions[infoEvent.event.editionId]}
           year={data.year}
           backTo={returnHref()}
           onAdd={
@@ -1624,6 +1627,7 @@ function TournamentInfoCard({
   event,
   series,
   refs,
+  conditions,
   year,
   backTo,
   onAdd,
@@ -1632,6 +1636,7 @@ function TournamentInfoCard({
   event: SwingMapEvent;
   series: CutSeriesByDraw | undefined;
   refs: SwingsPageData['cutRefs'][string] | undefined;
+  conditions: EditionConditions | undefined;
   year: number;
   /** This view + current chain, so the tournament page can send you back here. */
   backTo: string;
@@ -1712,6 +1717,7 @@ function TournamentInfoCard({
         ) : (
           <p className="tinfo-line tinfo-line--muted">No {draw.label.toLowerCase()} cut history on record yet.</p>
         )}
+        <ConditionsBlock conditions={conditions} />
         {onAdd && (
           <button type="button" className="tinfo-open tinfo-add" onClick={onAdd}>
             ＋ Add to schedule

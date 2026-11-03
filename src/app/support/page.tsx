@@ -87,6 +87,11 @@ export default function SupportPage() {
           Spot something wrong? Email us and we&apos;ll fix it.
         </p>
         <p style={pStyle}>
+          Weather and elevation data by <a href="https://open-meteo.com/">Open-Meteo.com</a>, licensed under{' '}
+          <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Ball and court details come from
+          each tournament&apos;s detail sheet.
+        </p>
+        <p style={pStyle}>
           TennisCuts is an independent tool and isn&apos;t affiliated with or endorsed by the ATP,
           the ITF or any tournament.
         </p>

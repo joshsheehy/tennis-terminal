@@ -17,6 +17,8 @@ import {
   scopeKey,
 } from './swings';
 import { loadSwingEventsForYear } from './swings-data';
+import type { EditionConditions } from './conditions';
+import { CONDITIONS_CACHE_TAG, loadConditionsForYear } from './edition-conditions';
 import type { TournamentCutRefs } from './swing-rank-check';
 
 export type SwingMapEvent = {
@@ -75,6 +77,8 @@ export type SwingsPageData = {
   /** Beta cut projections for the viewed season's upcoming events, keyed by
    * slug then draw key — freshest horizon per draw. */
   cutProjections: Record<string, CutProjectionsByDraw>;
+  /** Weather, elevation, ball and court per edition id — only editions that have any. */
+  conditions: Record<string, EditionConditions>;
 };
 
 export type CutSeriesByDraw = {
@@ -284,12 +288,26 @@ const getCachedCutProjections = unstable_cache(
   { revalidate: 300 }
 );
 
+// Conditions are a nice-to-have on the info card: a failed lookup (or the
+// table not existing yet) leaves the card without them rather than the page down.
+const getCachedConditions = unstable_cache(
+  async (year: number) => loadConditionsForYear(year).catch(() => ({})),
+  ['swings-conditions'],
+  { revalidate: 300, tags: [CONDITIONS_CACHE_TAG] }
+);
+
 export async function getSwingsPageData(
   year: number,
   groups: LevelGroup[] = DEFAULT_LEVEL_SCOPE,
   config: SwingConfig = DEFAULT_SWING_CONFIG
 ): Promise<SwingsPageData> {
-  const [all, cutRefs, cutSeries, cutProjections] = await Promise.all([getCachedEvents(year), getCachedCutRefs(year), getCachedCutSeries(year), getCachedCutProjections(year)]);
+  const [all, cutRefs, cutSeries, cutProjections, allConditions] = await Promise.all([
+    getCachedEvents(year),
+    getCachedCutRefs(year),
+    getCachedCutSeries(year),
+    getCachedCutProjections(year),
+    getCachedConditions(year),
+  ]);
   const groupSet = new Set(groups);
   const scoped = all.filter((e) => {
     const g = levelGroup(e.level);
@@ -360,5 +378,12 @@ export async function getSwingsPageData(
   const currentWeek =
     year === CURRENT_SEASON ? getAtpWeekForSeason(new Date(), year) ?? 1 : 1;
 
-  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries, cutProjections };
+  // Only the editions in view, to keep the payload small.
+  const conditions: Record<string, EditionConditions> = {};
+  for (const event of events) {
+    const c = (allConditions as Record<string, EditionConditions>)[event.editionId];
+    if (c) conditions[event.editionId] = c;
+  }
+
+  return { year, scope: scopeKey(groups), groups, currentWeek, events, swings, cutRefs, cutSeries, cutProjections, conditions };
 }
