@@ -40,6 +40,16 @@ describe('parseSheetConditions', () => {
     expect(parseSheetConditions(rows.join('\n'))).toEqual({ surface: 'Indoor Hard', courtBrand: 'Terraco Flexipave', ball: 'Dunlop ATP Hard' });
   });
 
+  it('reads ATP Tour sheets, whose labels have no colon (Paris 2026)', () => {
+    const at = (x: number, y: number, str: string) => ({ x, y, str });
+    const rows = joinRows([
+      at(208.6, 427.9, 'SURFACE'), at(255.6, 427.9, 'Indoor Hard'), at(398.7, 423.4, 'Rémy Azemar'),
+      at(26.4, 404.4, '•'), at(40.0, 404.4, 'Doubles final: 12:30'), at(398.7, 404.2, 'razemar@fft.fr'),
+      at(208.6, 403.9, 'BALL'), at(234.7, 403.9, 'Dunlop ATP'),
+    ]);
+    expect(parseSheetConditions(rows.join('\n'))).toEqual({ surface: 'Indoor Hard', courtBrand: null, ball: 'Dunlop ATP' });
+  });
+
   it('reads a label and value that arrive as one cell', () => {
     expect(parseSheetConditions('Club\tBALL: Wilson Roland Garros All Court\tFOOD:').ball).toBe('Wilson Roland Garros All Court');
   });

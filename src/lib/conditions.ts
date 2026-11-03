@@ -18,14 +18,16 @@ export type EditionConditions = {
 
 export type SheetConditions = { surface: string | null; courtBrand: string | null; ball: string | null };
 
-// A detail sheet's site block is a three-column table, so each line carries
-// cells like "…\tSURFACE BRAND:\tDecoturf\tLAUNDRY COST:\t…". A blank field
-// leaves the label followed straight by the next label.
+// A Challenger detail sheet's site block is a three-column table, so each line
+// carries cells like "…\tSURFACE BRAND:\tDecoturf\tLAUNDRY COST:\t…"; a blank
+// field leaves the label followed straight by the next label. ATP Tour sheets
+// (Paris, Stockholm) write the labels without a colon — "BALL\tDunlop ATP" —
+// and have no surface brand.
 function sheetField(rowText: string, label: string): string | null {
   for (const line of rowText.split('\n')) {
     const cells = line.split('\t').map((cell) => cell.trim()).filter(Boolean);
     for (let i = 0; i < cells.length; i += 1) {
-      if (cells[i] === `${label}:`) {
+      if (cells[i] === `${label}:` || cells[i] === label) {
         const value = cells[i + 1];
         return value && !value.endsWith(':') ? value : null;
       }
