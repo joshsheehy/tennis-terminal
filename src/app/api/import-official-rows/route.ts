@@ -75,12 +75,19 @@ export async function POST(request: NextRequest) {
   // bot-blocked from datacenters) and rsc.atppz.com (ATP Player Zone — the
   // fresher combined calendar the server-side sync itself prefers). Rejecting
   // Player Zone URLs here silently broke the runner-parsed import path.
+  // Player Zone's web calendar lists next season's Challengers weeks before
+  // any PDF does (2027's were there in November 2026, the newest PDF stopped
+  // at 2026 week 50). It needs a login, so those rows arrive by hand from
+  // data/calendar-rows/ via import-calendar-rows.yml, citing www.atppz.com.
   if (
     typeof sourcePdfUrl !== 'string' ||
-    !/^https:\/\/(www\.atptour\.com|rsc\.atppz\.com)\/.+\.pdf/i.test(sourcePdfUrl)
+    !(
+      /^https:\/\/(www\.atptour\.com|rsc\.atppz\.com)\/.+\.pdf/i.test(sourcePdfUrl) ||
+      /^https:\/\/www\.atppz\.com\//i.test(sourcePdfUrl)
+    )
   ) {
     return NextResponse.json(
-      { ok: false, error: 'sourcePdfUrl must be an atptour.com or rsc.atppz.com PDF URL' },
+      { ok: false, error: 'sourcePdfUrl must be an atptour.com or rsc.atppz.com PDF URL, or the www.atppz.com calendar' },
       { status: 400 }
     );
   }
@@ -206,6 +213,9 @@ export async function POST(request: NextRequest) {
     invalid: invalid.slice(0, 10),
     failed: failed.slice(0, 10),
     sampleUpserted: upserted.slice(0, 5),
+    // A dry run lists every row's resolved slug, so a hand-made batch can be
+    // checked against existing tournaments before anything is written.
+    ...(apply ? {} : { resolved: upserted.map((row) => ({ slug: row.slug, name: row.name, startDate: row.startDate, level: row.level })) }),
     message: apply ? 'Rows upserted.' : 'Dry run. Append ?apply=true to write.',
   });
 }

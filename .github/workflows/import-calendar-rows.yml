@@ -1,0 +1,48 @@
+name: Import hand-entered calendar rows
+
+# For tournaments that are on the ATP calendar before any public PDF lists
+# them — Player Zone's web calendar shows next season's Challengers weeks
+# early, behind a login. Someone copies them into a file under
+# data/calendar-rows/ (same row shape as the official PDF parser emits) and
+# this posts it to /api/import-official-rows, the importer the official
+# calendar sync itself uses, so the eventual PDF updates these rows rather
+# than adding duplicates.
+#
+# Run it as a dry run first: the log lists every row's resolved slug, so a
+# row about to create a new tournament instead of joining an existing one is
+# visible before anything is written. Then re-run with apply=true.
+
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'Rows file, e.g. data/calendar-rows/2027-challengers-2026-11-04.json'
+        required: true
+      apply:
+        description: 'Write to production (otherwise a dry run)'
+        required: false
+        default: 'false'
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post rows
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          FILE: ${{ inputs.file }}
+          APPLY: ${{ inputs.apply == 'true' && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
+          body=$(jq -c '{year, sourcePdfUrl, rows}' "$FILE")
+          res=$(curl --fail-with-body -sS --max-time 120 -X POST \
+            -H "X-Admin-Secret: $ADMIN_SECRET" -H 'Content-Type: application/json' \
+            -d "$body" "$base/api/import-official-rows?apply=$APPLY")
+          echo "$res" | jq '{ok, apply, year, received, upsertedCount, newlyAddedCount, failed, invalid}'
+          echo "$res" | jq -r '(.resolved // [])[] | "  \(.startDate)  \(.level)  \(.name)  ->  \(.slug)"'
+          echo "$res" | jq -r '(.newlyAdded // [])[] | "  + new: \(.name) (\(.level), week \(.week)) -> \(.slug)"'
+          [ "$(echo "$res" | jq -r '.ok')" = "true" ]

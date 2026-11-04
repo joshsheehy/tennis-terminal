@@ -1,0 +1,37 @@
+name: New tournament alerts (Telegram)
+
+# Telegrams the owner when ATP or Challenger tournaments appear on the site,
+# whichever importer added them (official calendar, catalogue, ProTennisLive
+# postings, hand-entered rows). The endpoint compares what's listed with what
+# has been announced; this just calls it. Every three hours, offset from the
+# calendar syncs (07:45, 08:15) so a morning import is announced the same day.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'List what would be announced without sending'
+        required: false
+        default: 'false'
+  schedule:
+    - cron: '35 */3 * * *'
+
+concurrency:
+  group: tournament-alerts
+  cancel-in-progress: false
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Announce new tournaments
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          DRY: ${{ inputs.dryRun == 'true' && '1' || '0' }}
+        run: |
+          set -euo pipefail
+          base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
+          curl --fail-with-body -sS --max-time 90 -X POST -H "X-Admin-Secret: $ADMIN_SECRET" \
+            "$base/api/announce-new-tournaments?dryRun=$DRY" | jq .

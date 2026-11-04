@@ -1,0 +1,31 @@
+{
+  "_source": "ATP Player Zone web calendar, read 2026-11-04 (screenshot from the account owner). No public ATP calendar PDF listed 2027 Challengers yet: the newest, Player Zone's 19 Oct 2026 combined calendar, ends at 2026 week 50. Names follow the 2026 official calendar's spelling where it is the same event, so each row lands on that tournament and its cut history; the eventual 2027 PDF then updates these rows instead of adding new ones.",
+  "year": 2027,
+  "sourcePdfUrl": "https://www.atppz.com/",
+  "rows": [
+    { "week": 1, "startDate": "2027-01-04", "name": "Canberra", "countryCode": "AUS", "level": "125", "surfaceCode": "H" },
+    { "week": 1, "startDate": "2027-01-04", "name": "Bengaluru 1", "countryCode": "IND", "level": "125", "surfaceCode": "H" },
+    { "week": 1, "startDate": "2027-01-04", "name": "Noumea", "countryCode": "NCL", "level": "75", "surfaceCode": "H" },
+    { "week": 1, "startDate": "2027-01-04", "name": "Nottingham 1", "countryCode": "GBR", "level": "50", "surfaceCode": "IH" },
+
+    { "week": 2, "startDate": "2027-01-11", "name": "Glasgow", "countryCode": "GBR", "level": "75", "surfaceCode": "IH" },
+    { "week": 2, "startDate": "2027-01-11", "name": "Baton Rouge, LA", "countryCode": "USA", "level": "50", "surfaceCode": "IH" },
+    { "week": 2, "startDate": "2027-01-11", "name": "Tigre 1", "countryCode": "ARG", "level": "50", "surfaceCode": "CL" },
+
+    { "week": 3, "startDate": "2027-01-18", "name": "San Diego, CA", "countryCode": "USA", "level": "75", "surfaceCode": "H" },
+    { "week": 3, "startDate": "2027-01-18", "name": "Itajaí", "countryCode": "BRA", "level": "75", "surfaceCode": "CL" },
+    { "week": 3, "startDate": "2027-01-18", "name": "Koblenz", "countryCode": "GER", "level": "75", "surfaceCode": "IH" },
+
+    { "week": 4, "startDate": "2027-01-25", "name": "Quimper", "countryCode": "FRA", "level": "125", "surfaceCode": "IH" },
+    { "week": 4, "startDate": "2027-01-25", "name": "Concepción", "countryCode": "CHI", "level": "100", "surfaceCode": "CL" },
+    { "week": 4, "startDate": "2027-01-25", "name": "San Diego 2", "countryCode": "USA", "level": "75", "surfaceCode": "H" },
+    { "week": 4, "startDate": "2027-01-25", "name": "Oeiras 1", "countryCode": "POR", "level": "75", "surfaceCode": "IH" },
+    { "week": 4, "startDate": "2027-01-25", "name": "Cesenatico", "countryCode": "ITA", "level": "50", "surfaceCode": "IH" },
+    { "week": 4, "startDate": "2027-01-25", "name": "Trnava", "countryCode": "SVK", "level": "50", "surfaceCode": "IH" },
+
+    { "week": 5, "startDate": "2027-02-01", "name": "Rosario", "countryCode": "ARG", "level": "125", "surfaceCode": "CL" },
+    { "week": 5, "startDate": "2027-02-01", "name": "Bergamo", "countryCode": "ITA", "level": "125", "surfaceCode": "IH" },
+    { "week": 5, "startDate": "2027-02-01", "name": "Brisbane 1", "countryCode": "AUS", "level": "75", "surfaceCode": "H" },
+    { "week": 5, "startDate": "2027-02-01", "name": "Cleveland, OH", "countryCode": "USA", "level": "75", "surfaceCode": "IH" }
+  ]
+}

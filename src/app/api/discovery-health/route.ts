@@ -187,14 +187,20 @@ async function checkRecentCutCoverage(year: number) {
  *   the file it did publish (must be fixed).
  * ITF is reported only: itftennis.com fills next season in gradually and
  * itf-sync.yml requests it every day.
+ * Challengers entered by hand from Player Zone's web calendar
+ * (data/calendar-rows/, source_url https://www.atppz.com/) don't count toward
+ * the PDF check — they'd hide a PDF pickup that's broken. Once the PDF holds
+ * next season's Challengers, the PDF re-sources every row it matches, so any
+ * hand-entered row still left is a leftover or a duplicate to look at.
  */
 async function checkNextSeasonCalendar(year: number, now: Date) {
   const nextYear = year + 1;
-  const result = await pool.query<{ tour: string; challenger: string; itf: string }>(
+  const result = await pool.query<{ tour: string; challenger: string; itf: string; hand_entered: string }>(
     `
     select
       count(*) filter (where te.level ~ '^(ATP (250|500|1000)|Grand Slam)$') as tour,
-      count(*) filter (where te.level ilike 'Challenger%') as challenger,
+      count(*) filter (where te.level ilike 'Challenger%' and coalesce(te.source_url, '') not ilike 'https://www.atppz.com/%') as challenger,
+      count(*) filter (where te.level ilike 'Challenger%' and te.source_url ilike 'https://www.atppz.com/%') as hand_entered,
       count(*) filter (where te.level ilike 'ITF%') as itf
     from tournament_editions te
     where te.year = $1 and te.status = 'held'
@@ -205,6 +211,7 @@ async function checkNextSeasonCalendar(year: number, now: Date) {
   const tour = Number(row?.tour ?? 0);
   const challenger = Number(row?.challenger ?? 0);
   const itf = Number(row?.itf ?? 0);
+  const handEntered = Number(row?.hand_entered ?? 0);
 
   // ~60 Tour-level editions a season; 40 tolerates a few TBC slots.
   const MIN_TOUR_EDITIONS = 40;
@@ -226,6 +233,12 @@ async function checkNextSeasonCalendar(year: number, now: Date) {
         `(filename guesses and row pattern: src/lib/calendar-pdf-discovery.ts)`
     );
   }
+  if (challenger >= MIN_CHALLENGER_EDITIONS && handEntered > 0) {
+    problems.push(
+      `${handEntered} hand-entered ${nextYear} Challenger(s) (source www.atppz.com) weren't matched by the official PDF ` +
+        `— likely duplicates of a PDF row under another name, or events the PDF dropped`
+    );
+  }
 
   return {
     source: 'next_season_calendar',
@@ -234,6 +247,7 @@ async function checkNextSeasonCalendar(year: number, now: Date) {
     rowCount: tour + challenger + itf,
     tourEditions: tour,
     challengerEditions: challenger,
+    handEnteredChallengers: handEntered,
     itfEditions: itf,
     lastUpdated: null,
     staleDays: null,
