@@ -11,6 +11,12 @@ import { detailSheetUrl, levelGetsDetailSheet, resolveTournamentPtlCode } from '
 
 export const CONDITIONS_CACHE_TAG = 'edition-conditions';
 
+// Pilot: the Conditions block is being tried on these weeks (Monday start
+// dates) before it goes on every tournament, so both syncs and the Builder
+// stick to them. Empty the list to roll it out.
+export const CONDITIONS_PILOT_WEEKS: string[] = ['2026-11-23'];
+const PILOT_FILTER = `(cardinality($PILOT::date[]) = 0 or te.start_date = any($PILOT::date[]))`;
+
 let ensured: Promise<void> | null = null;
 
 export function ensureConditionsTable(): Promise<void> {
@@ -26,13 +32,14 @@ export function ensureConditionsTable(): Promise<void> {
          wind_kmh smallint,
          climate_updated_at timestamptz,
          ball text,
-         court_brand text,
          sheet_surface text,
          sheet_url text,
          sheet_checked_at timestamptz,
          updated_at timestamptz not null default now()
        )`
     )
+    // Court brand was read off the sheets at first and isn't wanted.
+    .then(() => pool.query(`alter table edition_conditions drop column if exists court_brand`))
     .then(() => undefined)
     .catch((error) => {
       ensured = null;
@@ -53,16 +60,15 @@ export async function loadConditionsForYear(year: number): Promise<Record<string
     humidity_pct: number | null;
     wind_kmh: number | null;
     ball: string | null;
-    court_brand: string | null;
     indoor: boolean;
   }>(
     `select ec.edition_id, ec.elevation_m, ec.temp_high_c, ec.temp_low_c, ec.rain_days, ec.humidity_pct,
-            ec.wind_kmh, ec.ball, ec.court_brand,
+            ec.wind_kmh, ec.ball,
             (coalesce(te.indoor, false) or te.surface ilike '%indoor%' or coalesce(ec.sheet_surface, '') ilike 'indoor%') as indoor
      from edition_conditions ec
      join tournament_editions te on te.id = ec.edition_id
-     where te.year = $1`,
-    [year]
+     where te.year = $1 and ${PILOT_FILTER.replaceAll('$PILOT', '$2')}`,
+    [year, CONDITIONS_PILOT_WEEKS]
   );
   const out: Record<string, EditionConditions> = {};
   for (const row of result.rows) {
@@ -74,7 +80,6 @@ export async function loadConditionsForYear(year: number): Promise<Record<string
       humidity: row.humidity_pct,
       wind: row.wind_kmh,
       ball: row.ball,
-      court: row.court_brand,
       indoor: row.indoor,
     };
   }
@@ -94,9 +99,10 @@ export async function climateTargets(weeks: number): Promise<ClimateTarget[]> {
      where te.status = 'held'
        and t.latitude is not null and t.longitude is not null
        and te.start_date between current_date - 7 and current_date + ($1::int * 7)
+       and ${PILOT_FILTER.replaceAll('$PILOT', '$2')}
        and ec.climate_updated_at is null
      order by te.start_date, t.name`,
-    [weeks]
+    [weeks, CONDITIONS_PILOT_WEEKS]
   );
   return result.rows;
 }
@@ -186,11 +192,12 @@ export async function sheetTargets(weeks: number, limit: number, recheck = false
      left join edition_conditions ec on ec.edition_id = te.id
      where te.status = 'held'
        and te.start_date between current_date - 7 and current_date + ($1::int * 7)
+       and ${PILOT_FILTER.replaceAll('$PILOT', '$4')}
        and (ec.sheet_checked_at is null
-            or ((ec.ball is null or ec.court_brand is null)
+            or (ec.ball is null
                 and ($3 or ec.sheet_checked_at < now() - ($2::int * interval '1 day'))))
      order by te.start_date, t.name`,
-    [weeks, SHEET_RECHECK_DAYS, recheck]
+    [weeks, SHEET_RECHECK_DAYS, recheck, CONDITIONS_PILOT_WEEKS]
   );
   const eligible = editions.rows.filter((row) => levelGetsDetailSheet(row.level));
   if (eligible.length === 0) return [];
@@ -226,15 +233,14 @@ export async function sheetTargets(weeks: number, limit: number, recheck = false
 export async function saveSheet(editionId: string, sheet: SheetConditions, url: string | null): Promise<void> {
   await ensureConditionsTable();
   await pool.query(
-    `insert into edition_conditions (edition_id, ball, court_brand, sheet_surface, sheet_url, sheet_checked_at, updated_at)
-     values ($1, $2, $3, $4, $5, now(), now())
+    `insert into edition_conditions (edition_id, ball, sheet_surface, sheet_url, sheet_checked_at, updated_at)
+     values ($1, $2, $3, $4, now(), now())
      on conflict (edition_id) do update set
        ball = coalesce(excluded.ball, edition_conditions.ball),
-       court_brand = coalesce(excluded.court_brand, edition_conditions.court_brand),
        sheet_surface = coalesce(excluded.sheet_surface, edition_conditions.sheet_surface),
        sheet_url = coalesce(excluded.sheet_url, edition_conditions.sheet_url),
        sheet_checked_at = now(),
        updated_at = now()`,
-    [editionId, sheet.ball, sheet.courtBrand, sheet.surface, url]
+    [editionId, sheet.ball, sheet.surface, url]
   );
 }

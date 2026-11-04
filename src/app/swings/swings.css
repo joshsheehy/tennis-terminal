@@ -429,6 +429,21 @@
 .tinfo-cond__row { display: contents; }
 .tinfo-cond dt { color: var(--text-muted); }
 .tinfo-cond dd { margin: 0; color: var(--text-strong); font-weight: 550; }
+.tinfo-cond__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tinfo-cond__head .tinfo-label { margin: 0; }
+.tinfo-units { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-alt); }
+.tinfo-units button {
+  border: none;
+  background: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.tinfo-units button[aria-pressed='true'] { background: var(--surface); color: var(--text-strong); box-shadow: var(--shadow-1); }
 .tinfo-add {
   width: 100%;
   border: none;

@@ -77,7 +77,7 @@ export type SwingsPageData = {
   /** Beta cut projections for the viewed season's upcoming events, keyed by
    * slug then draw key — freshest horizon per draw. */
   cutProjections: Record<string, CutProjectionsByDraw>;
-  /** Weather, elevation, ball and court per edition id — only editions that have any. */
+  /** Weather, elevation and ball per edition id — only editions that have any. */
   conditions: Record<string, EditionConditions>;
 };
 

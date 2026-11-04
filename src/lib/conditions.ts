@@ -1,6 +1,6 @@
 // Playing conditions for a tournament week, shown on the Builder's info card:
 // the week's usual weather and the venue's elevation (Open-Meteo), plus the
-// ball and court brand from the ProTennisLive detail sheet. Pure helpers only —
+// ball from the ProTennisLive detail sheet. Pure helpers only —
 // storage and fetching live in edition-conditions.ts.
 
 export type EditionConditions = {
@@ -12,17 +12,16 @@ export type EditionConditions = {
   humidity: number | null;
   wind: number | null;
   ball: string | null;
-  court: string | null;
   indoor: boolean;
 };
 
-export type SheetConditions = { surface: string | null; courtBrand: string | null; ball: string | null };
+/** surface is only read to tell indoor events apart. */
+export type SheetConditions = { surface: string | null; ball: string | null };
 
 // A Challenger detail sheet's site block is a three-column table, so each line
-// carries cells like "…\tSURFACE BRAND:\tDecoturf\tLAUNDRY COST:\t…"; a blank
+// carries cells like "…\tBALL:\tDunlop AO\tFOOD:\t…"; a blank
 // field leaves the label followed straight by the next label. ATP Tour sheets
-// (Paris, Stockholm) write the labels without a colon — "BALL\tDunlop ATP" —
-// and have no surface brand.
+// (Paris, Stockholm) write the labels without a colon — "BALL\tDunlop ATP".
 function sheetField(rowText: string, label: string): string | null {
   for (const line of rowText.split('\n')) {
     const cells = line.split('\t').map((cell) => cell.trim()).filter(Boolean);
@@ -38,11 +37,10 @@ function sheetField(rowText: string, label: string): string | null {
   return null;
 }
 
-/** SURFACE, SURFACE BRAND and BALL from a detail sheet's tab-joined row text. */
+/** SURFACE and BALL from a detail sheet's tab-joined row text. */
 export function parseSheetConditions(rowText: string): SheetConditions {
   return {
     surface: sheetField(rowText, 'SURFACE'),
-    courtBrand: sheetField(rowText, 'SURFACE BRAND'),
     ball: sheetField(rowText, 'BALL'),
   };
 }
@@ -97,10 +95,18 @@ export function summarizeClimate(days: DailyWeather[], windowCount: number): Cli
   };
 }
 
-/** "25° / 20°C · 82% humidity": the week's average high, low and humidity. */
-export function weatherLine(c: Pick<ClimateSummary, 'high' | 'low' | 'humidity'>): string | null {
+const fahrenheit = (celsius: number) => Math.round((celsius * 9) / 5 + 32);
+
+/** "25° / 20°C · 82% humidity" (or "77° / 68°F · …"): the week's average high, low and humidity. */
+export function weatherLine(c: Pick<ClimateSummary, 'high' | 'low' | 'humidity'>, imperial = false): string | null {
   if (c.high == null || c.low == null) return null;
-  return c.humidity == null ? `${c.high}° / ${c.low}°C` : `${c.high}° / ${c.low}°C · ${c.humidity}% humidity`;
+  const temps = imperial ? `${fahrenheit(c.high)}° / ${fahrenheit(c.low)}°F` : `${c.high}° / ${c.low}°C`;
+  return c.humidity == null ? temps : `${temps} · ${c.humidity}% humidity`;
+}
+
+/** "865 m" or "2,838 ft". */
+export function elevationText(metres: number, imperial = false): string {
+  return imperial ? `${Math.round(metres * 3.28084).toLocaleString('en-US')} ft` : `${metres.toLocaleString('en-US')} m`;
 }
 
 export function hasAnyConditions(c: EditionConditions | undefined): c is EditionConditions {

@@ -1,10 +1,12 @@
-name: Conditions sync (weather, elevation, ball, court)
+name: Conditions sync (weather, elevation, ball)
 
 # Fills the Conditions block on the Builder's info card for upcoming events.
+# While CONDITIONS_PILOT_WEEKS (src/lib/edition-conditions.ts) lists weeks,
+# both endpoints only offer editions in those weeks.
 #
 # 1. Weather + elevation: /api/conditions/climate asks Open-Meteo from Railway,
 #    time-budgeted, so this step just repeats the call while hasMore is true.
-# 2. Ball + court brand: detail-sheet PDFs, downloaded HERE rather than on
+# 2. Ball: detail-sheet PDFs, downloaded HERE rather than on
 #    Railway because protennislive.com rate-limits Railway's shared egress (see
 #    cut-sync.yml's header). /api/conditions/sheet names the sheets still to
 #    read; each one's bytes are POSTed back for parsing.
@@ -59,7 +61,7 @@ jobs:
             sleep 20
           done
 
-      - name: Ball and court brand (detail sheets, fetched from this runner)
+      - name: Ball (detail sheets, fetched from this runner)
         run: |
           set -euo pipefail
           base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
@@ -75,6 +77,6 @@ jobs:
             curl --fail-with-body -sS --max-time 60 -X POST -H "X-Admin-Secret: $ADMIN_SECRET" \
               -H 'Content-Type: application/pdf' --data-binary @sheet.pdf \
               "$base/api/conditions/sheet?editionId=$id&url=$(jq -rn --arg u "$url" '$u|@uri')" \
-              | jq -c '{bytes, ball, courtBrand, surface}' | sed "s/^/$name: /" || echo "$name: upload failed"
+              | jq -c '{bytes, ball, surface}' | sed "s/^/$name: /" || echo "$name: upload failed"
             sleep 20
           done

@@ -1,6 +1,6 @@
 -- Playing conditions per tournament edition, shown on the Builder's info card.
--- Weather/elevation come from Open-Meteo (/api/conditions/climate); ball, court
--- brand and the sheet's surface from the ProTennisLive detail sheet
+-- Weather/elevation come from Open-Meteo (/api/conditions/climate); ball and
+-- the sheet's surface (for indoor) from the ProTennisLive detail sheet
 -- (/api/conditions/sheet). Created lazily by src/lib/edition-conditions.ts.
 create table if not exists edition_conditions (
   edition_id uuid primary key references tournament_editions(id) on delete cascade,
@@ -12,7 +12,6 @@ create table if not exists edition_conditions (
   wind_kmh smallint,
   climate_updated_at timestamptz,
   ball text,
-  court_brand text,
   sheet_surface text,
   sheet_url text,
   sheet_checked_at timestamptz,

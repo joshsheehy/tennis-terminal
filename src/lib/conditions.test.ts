@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { climateWindows, parseSheetConditions, summarizeClimate, weatherLine } from './conditions';
+import { climateWindows, elevationText, parseSheetConditions, summarizeClimate, weatherLine } from './conditions';
 import { joinRows } from './pdf-row-text';
 
 // Site blocks from real 2026 detail sheets, as extractRowText returns them (cells joined by tabs).
@@ -17,12 +17,12 @@ const MONASTIR_2 = [
 
 describe('parseSheetConditions', () => {
   it('reads surface, court brand and ball from the site block', () => {
-    expect(parseSheetConditions(YOKOHAMA)).toEqual({ surface: 'Outdoor Hard', courtBrand: 'Decoturf', ball: 'Dunlop AO' });
+    expect(parseSheetConditions(YOKOHAMA)).toEqual({ surface: 'Outdoor Hard', ball: 'Dunlop AO' });
   });
 
   it('leaves fields the tournament left blank as null', () => {
-    expect(parseSheetConditions(ANKARA)).toEqual({ surface: null, courtBrand: null, ball: null });
-    expect(parseSheetConditions(MONASTIR_2)).toEqual({ surface: 'Outdoor Hard', courtBrand: 'Greenset', ball: null });
+    expect(parseSheetConditions(ANKARA)).toEqual({ surface: null, ball: null });
+    expect(parseSheetConditions(MONASTIR_2)).toEqual({ surface: 'Outdoor Hard', ball: null });
   });
 
   it('reads values printed a fraction of a point off their label (Ankara 2026)', () => {
@@ -37,7 +37,7 @@ describe('parseSheetConditions', () => {
       at(520.8, 898.4, 'FOOD:'), at(613.2, 898.5, 'Restaurant on site, Buffet style (11:30-15:00)'),
     ]);
     expect(rows).toHaveLength(3);
-    expect(parseSheetConditions(rows.join('\n'))).toEqual({ surface: 'Indoor Hard', courtBrand: 'Terraco Flexipave', ball: 'Dunlop ATP Hard' });
+    expect(parseSheetConditions(rows.join('\n'))).toEqual({ surface: 'Indoor Hard', ball: 'Dunlop ATP Hard' });
   });
 
   it('reads ATP Tour sheets, whose labels have no colon (Paris 2026)', () => {
@@ -47,7 +47,7 @@ describe('parseSheetConditions', () => {
       at(26.4, 404.4, '•'), at(40.0, 404.4, 'Doubles final: 12:30'), at(398.7, 404.2, 'razemar@fft.fr'),
       at(208.6, 403.9, 'BALL'), at(234.7, 403.9, 'Dunlop ATP'),
     ]);
-    expect(parseSheetConditions(rows.join('\n'))).toEqual({ surface: 'Indoor Hard', courtBrand: null, ball: 'Dunlop ATP' });
+    expect(parseSheetConditions(rows.join('\n'))).toEqual({ surface: 'Indoor Hard', ball: 'Dunlop ATP' });
   });
 
   it('reads a label and value that arrive as one cell', () => {
@@ -88,6 +88,13 @@ describe('summarizeClimate and weatherLine', () => {
   it('shows the average high, low and humidity', () => {
     expect(weatherLine({ high: 29, low: 20, humidity: 70 })).toBe('29° / 20°C · 70% humidity');
     expect(weatherLine({ high: 29, low: 20, humidity: null })).toBe('29° / 20°C');
+  });
+
+  it('converts to °F and feet when imperial', () => {
+    // Florianópolis and Ankara, Nov 23 2026.
+    expect(weatherLine({ high: 25, low: 20, humidity: 82 }, true)).toBe('77° / 68°F · 82% humidity');
+    expect(elevationText(865)).toBe('865 m');
+    expect(elevationText(865, true)).toBe('2,838 ft');
   });
 
   it('has nothing to say without temperatures', () => {

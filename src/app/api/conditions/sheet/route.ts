@@ -7,7 +7,7 @@ import { extractRowText } from '@/lib/pdf-row-text';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Admin: ball, court brand and surface from ProTennisLive detail sheets.
+// Admin: ball (and surface, for indoor) from ProTennisLive detail sheets.
 // protennislive.com rate-limits Railway, so a GitHub runner does the
 // downloading (.github/workflows/conditions-sync.yml) — the same split as
 // cut-sync.yml and /api/import-pdf-direct.

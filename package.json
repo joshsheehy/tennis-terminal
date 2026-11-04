@@ -15,7 +15,6 @@
     "backfill:countries": "tsx src/scripts/backfill-countries.ts",
     "swings:recompute": "tsx src/scripts/recompute-swings.ts",
     "import:calendars": "tsx src/scripts/import-official-calendars.ts",
-    "import:cutoffs": "tsx src/scripts/run-cutoff-import.ts",
     "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "predev": "node scripts/copy-maplibre-worker.mjs"
   },
