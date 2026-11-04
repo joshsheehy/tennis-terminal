@@ -56,6 +56,26 @@ const CITY_ALIASES: Record<string, string> = {
   'sharm elsheikh': 'Sharm El Sheikh',
 };
 
+// Places Nominatim answers with the wrong point: the tournament "city" is an
+// island or province, so the hit is the region's centroid. Bali's centroid is
+// in the central highlands (1,268 m per Open-Meteo), while the Bali events are
+// played at sea level in ITDC Nusa Dua (Bali Beach Country Club / Bali
+// National Tennis Center), so elevation and weather came from the mountains.
+// Keyed by geocodeKey() of the cleaned city and normalized country.
+const COORDINATE_OVERRIDES: Record<string, GeocodeResult> = {
+  'bali|indonesia': { latitude: -8.8017, longitude: 115.2239, displayName: 'Nusa Dua, Bali, Indonesia (override)' },
+};
+
+/** The fixed venue point for a city Nominatim would put at a region's centroid. */
+export function coordinateOverride(city: string, country: string | null): GeocodeResult | null {
+  return COORDINATE_OVERRIDES[geocodeKey(cleanCityForQuery(city), normalizeCountryForGeocoding(country))] ?? null;
+}
+
+/** Lowercased cities with an override, to narrow a tournaments query before coordinateOverride(). */
+export function overriddenCities(): string[] {
+  return Object.keys(COORDINATE_OVERRIDES).map((key) => key.split('|')[0]);
+}
+
 export function normalizeCountryForGeocoding(country: string | null): string | null {
   if (!country) return null;
   return COUNTRY_ALIASES[normalizePlace(country)] ?? country;
@@ -148,6 +168,8 @@ export async function geocodeCityCountry(
 ): Promise<GeocodeResult | null> {
   const cleanedCity = cleanCityForQuery(city);
   if (!cleanedCity) return null;
+  const override = coordinateOverride(city, country);
+  if (override) return override;
   const normalizedCountry = normalizeCountryForGeocoding(country);
 
   const structured = new URLSearchParams({ city: cleanedCity });

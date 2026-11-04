@@ -1,4 +1,5 @@
-import { pool } from './db';
+import { pool, withTransaction } from './db';
+import { applyCoordinateOverrides } from './geocode-backfill';
 import { climateWindows, summarizeClimate, type ClimateSummary, type DailyWeather, type EditionConditions, type SheetConditions } from './conditions';
 import { overrideCodeFor } from './ptl-code-overrides';
 import { detailSheetUrl, levelGetsDetailSheet, resolveTournamentPtlCode } from './tournament-links';
@@ -117,9 +118,30 @@ export async function loadConditionsForYear(year: number): Promise<Record<string
 
 export type ClimateTarget = { editionId: string; name: string; startDate: string; latitude: number; longitude: number };
 
+/**
+ * Move venues stored at a wrong point (geocode.ts COORDINATE_OVERRIDES) and,
+ * in the same transaction, clear the weather and elevation their editions got
+ * from that point, so this sync fetches them again.
+ */
+async function repointOverriddenVenues(): Promise<void> {
+  await withTransaction(async (client) => {
+    const moved = await applyCoordinateOverrides(client);
+    if (moved.length === 0) return;
+    await client.query(
+      `update edition_conditions ec
+       set elevation_m = null, temp_high_c = null, temp_low_c = null, rain_days = null,
+           humidity_pct = null, wind_kmh = null, climate_updated_at = null, updated_at = now()
+       from tournament_editions te
+       where te.id = ec.edition_id and te.tournament_id = any($1::uuid[])`,
+      [moved]
+    );
+  });
+}
+
 /** Held editions starting from last week to `weeks` ahead, with coordinates and no climate yet. */
 export async function climateTargets(weeks: number): Promise<ClimateTarget[]> {
   await ensureConditionsTable();
+  await repointOverriddenVenues();
   const result = await pool.query<ClimateTarget>(
     `select te.id as "editionId", t.name, te.start_date::text as "startDate", t.latitude, t.longitude
      from tournament_editions te

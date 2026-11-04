@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   NominatimRateLimitError,
   cleanCityForQuery,
+  coordinateOverride,
   geocodeCityCountry,
   geocodeKey,
   normalizeCountryForGeocoding,
@@ -69,6 +70,16 @@ describe('parseNominatimResults', () => {
 });
 
 describe('geocodeCityCountry', () => {
+  it('uses the Nusa Dua venue for Bali instead of the island centroid, without a request', async () => {
+    const fetchMock = vi.fn();
+
+    const result = await geocodeCityCountry('Bali 2', 'Indonesia', fetchMock);
+
+    expect(result?.latitude).toBeCloseTo(-8.8017);
+    expect(result?.longitude).toBeCloseTo(115.2239);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('resolves via the structured city+country query', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(marseille));
 
@@ -189,5 +200,14 @@ describe('reverseGeocodeCountry', () => {
   it('raises the rate-limit error on 429', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('slow', { status: 429 }));
     await expect(reverseGeocodeCountry(1, 1, fetchMock)).rejects.toThrow(NominatimRateLimitError);
+  });
+});
+
+describe('coordinateOverride', () => {
+  it('matches the cleaned city and normalized country only', () => {
+    expect(coordinateOverride('Bali', 'Indonesia')).not.toBeNull();
+    expect(coordinateOverride(' BALI (Hard) ', 'indonesia')).not.toBeNull();
+    expect(coordinateOverride('Bali', 'Spain')).toBeNull();
+    expect(coordinateOverride('Denpasar', 'Indonesia')).toBeNull();
   });
 });

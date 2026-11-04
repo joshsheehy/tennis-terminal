@@ -3,13 +3,15 @@
 // (/api/geocode-tournaments). Dry-run by default everywhere: callers must
 // explicitly opt in to writes.
 
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import {
   GEOCODE_MIN_INTERVAL_MS,
   GeocodeResult,
   NominatimRateLimitError,
+  coordinateOverride,
   geocodeCityCountry,
   geocodeKey,
+  overriddenCities,
   sleep,
 } from './geocode';
 import { AVAILABLE_SEASONS } from './seasons';
@@ -30,9 +32,10 @@ export type ResolvedRow = {
   latitude: number;
   longitude: number;
   displayName: string;
-  /** Where the coordinate came from: a live Nominatim hit, or reuse of an
-   * already-resolved identical city+country (other tournament row or cache). */
-  source: 'nominatim' | 'reused';
+  /** Where the coordinate came from: a live Nominatim hit, reuse of an
+   * already-resolved identical city+country (other tournament row or cache),
+   * or a fixed point from geocode.ts COORDINATE_OVERRIDES. */
+  source: 'nominatim' | 'reused' | 'override';
 };
 
 export type GeocodeFailure = {
@@ -80,6 +83,30 @@ export type BackfillOptions = {
 export async function ensureCoordinateColumns(pool: Pool): Promise<void> {
   await pool.query('alter table tournaments add column if not exists latitude double precision');
   await pool.query('alter table tournaments add column if not exists longitude double precision');
+}
+
+/**
+ * Move tournaments stored at a point geocode.ts COORDINATE_OVERRIDES corrects
+ * (e.g. Bali, geocoded to the island's highland centroid) to the override.
+ * Returns the ids moved, so callers can drop data derived from the old point.
+ */
+export async function applyCoordinateOverrides(db: Pick<PoolClient, 'query'>): Promise<string[]> {
+  const rows = await db.query<{ id: string; city: string; country: string | null; latitude: number | null; longitude: number | null }>(
+    `select id, city, country, latitude, longitude from tournaments where lower(city) like any($1::text[])`,
+    [overriddenCities().map((city) => `${city}%`)]
+  );
+  const moved: string[] = [];
+  for (const row of rows.rows) {
+    const point = coordinateOverride(row.city, row.country);
+    if (!point || (row.latitude === point.latitude && row.longitude === point.longitude)) continue;
+    await db.query(`update tournaments set latitude = $1, longitude = $2, updated_at = now() where id = $3`, [
+      point.latitude,
+      point.longitude,
+      row.id,
+    ]);
+    moved.push(row.id);
+  }
+  return moved;
 }
 
 const MISSING_COORDS_FILTER = `
@@ -163,8 +190,10 @@ export async function runGeocodeBackfill(
 
   for (const target of targetsResult.rows) {
     const key = geocodeKey(target.city, target.country);
-    let coords = cache.get(key) ?? null;
-    let source: ResolvedRow['source'] = 'reused';
+    // An override beats the cache, which is seeded from stored (possibly wrong) rows.
+    const override = coordinateOverride(target.city, target.country);
+    let coords = override ?? cache.get(key) ?? null;
+    let source: ResolvedRow['source'] = override ? 'override' : 'reused';
 
     if (!coords) {
       source = 'nominatim';
