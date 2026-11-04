@@ -166,6 +166,66 @@ async function checkRecentCutCoverage(year: number) {
 }
 
 /**
+ * Is next season on the calendar yet?
+ *
+ * Every other check here looks at the current season, so nothing noticed that
+ * 2027 had zero tournaments in November 2026 — even though the ATP had
+ * published the full 2027 Tour calendar weeks earlier. Players plan December
+ * into the Australian swing, and an empty next season makes the Builder dead-
+ * end at week 50.
+ *
+ * Gating: from November, next season must hold the Tour-level calendar (Slams,
+ * 1000s, 500s, 250s). That part lives in tournament-data.ts and is published a
+ * season ahead, so a shortfall means someone has to add it. Challenger and ITF
+ * counts are reported but never gate: their next-season calendars publish on
+ * the governing bodies' schedule, and the nightly syncs pick them up on their
+ * own (official-calendar-sync.yml and itf-sync.yml both request next season).
+ */
+async function checkNextSeasonCalendar(year: number, now: Date) {
+  const nextYear = year + 1;
+  const result = await pool.query<{ tour: string; challenger: string; itf: string }>(
+    `
+    select
+      count(*) filter (where te.level ~ '^(ATP (250|500|1000)|Grand Slam)$') as tour,
+      count(*) filter (where te.level ilike 'Challenger%') as challenger,
+      count(*) filter (where te.level ilike 'ITF%') as itf
+    from tournament_editions te
+    where te.year = $1 and te.status = 'held'
+    `,
+    [nextYear]
+  );
+  const row = result.rows[0];
+  const tour = Number(row?.tour ?? 0);
+  const challenger = Number(row?.challenger ?? 0);
+  const itf = Number(row?.itf ?? 0);
+
+  // ~60 Tour-level editions a season; 40 tolerates a few TBC slots.
+  const MIN_TOUR_EDITIONS = 40;
+  const gating = now.getUTCMonth() >= 10; // November and December
+  const problems =
+    gating && tour < MIN_TOUR_EDITIONS
+      ? [
+          `only ${tour} ATP Tour-level editions on the ${nextYear} calendar (expected ≥ ${MIN_TOUR_EDITIONS} ` +
+            `from November) — add next season's Tour calendar to src/lib/tournament-data.ts`,
+        ]
+      : [];
+
+  return {
+    source: 'next_season_calendar',
+    label: `${nextYear} calendar`,
+    year: nextYear,
+    rowCount: tour + challenger + itf,
+    tourEditions: tour,
+    challengerEditions: challenger,
+    itfEditions: itf,
+    lastUpdated: null,
+    staleDays: null,
+    healthy: problems.length === 0,
+    problems,
+  };
+}
+
+/**
  * Week-by-week view of the same question, for a human rather than the gate.
  *
  * The pass/fail check above collapses ten weeks into one percentage, which is
@@ -329,12 +389,13 @@ export async function GET() {
 
   // Discovery finding tournaments is only half the pipeline; the other half is
   // cuts actually arriving for them.
-  const [cutCoverage, recentWeeks, cancelledEditions] = await Promise.all([
+  const [cutCoverage, recentWeeks, cancelledEditions, nextSeason] = await Promise.all([
     checkRecentCutCoverage(year),
     weeklyCutCoverage(year),
     recentlyCancelled(year),
+    checkNextSeasonCalendar(year, new Date()),
   ]);
-  const allChecks = [...sources, cutCoverage];
+  const allChecks = [...sources, cutCoverage, nextSeason];
   const healthy = allChecks.every((s) => s.healthy);
 
   return NextResponse.json(

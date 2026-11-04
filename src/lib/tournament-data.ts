@@ -6,6 +6,11 @@ export const ATP_TOUR_CALENDAR_URL =
 export const ATP_CHALLENGER_CALENDAR_URL =
   'https://www.atptour.com/-/media/files/calendar-pdfs/2026/2026-27-atp-challenger-calendar-as-of-10-march-2026-updated.pdf';
 
+// The 2027 ATP Tour calendar is printed on pages 3–4 of this ATP Player Zone
+// combined calendar (the rest of the file is the 2026 season).
+export const ATP_TOUR_CALENDAR_2027_URL =
+  'https://rsc.atppz.com/-/media/atp-player-zone/pdf-files/calendars/2026/20261019_2026_combined_calendar.pdf';
+
 export type TournamentEdition = {
   tournament: {
     slug: string;
@@ -146,10 +151,14 @@ function challengerEvent(
   };
 }
 
+function from2027Calendar(rows: TournamentEdition[]): TournamentEdition[] {
+  return rows.map((row) => ({ ...row, edition: { ...row.edition, source_url: ATP_TOUR_CALENDAR_2027_URL } }));
+}
+
 export const ALL_EDITIONS: TournamentEdition[] = [
   // ─── GRAND SLAMS ─────────────────────────────────────────────────────────────
   // Each Slam = qualifying (singles only) one week, then main draw + doubles the
-  // next, for every season 2022–2026. Dates are the official main-draw Monday
+  // next, for every season 2022–2026 (2027's are in the 2027 block below). Dates are the official main-draw Monday
   // (Sun-start years store the Monday so getAtpWeekForSeason() lands right) and
   // the qualifying Monday one week earlier.
   ...grandSlam('Australian Open', 'Melbourne', 'Australia', 2022, 2, '2022-01-10', 3, '2022-01-17', '2022-01-30', 'Hard'),
@@ -569,6 +578,105 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   // ─── WEEK 44 (Nov 2) — ATP 1000 ──────────────────────────────────────────────
   tourEvent('Rolex Paris Masters', 'Paris', 'France', 2026, 44, '2026-11-02', '2026-11-08', 'ATP 1000', 'Indoor Hard', true, '352', false),
 
+  // ─── 2027 ATP TOUR (Slams, Masters 1000, ATP 500, ATP 250) ────────────────
+  // Source: the "2027 CALENDAR" pages (3–4) of the ATP Player Zone combined
+  // calendar published 19 Oct 2026 (ATP_TOUR_CALENDAR_2027_URL). Name, city and
+  // code match each tournament's 2026 row exactly, so the slug — and with it
+  // every past cut — carries over. Dates follow the 2026 rows' conventions:
+  // Sunday starts store the Monday; Wednesday/Thursday-start 1000s store the
+  // first day. Exhibitions and team events (United Cup, Davis Cup, Laver Cup,
+  // ATP Finals, Next Gen Finals) are left out, as in 2026. 2027 Challengers
+  // arrive from the official Challenger calendar PDF once ATP publishes it.
+  ...from2027Calendar([
+    ...grandSlam('Australian Open', 'Melbourne', 'Australia', 2027, 2, '2027-01-11', 3, '2027-01-18', '2027-01-31', 'Hard'),
+    ...grandSlam('Roland Garros', 'Paris', 'France', 2027, 20, '2027-05-17', 21, '2027-05-24', '2027-06-06', 'Clay'),
+    ...grandSlam('Wimbledon', 'London', 'Great Britain', 2027, 25, '2027-06-21', 26, '2027-06-28', '2027-07-11', 'Grass'),
+    // Main draw starts Sunday Aug 29; the Monday anchors week 35.
+    ...grandSlam('US Open', 'New York', 'United States', 2027, 34, '2027-08-23', 35, '2027-08-30', '2027-09-12', 'Hard'),
+
+    tourEvent('Brisbane International Presented by ANZ', 'Brisbane', 'Australia', 2027, 1, '2027-01-04', null, 'ATP 250', 'Hard', false, '339', false),
+    tourEvent('Bank of China Hong Kong Tennis Open', 'Hong Kong', 'Hong Kong', 2027, 1, '2027-01-04', null, 'ATP 250', 'Hard', false, '336', false),
+    tourEvent('Adelaide International', 'Adelaide', 'Australia', 2027, 2, '2027-01-11', null, 'ATP 250', 'Hard', false, '8998', false),
+    tourEvent('ASB Classic', 'Auckland', 'New Zealand', 2027, 2, '2027-01-11', null, 'ATP 250', 'Hard', false, '301', false),
+
+    tourEvent('Open Occitanie', 'Montpellier', 'France', 2027, 5, '2027-02-01', null, 'ATP 250', 'Indoor Hard', true, '375', false),
+    tourEvent('Dallas Open', 'Dallas', 'United States', 2027, 6, '2027-02-08', null, 'ATP 500', 'Indoor Hard', true, '424', true),
+    tourEvent('ABN AMRO Open', 'Rotterdam', 'Netherlands', 2027, 6, '2027-02-08', null, 'ATP 500', 'Indoor Hard', true, '407', true),
+    tourEvent('IEB Argentina Open', 'Buenos Aires', 'Argentina', 2027, 6, '2027-02-08', null, 'ATP 250', 'Clay', false, '506', false),
+    tourEvent('Qatar ExxonMobil Open', 'Doha', 'Qatar', 2027, 7, '2027-02-15', null, 'ATP 500', 'Hard', false, '451', true),
+    tourEvent('Rio Open Presented by Claro', 'Rio de Janeiro', 'Brazil', 2027, 7, '2027-02-15', null, 'ATP 500', 'Clay', false, '6932', true),
+    tourEvent('Delray Beach Open', 'Delray Beach', 'United States', 2027, 7, '2027-02-15', null, 'ATP 250', 'Hard', false, '499', false),
+    tourEvent('Dubai Duty Free Tennis Championships', 'Dubai', 'United Arab Emirates', 2027, 8, '2027-02-22', null, 'ATP 500', 'Hard', false, '495', true),
+    tourEvent('Abierto Mexicano Telcel', 'Acapulco', 'Mexico', 2027, 8, '2027-02-22', null, 'ATP 500', 'Hard', false, '807', true),
+    tourEvent('Santiago Open', 'Santiago', 'Chile', 2027, 8, '2027-02-22', null, 'ATP 250', 'Clay', false, '8996', false),
+
+    tourEvent('BNP Paribas Open', 'Indian Wells', 'United States', 2027, 9, '2027-03-03', '2027-03-14', 'ATP 1000', 'Hard', false, '404', false),
+    tourEvent('Miami Open presented by Itau', 'Miami', 'United States', 2027, 11, '2027-03-17', '2027-03-28', 'ATP 1000', 'Hard', false, '403', false),
+    tourEvent('Tiriac Open', 'Bucharest', 'Romania', 2027, 13, '2027-03-29', null, 'ATP 250', 'Clay', false, '4462', false),
+    tourEvent('Houston Open', 'Houston', 'United States', 2027, 13, '2027-03-29', null, 'ATP 250', 'Clay', false, '717', false),
+    tourEvent('Grand Prix Hassan II', 'Marrakech', 'Morocco', 2027, 13, '2027-03-29', null, 'ATP 250', 'Clay', false, '360', false),
+
+    // Monte-Carlo starts Sunday Apr 4; the Monday anchors week 14.
+    tourEvent('Rolex Monte-Carlo Masters', 'Monte-Carlo', 'Monaco', 2027, 14, '2027-04-05', '2027-04-11', 'ATP 1000', 'Clay', false, '410', false),
+    tourEvent('Barcelona Open Banc Sabadell', 'Barcelona', 'Spain', 2027, 15, '2027-04-12', null, 'ATP 500', 'Clay', false, '425', true),
+    tourEvent('BMW Open', 'Munich', 'Germany', 2027, 15, '2027-04-12', null, 'ATP 500', 'Clay', false, '308', true),
+    tourEvent('Mutua Madrid Open', 'Madrid', 'Spain', 2027, 16, '2027-04-21', '2027-05-02', 'ATP 1000', 'Clay', false, '1536', false),
+    tourEvent("Internazionali BNL d'Italia", 'Rome', 'Italy', 2027, 18, '2027-05-05', '2027-05-16', 'ATP 1000', 'Clay', false, '416', false),
+    // Hamburg and Geneva start Sunday May 16.
+    tourEvent('Bitpanda Hamburg Open', 'Hamburg', 'Germany', 2027, 20, '2027-05-17', null, 'ATP 500', 'Clay', false, '414', true),
+    tourEvent('Gonet Geneva Open', 'Geneva', 'Switzerland', 2027, 20, '2027-05-17', null, 'ATP 250', 'Clay', false, '322', false),
+
+    tourEvent('Libema Open', 's-Hertogenbosch', 'Netherlands', 2027, 23, '2027-06-07', null, 'ATP 250', 'Grass', false, '440', false),
+    tourEvent('Boss Open', 'Stuttgart', 'Germany', 2027, 23, '2027-06-07', null, 'ATP 250', 'Grass', false, '321', false),
+    tourEvent('Terra Wortmann Open', 'Halle', 'Germany', 2027, 24, '2027-06-14', null, 'ATP 500', 'Grass', false, '500', true),
+    tourEvent('HSBC Championships', 'London', 'Great Britain', 2027, 24, '2027-06-14', null, 'ATP 500', 'Grass', false, '311', true),
+    // Mallorca starts Sunday Jun 20.
+    tourEvent('Mallorca Championships presented by Ecotrans Group', 'Mallorca', 'Spain', 2027, 25, '2027-06-21', null, 'ATP 250', 'Grass', false, '8994', false),
+    tourEvent('Lexus Eastbourne Open', 'Eastbourne', 'Great Britain', 2027, 25, '2027-06-21', null, 'ATP 250', 'Grass', false, '741', false),
+
+    tourEvent('SkiStar Swedish Open', 'Bastad', 'Sweden', 2027, 28, '2027-07-12', null, 'ATP 250', 'Clay', false, '316', false),
+    tourEvent('EFG Swiss Open', 'Gstaad', 'Switzerland', 2027, 28, '2027-07-12', null, 'ATP 250', 'Clay', false, '314', false),
+    tourEvent('Plava Laguna Croatia Open', 'Umag', 'Croatia', 2027, 28, '2027-07-12', null, 'ATP 250', 'Clay', false, '439', false),
+    tourEvent('Generali Open', 'Kitzbühel', 'Austria', 2027, 29, '2027-07-19', null, 'ATP 250', 'Clay', false, '319', false),
+    tourEvent('Millennium Estoril Open', 'Estoril', 'Portugal', 2027, 29, '2027-07-19', null, 'ATP 250', 'Clay', false, '7290', false),
+    tourEvent('Citi Open', 'Washington', 'United States', 2027, 30, '2027-07-26', null, 'ATP 500', 'Hard', false, '418', true),
+    tourEvent('Abierto de Tenis Mifel', 'Los Cabos', 'Mexico', 2027, 30, '2027-07-26', null, 'ATP 250', 'Hard', false, '7480', false),
+
+    // Canada's 1000 alternates host cities (Toronto in 2027) but every season
+    // of it is stored on this one slug, so its cut history stays in one place.
+    // Starts Sunday Aug 1; the Monday anchors week 31.
+    tourEvent('National Bank Open presented by Rogers', 'Montreal', 'Canada', 2027, 31, '2027-08-02', '2027-08-12', 'ATP 1000', 'Hard', false, '421', false),
+    tourEvent('Cincinnati Open', 'Cincinnati', 'United States', 2027, 32, '2027-08-12', '2027-08-22', 'ATP 1000', 'Hard', false, '422', false),
+    // Starts Sunday Aug 22.
+    tourEvent('Winston-Salem Open', 'Winston-Salem', 'United States', 2027, 34, '2027-08-23', null, 'ATP 250', 'Hard', false, '6242', false),
+
+    // Chengdu/Hangzhou start Wednesday Sep 22, Tokyo/Beijing Wednesday Sep 29;
+    // the Mondays anchor the weeks, as in 2026.
+    tourEvent('Chengdu Open', 'Chengdu', 'China', 2027, 38, '2027-09-20', null, 'ATP 250', 'Hard', false, '7581', false),
+    tourEvent('Hangzhou Open', 'Hangzhou', 'China', 2027, 38, '2027-09-20', null, 'ATP 250', 'Hard', false, '4713', false),
+    tourEvent('China Open', 'Beijing', 'China', 2027, 39, '2027-09-27', null, 'ATP 500', 'Hard', false, '747', true),
+    tourEvent('Rakuten Japan Open', 'Tokyo', 'Japan', 2027, 39, '2027-09-27', null, 'ATP 500', 'Hard', false, '329', true),
+    tourEvent('Rolex Shanghai Masters', 'Shanghai', 'China', 2027, 40, '2027-10-06', '2027-10-17', 'ATP 1000', 'Hard', false, '5014', false),
+
+    // Stockholm returns to week 42 in 2027 (it was week 45 in 2026) and
+    // Brussels takes week 45 (Sunday Nov 7 start).
+    tourEvent('Almaty Open', 'Almaty', 'Kazakhstan', 2027, 42, '2027-10-18', null, 'ATP 250', 'Indoor Hard', true, '9410', false),
+    tourEvent('If Stockholm Open', 'Stockholm', 'Sweden', 2027, 42, '2027-10-18', null, 'ATP 250', 'Indoor Hard', true, '429', false),
+    tourEvent('Grand Prix Auvergne-Rhône-Alpes', 'Lyon', 'France', 2027, 42, '2027-10-18', null, 'ATP 250', 'Indoor Hard', true, '496', false),
+    tourEvent('Erste Bank Open', 'Vienna', 'Austria', 2027, 43, '2027-10-25', null, 'ATP 500', 'Indoor Hard', true, '337', true),
+    tourEvent('Swiss Indoors', 'Basel', 'Switzerland', 2027, 43, '2027-10-25', null, 'ATP 500', 'Indoor Hard', true, '328', true),
+    tourEvent('Rolex Paris Masters', 'Paris', 'France', 2027, 44, '2027-11-01', '2027-11-07', 'ATP 1000', 'Indoor Hard', true, '352', false),
+    {
+      tournament: { slug: 'european-open-brussels', name: 'BNP Paribas Fortis European Open', city: 'Brussels', country: 'Belgium' },
+      edition: {
+        year: 2027, week: 45, start_date: '2027-11-08', end_date: null,
+        level: 'ATP 250', surface: 'Indoor Hard', indoor: true,
+        source: 'atp_tour_pdf' as const, source_url: ATP_TOUR_CALENDAR_URL,
+        status: 'held' as const, protennislive_code: '7485', has_doubles_qualifying: false,
+      },
+    },
+  ]),
+
   // ─── HISTORICAL EDITIONS (level changes, demotions, promotions) ───────────
   // Add entries here for prior-year editions missing from the main 2026 list.
   // The slug must match the current entry so history is stitched together correctly.
@@ -729,3 +837,34 @@ export const ALL_EDITIONS: TournamentEdition[] = [
   },
 
 ];
+
+// Catalogue rows grouped by ProTennisLive code. A code is stable across
+// seasons, so once a tournament is listed for two seasons it has two rows here.
+const ENTRIES_BY_CODE = new Map<number, TournamentEdition[]>();
+for (const entry of ALL_EDITIONS) {
+  const code = Number(entry.edition.protennislive_code);
+  if (!entry.edition.protennislive_code || !Number.isFinite(code)) continue;
+  const list = ENTRIES_BY_CODE.get(code) ?? [];
+  list.push(entry);
+  ENTRIES_BY_CODE.set(code, list);
+}
+
+/**
+ * The catalogue row for a ProTennisLive code as of `year`: that season's row
+ * when the catalogue has one, else the closest earlier season's, else the
+ * earliest later one.
+ *
+ * Use this instead of `new Map(ALL_EDITIONS.map(e => [code, e]))`. That map
+ * keeps whichever season is listed last, so the moment next season's calendar
+ * is added it hands every importer next season's dates — a 2026 sync would
+ * write Jan 2027 dates onto the 2026 edition.
+ */
+export function catalogueEntryForCode(code: number, year: number): TournamentEdition | undefined {
+  const entries = ENTRIES_BY_CODE.get(code);
+  if (!entries?.length) return undefined;
+  const exact = entries.find((e) => e.edition.year === year);
+  if (exact) return exact;
+  const earlier = entries.filter((e) => e.edition.year < year).sort((a, b) => b.edition.year - a.edition.year)[0];
+  if (earlier) return earlier;
+  return [...entries].sort((a, b) => a.edition.year - b.edition.year)[0];
+}

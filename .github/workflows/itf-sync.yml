@@ -38,9 +38,14 @@ jobs:
 
       - name: Fetch and parse ITF calendar on this runner
         run: |
-          # A year input limits the run; default covers every season the site
-          # serves so the ITF pill exists on all year tabs.
-          YEARS="${YEAR:-2024 2025 2026}"
+          # A year input limits the run. The default is the two previous
+          # seasons, this one, and NEXT one: the next season's calendar fills
+          # in on itftennis.com from autumn, and a fixed list (it used to be
+          # "2024 2025 2026") meant 2027 was never requested at all. A season
+          # ITF hasn't published yet just logs a warning below.
+          THIS_YEAR=$(date -u +%Y)
+          YEARS="${YEAR:-$((THIS_YEAR - 2)) $((THIS_YEAR - 1)) $THIS_YEAR $((THIS_YEAR + 1))}"
+          echo "Seasons: $YEARS"
           ok=0
           for Y in $YEARS; do
             if npx tsx scripts/itf-runner-fetch.mts "$Y" "$CIRCUIT" "/tmp/itf-rows-$Y.json"; then

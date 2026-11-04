@@ -191,7 +191,7 @@ jobs:
           # historical years where atptour.com hides the upcoming-calendar UI.
           run_paged(
               'ATP schedule/code discovery',
-              lambda offset: f'/api/sync-atp-schedule?year=2026&type=all&limit=100&offset={offset}&importCuts=true',
+              lambda offset: f'/api/sync-atp-schedule?year={current_year}&type=all&limit=100&offset={offset}&importCuts=true',
               required=False,
               max_pages=10,
           )

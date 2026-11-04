@@ -3,17 +3,12 @@ import { revalidateTag } from 'next/cache';
 import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
 import { checkRankAnomaly } from '@/lib/cutoff-anomaly';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
-import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { catalogueEntryForCode } from '@/lib/tournament-data';
 import slugify from 'slugify';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const CODE_TO_EDITION = new Map(
-  ALL_EDITIONS
-    .filter((e) => e.edition.protennislive_code)
-    .map((e) => [Number(e.edition.protennislive_code), e])
-);
 
 type AtpTournamentRef = {
   code: number;
@@ -269,7 +264,7 @@ export async function GET(request: NextRequest) {
 
   for (const [code, citySlug] of allCodes) {
     try {
-      const editionEntry = CODE_TO_EDITION.get(code);
+      const editionEntry = catalogueEntryForCode(code, year);
 
       let slug: string;
       let name: string;
@@ -286,8 +281,11 @@ export async function GET(request: NextRequest) {
         city = editionEntry.tournament.city;
         country = editionEntry.tournament.country;
         level = editionEntry.edition.level;
-        startDate = editionEntry.edition.start_date;
-        week = editionEntry.edition.week;
+        // Dates only from the catalogue row for this same season; another
+        // season's row would seed this edition with that season's dates.
+        const sameSeason = editionEntry.edition.year === year;
+        startDate = sameSeason ? editionEntry.edition.start_date : null;
+        week = sameSeason ? editionEntry.edition.week : null;
         surface = editionEntry.edition.surface;
       } else {
         city = citySlug

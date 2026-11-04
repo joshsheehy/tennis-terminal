@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool, ensureByesColumn, editionLevel } from '@/lib/db';
 import { checkRankAnomaly } from '@/lib/cutoff-anomaly';
 import { fetchAndParseOfficialPdfCutoff } from '@/lib/cutoff-pdf-parser';
-import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { catalogueEntryForCode } from '@/lib/tournament-data';
 import { getAtpEditionYearForStartDate, getAtpWeekForSeason } from '@/lib/atp-week';
 import slugify from 'slugify';
 import { fetchSackmannCsv } from '@/lib/sackmann';
@@ -12,12 +12,6 @@ import { fetchSackmannCsv } from '@/lib/sackmann';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Build permanent code → edition lookup from tournament-data.ts (2026 canonical data)
-const CODE_TO_EDITION = new Map(
-  ALL_EDITIONS
-    .filter((e) => e.edition.protennislive_code)
-    .map((e) => [Number(e.edition.protennislive_code), e])
-);
 
 type SackmannTournament = {
   tourneyId: string;
@@ -245,7 +239,7 @@ export async function GET(request: NextRequest) {
 
   for (const t of page) {
     try {
-      const editionEntry = CODE_TO_EDITION.get(t.code);
+      const editionEntry = catalogueEntryForCode(t.code, year);
 
       let slug: string;
       let name: string;
@@ -264,10 +258,10 @@ export async function GET(request: NextRequest) {
         country = editionEntry.tournament.country;
         level = editionEntry.edition.level;
         source = editionEntry.edition.source;
-        // For the current season (2026), prefer canonical scheduled dates so
-        // JeffSackmann's actual-play dates don't shift tournaments to the wrong week.
-        // For historical imports (2024/2025), use JeffSackmann's actual dates.
-        if (year === 2026) {
+        // When the catalogue lists this season, prefer its scheduled dates so
+        // JeffSackmann's actual-play dates don't shift tournaments to the wrong
+        // week. Otherwise (historical seasons) use JeffSackmann's actual dates.
+        if (editionEntry.edition.year === year) {
           canonicalStartDate = editionEntry.edition.start_date;
           canonicalWeek = editionEntry.edition.week;
         }

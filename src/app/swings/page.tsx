@@ -24,5 +24,5 @@ export default async function SwingsPage({
   const groups = scopeParam ? parseScopeKey(scopeParam) : DEFAULT_LEVEL_SCOPE;
   const data = await getSwingsPageData(year, groups.length ? groups : DEFAULT_LEVEL_SCOPE);
 
-  return <SwingsView data={data} defaultMode="explore" />;
+  return <SwingsView key={year} data={data} defaultMode="explore" />;
 }

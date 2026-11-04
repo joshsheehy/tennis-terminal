@@ -29,7 +29,9 @@ export default async function HomePage({
       {/* The Builder is a full-screen map with no visible heading; this gives
           screen readers and search engines the page's name and purpose. */}
       <h1 className="sr-only">{SITE_NAME}: entry cutoffs and season planner for the pro tennis tour</h1>
-      <SwingsView data={data} defaultMode="build" />
+      {/* key: a season switch remounts, so the week and schedule being built
+          start from that season's own saved state, not the previous one's. */}
+      <SwingsView key={year} data={data} defaultMode="build" />
     </>
   );
 }

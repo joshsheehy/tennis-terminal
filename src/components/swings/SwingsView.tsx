@@ -575,6 +575,19 @@ export default function SwingsView({
       // restored from its sessionStorage mirror on mount.
       p.delete('build');
     });
+  // The season after this one, when the site serves it. The Builder offers it
+  // where this season runs out, so planning December carries on into January
+  // instead of dead-ending at the last week.
+  const nextSeason = SEASONS.includes(data.year + 1) ? data.year + 1 : null;
+  const continueIntoNextSeason = () => {
+    if (nextSeason == null) return;
+    try {
+      sessionStorage.setItem(`swings.week:${nextSeason}`, '1');
+    } catch {
+      // the new season opens at its current/first week anyway
+    }
+    setYear(nextSeason);
+  };
   const toggleGroup = (g: LevelGroup) => {
     const next = new Set(data.groups);
     if (next.has(g)) next.delete(g);
@@ -760,6 +773,8 @@ export default function SwingsView({
           lastStopWeek={lastStopWeek}
           resumeWeek={resumeWeek}
           onGoToWeek={setSelectedWeek}
+          nextSeason={nextSeason}
+          onNextSeason={continueIntoNextSeason}
           bookedStop={chain.find((e) => e.week === selectedWeek) ?? null}
           onAdd={addStop}
           onRemove={removeStop}
@@ -900,6 +915,8 @@ function BuilderPanel({
   lastStopWeek,
   resumeWeek,
   onGoToWeek,
+  nextSeason,
+  onNextSeason,
   bookedStop,
   onAdd,
   onRemove,
@@ -933,6 +950,9 @@ function BuilderPanel({
   lastStopWeek: number | null;
   resumeWeek: number | null;
   onGoToWeek: (week: number) => void;
+  /** The following season when the site serves it (null = none), and the jump into it. */
+  nextSeason: number | null;
+  onNextSeason: () => void;
   /** The stop already on the schedule for the week being browsed, if any — its rivals can't be added. */
   bookedStop: SwingMapEvent | null;
   onAdd: (editionId: string) => void;
@@ -1208,12 +1228,26 @@ function BuilderPanel({
         ‹
       </button>
       <h3 className="weeknav__title">{title}</h3>
+      {/* Past the season's last week, the forward chevron carries on into the
+          next season rather than going dead. */}
       <button
         className="weeknav__btn"
-        disabled={nextWeek == null}
-        onClick={() => nextWeek != null && onGoToWeek(nextWeek)}
-        aria-label={nextWeek != null ? `Ahead to ${weekDateLabel(year, nextWeek)}` : 'No later week with tournaments'}
-        title={nextWeek != null ? `Ahead to ${weekDateLabel(year, nextWeek)}` : undefined}
+        disabled={nextWeek == null && nextSeason == null}
+        onClick={() => (nextWeek != null ? onGoToWeek(nextWeek) : onNextSeason())}
+        aria-label={
+          nextWeek != null
+            ? `Ahead to ${weekDateLabel(year, nextWeek)}`
+            : nextSeason != null
+              ? `Continue into ${nextSeason}`
+              : 'No later week with tournaments'
+        }
+        title={
+          nextWeek != null
+            ? `Ahead to ${weekDateLabel(year, nextWeek)}`
+            : nextSeason != null
+              ? `Continue into ${nextSeason}`
+              : undefined
+        }
       >
         ›
       </button>
@@ -1266,6 +1300,11 @@ function BuilderPanel({
             tournament{weekCounts[nextWeek] === 1 ? '' : 's'} →
           </button>
         ))}
+      {resumeButton == null && nextWeek == null && nextSeason != null && (
+        <button className="builder-jump" onClick={onNextSeason}>
+          Continue into {nextSeason} →
+        </button>
+      )}
       {prevWeek != null && (
         <button className="builder-jump builder-jump--ghost" onClick={() => onGoToWeek(prevWeek)}>
           ← Back to {weekDateLabel(year, prevWeek)}
@@ -1288,6 +1327,10 @@ function BuilderPanel({
     ) : nextWeek != null ? (
       <button className="builder-skip" onClick={() => onGoToWeek(nextWeek)}>
         Nothing here for you? Skip to {weekDateLabel(year, nextWeek)} →
+      </button>
+    ) : nextSeason != null ? (
+      <button className="builder-skip" onClick={onNextSeason}>
+        That&rsquo;s the end of {year} — continue into {nextSeason} →
       </button>
     ) : null;
 
