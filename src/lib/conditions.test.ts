@@ -85,12 +85,13 @@ describe('summarizeClimate and weatherLine', () => {
     expect(summary).toEqual({ high: 25, low: 19, rainDays: 1.5, humidity: 80, wind: 20 });
   });
 
-  it('shows only the average high and low', () => {
-    expect(weatherLine({ high: 29, low: 20 })).toBe('29° / 20°C');
+  it('shows the average high, low and humidity', () => {
+    expect(weatherLine({ high: 29, low: 20, humidity: 70 })).toBe('29° / 20°C · 70% humidity');
+    expect(weatherLine({ high: 29, low: 20, humidity: null })).toBe('29° / 20°C');
   });
 
   it('has nothing to say without temperatures', () => {
     expect(summarizeClimate([], 5)).toBeNull();
-    expect(weatherLine({ high: null, low: null })).toBeNull();
+    expect(weatherLine({ high: null, low: null, humidity: 70 })).toBeNull();
   });
 });

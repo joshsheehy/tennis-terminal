@@ -97,12 +97,12 @@ export function summarizeClimate(days: DailyWeather[], windowCount: number): Cli
   };
 }
 
-/** "25° / 20°C": the week's average high and low. */
-export function weatherLine(c: Pick<ClimateSummary, 'high' | 'low'>): string | null {
+/** "25° / 20°C · 82% humidity": the week's average high, low and humidity. */
+export function weatherLine(c: Pick<ClimateSummary, 'high' | 'low' | 'humidity'>): string | null {
   if (c.high == null || c.low == null) return null;
-  return `${c.high}° / ${c.low}°C`;
+  return c.humidity == null ? `${c.high}° / ${c.low}°C` : `${c.high}° / ${c.low}°C · ${c.humidity}% humidity`;
 }
 
 export function hasAnyConditions(c: EditionConditions | undefined): c is EditionConditions {
-  return Boolean(c && (c.high != null || c.elevation != null || c.ball || c.court));
+  return Boolean(c && (c.high != null || c.elevation != null || c.ball));
 }
