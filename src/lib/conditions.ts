@@ -12,10 +12,8 @@ export type EditionConditions = {
   humidity: number | null;
   wind: number | null;
   ball: string | null;
-  indoor: boolean;
 };
 
-/** surface is only read to tell indoor events apart. */
 export type SheetConditions = { surface: string | null; ball: string | null };
 
 // A Challenger detail sheet's site block is a three-column table, so each line

@@ -11,11 +11,11 @@ import { detailSheetUrl, levelGetsDetailSheet, resolveTournamentPtlCode } from '
 
 export const CONDITIONS_CACHE_TAG = 'edition-conditions';
 
-// Pilot: the Conditions block is being tried on these weeks (Monday start
-// dates) before it goes on every tournament, so both syncs and the Builder
-// stick to them. Empty the list to roll it out.
-export const CONDITIONS_PILOT_WEEKS: string[] = ['2026-11-23'];
-const PILOT_FILTER = `(cardinality($PILOT::date[]) = 0 or te.start_date = any($PILOT::date[]))`;
+// Rolled out to every tournament starting on or before this date (the rest of
+// the 2026 calendar, after a Nov 23-week pilot); both syncs and the Builder
+// stop here. null removes the limit.
+export const CONDITIONS_THROUGH: string | null = '2026-12-31';
+const ROLLOUT_FILTER = `($ROLLOUT::date is null or te.start_date <= $ROLLOUT::date)`;
 
 let ensured: Promise<void> | null = null;
 
@@ -60,15 +60,13 @@ export async function loadConditionsForYear(year: number): Promise<Record<string
     humidity_pct: number | null;
     wind_kmh: number | null;
     ball: string | null;
-    indoor: boolean;
   }>(
     `select ec.edition_id, ec.elevation_m, ec.temp_high_c, ec.temp_low_c, ec.rain_days, ec.humidity_pct,
-            ec.wind_kmh, ec.ball,
-            (coalesce(te.indoor, false) or te.surface ilike '%indoor%' or coalesce(ec.sheet_surface, '') ilike 'indoor%') as indoor
+            ec.wind_kmh, ec.ball
      from edition_conditions ec
      join tournament_editions te on te.id = ec.edition_id
-     where te.year = $1 and ${PILOT_FILTER.replaceAll('$PILOT', '$2')}`,
-    [year, CONDITIONS_PILOT_WEEKS]
+     where te.year = $1 and ${ROLLOUT_FILTER.replaceAll('$ROLLOUT', '$2')}`,
+    [year, CONDITIONS_THROUGH]
   );
   const out: Record<string, EditionConditions> = {};
   for (const row of result.rows) {
@@ -80,7 +78,6 @@ export async function loadConditionsForYear(year: number): Promise<Record<string
       humidity: row.humidity_pct,
       wind: row.wind_kmh,
       ball: row.ball,
-      indoor: row.indoor,
     };
   }
   return out;
@@ -99,10 +96,10 @@ export async function climateTargets(weeks: number): Promise<ClimateTarget[]> {
      where te.status = 'held'
        and t.latitude is not null and t.longitude is not null
        and te.start_date between current_date - 7 and current_date + ($1::int * 7)
-       and ${PILOT_FILTER.replaceAll('$PILOT', '$2')}
+       and ${ROLLOUT_FILTER.replaceAll('$ROLLOUT', '$2')}
        and ec.climate_updated_at is null
      order by te.start_date, t.name`,
-    [weeks, CONDITIONS_PILOT_WEEKS]
+    [weeks, CONDITIONS_THROUGH]
   );
   return result.rows;
 }
@@ -192,12 +189,12 @@ export async function sheetTargets(weeks: number, limit: number, recheck = false
      left join edition_conditions ec on ec.edition_id = te.id
      where te.status = 'held'
        and te.start_date between current_date - 7 and current_date + ($1::int * 7)
-       and ${PILOT_FILTER.replaceAll('$PILOT', '$4')}
+       and ${ROLLOUT_FILTER.replaceAll('$ROLLOUT', '$4')}
        and (ec.sheet_checked_at is null
             or (ec.ball is null
                 and ($3 or ec.sheet_checked_at < now() - ($2::int * interval '1 day'))))
      order by te.start_date, t.name`,
-    [weeks, SHEET_RECHECK_DAYS, recheck, CONDITIONS_PILOT_WEEKS]
+    [weeks, SHEET_RECHECK_DAYS, recheck, CONDITIONS_THROUGH]
   );
   const eligible = editions.rows.filter((row) => levelGetsDetailSheet(row.level));
   if (eligible.length === 0) return [];

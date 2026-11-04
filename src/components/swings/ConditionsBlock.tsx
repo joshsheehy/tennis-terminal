@@ -1,6 +1,6 @@
 import { elevationText, hasAnyConditions, weatherLine, type EditionConditions } from '@/lib/conditions';
 
-// The week's playing conditions: usual weather (outdoor events only), elevation,
+// The week's playing conditions: usual weather (indoor events too), elevation,
 // and the ball from the detail sheet. Facts only, no commentary. The unit
 // switch is the Builder's one units setting, shared with distances.
 export default function ConditionsBlock({
@@ -13,7 +13,7 @@ export default function ConditionsBlock({
   onUnits: (imperial: boolean) => void;
 }) {
   if (!hasAnyConditions(conditions)) return null;
-  const weather = conditions.indoor ? 'Indoor' : weatherLine(conditions, imperial);
+  const weather = weatherLine(conditions, imperial);
   const rows: Array<[string, string]> = [];
   if (weather) rows.push(['Weather', weather]);
   if (conditions.elevation != null) rows.push(['Elevation', elevationText(conditions.elevation, imperial)]);

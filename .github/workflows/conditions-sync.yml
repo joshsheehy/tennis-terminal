@@ -1,8 +1,8 @@
 name: Conditions sync (weather, elevation, ball)
 
 # Fills the Conditions block on the Builder's info card for upcoming events.
-# While CONDITIONS_PILOT_WEEKS (src/lib/edition-conditions.ts) lists weeks,
-# both endpoints only offer editions in those weeks.
+# Both endpoints stop at CONDITIONS_THROUGH (src/lib/edition-conditions.ts),
+# currently the end of 2026.
 #
 # 1. Weather + elevation: /api/conditions/climate asks Open-Meteo from Railway,
 #    time-budgeted, so this step just repeats the call while hasMore is true.
@@ -67,7 +67,7 @@ jobs:
           base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
           ua='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
           targets=$(curl --fail-with-body -sS --max-time 60 -H "X-Admin-Secret: $ADMIN_SECRET" \
-            "$base/api/conditions/sheet?weeks=6&limit=$SHEETS&recheck=$RECHECK")
+            "$base/api/conditions/sheet?weeks=$WEEKS&limit=$SHEETS&recheck=$RECHECK")
           echo "$(echo "$targets" | jq '.count') sheets to read"
           echo "$targets" | jq -c '.targets[]' | while read -r t; do
             id=$(echo "$t" | jq -r '.editionId'); url=$(echo "$t" | jq -r '.url'); name=$(echo "$t" | jq -r '.name')
