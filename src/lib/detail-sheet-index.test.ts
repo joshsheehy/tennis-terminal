@@ -37,14 +37,14 @@ describe('buildDetailSheetIndex', () => {
     expect(index.map((e) => e.name)).toEqual(['Plovdiv 2', 'Plovdiv 10']);
   });
 
-  it('links a season only once its sheet can be posted (8 weeks out)', () => {
+  it('links a season only once its sheet can be posted (14 weeks out)', () => {
     const today = new Date('2026-11-04T12:00:00Z');
     const code = 'https://www.protennislive.com/posting/2026/9050/mds.pdf';
     const index = buildDetailSheetIndex(
       [
         edition({ slug: 'zz-paris', year: 2026, start_date: '2026-11-02', source_url: code }),
         edition({ slug: 'zz-paris', year: 2027, start_date: '2027-11-01', source_url: null }),
-        edition({ slug: 'zz-brisbane', year: 2027, start_date: '2026-12-28', source_url: code.replace('9050', '9051') }),
+        edition({ slug: 'zz-brisbane', year: 2027, start_date: '2027-01-11', source_url: code.replace('9050', '9051') }),
         edition({ slug: 'zz-new', year: 2027, start_date: '2027-05-03', source_url: code.replace('9050', '9052') }),
       ],
       [],

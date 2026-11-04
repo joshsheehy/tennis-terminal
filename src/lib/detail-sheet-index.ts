@@ -16,10 +16,11 @@ export type DetailSheetEdition = {
   start_date?: string | null;
 };
 
-// A detail sheet is posted a few weeks before the event (rarely more than six),
-// so a season added months early — the 2027 Tour calendar, in November 2026 —
-// would otherwise list a link per event that 404s until then.
-const SHEET_LEAD_DAYS = 56;
+// A detail sheet is posted a few weeks before the event — four to six for a
+// Challenger, about two months for a Tour event (Brisbane and Auckland 2027
+// were up on 4 Nov 2026). A season added further ahead than that — the 2027
+// Tour calendar, in November 2026 — would otherwise list links that 404.
+const SHEET_LEAD_DAYS = 98;
 
 export type DetailSheetLink = { year: number; url: string };
 
