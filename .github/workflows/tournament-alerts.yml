@@ -2,15 +2,17 @@ name: New tournament alerts (Telegram)
 
 # Telegrams the owner when ATP or Challenger tournaments appear on the site,
 # whichever importer added them (official calendar, catalogue, ProTennisLive
-# postings, hand-entered rows). The endpoint compares what's listed with what
-# has been announced; this just calls it. Every three hours, offset from the
-# calendar syncs (07:45, 08:15) so a morning import is announced the same day.
+# postings, hand-entered rows). /api/announce-new-tournaments compares what's
+# listed with what has been announced and prepares the message; this sends it
+# with the bot token from this repo's secrets (Railway doesn't hold it), then
+# confirms so those tournaments aren't announced again. Every three hours,
+# offset from the calendar syncs (07:45, 08:15).
 
 on:
   workflow_dispatch:
     inputs:
       dryRun:
-        description: 'List what would be announced without sending'
+        description: 'Show what would be announced without sending'
         required: false
         default: 'false'
   schedule:
@@ -29,9 +31,31 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DRY: ${{ inputs.dryRun == 'true' && '1' || '0' }}
         run: |
           set -euo pipefail
           base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
-          curl --fail-with-body -sS --max-time 90 -X POST -H "X-Admin-Secret: $ADMIN_SECRET" \
-            "$base/api/announce-new-tournaments?dryRun=$DRY" | jq .
+          res=$(curl --fail-with-body -sS --max-time 90 -X POST -H "X-Admin-Secret: $ADMIN_SECRET" \
+            "$base/api/announce-new-tournaments")
+          echo "$res" | jq '{baseline, recorded, count, tournaments}'
+          count=$(echo "$res" | jq -r '.count')
+          if [ "$count" = "0" ] || [ "$DRY" = "1" ]; then exit 0; fi
+
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo "::error::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not configured."; exit 1
+          fi
+          sent=$(curl -sS -w '\n%{http_code}' -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -H 'content-type: application/json' \
+            -d "$(echo "$res" | jq --arg chat "$TELEGRAM_CHAT_ID" \
+                  '{chat_id: $chat, text: .message, parse_mode: "HTML", disable_web_page_preview: true}')")
+          code=$(echo "$sent" | tail -n1)
+          if [ "$code" != "200" ]; then
+            echo "::error::Telegram returned HTTP $code: $(echo "$sent" | sed '$d')"; exit 1
+          fi
+          echo "Sent to Telegram."
+
+          curl --fail-with-body -sS --max-time 60 -X POST -H "X-Admin-Secret: $ADMIN_SECRET" \
+            -H 'Content-Type: application/json' -d "$(echo "$res" | jq '{editionIds}')" \
+            "$base/api/announce-new-tournaments?confirm=1" | jq -c .
