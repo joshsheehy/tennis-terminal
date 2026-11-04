@@ -99,6 +99,7 @@ export function normalizeSurface(code: string) {
   if (normalized === 'IH') return { surface: 'Indoor Hard', indoor: true };
   if (normalized === 'H') return { surface: 'Hard', indoor: false };
   if (normalized === 'C' || normalized === 'CL') return { surface: 'Clay', indoor: false };
+  if (normalized === 'IC' || normalized === 'ICL') return { surface: 'Clay', indoor: true };
   if (normalized === 'G') return { surface: 'Grass', indoor: false };
   return { surface: 'Hard', indoor: false };
 }

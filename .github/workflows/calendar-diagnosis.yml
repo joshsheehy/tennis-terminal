@@ -75,7 +75,7 @@ jobs:
       - name: Download official challenger PDF, replay parser, audit vs production
         # Single download/parse per run: later steps reuse the emitted rows
         # (repeat PDF probing from one runner IP gets throttled by atptour).
-        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify --emit-rows /tmp/official-rows.json
+        run: npx tsx scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify --emit-rows /tmp/official-rows.json
 
       - name: Probe ITF calendar API (runner and production route)
         run: |
@@ -193,4 +193,4 @@ jobs:
 
       - name: Final audit of season vs official PDF
         if: ${{ inputs.run_sync || hashFiles('.diag/run-sync') != '' }}
-        run: node scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify-from /tmp/official-rows.json
+        run: npx tsx scripts/diagnose-calendar-pdf.mjs "$YEAR" --verify-from /tmp/official-rows.json

@@ -2,10 +2,17 @@
 // the sync-official-calendar parser over the extracted lines, reporting what
 // each week contributes and which candidate lines FAIL the row regex.
 //
-// Run in CI (full network): node scripts/diagnose-calendar-pdf.mjs 2026
-// Logic below mirrors src/app/api/sync-official-calendar/route.ts.
+// Run in CI (full network): npx tsx scripts/diagnose-calendar-pdf.mjs 2026
+// (tsx, because discovery and the row pattern come from the TypeScript module
+// the server-side /api/sync-official-calendar route uses too.)
 
 import { createRequire } from 'node:module';
+import {
+  CHALLENGER_ROW_PATTERN,
+  discoverChallengerCalendars,
+  discoverPlayerZoneCalendars,
+  looksLikeChallengerRow,
+} from '../src/lib/calendar-pdf-discovery.ts';
 const require = createRequire(import.meta.url);
 
 const year = Number(process.argv[2] ?? new Date().getFullYear());
@@ -21,8 +28,6 @@ const BROWSER_HEADERS = {
   Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.5',
 };
-
-const MONTH_NAMES = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 
 async function fetchHtml(url) {
   const res = await fetch(url, { headers: BROWSER_HEADERS });
@@ -55,31 +60,17 @@ async function probeUrlExists(url) {
   } catch { return false; }
 }
 
-// ATP Player Zone "combined" calendar — mirrors discoverPlayerZoneCombinedCalendars
-// in src/app/api/sync-official-calendar/route.ts. This is the freshest source
-// and covers the whole season; the atptour.com challenger PDF lags badly.
-async function discoverPlayerZoneCombinedCalendars(lookBackDays = 120) {
-  const now = new Date();
-  const seasonEnd = new Date(Date.UTC(year, 11, 31));
-  const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
-  for (let back = 0; back <= lookBackDays; back += 1) {
-    const d = new Date(today.getTime() - back * 86400000);
-    const ymd = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
-    const url = `https://rsc.atppz.com/-/media/atp-player-zone/pdf-files/calendars/${year}/${ymd}_${year}_combined_calendar.pdf`;
-    if (await probeUrlExists(url)) return [url];
-  }
-  return [];
+// Discovery, newest first, in two stages: the Player Zone combined calendar
+// (rsc.atppz.com, not bot-blocked), then the atptour.com Challenger calendar
+// off its media CDN. Filename guesses live in src/lib/calendar-pdf-discovery.ts.
+async function discoverPlayerZone() {
+  return discoverPlayerZoneCalendars({ season: year, exists: probeUrlExists });
 }
 
-async function discoverPdfUrls() {
+async function discoverAtptour() {
   const urls = new Set();
-
-  // 1) Primary: Player Zone combined calendar. A superset of the atptour
-  //    challenger PDF — when found, use it alone.
-  for (const u of await discoverPlayerZoneCombinedCalendars()) urls.add(u);
-  if (urls.size > 0) return Array.from(urls);
-
-  // 2) atptour.com listing pages.
+  // atptour.com listing pages: they 403 datacenter IPs, but cost two requests
+  // and would hand over the exact current link if the block ever lifts.
   for (const pageUrl of ['https://www.atptour.com/en/tournaments', 'https://www.atptour.com/en/atp-challenger-tour/calendar']) {
     try {
       for (const u of findCalendarPdfUrls(await fetchHtml(pageUrl), pageUrl)) urls.add(u);
@@ -87,30 +78,10 @@ async function discoverPdfUrls() {
       console.log(`page fetch failed: ${pageUrl}: ${err.message}`);
     }
   }
-  if (urls.size === 0) {
-    // 3) atptour CDN "as-of" probing. Mirrors the route's combos, including the
-    //    PREVIOUS year's two-season PDF (folder year-1) — that's how e.g. 2027
-    //    events are found inside the 2026-27 PDF before a 2027-28 file exists.
-    const now = new Date();
-    const seasonEnd = new Date(Date.UTC(year, 11, 31));
-    const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
-    const yyNext = String((year + 1) % 100).padStart(2, '0');
-    const yyThis = String(year % 100).padStart(2, '0');
-    const combos = [
-      { folder: year, prefix: `${year}-${yyNext}-atp-challenger-calendar` },
-      { folder: year, prefix: `${year}-atp-challenger-calendar` },
-      { folder: year - 1, prefix: `${year - 1}-${yyThis}-atp-challenger-calendar` },
-    ];
-    for (const { folder, prefix } of combos) {
-      let foundForPrefix = false;
-      for (let back = 0; back <= 120 && !foundForPrefix; back += 1) {
-        const d = new Date(today.getTime() - back * 86400000);
-        for (const dayVariant of [String(d.getUTCDate()), String(d.getUTCDate()).padStart(2, '0')]) {
-          const url = `https://www.atptour.com/-/media/files/calendar-pdfs/${folder}/${prefix}-as-of-${dayVariant}-${MONTH_NAMES[d.getUTCMonth()]}-${d.getUTCFullYear()}.pdf`;
-          if (await probeUrlExists(url)) { urls.add(url); foundForPrefix = true; break; }
-        }
-      }
-    }
+  // 75 days back: each night only needs to catch what was published since the
+  // last run; the margin covers a run of failed nights and slow re-uploads.
+  for (const u of await discoverChallengerCalendars({ season: year, exists: probeUrlExists, lookBackDays: 75 })) {
+    urls.add(u);
   }
   return Array.from(urls);
 }
@@ -185,7 +156,7 @@ async function extractLines(buffer) {
   return Array.from(new Set((parsed.text ?? '').split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean)));
 }
 
-const ROW_PATTERN = /^(?:(\d{1,2})\s+(\d{1,2}[-\s][A-Za-z]{3})\s+)?(.+?)\s+([A-Z]{3})\s+(50|75|100|125|175)\s+(?:(?:USD|EUR|€|\$)\s*)?[0-9][0-9,\.]*\s+((?:IH|CL|H|C|G)\*?)\b(.*)$/i;
+const ROW_PATTERN = CHALLENGER_ROW_PATTERN;
 const MONTH_ABBR = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
 
 function parseDateToken(token, dateYear) {
@@ -227,6 +198,9 @@ function parseRows(lines) {
   const rows = [];
   const cancelled = [];
   const nearMisses = [];
+  // Lines in this season's section that look like a Challenger row (category +
+  // prize money) but fail ROW_PATTERN: each one is a tournament being dropped.
+  const unparsed = [];
   const transitions = [];
   const sectionPattern = /\b(20\d{2})\s+CALENDAR\b/i;
   const monthHeaderPattern = /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(20\d{2})$/i;
@@ -248,6 +222,7 @@ function parseRows(lines) {
       if (/\b(50|75|100|125|175)\b/.test(line) && /\b[A-Z]{3}\b/.test(line) && !/^week/i.test(line)) {
         nearMisses.push(line);
       }
+      if (sectionYear === year && looksLikeChallengerRow(line)) unparsed.push(line);
       continue;
     }
     if (match[1] && match[2]) {
@@ -283,12 +258,13 @@ function parseRows(lines) {
       notes,
     });
   }
-  return { rows, cancelled, nearMisses, transitions };
+  return { rows, cancelled, nearMisses, unparsed, transitions };
 }
 
 function analyze(lines) {
-  const { rows, cancelled, nearMisses, transitions } = parseRows(lines);
+  const { rows, cancelled, nearMisses, unparsed, transitions } = parseRows(lines);
   rows.cancelled = cancelled;
+  rows.unparsed = unparsed;
 
   console.log('\n--- WEEK/SECTION TRANSITIONS SEEN BY PARSER ---');
   for (const t of transitions) console.log(t);
@@ -304,6 +280,7 @@ function analyze(lines) {
 
   console.log(`\n--- NEAR-MISS LINES (level+country present, regex failed): ${nearMisses.length} ---`);
   for (const l of nearMisses.slice(0, 60)) console.log(`NEARMISS: ${l}`);
+  for (const l of unparsed) console.log(`UNPARSED ${year} CHALLENGER ROW: ${l}`);
 
   return rows;
 }
@@ -466,62 +443,85 @@ if (verifyFromPath) {
   process.exit(0);
 }
 
-const urls = await discoverPdfUrls();
-console.log(`Discovered ${urls.length} calendar PDF URL(s):`);
-urls.forEach((u) => console.log(`  ${u}`));
-
-for (const url of urls) {
+async function parsePdf(url) {
   console.log(`\n================ ${url}`);
-  try {
-    const res = await fetch(url, { headers: { ...BROWSER_HEADERS, Accept: 'application/pdf,*/*;q=0.8' } });
-    if (!res.ok) { console.log(`download failed: ${res.status}`); continue; }
-    const buffer = Buffer.from(await res.arrayBuffer());
-    console.log(`downloaded ${buffer.length} bytes`);
-    let lines = await extractLinesPdfjs(buffer).catch((err) => {
-      console.log(`pdfjs extraction failed: ${err.message}`);
-      return [];
-    });
-    let source = 'pdfjs-dist';
-    if (lines.length === 0) {
-      lines = await extractLines(buffer);
-      source = 'pdf-parse';
-    }
-    if (lines.length === 0) {
-      console.log('pdfjs + pdf-parse extracted 0 lines -> falling back to r.jina.ai reader');
-      lines = await fetchReaderLines(url);
-      source = 'jina-reader';
-    }
-    console.log(`extracted ${lines.length} lines via ${source}`);
-    printWeek8To10Window(lines);
-    const rows = analyze(lines);
-    if (emitRowsPath && rows.length > 0) {
-      const payload = {
-        year,
-        sourcePdfUrl: url,
-        rows: rows.map((r) => ({
-          week: r.week,
-          startDate: r.startDate,
-          name: r.name,
-          countryCode: r.country,
-          level: r.levelNumber,
-          surfaceCode: r.surfaceCode,
-        })),
-        // Marked "Cancelled"/"Postponed" in the PDF: the import hides any
-        // edition already on the site for these instead of upserting them.
-        cancelled: (rows.cancelled ?? []).map((r) => ({
-          week: r.week,
-          startDate: r.startDate,
-          name: r.name,
-          countryCode: r.country,
-          level: r.levelNumber,
-          surfaceCode: r.surfaceCode,
-        })),
-      };
-      (await import('node:fs')).writeFileSync(emitRowsPath, JSON.stringify(payload));
-      console.log(`emitted ${payload.rows.length} rows to ${emitRowsPath}`);
-    }
-    if (verifyAgainstDb) await verifyAgainstProduction(rows);
-  } catch (err) {
-    console.log(`ERROR: ${err.message}`);
+  const res = await fetch(url, { headers: { ...BROWSER_HEADERS, Accept: 'application/pdf,*/*;q=0.8' } });
+  if (!res.ok) throw new Error(`download failed: ${res.status}`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+  console.log(`downloaded ${buffer.length} bytes`);
+  let lines = await extractLinesPdfjs(buffer).catch((err) => {
+    console.log(`pdfjs extraction failed: ${err.message}`);
+    return [];
+  });
+  let source = 'pdfjs-dist';
+  if (lines.length === 0) {
+    lines = await extractLines(buffer);
+    source = 'pdf-parse';
   }
+  if (lines.length === 0) {
+    console.log('pdfjs + pdf-parse extracted 0 lines -> falling back to r.jina.ai reader');
+    lines = await fetchReaderLines(url);
+    source = 'jina-reader';
+  }
+  console.log(`extracted ${lines.length} lines via ${source}`);
+  printWeek8To10Window(lines);
+  return analyze(lines);
+}
+
+// Newest PDF with this season's Challenger rows wins. It used to be whichever
+// URL happened to be parsed last, so an older file could overwrite a newer one.
+const checked = [];
+let chosen = null;
+for (const [stage, discover] of [['Player Zone', discoverPlayerZone], ['atptour.com', discoverAtptour]]) {
+  const urls = await discover();
+  console.log(`\n${stage}: ${urls.length} calendar PDF(s), newest first`);
+  urls.forEach((u) => console.log(`  ${u}`));
+  for (const url of urls) {
+    try {
+      const rows = await parsePdf(url);
+      checked.push({ url, rows: rows.length });
+      if (rows.length > 0) {
+        chosen = { url, rows };
+        break;
+      }
+    } catch (err) {
+      checked.push({ url, error: err.message });
+      console.log(`ERROR: ${err.message}`);
+    }
+  }
+  if (chosen) break;
+}
+
+console.log(`\n=== ${year} RESULT ===`);
+for (const c of checked) console.log(`  ${c.error ? `error (${c.error})` : `${c.rows} rows`}  ${c.url}`);
+if (!chosen) {
+  console.log(`NO ${year} CHALLENGER ROWS in any official calendar PDF found.`);
+} else {
+  const { url, rows } = chosen;
+  console.log(`using ${url}: ${rows.length} rows, ${rows.cancelled.length} cancelled, ${rows.unparsed.length} unparsed`);
+  if (emitRowsPath) {
+    const toPayload = (r) => ({
+      week: r.week,
+      startDate: r.startDate,
+      name: r.name,
+      countryCode: r.country,
+      level: r.levelNumber,
+      surfaceCode: r.surfaceCode,
+    });
+    const payload = {
+      year,
+      sourcePdfUrl: url,
+      rows: rows.map(toPayload),
+      // Marked "Cancelled"/"Postponed" in the PDF: the import hides any
+      // edition already on the site for these instead of upserting them.
+      cancelled: (rows.cancelled ?? []).map(toPayload),
+      // Rows the parser could not read. The workflow fails the run on these
+      // after importing everything else, so a format change gets fixed
+      // instead of silently dropping tournaments.
+      unparsed: rows.unparsed ?? [],
+    };
+    (await import('node:fs')).writeFileSync(emitRowsPath, JSON.stringify(payload));
+    console.log(`emitted ${payload.rows.length} rows to ${emitRowsPath}`);
+  }
+  if (verifyAgainstDb) await verifyAgainstProduction(rows);
 }

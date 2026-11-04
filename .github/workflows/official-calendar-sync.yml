@@ -30,7 +30,7 @@ jobs:
           year=$(date -u +%Y)
           for y in "$year" "$((year + 1))"; do
             echo "=== Parsing season $y ==="
-            node scripts/diagnose-calendar-pdf.mjs "$y" --emit-rows "/tmp/official-rows-$y.json" || true
+            npx tsx scripts/diagnose-calendar-pdf.mjs "$y" --emit-rows "/tmp/official-rows-$y.json" || true
             if [ -s "/tmp/official-rows-$y.json" ]; then
               echo "season $y: rows emitted"
             else
@@ -360,6 +360,21 @@ jobs:
                       print(f"  - hid {h.get('slug')} {h.get('year')} ({h.get('startDate')})", flush=True)
               except Exception as exc:
                   print(f'non-fatal: {exc}', flush=True)
+
+          # Last: rows the parser saw but could not read. Everything else has
+          # been imported by now, so failing here costs nothing but turns the
+          # run red (GitHub emails the owner). This is what would have caught
+          # Maia's "IC" (indoor clay) surface, which the old pattern rejected
+          # and the log only listed as a near-miss.
+          unparsed = []
+          for path in sorted(glob.glob('/tmp/official-rows-*.json')):
+              payload = json.load(open(path))
+              unparsed += [(payload['year'], line) for line in payload.get('unparsed') or []]
+          if unparsed:
+              print(f'\n=== {len(unparsed)} Challenger row(s) in the official PDF could not be parsed ===', flush=True)
+              for y, line in unparsed:
+                  print(f'  {y}: {line}', flush=True)
+              raise SystemExit('Fix CHALLENGER_ROW_PATTERN in src/lib/calendar-pdf-discovery.ts so these tournaments import.')
 
           print('\nOfficial calendar sync complete.', flush=True)
           PY

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAtpEditionYearForStartDate } from '@/lib/atp-week';
 import {
+  CHALLENGER_ROW_PATTERN,
+  discoverChallengerCalendars,
+  discoverPlayerZoneCalendars,
+} from '@/lib/calendar-pdf-discovery';
+import {
   cleanName,
   deriveCity,
   normalizeKey,
@@ -33,11 +38,6 @@ const BROWSER_HEADERS = {
   Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.5',
 };
-
-const MONTH_NAMES = [
-  'january', 'february', 'march', 'april', 'may', 'june',
-  'july', 'august', 'september', 'october', 'november', 'december',
-];
 
 const MONTH_ABBR: Record<string, number> = {
   jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
@@ -274,80 +274,6 @@ async function probeUrlExists(url: string, timeoutMs = 8000): Promise<boolean> {
   }
 }
 
-async function discoverLatestChallengerCalendarPdfs(year: number, lookBackDays = 120) {
-  // For past seasons the newest "as-of" PDF was published near that season's
-  // end, not near today — probe backwards from Dec 31 of the season year.
-  const now = new Date();
-  const seasonEnd = new Date(Date.UTC(year, 11, 31));
-  const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
-
-  const yyNext = String((year + 1) % 100).padStart(2, '0'); // year as FIRST season:  {year}-{yyNext}
-  const yyThis = String(year % 100).padStart(2, '0');        // year as SECOND season: {year-1}-{yyThis}
-
-  // (folder, prefix) combos to probe. The ATP publishes a two-season
-  // "{A}-{A+1}" PDF inside folder {A}, and that single file covers BOTH season
-  // A and season A+1. So a year can be found two ways:
-  //   1. As the FIRST season of its own two-season PDF (folder = year).
-  //   2. As the SECOND season of the PREVIOUS year's PDF (folder = year-1) —
-  //      this is how e.g. 2027 events are found inside the 2026-27 PDF before
-  //      a standalone 2027-28 file ever exists. Without this, year=2027
-  //      discovery looked only in /2027/ and returned "no PDF found".
-  const combos: Array<{ folder: number; prefix: string }> = [
-    { folder: year, prefix: `${year}-${yyNext}-atp-challenger-calendar` },
-    { folder: year, prefix: `${year}-atp-challenger-calendar` },
-    { folder: year - 1, prefix: `${year - 1}-${yyThis}-atp-challenger-calendar` },
-  ];
-
-  const discovered: string[] = [];
-  for (const { folder, prefix } of combos) {
-    let foundForPrefix: string | null = null;
-    for (let back = 0; back <= lookBackDays && !foundForPrefix; back += 1) {
-      const probeDate = new Date(today.getTime() - back * 24 * 60 * 60 * 1000);
-      const day = probeDate.getUTCDate();
-      const month = MONTH_NAMES[probeDate.getUTCMonth()];
-      const probeYear = probeDate.getUTCFullYear();
-      for (const dayVariant of [String(day), String(day).padStart(2, '0')]) {
-        const filename = `${prefix}-as-of-${dayVariant}-${month}-${probeYear}.pdf`;
-        const url = `https://www.atptour.com/-/media/files/calendar-pdfs/${folder}/${filename}`;
-        if (await probeUrlExists(url)) {
-          foundForPrefix = url;
-          break;
-        }
-      }
-    }
-    if (foundForPrefix) discovered.push(foundForPrefix);
-  }
-  return Array.from(new Set(discovered));
-}
-
-// ATP Player Zone "combined" calendar. This is the BEST source: the host
-// (rsc.atppz.com) is NOT bot-blocked like atptour.com, it's published more
-// frequently, and its detailed Challenger table covers the WHOLE season —
-// whereas the atptour.com challenger PDF lagged badly (e.g. the 28-May-2026
-// version stopped at week 37 / mid-September, so every post-September
-// Challenger was missing). The detailed-table format is identical to the
-// atptour PDF, so parseOfficialChallengerRows handles it unchanged; the
-// pages 1–4 ATP-Tour summary is skipped because those rows don't match the
-// Challenger row pattern.
-//
-// URL shape: .../calendars/{year}/{YYYYMMDD}_{year}_combined_calendar.pdf
-// Probe backwards from today (or season end for past years) for the newest.
-async function discoverPlayerZoneCombinedCalendars(year: number, lookBackDays = 120): Promise<string[]> {
-  const now = new Date();
-  const seasonEnd = new Date(Date.UTC(year, 11, 31));
-  const today = seasonEnd.getTime() < now.getTime() ? seasonEnd : now;
-  for (let back = 0; back <= lookBackDays; back += 1) {
-    const probeDate = new Date(today.getTime() - back * 24 * 60 * 60 * 1000);
-    const y = probeDate.getUTCFullYear();
-    const m = String(probeDate.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(probeDate.getUTCDate()).padStart(2, '0');
-    const ymd = `${y}${m}${d}`;
-    const url = `https://rsc.atppz.com/-/media/atp-player-zone/pdf-files/calendars/${year}/${ymd}_${year}_combined_calendar.pdf`;
-    if (await probeUrlExists(url)) return [url];
-  }
-  return [];
-}
-
 async function discoverOfficialPdfUrls(year: number) {
   const urls = new Set<string>();
   const pageErrors: Array<{ url: string; error: string }> = [];
@@ -355,7 +281,11 @@ async function discoverOfficialPdfUrls(year: number) {
   // 1) Primary: ATP Player Zone combined calendar (reachable, freshest, full
   //    season). When found we use it alone — it's a superset of the atptour
   //    challenger PDF, so there's no need to also probe the laggy CDN copy.
-  for (const pdfUrl of await discoverPlayerZoneCombinedCalendars(year)) urls.add(pdfUrl);
+  // Filename guesses (publish-year folders, re-upload suffixes) are shared with
+  // the runner-side parser: src/lib/calendar-pdf-discovery.ts.
+  for (const pdfUrl of await discoverPlayerZoneCalendars({ season: year, exists: (u) => probeUrlExists(u) })) {
+    urls.add(pdfUrl);
+  }
 
   // 2) atptour.com listing pages. These reliably 403 datacenter IPs (Railway,
   //    CI), but keep trying in case the block ever lifts — and surface the
@@ -374,7 +304,8 @@ async function discoverOfficialPdfUrls(year: number) {
   //    CDN (incl. the previous season's two-season PDF for next-year events).
   //    Only used when Player Zone and the listing pages turned up nothing.
   if (urls.size === 0) {
-    for (const pdfUrl of await discoverLatestChallengerCalendarPdfs(year)) urls.add(pdfUrl);
+    const found = await discoverChallengerCalendars({ season: year, exists: (u) => probeUrlExists(u), lookBackDays: 75 });
+    for (const pdfUrl of found) urls.add(pdfUrl);
   }
   return { urls: Array.from(urls), pageErrors };
 }
@@ -392,7 +323,7 @@ function parseOfficialChallengerRows(lines: string[], year: number, sourcePdfUrl
 
   const sectionPattern = /\b(20\d{2})\s+CALENDAR\b/i;
   const monthHeaderPattern = /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(20\d{2})$/i;
-  const rowPattern = /^(?:(\d{1,2})\s+(\d{1,2}[-\s][A-Za-z]{3})\s+)?(.+?)\s+([A-Z]{3})\s+(50|75|100|125|175)\s+(?:(?:USD|EUR|€|\$)\s*)?[0-9][0-9,\.]*\s+((?:IH|CL|H|C|G)\*?)\b(.*)$/i;
+  const rowPattern = CHALLENGER_ROW_PATTERN;
 
   for (const rawLine of lines) {
     const line = rawLine.replace(/\s+/g, ' ').trim();

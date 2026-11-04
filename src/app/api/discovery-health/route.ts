@@ -174,12 +174,19 @@ async function checkRecentCutCoverage(year: number) {
  * into the Australian swing, and an empty next season makes the Builder dead-
  * end at week 50.
  *
- * Gating: from November, next season must hold the Tour-level calendar (Slams,
- * 1000s, 500s, 250s). That part lives in tournament-data.ts and is published a
- * season ahead, so a shortfall means someone has to add it. Challenger and ITF
- * counts are reported but never gate: their next-season calendars publish on
- * the governing bodies' schedule, and the nightly syncs pick them up on their
- * own (official-calendar-sync.yml and itf-sync.yml both request next season).
+ * Gating:
+ * - From November, next season must hold the Tour-level calendar (Slams,
+ *   1000s, 500s, 250s). That part lives in tournament-data.ts and is published
+ *   a season ahead, so a shortfall means someone has to add it.
+ * - From 15 December, next season must hold Challengers. The ATP publishes
+ *   that calendar late (the first 2026 file found was dated 4 January 2026),
+ *   so it can't gate earlier without going red for weeks over something no
+ *   sync can fix. But week 1's entry deadlines fall around mid-December: past
+ *   that, an empty Challenger calendar means either the ATP still hasn't
+ *   published (worth knowing) or official-calendar-sync.yml can't find or read
+ *   the file it did publish (must be fixed).
+ * ITF is reported only: itftennis.com fills next season in gradually and
+ * itf-sync.yml requests it every day.
  */
 async function checkNextSeasonCalendar(year: number, now: Date) {
   const nextYear = year + 1;
@@ -201,14 +208,24 @@ async function checkNextSeasonCalendar(year: number, now: Date) {
 
   // ~60 Tour-level editions a season; 40 tolerates a few TBC slots.
   const MIN_TOUR_EDITIONS = 40;
-  const gating = now.getUTCMonth() >= 10; // November and December
-  const problems =
-    gating && tour < MIN_TOUR_EDITIONS
-      ? [
-          `only ${tour} ATP Tour-level editions on the ${nextYear} calendar (expected ≥ ${MIN_TOUR_EDITIONS} ` +
-            `from November) — add next season's Tour calendar to src/lib/tournament-data.ts`,
-        ]
-      : [];
+  // Even a first-weeks-only Challenger calendar lists well over this.
+  const MIN_CHALLENGER_EDITIONS = 10;
+  const month = now.getUTCMonth();
+  const problems: string[] = [];
+  if (month >= 10 && tour < MIN_TOUR_EDITIONS) {
+    problems.push(
+      `only ${tour} ATP Tour-level editions on the ${nextYear} calendar (expected ≥ ${MIN_TOUR_EDITIONS} ` +
+        `from November) — add next season's Tour calendar to src/lib/tournament-data.ts`
+    );
+  }
+  if (month === 11 && now.getUTCDate() >= 15 && challenger < MIN_CHALLENGER_EDITIONS) {
+    problems.push(
+      `only ${challenger} Challenger editions on the ${nextYear} calendar (expected ≥ ${MIN_CHALLENGER_EDITIONS} ` +
+        `from 15 December) — check the newest PDF linked from atptour.com/en/atp-challenger-tour/calendar: ` +
+        `if it lists ${nextYear} Challengers, official-calendar-sync.yml is not finding or not reading it ` +
+        `(filename guesses and row pattern: src/lib/calendar-pdf-discovery.ts)`
+    );
+  }
 
   return {
     source: 'next_season_calendar',
