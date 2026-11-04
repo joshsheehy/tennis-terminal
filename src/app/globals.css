@@ -1035,6 +1035,40 @@ td {
   line-height: 1.2;
 }
 .sched-cut__val--na { color: var(--text-faint); font-weight: 600; }
+.sched-lede { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+/* Itinerary stop conditions: same chips as the cuts, values in body text. */
+.sched-conds {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 1fr;
+  gap: 8px;
+  margin: -4px 0 12px;
+}
+.sched-cond {
+  border: 1px solid var(--border-inner);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  padding: 7px 8px;
+  text-align: center;
+}
+.sched-cond__val { font-size: 13px; font-weight: 600; color: var(--text-strong); line-height: 1.3; margin-top: 2px; }
+@media (max-width: 480px) {
+  .sched-conds { grid-template-columns: 1fr 1fr; }
+  .sched-cond:first-child { grid-column: 1 / -1; }
+}
+/* °C · m / °F · ft — the site's one units setting (src/lib/units.ts). */
+.units-switch { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-alt); flex-shrink: 0; }
+.units-switch button {
+  border: none;
+  background: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.units-switch button[aria-pressed='true'] { background: var(--surface); color: var(--text-strong); box-shadow: var(--shadow-1); }
 .sched-actions {
   display: flex;
   gap: 8px;

@@ -1,17 +1,13 @@
-import { elevationText, hasAnyConditions, weatherLine, type EditionConditions } from '@/lib/conditions';
+'use client';
 
-// The week's playing conditions: usual weather (indoor events too), elevation,
-// and the ball from the detail sheet. Facts only, no commentary. The unit
-// switch is the Builder's one units setting, shared with distances.
-export default function ConditionsBlock({
-  conditions,
-  imperial,
-  onUnits,
-}: {
-  conditions: EditionConditions | undefined;
-  imperial: boolean;
-  onUnits: (imperial: boolean) => void;
-}) {
+import UnitsSwitch from '@/components/UnitsSwitch';
+import { elevationText, hasAnyConditions, weatherLine, type EditionConditions } from '@/lib/conditions';
+import { useImperial } from '@/lib/units';
+
+// The week's playing conditions on the Builder's info card: usual weather,
+// elevation, and the ball from the detail sheet. Facts only, no commentary.
+export default function ConditionsBlock({ conditions }: { conditions: EditionConditions | undefined }) {
+  const imperial = useImperial();
   if (!hasAnyConditions(conditions)) return null;
   const weather = weatherLine(conditions, imperial);
   const rows: Array<[string, string]> = [];
@@ -22,14 +18,7 @@ export default function ConditionsBlock({
     <div className="tinfo-cond">
       <div className="tinfo-cond__head">
         <p className="tinfo-label">Conditions</p>
-        <div className="tinfo-units" role="group" aria-label="Units">
-          <button type="button" aria-pressed={!imperial} onClick={() => onUnits(false)}>
-            °C · m
-          </button>
-          <button type="button" aria-pressed={imperial} onClick={() => onUnits(true)}>
-            °F · ft
-          </button>
-        </div>
+        <UnitsSwitch />
       </div>
       <dl>
         {rows.map(([label, value]) => (

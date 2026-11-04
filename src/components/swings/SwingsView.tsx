@@ -10,6 +10,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SwingsPageData, SwingMapEvent, CutSeriesByDraw } from '@/lib/swings-page-data';
 import type { EditionConditions } from '@/lib/conditions';
 import ConditionsBlock from './ConditionsBlock';
+import { useImperial } from '@/lib/units';
 import { LevelGroup, levelRank } from '@/lib/swings';
 import {
   CandidateTier,
@@ -45,19 +46,6 @@ const GROUP_LABELS: Record<LevelGroup, string> = { atp: 'ATP', challenger: 'Chal
 
 // Non-metric regions (US + the two other non-metric countries). Detected from
 // the browser locale so US visitors see miles instead of kilometres.
-function detectImperial(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const langs = navigator.languages?.length ? navigator.languages : [navigator.language];
-  return langs.some((l) => {
-    try {
-      const region = new Intl.Locale(l).maximize().region;
-      return region === 'US' || region === 'LR' || region === 'MM';
-    } catch {
-      return /-(US|LR|MM)\b/i.test(l);
-    }
-  });
-}
-
 function formatDistance(km: number, imperial: boolean): string {
   return imperial ? `${Math.round(km * 0.621371)} mi` : `${Math.round(km)} km`;
 }
@@ -210,26 +198,8 @@ export default function SwingsView({
   const [fitNonce, setFitNonce] = useState(1);
   const [rankSingles, setRankSingles] = useState<number | null>(null);
   const [rankDoubles, setRankDoubles] = useState<number | null>(null);
-  // One units setting for distances and the Conditions block: the viewer's
-  // choice if they've made one on this device, otherwise their region.
-  const [imperial, setImperial] = useState(false);
-  useEffect(() => {
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem('units');
-    } catch {
-      // storage blocked — fall back to the region
-    }
-    setImperial(saved === 'imperial' ? true : saved === 'metric' ? false : detectImperial());
-  }, []);
-  const chooseUnits = (next: boolean) => {
-    setImperial(next);
-    try {
-      localStorage.setItem('units', next ? 'imperial' : 'metric');
-    } catch {
-      // still applies for this visit
-    }
-  };
+  // The site's one units setting (src/lib/units.ts), shared with Conditions.
+  const imperial = useImperial();
 
   // Tournament info popover (ⓘ dot on builder rows): mini cut line + link to
   // the full tournament page.
@@ -761,8 +731,6 @@ export default function SwingsView({
           series={data.cutSeries[infoEvent.event.slug]}
           refs={data.cutRefs[infoEvent.event.slug]}
           conditions={data.conditions[infoEvent.event.editionId]}
-          imperial={imperial}
-          onUnits={chooseUnits}
           year={data.year}
           backTo={returnHref()}
           onAdd={
@@ -1691,8 +1659,6 @@ function TournamentInfoCard({
   series,
   refs,
   conditions,
-  imperial,
-  onUnits,
   year,
   backTo,
   onAdd,
@@ -1702,8 +1668,6 @@ function TournamentInfoCard({
   series: CutSeriesByDraw | undefined;
   refs: SwingsPageData['cutRefs'][string] | undefined;
   conditions: EditionConditions | undefined;
-  imperial: boolean;
-  onUnits: (imperial: boolean) => void;
   year: number;
   /** This view + current chain, so the tournament page can send you back here. */
   backTo: string;
@@ -1784,7 +1748,7 @@ function TournamentInfoCard({
         ) : (
           <p className="tinfo-line tinfo-line--muted">No {draw.label.toLowerCase()} cut history on record yet.</p>
         )}
-        <ConditionsBlock conditions={conditions} imperial={imperial} onUnits={onUnits} />
+        <ConditionsBlock conditions={conditions} />
         {onAdd && (
           <button type="button" className="tinfo-open tinfo-add" onClick={onAdd}>
             ＋ Add to schedule

@@ -48,6 +48,50 @@ export function ensureConditionsTable(): Promise<void> {
   return ensured;
 }
 
+/** Conditions for these editions (an itinerary's stops), keyed by edition id. */
+export async function loadConditionsForEditions(editionIds: string[]): Promise<Record<string, EditionConditions>> {
+  if (editionIds.length === 0) return {};
+  await ensureConditionsTable();
+  const result = await pool.query<{
+    edition_id: string;
+    elevation_m: number | null;
+    temp_high_c: number | null;
+    temp_low_c: number | null;
+    rain_days: string | null;
+    humidity_pct: number | null;
+    wind_kmh: number | null;
+    ball: string | null;
+  }>(
+    `select ec.edition_id, ec.elevation_m, ec.temp_high_c, ec.temp_low_c, ec.rain_days, ec.humidity_pct,
+            ec.wind_kmh, ec.ball
+     from edition_conditions ec
+     join tournament_editions te on te.id = ec.edition_id
+     where ec.edition_id = any($1::uuid[]) and ${ROLLOUT_FILTER.replaceAll('$ROLLOUT', '$2')}`,
+    [editionIds, CONDITIONS_THROUGH]
+  );
+  return Object.fromEntries(result.rows.map((row) => [row.edition_id, toConditions(row)]));
+}
+
+function toConditions(row: {
+  elevation_m: number | null;
+  temp_high_c: number | null;
+  temp_low_c: number | null;
+  rain_days: string | null;
+  humidity_pct: number | null;
+  wind_kmh: number | null;
+  ball: string | null;
+}): EditionConditions {
+  return {
+    elevation: row.elevation_m,
+    high: row.temp_high_c,
+    low: row.temp_low_c,
+    rainDays: row.rain_days == null ? null : Number(row.rain_days),
+    humidity: row.humidity_pct,
+    wind: row.wind_kmh,
+    ball: row.ball,
+  };
+}
+
 /** Conditions for every edition in `year` that has any, keyed by edition id. */
 export async function loadConditionsForYear(year: number): Promise<Record<string, EditionConditions>> {
   await ensureConditionsTable();
@@ -68,19 +112,7 @@ export async function loadConditionsForYear(year: number): Promise<Record<string
      where te.year = $1 and ${ROLLOUT_FILTER.replaceAll('$ROLLOUT', '$2')}`,
     [year, CONDITIONS_THROUGH]
   );
-  const out: Record<string, EditionConditions> = {};
-  for (const row of result.rows) {
-    out[row.edition_id] = {
-      elevation: row.elevation_m,
-      high: row.temp_high_c,
-      low: row.temp_low_c,
-      rainDays: row.rain_days == null ? null : Number(row.rain_days),
-      humidity: row.humidity_pct,
-      wind: row.wind_kmh,
-      ball: row.ball,
-    };
-  }
-  return out;
+  return Object.fromEntries(result.rows.map((row) => [row.edition_id, toConditions(row)]));
 }
 
 export type ClimateTarget = { editionId: string; name: string; startDate: string; latitude: number; longitude: number };

@@ -8,6 +8,10 @@ import { fridayBefore, googleFlightsUrl } from '@/lib/tournament-links';
 import { backLinkFor } from '@/lib/back-link';
 import ScheduleShareButton from '@/components/ScheduleShareButton';
 import SaveButton from '@/components/SaveButton';
+import StopConditions from '@/components/StopConditions';
+import UnitsSwitch from '@/components/UnitsSwitch';
+import type { EditionConditions } from '@/lib/conditions';
+import { loadConditionsForEditions } from '@/lib/edition-conditions';
 import { parseEditionIds } from '@/lib/auth-core';
 import { scheduleShareText, toShareStops } from '@/lib/schedule-share';
 import { shareMetadata } from '@/lib/share-meta';
@@ -187,6 +191,13 @@ export default async function SchedulePage({
     return ad < bd ? -1 : ad > bd ? 1 : 0;
   });
 
+  // Weather, elevation and ball per stop; a failed lookup leaves them off
+  // rather than taking the itinerary down.
+  const conditions = await loadConditionsForEditions(stops.map((s) => s.edition.edition_id)).catch(
+    (): Record<string, EditionConditions> => ({})
+  );
+  const hasConditions = Object.keys(conditions).length > 0;
+
   const builderHref = `/?build=${encodeURIComponent(ids.join(','))}${year ? `&year=${encodeURIComponent(year)}` : ''}`;
   // Back goes where you came from (?from=, e.g. Saved); otherwise the Builder.
   const safeFrom = from && from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/\\') ? from : null;
@@ -215,11 +226,14 @@ export default async function SchedulePage({
           <ScheduleShareButton />
         </div>
       </div>
-      <p className="page-lede" style={{ marginBottom: 18 }}>
-        {stops.length} stop{stops.length === 1 ? '' : 's'}
-        {surfaces.length ? ` · ${surfaces.join(' / ')}` : ''}
-        {dateRange ? ` · ${dateRange}` : ''}. Cuts are the most recent on record.
-      </p>
+      <div className="sched-lede">
+        <p className="page-lede" style={{ marginBottom: 0 }}>
+          {stops.length} stop{stops.length === 1 ? '' : 's'}
+          {surfaces.length ? ` · ${surfaces.join(' / ')}` : ''}
+          {dateRange ? ` · ${dateRange}` : ''}. Cuts are the most recent on record.
+        </p>
+        {hasConditions && <UnitsSwitch />}
+      </div>
 
       <div className="sched-list">
         {stops.map((stop, i) => {
@@ -279,6 +293,7 @@ export default async function SchedulePage({
                   <CutChip label="Singles Q" value={sq} open={sq == null && isOpenDraw(sqCut)} />
                   <CutChip label="Doubles" value={dd} open={dd == null && isOpenDraw(ddCut)} />
                 </div>
+                <StopConditions conditions={conditions[e.edition_id]} />
 
                 <div className="sched-actions">
                   {stop.refYear != null && stop.refYear !== e.year && (
