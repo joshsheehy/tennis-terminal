@@ -37,6 +37,25 @@ describe('buildDetailSheetIndex', () => {
     expect(index.map((e) => e.name)).toEqual(['Plovdiv 2', 'Plovdiv 10']);
   });
 
+  it('links a season only once its sheet can be posted (8 weeks out)', () => {
+    const today = new Date('2026-11-04T12:00:00Z');
+    const code = 'https://www.protennislive.com/posting/2026/9050/mds.pdf';
+    const index = buildDetailSheetIndex(
+      [
+        edition({ slug: 'zz-paris', year: 2026, start_date: '2026-11-02', source_url: code }),
+        edition({ slug: 'zz-paris', year: 2027, start_date: '2027-11-01', source_url: null }),
+        edition({ slug: 'zz-brisbane', year: 2027, start_date: '2026-12-28', source_url: code.replace('9050', '9051') }),
+        edition({ slug: 'zz-new', year: 2027, start_date: '2027-05-03', source_url: code.replace('9050', '9052') }),
+      ],
+      [],
+      today
+    );
+    expect(index.map((e) => [e.slug, e.sheets.map((s) => s.year)])).toEqual([
+      ['zz-brisbane', [2027]],
+      ['zz-paris', [2026]],
+    ]);
+  });
+
   it('lists a first-season event whose code is only in ptl-code-overrides.ts', () => {
     const index = buildDetailSheetIndex([edition({ slug: 'kingston-2', name: 'Kingston 2', source_url: null })]);
     expect(index).toHaveLength(1);

@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 
 async function loadEntries() {
   const editions = await pool.query<DetailSheetEdition>(
-    `select t.slug, t.name, t.city, t.country, te.year, te.level, te.source_url
+    `select t.slug, t.name, t.city, t.country, te.year, te.level, te.source_url, te.start_date::text as start_date
      from tournament_editions te
      join tournaments t on t.id = te.tournament_id
      where te.status = 'held'`

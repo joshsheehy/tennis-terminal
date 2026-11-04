@@ -12,7 +12,14 @@ export type DetailSheetEdition = {
   year: number;
   level: string;
   source_url: string | null;
+  /** YYYY-MM-DD; editions further ahead than SHEET_LEAD_DAYS get no link yet. */
+  start_date?: string | null;
 };
+
+// A detail sheet is posted a few weeks before the event (rarely more than six),
+// so a season added months early — the 2027 Tour calendar, in November 2026 —
+// would otherwise list a link per event that 404s until then.
+const SHEET_LEAD_DAYS = 56;
 
 export type DetailSheetLink = { year: number; url: string };
 
@@ -48,11 +55,14 @@ function fold(text: string): string {
  */
 export function buildDetailSheetIndex(
   editions: DetailSheetEdition[],
-  snapshotUrls: Array<{ slug: string; url: string | null }> = []
+  snapshotUrls: Array<{ slug: string; url: string | null }> = [],
+  today: Date = new Date()
 ): DetailSheetEntry[] {
+  const lastLinkable = new Date(today.getTime() + SHEET_LEAD_DAYS * 86_400_000).toISOString().slice(0, 10);
   const bySlug = new Map<string, DetailSheetEdition[]>();
   for (const edition of editions) {
     if (!levelGetsDetailSheet(edition.level)) continue;
+    if (edition.start_date && edition.start_date > lastLinkable) continue;
     const list = bySlug.get(edition.slug) ?? [];
     list.push(edition);
     bySlug.set(edition.slug, list);
