@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto';
 import { pool, withTransaction } from './db';
+import type { SheetCapture } from './detail-sheet-capture';
 import { applyCoordinateOverrides } from './geocode-backfill';
 import { climateWindows, summarizeClimate, type ClimateSummary, type DailyWeather, type EditionConditions, type SheetConditions } from './conditions';
 import { overrideCodeFor } from './ptl-code-overrides';
@@ -28,9 +30,7 @@ export function ensureConditionsTable(): Promise<void> {
          elevation_m integer,
          temp_high_c smallint,
          temp_low_c smallint,
-         rain_days numeric(3, 1),
          humidity_pct smallint,
-         wind_kmh smallint,
          climate_updated_at timestamptz,
          ball text,
          sheet_surface text,
@@ -39,8 +39,15 @@ export function ensureConditionsTable(): Promise<void> {
          updated_at timestamptz not null default now()
        )`
     )
-    // Court brand was read off the sheets at first and isn't wanted.
-    .then(() => pool.query(`alter table edition_conditions drop column if exists court_brand`))
+    // Court brand, rainy days and wind were collected at first and aren't wanted.
+    .then(() =>
+      pool.query(
+        `alter table edition_conditions
+           drop column if exists court_brand,
+           drop column if exists rain_days,
+           drop column if exists wind_kmh`
+      )
+    )
     .then(() => undefined)
     .catch((error) => {
       ensured = null;
@@ -58,13 +65,10 @@ export async function loadConditionsForEditions(editionIds: string[]): Promise<R
     elevation_m: number | null;
     temp_high_c: number | null;
     temp_low_c: number | null;
-    rain_days: string | null;
     humidity_pct: number | null;
-    wind_kmh: number | null;
     ball: string | null;
   }>(
-    `select ec.edition_id, ec.elevation_m, ec.temp_high_c, ec.temp_low_c, ec.rain_days, ec.humidity_pct,
-            ec.wind_kmh, ec.ball
+    `select ec.edition_id, ec.elevation_m, ec.temp_high_c, ec.temp_low_c, ec.humidity_pct, ec.ball
      from edition_conditions ec
      join tournament_editions te on te.id = ec.edition_id
      where ec.edition_id = any($1::uuid[]) and ${ROLLOUT_FILTER.replaceAll('$ROLLOUT', '$2')}`,
@@ -77,18 +81,14 @@ function toConditions(row: {
   elevation_m: number | null;
   temp_high_c: number | null;
   temp_low_c: number | null;
-  rain_days: string | null;
   humidity_pct: number | null;
-  wind_kmh: number | null;
   ball: string | null;
 }): EditionConditions {
   return {
     elevation: row.elevation_m,
     high: row.temp_high_c,
     low: row.temp_low_c,
-    rainDays: row.rain_days == null ? null : Number(row.rain_days),
     humidity: row.humidity_pct,
-    wind: row.wind_kmh,
     ball: row.ball,
   };
 }
@@ -101,13 +101,10 @@ export async function loadConditionsForYear(year: number): Promise<Record<string
     elevation_m: number | null;
     temp_high_c: number | null;
     temp_low_c: number | null;
-    rain_days: string | null;
     humidity_pct: number | null;
-    wind_kmh: number | null;
     ball: string | null;
   }>(
-    `select ec.edition_id, ec.elevation_m, ec.temp_high_c, ec.temp_low_c, ec.rain_days, ec.humidity_pct,
-            ec.wind_kmh, ec.ball
+    `select ec.edition_id, ec.elevation_m, ec.temp_high_c, ec.temp_low_c, ec.humidity_pct, ec.ball
      from edition_conditions ec
      join tournament_editions te on te.id = ec.edition_id
      where te.year = $1 and ${ROLLOUT_FILTER.replaceAll('$ROLLOUT', '$2')}`,
@@ -129,8 +126,8 @@ async function repointOverriddenVenues(): Promise<void> {
     if (moved.length === 0) return;
     await client.query(
       `update edition_conditions ec
-       set elevation_m = null, temp_high_c = null, temp_low_c = null, rain_days = null,
-           humidity_pct = null, wind_kmh = null, climate_updated_at = null, updated_at = now()
+       set elevation_m = null, temp_high_c = null, temp_low_c = null,
+           humidity_pct = null, climate_updated_at = null, updated_at = now()
        from tournament_editions te
        where te.id = ec.edition_id and te.tournament_id = any($1::uuid[])`,
       [moved]
@@ -180,7 +177,7 @@ export async function fetchClimate(target: ClimateTarget): Promise<{ climate: Cl
       longitude: String(target.longitude),
       start_date: window.start,
       end_date: window.end,
-      daily: 'temperature_2m_max,temperature_2m_min,precipitation_sum,relative_humidity_2m_mean,wind_speed_10m_max',
+      daily: 'temperature_2m_max,temperature_2m_min,relative_humidity_2m_mean',
       timezone: 'auto',
     });
     const data = await openMeteo<{ daily?: Record<string, Array<number | null>> }>(`https://archive-api.open-meteo.com/v1/archive?${params}`);
@@ -190,9 +187,7 @@ export async function fetchClimate(target: ClimateTarget): Promise<{ climate: Cl
       days.push({
         high: daily.temperature_2m_max?.[i] ?? null,
         low: daily.temperature_2m_min?.[i] ?? null,
-        precipitation: daily.precipitation_sum?.[i] ?? null,
         humidity: daily.relative_humidity_2m_mean?.[i] ?? null,
-        wind: daily.wind_speed_10m_max?.[i] ?? null,
       });
     }
   }
@@ -200,24 +195,22 @@ export async function fetchClimate(target: ClimateTarget): Promise<{ climate: Cl
     `https://api.open-meteo.com/v1/elevation?latitude=${target.latitude}&longitude=${target.longitude}`
   );
   const metres = elevation.elevation?.[0];
-  return { climate: summarizeClimate(days, windows.length), elevation: metres == null ? null : Math.round(metres) };
+  return { climate: summarizeClimate(days), elevation: metres == null ? null : Math.round(metres) };
 }
 
 export async function saveClimate(editionId: string, climate: ClimateSummary | null, elevation: number | null): Promise<void> {
   await ensureConditionsTable();
   await pool.query(
-    `insert into edition_conditions (edition_id, elevation_m, temp_high_c, temp_low_c, rain_days, humidity_pct, wind_kmh, climate_updated_at, updated_at)
-     values ($1, $2, $3, $4, $5, $6, $7, now(), now())
+    `insert into edition_conditions (edition_id, elevation_m, temp_high_c, temp_low_c, humidity_pct, climate_updated_at, updated_at)
+     values ($1, $2, $3, $4, $5, now(), now())
      on conflict (edition_id) do update set
        elevation_m = excluded.elevation_m,
        temp_high_c = excluded.temp_high_c,
        temp_low_c = excluded.temp_low_c,
-       rain_days = excluded.rain_days,
        humidity_pct = excluded.humidity_pct,
-       wind_kmh = excluded.wind_kmh,
        climate_updated_at = now(),
        updated_at = now()`,
-    [editionId, elevation, climate?.high ?? null, climate?.low ?? null, climate?.rainDays ?? null, climate?.humidity ?? null, climate?.wind ?? null]
+    [editionId, elevation, climate?.high ?? null, climate?.low ?? null, climate?.humidity ?? null]
   );
 }
 
@@ -226,11 +219,19 @@ export type SheetTarget = { editionId: string; name: string; startDate: string; 
 // A sheet is often posted with blanks the tournament fills in later, so an
 // incomplete one is read again after this long.
 const SHEET_RECHECK_DAYS = 3;
+// Tournaments edit their sheets until the event — Trnava's ball changed three
+// weeks out, Nov 2026 — so an upcoming sheet is read again on a schedule: every
+// SOON_REFRESH_DAYS once the event is SOON_DAYS away, weekly before that, and
+// never once it has started. Each version lands in detail_sheet_snapshots.
+const SOON_DAYS = 21;
+const SOON_REFRESH_DAYS = 2;
+const SHEET_REFRESH_DAYS = 7;
 
 /**
  * ATP/Challenger editions starting from last week to `weeks` ahead whose
- * detail sheet hasn't been read, or was read with a blank and is due a re-read.
- * `recheck` re-reads every incomplete sheet now, without waiting.
+ * detail sheet hasn't been read, was read without a ball and is due a re-read,
+ * or hasn't started yet and is due its scheduled re-read (see SOON_DAYS).
+ * Never-read sheets go first. `recheck` re-reads every incomplete sheet now.
  * The code comes from the same places /ds uses (catalogue, stored posting
  * URLs, ptl-code-overrides.ts).
  */
@@ -246,9 +247,12 @@ export async function sheetTargets(weeks: number, limit: number, recheck = false
        and ${ROLLOUT_FILTER.replaceAll('$ROLLOUT', '$4')}
        and (ec.sheet_checked_at is null
             or (ec.ball is null
-                and ($3 or ec.sheet_checked_at < now() - ($2::int * interval '1 day'))))
-     order by te.start_date, t.name`,
-    [weeks, SHEET_RECHECK_DAYS, recheck, CONDITIONS_THROUGH]
+                and ($3 or ec.sheet_checked_at < now() - ($2::int * interval '1 day')))
+            or (te.start_date > current_date
+                and ec.sheet_checked_at < now() - (case when te.start_date <= current_date + $6::int
+                                                       then $7::int else $5::int end * interval '1 day')))
+     order by (ec.sheet_checked_at is not null), te.start_date, t.name`,
+    [weeks, SHEET_RECHECK_DAYS, recheck, CONDITIONS_THROUGH, SHEET_REFRESH_DAYS, SOON_DAYS, SOON_REFRESH_DAYS]
   );
   const eligible = editions.rows.filter((row) => levelGetsDetailSheet(row.level));
   if (eligible.length === 0) return [];
@@ -294,4 +298,68 @@ export async function saveSheet(editionId: string, sheet: SheetConditions, url: 
        updated_at = now()`,
     [editionId, sheet.ball, sheet.surface, url]
   );
+}
+
+// ─── Detail sheet archive ─────────────────────────────────────────────────────
+// Everything on each sheet read (full text, every labelled field, contacts,
+// phones, emails, links), one row per distinct version, so hotel, transport
+// and contact details are on hand for later. Not shown anywhere yet.
+// sql/023_create_detail_sheet_snapshots.sql is the schema of record.
+
+let archiveEnsured: Promise<void> | null = null;
+
+function ensureSheetArchive(): Promise<void> {
+  archiveEnsured ??= pool
+    .query(
+      `create table if not exists detail_sheet_snapshots (
+         id bigserial primary key,
+         edition_id uuid not null references tournament_editions(id) on delete cascade,
+         sheet_url text,
+         fetched_at timestamptz not null default now(),
+         content_hash text not null,
+         row_text text not null,
+         fields jsonb not null default '{}'::jsonb,
+         contacts jsonb not null default '[]'::jsonb,
+         phones text[] not null default '{}',
+         emails text[] not null default '{}',
+         links text[] not null default '{}'
+       );
+       create index if not exists detail_sheet_snapshots_edition_idx
+         on detail_sheet_snapshots (edition_id, fetched_at desc);`
+    )
+    .then(() => undefined)
+    .catch((error) => {
+      archiveEnsured = null;
+      throw error;
+    });
+  return archiveEnsured;
+}
+
+/** Keep this read of the sheet unless it's identical to the last one kept. Returns whether it was new. */
+export async function archiveSheet(editionId: string, url: string | null, rowText: string, capture: SheetCapture): Promise<boolean> {
+  if (capture.placeholder) return false;
+  await ensureSheetArchive();
+  const hash = createHash('sha256').update(rowText).digest('hex');
+  const result = await pool.query(
+    `insert into detail_sheet_snapshots (edition_id, sheet_url, content_hash, row_text, fields, contacts, phones, emails, links)
+     select $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9
+     where not exists (
+       select 1 from (
+         select content_hash from detail_sheet_snapshots
+         where edition_id = $1 order by fetched_at desc limit 1
+       ) latest where latest.content_hash = $3
+     )`,
+    [
+      editionId,
+      url,
+      hash,
+      rowText,
+      JSON.stringify(capture.fields),
+      JSON.stringify(capture.contacts),
+      capture.phones,
+      capture.emails,
+      capture.links,
+    ]
+  );
+  return (result.rowCount ?? 0) > 0;
 }

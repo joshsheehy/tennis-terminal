@@ -11,10 +11,15 @@ name: Conditions sync (weather, elevation, ball)
 #    cut-sync.yml's header). /api/conditions/sheet names the sheets still to
 #    read; each one's bytes are POSTed back for parsing.
 #
+# Upcoming sheets are re-read on a schedule (every 2 days in the last three
+# weeks, weekly before, never once the event starts — sheetTargets in
+# src/lib/edition-conditions.ts), so a changed ball shows within a couple of
+# days and each sheet version is archived.
+#
 # Budget: cut-sync.yml collects cuts from the same host, which allows a rested
-# address about forty requests. This job takes at most 20, twenty seconds
-# apart, stops at the first 429, and runs once a day away from cut-sync's
-# 06:10 / 18:10 passes.
+# address about forty requests. Each run takes at most 20, twenty seconds
+# apart, stops at the first 429, and runs twice a day (each on a fresh runner
+# address) away from cut-sync's 06:10 / 18:10 passes.
 
 on:
   workflow_dispatch:
@@ -32,6 +37,7 @@ on:
         required: false
         default: 'false'
   schedule:
+    - cron: '25 2 * * *'
     - cron: '25 14 * * *'
 
 concurrency:
@@ -77,6 +83,6 @@ jobs:
             curl --fail-with-body -sS --max-time 60 -X POST -H "X-Admin-Secret: $ADMIN_SECRET" \
               -H 'Content-Type: application/pdf' --data-binary @sheet.pdf \
               "$base/api/conditions/sheet?editionId=$id&url=$(jq -rn --arg u "$url" '$u|@uri')" \
-              | jq -c '{bytes, ball, surface}' | sed "s/^/$name: /" || echo "$name: upload failed"
+              | jq -c '{bytes, ball, archived, fields, contacts}' | sed "s/^/$name: /" || echo "$name: upload failed"
             sleep 20
           done

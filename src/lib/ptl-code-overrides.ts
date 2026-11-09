@@ -83,6 +83,8 @@ export const PTL_CODE_OVERRIDES: Record<string, PtlCodeOverride> = {
   'monastir-3': { code: '3163', confirmedFor: 2026, header: 'Holiday Village Skanes — Monastir, Tunisia (7–13 Dec)' },
   blumenau: { code: '3203', confirmedFor: 2026, header: 'Tabajara Tenis Clube — Blumenau, Brazil' },
   'la-paz-2': { code: '3196', confirmedFor: 2026, header: 'Club de Tenis La Paz — La Paz, Bolivia (14–20 Dec)' },
+  'trnava-2': { code: '3201', confirmedFor: 2026, header: 'EMPIRE TRNAVA OPEN 2 — Trnava, Slovakia (07–13 Dec)' },
+  guanzate: { code: '3193', confirmedFor: 2026, header: 'A-RETE PARK CHALLENGER — Guanzate, Italy (14–20 Dec)' },
 
   // NOT HERE ANY MORE: durham, centurion-3-centurion, centurion-4-centurion,
   // fujairah-1. All four looked like undiscovered codes — a code that resolved

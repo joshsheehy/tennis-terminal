@@ -5,12 +5,10 @@
 
 export type EditionConditions = {
   elevation: number | null;
-  /** Averages over the same week in the five seasons before: °C, rainy days (≥ 1 mm) per week, %, km/h. */
+  /** Averages over the same week in the five seasons before: °C and %. */
   high: number | null;
   low: number | null;
-  rainDays: number | null;
   humidity: number | null;
-  wind: number | null;
   ball: string | null;
 };
 
@@ -68,28 +66,23 @@ export function climateWindows(startDate: string, seasons = 5): Array<{ start: s
 export type DailyWeather = {
   high: number | null;
   low: number | null;
-  precipitation: number | null;
   humidity: number | null;
-  wind: number | null;
 };
 
-export type ClimateSummary = Pick<EditionConditions, 'high' | 'low' | 'rainDays' | 'humidity' | 'wind'>;
+export type ClimateSummary = Pick<EditionConditions, 'high' | 'low' | 'humidity'>;
 
 const mean = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
-const round = (value: number | null, digits = 0) => (value == null ? null : Number(value.toFixed(digits)));
+const round = (value: number | null) => (value == null ? null : Math.round(value));
 
-/** Averages across every day of every window; rainy days are per week. */
-export function summarizeClimate(days: DailyWeather[], windowCount: number): ClimateSummary | null {
+/** Averages across every day of every window. */
+export function summarizeClimate(days: DailyWeather[]): ClimateSummary | null {
   const pick = (key: keyof DailyWeather) => days.map((day) => day[key]).filter((v): v is number => v != null);
   const highs = pick('high');
-  if (highs.length === 0 || windowCount === 0) return null;
-  const rain = pick('precipitation');
+  if (highs.length === 0) return null;
   return {
     high: round(mean(highs)),
     low: round(mean(pick('low'))),
-    rainDays: rain.length ? round(rain.filter((mm) => mm >= 1).length / windowCount, 1) : null,
     humidity: round(mean(pick('humidity'))),
-    wind: round(mean(pick('wind'))),
   };
 }
 

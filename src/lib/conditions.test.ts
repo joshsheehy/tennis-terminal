@@ -76,13 +76,11 @@ describe('climateWindows', () => {
 });
 
 describe('summarizeClimate and weatherLine', () => {
-  const day = (high: number, low: number, precipitation: number) => ({ high, low, precipitation, humidity: 80, wind: 20 });
+  const day = (high: number, low: number, humidity: number) => ({ high, low, humidity });
 
-  it('averages the days and counts rainy days per week', () => {
-    // Two one-week windows: three rainy days in total → 1.5 a week.
-    const days = [...Array(7)].map((_, i) => day(24, 18, i < 2 ? 5 : 0)).concat([...Array(7)].map((_, i) => day(26, 20, i < 1 ? 3 : 0.4)));
-    const summary = summarizeClimate(days, 2);
-    expect(summary).toEqual({ high: 25, low: 19, rainDays: 1.5, humidity: 80, wind: 20 });
+  it('averages high, low and humidity across every day of every window', () => {
+    const days = [...Array(7)].map(() => day(24, 18, 78)).concat([...Array(7)].map(() => day(26, 20, 84)));
+    expect(summarizeClimate(days)).toEqual({ high: 25, low: 19, humidity: 81 });
   });
 
   it('shows the average high, low and humidity', () => {
@@ -98,7 +96,7 @@ describe('summarizeClimate and weatherLine', () => {
   });
 
   it('has nothing to say without temperatures', () => {
-    expect(summarizeClimate([], 5)).toBeNull();
+    expect(summarizeClimate([])).toBeNull();
     expect(weatherLine({ high: null, low: null, humidity: 70 })).toBeNull();
   });
 });

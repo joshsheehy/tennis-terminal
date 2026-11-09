@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { parseSheetConditions } from '@/lib/conditions';
-import { CONDITIONS_CACHE_TAG, saveSheet, sheetTargets } from '@/lib/edition-conditions';
+import { captureSheet } from '@/lib/detail-sheet-capture';
+import { CONDITIONS_CACHE_TAG, archiveSheet, saveSheet, sheetTargets } from '@/lib/edition-conditions';
 import { extractRowText } from '@/lib/pdf-row-text';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Admin: ball (and surface, for indoor) from ProTennisLive detail sheets.
+// Admin: the ball from ProTennisLive detail sheets, and everything else on
+// them into the detail_sheet_snapshots archive.
 // protennislive.com rate-limits Railway, so a GitHub runner does the
 // downloading (.github/workflows/conditions-sync.yml) — the same split as
 // cut-sync.yml and /api/import-pdf-direct.
@@ -34,13 +36,25 @@ export async function POST(request: NextRequest) {
 
   // The ~2.6 KB "Tournament Information Not Yet Available" placeholder parses
   // to all-null, which still records the check so the edition is retried later.
-  let sheet;
+  let rowText;
   try {
-    sheet = parseSheetConditions(await extractRowText(buffer));
+    rowText = await extractRowText(buffer);
   } catch (error) {
     return NextResponse.json({ ok: false, error: `Not a readable PDF: ${error instanceof Error ? error.message : error}` }, { status: 422 });
   }
+  const sheet = parseSheetConditions(rowText);
   await saveSheet(editionId, sheet, url);
+  // Everything else on the sheet goes to the archive (a new row only when it changed).
+  const capture = captureSheet(rowText);
+  const archived = await archiveSheet(editionId, url, rowText, capture);
   revalidateTag(CONDITIONS_CACHE_TAG);
-  return NextResponse.json({ ok: true, editionId, bytes: buffer.length, ...sheet });
+  return NextResponse.json({
+    ok: true,
+    editionId,
+    bytes: buffer.length,
+    ...sheet,
+    archived,
+    fields: Object.keys(capture.fields).length,
+    contacts: capture.contacts.length,
+  });
 }
