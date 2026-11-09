@@ -11,6 +11,11 @@ const CHANGE_EVENT = 'tenniscuts:units';
 
 // Where localStorage is blocked, a choice still holds for the visit.
 let sessionChoice: boolean | null = null;
+// The setting as last read in this page. A component that mounts later (an
+// info card opened after load) starts from it, so it doesn't flash °C before
+// switching to °F. Server renders and the first mount start metric, matching
+// the server HTML for hydration.
+let lastKnown: boolean | null = null;
 
 export function detectImperial(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -25,7 +30,7 @@ export function detectImperial(): boolean {
   });
 }
 
-function currentImperial(): boolean {
+function readImperial(): boolean {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'imperial') return true;
@@ -36,9 +41,14 @@ function currentImperial(): boolean {
   return sessionChoice ?? detectImperial();
 }
 
+function currentImperial(): boolean {
+  lastKnown = readImperial();
+  return lastKnown;
+}
+
 /** Whether to show °F / ft / mi; re-renders when the setting changes anywhere on the page. */
 export function useImperial(): boolean {
-  const [imperial, setImperial] = useState(false);
+  const [imperial, setImperial] = useState(() => lastKnown ?? false);
   useEffect(() => {
     const sync = () => setImperial(currentImperial());
     sync();
