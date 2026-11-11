@@ -91,4 +91,31 @@ export const TOURNAMENT_ALIASES: TournamentAlias[] = [
       'calls it "Chișinău". dedupe-by-code only caught it on nights chisinau-1 had picked up a code, ' +
       'so it sat on the schedule twice in between.',
   },
+  // The 2027 official calendar (atppz PDF of 2026-11-03) names three January
+  // events differently from the Player Zone calendar they were first entered
+  // from, and neither name is in the catalogue, so the PDF sync created a
+  // second tournament for each, in the same week as the first.
+  {
+    aliasSlug: 'san-diego-1',
+    canonicalSlug: 'san-diego-ca-san-diego',
+    reason:
+      'The San Diego Open (ProTennisLive 2971; 2025, 2026 history) is "San Diego 1, CA" on the 2027 ' +
+      'calendar, 18 January, because a second San Diego event ("San Diego 2, CA", 25 January) follows ' +
+      'it. Both San Diego Open rows sat in the week of 18 January 2027.',
+  },
+  {
+    aliasSlug: 'bengaluru',
+    canonicalSlug: 'bengaluru-1-bengaluru',
+    reason:
+      'The Bengaluru Open (ProTennisLive 7808, week 1 every year) is "Bengaluru" on the 2027 calendar ' +
+      'and "Bengaluru 1" on the 2026 one. Both rows sat in the week of 4 January 2027.',
+  },
+  {
+    aliasSlug: 'tigre',
+    canonicalSlug: 'tigre-1-tigre',
+    reason:
+      'The Challenger de Tigre is "Tigre" on the 2027 calendar (11 January) and "Tigre 1" on the 2026 ' +
+      'one (ProTennisLive 9678). Both rows sat in the week of 11 January 2027. A second Tigre event ' +
+      'that season would arrive as "Tigre 2" and stay separate.',
+  },
 ];

@@ -165,6 +165,14 @@ function isFooterHeading(line: string) {
   return /^(atp supervisor|tournament director|seeded players|seeded teams|alternates\/lucky losers|withdrawals|retirements|released)/i.test(line);
 }
 
+// A row of the Seeded Teams table beside an empty Last Direct Acceptance box: seed number, team,
+// combined ranking — "1 Romios / Seggerman 139" (Canberra 2026), "1 Mies / Skupski 54" (Turin
+// 2024). Read as a cut it gives the top seeds' ranking, far below the real one. A real doubles
+// last direct acceptance never starts with a bare seed number.
+export function isSeededTeamRow(raw: string): boolean {
+  return /^[1-8]\s+[^\d\s][^/]*\/[^/]*?\s+\(?\d{1,4}\)?$/.test(raw.replace(/\s+/g, ' ').trim());
+}
+
 // Reject lines that pattern-match like "name + rank" but are actually scores,
 // prize money, tournament titles, or section headings. These are the dominant
 // false positives we saw in the 2024 import — e.g. "FIRST ROUND€ 745",
@@ -214,6 +222,7 @@ function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   if (/\b[A-Z]\+[A-Z]\b/.test(raw)) return true;
   // Entry-category codes, not player names: WC (wildcard), LL (lucky loser), etc.
   if (/^(WC|LL|SE|PR|WR|Alt)\.?$/i.test(trimmedName)) return true;
+  if (isSeededTeamRow(raw)) return true;
 
   // Tennis set scores like "62 75", "64 26 10-8", "76(5) 64".
   // Strip parentheses/dashes and check if every token is a 2-digit short score.
@@ -407,16 +416,23 @@ function parseByesCount(lines: string[], ldaIndex: number): number | null {
   return null;
 }
 
-function parseChallengerDoublesCuts(lines: string[], lastDirectAcceptanceIndex: number) {
-  const extractCuts = (text: string) => {
-    const normalized = text.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
-    const advancedMatch = normalized.match(/\badv(?:anc(?:e(?:d)?)?)?\.*\s*[:\-]?\s*(\d{1,5})\b/i);
-    const onsiteMatch = normalized.match(/\bon[-\s]?site\.*\s*[:\-]?\s*(\d{1,5})\b/i);
-    return {
-      advanced: advancedMatch ? Number(advancedMatch[1]) : null,
-      onsite: onsiteMatch ? Number(onsiteMatch[1]) : null,
-    };
+// The Challenger doubles box gives two cuts, advance entry and on-site sign-in, written several ways:
+//   "Adv 3101 On site 1282", "Advance 1206 / On-site 704", "Adv - 302 / On-Site - 327",
+//   "Adv. (389)/On-site (509)", "Advanced (1708) On-site(913)", "Adv(592) On-site(633)".
+// The bracketed form used to miss both numbers; the line then read as one team called
+// "Adv. (389)/On-site" with a cut of 509, and the advance cut was lost (Wuxi 2026, Maia 2023).
+export function extractChallengerDoublesCuts(text: string): { advanced: number | null; onsite: number | null } {
+  const normalized = text.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+  const advancedMatch = normalized.match(/\badv(?:anc(?:e(?:d)?)?)?\.*\s*[:\-]?\s*\(?\s*(\d{1,5})\b/i);
+  const onsiteMatch = normalized.match(/\bon[-\s]?site\.*\s*[:\-]?\s*\(?\s*(\d{1,5})\b/i);
+  return {
+    advanced: advancedMatch ? Number(advancedMatch[1]) : null,
+    onsite: onsiteMatch ? Number(onsiteMatch[1]) : null,
   };
+}
+
+function parseChallengerDoublesCuts(lines: string[], lastDirectAcceptanceIndex: number) {
+  const extractCuts = extractChallengerDoublesCuts;
 
   // Try a window around the LDA label first (wider window than before to handle
   // draw-sheet PDFs where adv/onsite appear several lines after the label).

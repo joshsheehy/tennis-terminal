@@ -62,6 +62,7 @@ import { parseOfficialPdfCutoffBuffer } from '../src/lib/cutoff-pdf-parser.ts'
 import { resolveTournamentPtlCode, levelGetsDetailSheet } from '../src/lib/tournament-links.ts'
 import { overrideCodeFor } from '../src/lib/ptl-code-overrides.ts'
 import { getAtpWeekForSeason } from '../src/lib/atp-week.ts'
+import { placeKey } from '../src/lib/same-week-duplicates.ts'
 
 // ───────────────────────────────────────────────────────────────────────────
 // CONFIG
@@ -907,10 +908,14 @@ async function runChecks(client, rows) {
   // ── C3. Duplicate editions ───────────────────────────────────────────────
   await check('C3', 'Duplicate tournament editions', async () => {
     const norm = (s) => String(s || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '')
+    // The place with event number, state code, brackets and accents off, from the city and from the
+    // name: "San Diego 1, CA" and "San Diego, CA" are both "sandiego". Comparing names alone missed that
+    // pair (neither contains the other) and it sat on the 2027 calendar twice.
+    const places = (r) => new Set([placeKey(r.city), placeKey(r.name)].filter(Boolean))
     const buckets = new Map()
     for (const r of rows) {
       if (r.cat === 'itf' || r.cat === null) continue // ITF legitimately runs several same-city events a week
-      const k = `${weekKey(r)}|${norm(r.country)}|${r.cat}`
+      const k = `${weekKey(r)}|${r.cat}`
       if (!buckets.has(k)) buckets.set(k, [])
       buckets.get(k).push(r)
     }
@@ -919,15 +924,18 @@ async function runChecks(client, rows) {
       for (let i = 0; i < group.length; i++)
         for (let j = i + 1; j < group.length; j++) {
           const a = norm(group[i].name), b = norm(group[j].name)
+          const sameCountry = norm(group[i].country) === norm(group[j].country)
           const sameCity = norm(group[i].city) && norm(group[i].city) === norm(group[j].city)
-          if ((a && b && (a.includes(b) || b.includes(a))) || sameCity) {
+          const pj = places(group[j])
+          const samePlace = [...places(group[i])].some((p) => pj.has(p))
+          if ((sameCountry && a && b && (a.includes(b) || b.includes(a))) || sameCity || samePlace) {
             const [x, y] = [group[i], group[j]].sort((p, q) => p.slug.localeCompare(q.slug))
             dupes.push(item(`C3|${ek(x)}|${ek(y)}`, `${x.name} (${x.slug}) ⟷ ${y.name} (${y.slug}) · ${weekKey(x)} · ${x.country}`))
           }
         }
     report('C3', 'Duplicate tournament editions', dupes, {
-      severity: 'warn',
-      note: 'Same week + country + level with near-identical name or the same city. Duplicates double-count supply in the depth model. /api/city-dupes digs further.',
+      severity: 'critical',
+      note: 'Same week + level naming the same place. One city never hosts two such events in a week, so this is one event entered twice. Merge into the slug with the history (/api/merge-tournaments) and add the other name to tournament-aliases.ts so the calendar sync stops recreating it. /api/same-week-duplicates lists them on demand.',
     })
   })
 

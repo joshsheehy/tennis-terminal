@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { layoutItemsToText, parseOfficialPdfCutoffText } from './cutoff-pdf-parser';
+import { extractChallengerDoublesCuts, isSeededTeamRow, layoutItemsToText, parseOfficialPdfCutoffText } from './cutoff-pdf-parser';
 
 
 // pdf.js text item shape: transform[4]=x, transform[5]=y (y grows upward).
@@ -339,5 +339,49 @@ describe('parseChallengerDoublesCuts', () => {
     const parsed = parseOfficialPdfCutoffText(text);
     expect(parsed.challenger_doubles_advanced_cut_rank).toBe(650);
     expect(parsed.challenger_doubles_onsite_cut_rank).toBe(998);
+  });
+});
+
+describe('bracketed Challenger doubles cuts', () => {
+  it('reads both numbers when they are in brackets (Wuxi 2026, Maia 2023, Zadar 2022)', () => {
+    expect(extractChallengerDoublesCuts('Adv. (389)/On-site (509)')).toEqual({ advanced: 389, onsite: 509 });
+    expect(extractChallengerDoublesCuts('Adv (1312)/On-site (708)')).toEqual({ advanced: 1312, onsite: 708 });
+    expect(extractChallengerDoublesCuts('Advanced (1708) On-site(913)')).toEqual({ advanced: 1708, onsite: 913 });
+    expect(extractChallengerDoublesCuts('Adv(592) On-site(633)')).toEqual({ advanced: 592, onsite: 633 });
+    expect(extractChallengerDoublesCuts('Advance (472) - On-site (574)')).toEqual({ advanced: 472, onsite: 574 });
+  });
+
+  it('still reads the unbracketed forms', () => {
+    expect(extractChallengerDoublesCuts('Adv 3101 On site 1282')).toEqual({ advanced: 3101, onsite: 1282 });
+    expect(extractChallengerDoublesCuts('Advance 1206 / On-site 704')).toEqual({ advanced: 1206, onsite: 704 });
+    expect(extractChallengerDoublesCuts('Adv - 302 / On-Site - 327')).toEqual({ advanced: 302, onsite: 327 });
+  });
+
+  it('stores both cuts from a draw-sheet footer in the bracketed form', () => {
+    const text = ['Last Direct Acceptance', 'Adv. (389)/On-site (509)', 'ATP Supervisor', 'Seeded Teams'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.challenger_doubles_advanced_cut_rank).toBe(389);
+    expect(parsed.challenger_doubles_onsite_cut_rank).toBe(509);
+  });
+});
+
+describe('seeded-team rows are never a cut', () => {
+  it('recognises a seed table row', () => {
+    expect(isSeededTeamRow('1 Romios / Seggerman 139')).toBe(true);
+    expect(isSeededTeamRow('1 Mies / Skupski 54')).toBe(true);
+    expect(isSeededTeamRow('2 Paris / Willis     175')).toBe(true);
+  });
+
+  it('leaves real doubles last direct acceptances alone', () => {
+    expect(isSeededTeamRow('Brouwer/Stalder - 354')).toBe(false);
+    expect(isSeededTeamRow('Hardt / Mejia (636)')).toBe(false);
+    expect(isSeededTeamRow('Battistone/Vance 2907')).toBe(false);
+    expect(isSeededTeamRow('Adv 3101 On site 1282')).toBe(false);
+  });
+
+  it('does not take the top seeds from beside a blank box (Canberra 2026)', () => {
+    const text = ['Last Direct Acceptance', '1 Romios / Seggerman 139', 'ATP Supervisor', 'Jiri Adamovsky'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBeNull();
   });
 });
