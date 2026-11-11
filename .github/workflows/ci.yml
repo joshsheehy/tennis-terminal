@@ -35,7 +35,10 @@ jobs:
         run: npm run build
 
   e2e:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.60 cannot install
+    # Chromium on ("Playwright does not support chromium on ubuntu26.04-x64").
+    # Move back to ubuntu-latest once Playwright supports it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
