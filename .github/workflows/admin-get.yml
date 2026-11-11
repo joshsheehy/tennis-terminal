@@ -1,0 +1,44 @@
+name: Admin read (GET one endpoint)
+
+# Calls one admin endpoint with GET and prints the JSON, for looking at
+# production rows the public pages filter out — a hidden edition, a stored
+# cut's source notes — without a database client. The secret never leaves the
+# runner.
+#
+# GET only, and only under /api/. Endpoints that hold people's details
+# (subscribers, accounts, saved lists, alert preferences) are refused so their
+# contents never land in a log. Most admin endpoints that write take
+# ?apply=true and dry-run without it; leave that off here unless the write is
+# the point of the run.
+#
+#   gh workflow run admin-get.yml -f path='/api/debug-tournament?q=san+diego'
+
+on:
+  workflow_dispatch:
+    inputs:
+      path:
+        description: 'Endpoint path with query, e.g. /api/debug-tournament?q=san+diego'
+        required: true
+
+jobs:
+  get:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: GET
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          REQ_PATH: ${{ inputs.path }}
+        run: |
+          set -euo pipefail
+          case "$REQ_PATH" in
+            /api/*) ;;
+            *) echo "path must start with /api/"; exit 1 ;;
+          esac
+          if printf '%s' "$REQ_PATH" | grep -qiE '^/api/(subscribers|subscribe|unsubscribe|account|saved|preferences|alerts|auth|push)'; then
+            echo "refusing a path that returns people's details"; exit 1
+          fi
+          base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
+          res=$(curl --fail-with-body -sS --max-time 280 -H "X-Admin-Secret: $ADMIN_SECRET" -H 'Accept: application/json' "$base$REQ_PATH")
+          printf '%s' "$res" | jq . 2>/dev/null || printf '%s\n' "$res"
