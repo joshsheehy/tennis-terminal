@@ -43,14 +43,24 @@ export function placeKey(value: string | null | undefined): string {
     .replace(/[^a-z0-9]+/g, '');
 }
 
-/** Groups same-week, same-level editions that name the same place. ITF is left out: it runs several events a week in one city. */
-export function findSameWeekDuplicates(editions: WeekEdition[]): DuplicateGroup[] {
+/** "Challenger 75" → "Challenger"; "ATP 250" → "ATP". Two sources can disagree on one event's tier. */
+function levelCategory(level: string): string {
+  return /challenger/i.test(level) ? 'Challenger' : /^atp|masters|grand slam/i.test(level) ? 'ATP' : level;
+}
+
+/**
+ * Groups same-week, same-level editions that name the same place. ITF is left out: it runs several
+ * events a week in one city. byCategory compares Challenger with Challenger rather than exact tier,
+ * which also catches one event recorded at two tiers (C75 by one source, C100 by another).
+ */
+export function findSameWeekDuplicates(editions: WeekEdition[], options: { byCategory?: boolean } = {}): DuplicateGroup[] {
   const buckets = new Map<string, Map<string, WeekEdition>>();
   for (const e of editions) {
     if (/^itf/i.test(e.level)) continue;
+    const level = options.byCategory ? levelCategory(e.level) : e.level;
     const keys = new Set([placeKey(e.city), placeKey(e.name)].filter(Boolean));
     for (const key of keys) {
-      const bucket = `${e.week_start}|${e.level}|${key}`;
+      const bucket = `${e.week_start}|${level}|${key}`;
       if (!buckets.has(bucket)) buckets.set(bucket, new Map());
       buckets.get(bucket)!.set(e.edition_id, e);
     }

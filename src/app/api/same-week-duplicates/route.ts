@@ -15,9 +15,11 @@ export const dynamic = 'force-dynamic';
 //
 //   GET /api/same-week-duplicates            — every season from 2022
 //   GET /api/same-week-duplicates?from=2026
+//   GET /api/same-week-duplicates?byCategory=1   — Challenger vs Challenger, any tier
 
 export async function GET(request: NextRequest) {
   const from = Number(request.nextUrl.searchParams.get('from') ?? 2022);
+  const byCategory = request.nextUrl.searchParams.get('byCategory') === '1';
   if (!Number.isInteger(from) || from < 2000 || from > 2100) {
     return NextResponse.json({ ok: false, error: 'from must be a year' }, { status: 400 });
   }
@@ -36,6 +38,6 @@ export async function GET(request: NextRequest) {
     [from]
   );
 
-  const groups = findSameWeekDuplicates(rows.rows);
-  return NextResponse.json({ ok: true, from, scanned: rows.rows.length, duplicateCount: groups.length, groups });
+  const groups = findSameWeekDuplicates(rows.rows, { byCategory });
+  return NextResponse.json({ ok: true, from, byCategory, scanned: rows.rows.length, duplicateCount: groups.length, groups });
 }

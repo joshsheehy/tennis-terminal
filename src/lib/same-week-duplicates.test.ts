@@ -56,6 +56,15 @@ describe('findSameWeekDuplicates', () => {
     ).toEqual([]);
   });
 
+  it('with byCategory, catches one event recorded at two Challenger tiers', () => {
+    const pair = [
+      ed('san-diego-1', 'San Diego 1, CA', 'San Diego 1', 'Challenger 75'),
+      ed('san-diego-ca-san-diego', 'San Diego, CA', 'San Diego', 'Challenger 100'),
+    ];
+    expect(findSameWeekDuplicates(pair)).toEqual([]);
+    expect(findSameWeekDuplicates(pair, { byCategory: true })).toHaveLength(1);
+  });
+
   it('ignores ITF events, which run several a week in one city', () => {
     expect(
       findSameWeekDuplicates([
