@@ -207,8 +207,11 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
     `insert into tournaments (slug, name, city, country, updated_at)
      values ($1, $2, $3, $4, now())
      on conflict (slug) do update set
-       name = excluded.name,
-       city = excluded.city,
+       -- A row that reached this tournament through an alias carries the
+       -- alias's name and city ("San Diego 1, CA" / "San Diego 1" for the San
+       -- Diego Open). The canonical row is the trusted one, so it keeps its own.
+       name = case when $5 then tournaments.name else excluded.name end,
+       city = case when $5 then tournaments.city else excluded.city end,
        country = excluded.country,
        -- A country stored as a bare 3-letter code was geocoded against that
        -- code (San Salvador "ESA" -> Spain). When it gets corrected, drop the
@@ -224,7 +227,7 @@ export async function upsertOfficialRow(row: OfficialCalendarRow, requestedYear:
      returning id`,
     // A second same-season event keeps its own calendar name ("Bogotá (Los
     // Lagartos)", "Soma Bay") rather than the catalogue name of the first.
-    [slug, isPrimarySlug ? name : row.name, city, country]
+    [slug, isPrimarySlug ? name : row.name, city, country, isPrimarySlug && !canonical && aliasedSlug !== resolvedSlug]
   );
 
   // RETURNING (xmax = 0) distinguishes a fresh INSERT (xmax = 0) from an
