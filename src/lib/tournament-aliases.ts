@@ -118,4 +118,12 @@ export const TOURNAMENT_ALIASES: TournamentAlias[] = [
       'one (ProTennisLive 9678). Both rows sat in the week of 11 January 2027. A second Tigre event ' +
       'that season would arrive as "Tigre 2" and stay separate.',
   },
+  {
+    aliasSlug: 'open-quimper-bretagne-occidentale',
+    canonicalSlug: 'quimper-quimper',
+    reason:
+      'The 2023 Quimper Challenger 125 (24-29 January) under its sponsor name, posted on ' +
+      'ProTennisLive under a second code (8003) beside the usual 6239; both sheets are the same ' +
+      'event and carried identical cuts. quimper-quimper holds 2022-2027.',
+  },
 ];
