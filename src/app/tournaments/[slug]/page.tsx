@@ -552,7 +552,7 @@ export default async function TournamentDetailPage({
             </div>
           ))}
         </div>
-        {hasTrend && <CutTrendChart series={cutTrend} />}
+        {hasTrend && <CutTrendChart series={cutTrend} basis={isGrandSlamLevel(current.level) ? 'deadline' : 'in-draw'} />}
       </div>
 
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>

@@ -34,7 +34,15 @@ const PLOT_H = 76;
 const LABEL_H = 18; // room for value labels above the highest dot
 const AXIS_H = 16; // year labels below baseline
 
-export default function CutTrendChart({ series }: { series: CutTrendSeries[] }) {
+export default function CutTrendChart({
+  series,
+  basis = 'in-draw',
+}: {
+  series: CutTrendSeries[];
+  /** 'deadline' for the Grand Slams, whose cuts are ATP's official cut-offs at
+   * the entry deadline; everything else is the draw sheet's in-draw cut. */
+  basis?: 'in-draw' | 'deadline';
+}) {
   // Only draws with enough history to show a trend get a tab.
   const available = series.filter((s) => s.points.length >= 2);
   const [activeKey, setActiveKey] = useState(available[0]?.key);
@@ -153,7 +161,12 @@ export default function CutTrendChart({ series }: { series: CutTrendSeries[] }) 
       </svg>
       <p className="cut-trend__note">
         Last direct acceptance into the {DRAW_PHRASE[current.key]}
-        {current.key === 'singles_main' ? ' (post-alternates cut where recorded)' : ''}. Higher
+        {basis === 'deadline'
+          ? ' at the entry deadline (official ATP cut-off)'
+          : current.key === 'singles_main'
+            ? ' (post-alternates cut where recorded)'
+            : ''}
+        . Higher
         on the line = softer cut — a higher rank got in. Tap a dot to jump to that
         year&rsquo;s full table — alternates, lucky losers, and draw links included.
       </p>
