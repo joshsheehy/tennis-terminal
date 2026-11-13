@@ -8,7 +8,10 @@ export const dynamic = 'force-dynamic';
 
 // Imports Grand Slam cuts. Two paths, same fill-only semantics (a snapshot
 // that already carries a cut is never overwritten, so re-running is free and
-// manual DB corrections survive):
+// manual DB corrections survive). The one exception: a checked-in dataset row
+// marked replaceExisting (an official source such as PlayerZone's cut-offs
+// table) overwrites a DIFFERENT cut. Re-running stays free, since a row that
+// already holds the same number is left alone:
 //
 //   GET  /api/import-slam-cuts[?apply=true]   — the hand-verified, checked-in
 //        dataset from src/lib/slam-cuts.ts (runs nightly).
@@ -26,7 +29,7 @@ type ImportResult = {
   event: string;
   draw: string;
   cut: number;
-  action: 'inserted' | 'filled' | 'exists' | 'no-edition' | 'not-a-slam' | 'preview';
+  action: 'inserted' | 'filled' | 'replaced' | 'exists' | 'no-edition' | 'not-a-slam' | 'preview' | 'would-replace';
   existingCut?: number | null;
 };
 
@@ -69,7 +72,8 @@ async function importEntries(entries: SlamCutEntry[], apply: boolean) {
       [edition.id, entry.eventType, entry.drawType]
     );
     const row = existing.rows[0];
-    if (row && row.rank != null) {
+    const replacing = Boolean(row && row.rank != null && entry.replaceExisting && row.rank !== entry.cut);
+    if (row && row.rank != null && !replacing) {
       results.push({ ...base, action: 'exists', existingCut: row.rank });
       continue;
     }
@@ -81,6 +85,10 @@ async function importEntries(entries: SlamCutEntry[], apply: boolean) {
           `update cutoff_snapshots
            set last_direct_acceptance_rank = $4,
                last_direct_acceptance_player_name = null,
+               -- A Slam has no post-alternates cut; drop any stale one so the
+               -- trend chart (which prefers it) shows the deadline cut.
+               last_alternate_rank = null,
+               last_alternate_player_name = null,
                source_type = 'slam_entry_list_v1',
                parser_version = 'manual',
                source_notes = $5,
@@ -104,7 +112,7 @@ async function importEntries(entries: SlamCutEntry[], apply: boolean) {
     }
     results.push({
       ...base,
-      action: apply ? (row ? 'filled' : 'inserted') : 'preview',
+      action: apply ? (replacing ? 'replaced' : row ? 'filled' : 'inserted') : replacing ? 'would-replace' : 'preview',
       existingCut: row?.rank ?? null,
     });
   }
@@ -127,7 +135,7 @@ function respond(apply: boolean, totalEntries: number, outcome: Awaited<ReturnTy
     written: outcome.written,
     results: outcome.results,
     message: apply
-      ? 'Slam cuts imported (fill-only; existing cuts untouched).'
+      ? 'Slam cuts imported (fill-only, except replaceExisting rows from official sources).'
       : 'Dry run. Append ?apply=true to write.',
   });
 }
