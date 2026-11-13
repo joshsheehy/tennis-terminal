@@ -23,9 +23,11 @@ export const dynamic = 'force-dynamic';
 //     &apply=true            (omit for a dry run)
 //
 // Each cut is "event:draw:rank" — event in {singles,doubles}, draw in
-// {main,qualifying}, rank a positive integer.
+// {main,qualifying}, rank a positive integer, or "none" to clear a cut the
+// parser mis-read off a sheet whose Last Direct Acceptance box is empty (the
+// row, its ALT/LL counts and its PDF link stay).
 
-type ParsedCut = { event_type: 'singles' | 'doubles'; draw_type: 'main' | 'qualifying'; rank: number };
+type ParsedCut = { event_type: 'singles' | 'doubles'; draw_type: 'main' | 'qualifying'; rank: number | null };
 
 function parseCuts(raw: string): { cuts: ParsedCut[]; error: string | null } {
   const cuts: ParsedCut[] = [];
@@ -33,8 +35,10 @@ function parseCuts(raw: string): { cuts: ParsedCut[]; error: string | null } {
     const [event, draw, rankStr] = piece.split(':').map((p) => p.trim().toLowerCase());
     if (event !== 'singles' && event !== 'doubles') return { cuts: [], error: `bad event in "${piece}" (use singles|doubles)` };
     if (draw !== 'main' && draw !== 'qualifying') return { cuts: [], error: `bad draw in "${piece}" (use main|qualifying)` };
-    const rank = Number(rankStr);
-    if (!Number.isInteger(rank) || rank < 1) return { cuts: [], error: `bad rank in "${piece}" (use a positive integer)` };
+    const rank = rankStr === 'none' ? null : Number(rankStr);
+    if (rank !== null && (!Number.isInteger(rank) || rank < 1)) {
+      return { cuts: [], error: `bad rank in "${piece}" (use a positive integer or none)` };
+    }
     cuts.push({ event_type: event, draw_type: draw, rank });
   }
   return { cuts, error: null };
@@ -219,14 +223,20 @@ export async function GET(request: NextRequest) {
     const existed = before.rows.length > 0;
     const ptlCode = getPtlCodeForSlug(slug);
     const pdfUrl = ptlCode ? ptlPdfUrlFor(ptlCode, year, cut.event_type, cut.draw_type) : null;
-    const baseNotes = notes || `Manual cut set via set-cut: ${cut.event_type} ${cut.draw_type} = ${cut.rank}.`;
+    const baseNotes =
+      notes ||
+      (cut.rank === null
+        ? `Cut cleared via set-cut: ${cut.event_type} ${cut.draw_type} (the draw sheet prints no last direct acceptance).`
+        : `Manual cut set via set-cut: ${cut.event_type} ${cut.draw_type} = ${cut.rank}.`);
     // Append the draw-sheet URL so the tournament page's "PDF source" link
     // keeps working after a manual override (sourceHref greps source_notes
     // for an https://...pdf URL). If we couldn't resolve a PTL code from
     // tournament-data.ts, source_notes is just baseNotes — no link rendered.
     const sourceNotes = pdfUrl ? `${baseNotes} | Draw sheet: ${pdfUrl}` : baseNotes;
 
-    if (apply) {
+    // Clearing only makes sense on a row that exists; never insert an empty one.
+    const nothingToClear = cut.rank === null && !existed;
+    if (apply && !nothingToClear) {
       if (existed) {
         // Update ONLY the direct-acceptance cut; preserve ALT/LL fields.
         await pool.query(
@@ -262,7 +272,17 @@ export async function GET(request: NextRequest) {
       preservedAlternates: before.rows[0]?.alternate_entries_count ?? null,
       preservedLuckyLosers: before.rows[0]?.lucky_loser_count ?? null,
       rowExisted: existed,
-      action: apply ? (existed ? 'updated' : 'inserted') : 'preview',
+      action: nothingToClear
+        ? 'no-row'
+        : apply
+          ? cut.rank === null
+            ? 'cleared'
+            : existed
+              ? 'updated'
+              : 'inserted'
+          : cut.rank === null
+            ? 'would-clear'
+            : 'preview',
     });
   }
 
