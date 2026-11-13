@@ -173,6 +173,18 @@ export function isSeededTeamRow(raw: string): boolean {
   return /^[1-8]\s+[^\d\s][^/]*\/[^/]*?\s+\(?\d{1,4}\)?$/.test(raw.replace(/\s+/g, ' ').trim());
 }
 
+// A row of the Seeded Players table beside an empty Last Direct Acceptance box: seed number,
+// player, ranking, with no dash: "1 Duckworth, James 89" (Mexico City 2025), "1 Nardi, Luca 89"
+// (Olbia 2024), sometimes behind a stray number from the next column ("114 9 Quinn, Ethan 225",
+// Tiburon 2024). Read as a cut it gives a seed's ranking. The box itself prints "Name - rank"
+// ("1 Fritz, Taylor - 12" keeps its dash), so a seed-led row without one is never the cut.
+// Doubles rows (with a "/") are isSeededTeamRow's job.
+export function isSeededPlayerRow(raw: string): boolean {
+  const s = raw.replace(/\s+/g, ' ').trim();
+  if (s.includes('/') || /\s-\s*P?\d/.test(s)) return false;
+  return /^(?:\d{1,4} )?\d{1,2} [^\d\s][^\d]*? \(?P?\d{1,4}\)?$/.test(s);
+}
+
 // Reject lines that pattern-match like "name + rank" but are actually scores,
 // prize money, tournament titles, or section headings. These are the dominant
 // false positives we saw in the 2024 import — e.g. "FIRST ROUND€ 745",
@@ -223,6 +235,7 @@ function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   // Entry-category codes, not player names: WC (wildcard), LL (lucky loser), etc.
   if (/^(WC|LL|SE|PR|WR|Alt)\.?$/i.test(trimmedName)) return true;
   if (isSeededTeamRow(raw)) return true;
+  if (isSeededPlayerRow(raw)) return true;
 
   // Tennis set scores like "62 75", "64 26 10-8", "76(5) 64".
   // Strip parentheses/dashes and check if every token is a 2-digit short score.

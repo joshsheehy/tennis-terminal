@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractChallengerDoublesCuts, isSeededTeamRow, layoutItemsToText, parseOfficialPdfCutoffText } from './cutoff-pdf-parser';
+import { extractChallengerDoublesCuts, isSeededPlayerRow, isSeededTeamRow, layoutItemsToText, parseOfficialPdfCutoffText } from './cutoff-pdf-parser';
 
 
 // pdf.js text item shape: transform[4]=x, transform[5]=y (y grows upward).
@@ -385,3 +385,35 @@ describe('seeded-team rows are never a cut', () => {
     expect(parsed.last_direct_acceptance_rank).toBeNull();
   });
 });
+
+describe('seeded-players rows beside an empty LDA box', () => {
+  // Raw text the importer stored as cuts in 2024-26: the top of the Seeded Players table.
+  it('recognises a seed-led row with no dash as a seeded player, not a cut', () => {
+    expect(isSeededPlayerRow('1 Duckworth, James 89')).toBe(true);
+    expect(isSeededPlayerRow('1 Nardi, Luca 89')).toBe(true);
+    expect(isSeededPlayerRow('1 Meligeni Alves, Felipe 132')).toBe(true);
+    expect(isSeededPlayerRow('114 9 Quinn, Ethan 225')).toBe(true);
+    expect(isSeededPlayerRow('453 9 Winter Lopez, Benjamin 1021')).toBe(true);
+  });
+
+  it('leaves real last-direct-acceptance formats alone', () => {
+    expect(isSeededPlayerRow('1 Fritz, Taylor - 12')).toBe(false);
+    expect(isSeededPlayerRow('Chung, Hyeon - 159')).toBe(false);
+    expect(isSeededPlayerRow('Wilson Leite - 575')).toBe(false);
+    expect(isSeededPlayerRow('Kuznetsov, Andrey - P319')).toBe(false);
+    expect(isSeededPlayerRow('112, On-site: 118')).toBe(false);
+    expect(isSeededPlayerRow('235 Adv - 237 On-site')).toBe(false);
+    expect(isSeededPlayerRow('1 Romios / Seggerman 139')).toBe(false);
+  });
+
+  it('returns no cut rather than the top seed when the box is empty (Mexico City 2025)', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', '1 Duckworth, James 89', '2 Bonzi, Benjamin 91'].join('\n');
+    expect(parseOfficialPdfCutoffText(text).last_direct_acceptance_rank).toBeNull();
+  });
+
+  it('still reads a real value that follows the label', () => {
+    const text = ['LAST DIRECT ACCEPTANCE', 'Hemery, Calvin - 567'].join('\n');
+    expect(parseOfficialPdfCutoffText(text).last_direct_acceptance_rank).toBe(567);
+  });
+});
+
