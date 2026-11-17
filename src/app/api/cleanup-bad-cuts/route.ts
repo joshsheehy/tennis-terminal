@@ -16,9 +16,12 @@ export async function GET(request: NextRequest) {
   // Build a single boolean SQL predicate per garbage signal.
   const garbageWhere = `
     (
-      -- ATP rankings cap well below 5000; numbers in this band are almost
-      -- always calendar years extracted from a tournament title.
-      (last_direct_acceptance_rank between 1900 and 2100)
+      -- ATP rankings cap well below 5000; a bare number in this band is usually
+      -- a calendar year read off a tournament title. Not when a player name came
+      -- with it (Challenger 50 qualifying cuts do reach ~2000), and never a cut
+      -- entered by hand (set-cut / import-slam-cuts write parser_version 'manual').
+      (last_direct_acceptance_rank between 1900 and 2100
+        and coalesce(last_direct_acceptance_player_name, '') !~ '[A-Za-z]')
       or last_direct_acceptance_rank > 5000
       -- Rank 1 or 2 is never a valid LDA; values this low are seed/position markers.
       or last_direct_acceptance_rank < 3
@@ -47,6 +50,8 @@ export async function GET(request: NextRequest) {
       -- Names that look like tennis set scores (e.g. "62 75", "64 26 10").
       or last_direct_acceptance_player_name ~ '^\\d{2}(\\s+\\d{1,3})+$'
     )
+    -- Hand-entered cuts (set-cut, import-slam-cuts) were read off the sheet by a person.
+    and parser_version is distinct from 'manual'
     -- Don't disturb challenger doubles cuts that were extracted via the
     -- separate Advanced/On-site parse path; those have rank info in the
     -- challenger_doubles_* columns regardless of what landed in

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractChallengerDoublesCuts, isSeededPlayerRow, isSeededTeamRow, layoutItemsToText, parseOfficialPdfCutoffText } from './cutoff-pdf-parser';
+import { extractChallengerDoublesCuts, isSeededPlayerRow, isSeededTeamRow, layoutItemsToText, looksLikePlayerEntry, parseOfficialPdfCutoffText } from './cutoff-pdf-parser';
 
 
 // pdf.js text item shape: transform[4]=x, transform[5]=y (y grows upward).
@@ -414,6 +414,25 @@ describe('seeded-players rows beside an empty LDA box', () => {
   it('still reads a real value that follows the label', () => {
     const text = ['LAST DIRECT ACCEPTANCE', 'Hemery, Calvin - 567'].join('\n');
     expect(parseOfficialPdfCutoffText(text).last_direct_acceptance_rank).toBe(567);
+  });
+});
+
+describe('year-like ranks (1900-2100)', () => {
+  // Real Challenger 50 qualifying / main-draw cuts printed on PTL sheets, 2024-25.
+  it('keeps a year-like rank that follows a player name', () => {
+    for (const raw of ['Nortey, Isaac - 2003', 'Luis BRITTO - 1932', 'Akram EL SALLALY - 2028', 'Razvan Daiant- 2070', 'Betov, Sergey - 2098', 'Kiger, Mac (2034)']) {
+      expect(looksLikePlayerEntry(raw), raw).toBe(true);
+    }
+    const text = ['LAST DIRECT ACCEPTANCE', 'Nortey, Isaac - 2003'].join('\n');
+    expect(parseOfficialPdfCutoffText(text).last_direct_acceptance_rank).toBe(2003);
+  });
+
+  it('still rejects a calendar year from a tournament title', () => {
+    for (const raw of ['Falkensteiner Punta Skala-Zadar Open 2024', 'Challenger 2025', 'Tennis Cup - 2024']) {
+      expect(looksLikePlayerEntry(raw), raw).toBe(false);
+    }
+    const text = ['LAST DIRECT ACCEPTANCE', 'Falkensteiner Punta Skala-Zadar Open 2024'].join('\n');
+    expect(parseOfficialPdfCutoffText(text).last_direct_acceptance_rank).toBeNull();
   });
 });
 

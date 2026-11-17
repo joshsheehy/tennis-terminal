@@ -185,6 +185,15 @@ export function isSeededPlayerRow(raw: string): boolean {
   return /^(?:\d{1,4} )?\d{1,2} [^\d\s][^\d]*? \(?P?\d{1,4}\)?$/.test(s);
 }
 
+// "Surname, First - 2003", "Luis BRITTO - 1932", "Kiger, Mac (2034)": a person's name right before
+// the number, and no tournament-title words. Used only to keep year-like ranks that are real.
+export function looksLikePlayerEntry(raw: string): boolean {
+  const s = raw.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+  if (/\b(open|cup|tour|trophy|challenger|masters|championships?|international|edition|20\d\d\s*-\s*20\d\d)\b/i.test(s)) return false;
+  const named = /[A-Za-zÀ-ÿ'’.]+,\s*[A-Za-zÀ-ÿ]/.test(s) || /[A-Za-zÀ-ÿ]{2,}\s*-\s*\(?P?\d{4}\)?\s*$/.test(s) || /[A-Za-zÀ-ÿ]{2,}\s*\(\s*P?\d{4}\s*\)\s*$/.test(s);
+  return named;
+}
+
 // Reject lines that pattern-match like "name + rank" but are actually scores,
 // prize money, tournament titles, or section headings. These are the dominant
 // false positives we saw in the 2024 import — e.g. "FIRST ROUND€ 745",
@@ -192,8 +201,10 @@ export function isSeededPlayerRow(raw: string): boolean {
 // "Falkensteiner Punta Skala-Zadar Open 2024".
 function isSpuriousNameRank(name: string, rank: number, raw: string): boolean {
   // ATP rankings cap well under 5000; a 4-digit number that looks like a year
-  // is almost always a calendar year embedded in a tournament title.
-  if (rank >= 1900 && rank <= 2100) return true;
+  // is usually a calendar year embedded in a tournament title. But a Challenger
+  // 50 qualifying cut really can be ranked ~2000 ("Nortey, Isaac - 2003",
+  // Brazzaville 2024), so a year-like number that follows a player name counts.
+  if (rank >= 1900 && rank <= 2100 && !looksLikePlayerEntry(raw)) return true;
   if (rank > 5000) return true;
   // Rank 1 or 2 is never a valid LDA — those players are top seeds, not last direct
   // acceptances. Values this low are almost always seed numbers or position markers
