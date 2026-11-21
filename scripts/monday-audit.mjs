@@ -782,8 +782,12 @@ async function runChecks(client, rows) {
     for (let i = 0; i < 8; i++) {
       const k = iso(addDays(WEEK_START, i * 7))
       const n = perWeek.get(k) ?? 0
+      // Weeks starting Dec 18-31 are the holiday lull: no Challengers at all (ATP Player Zone
+      // calendar, 2026: nothing between Dec 14 and Jan 4), only a few ITFs. Thin there is normal,
+      // so only an EMPTY holiday week is worth a case; this one used to escalate every December.
+      const holiday = k.slice(5, 7) === '12' && Number(k.slice(8, 10)) >= 18
       if (n === 0) gaps.push(item(`B3|${k}`, `week of ${k} — 0 tournaments`, { zero: true }))
-      else if (n < 4) gaps.push(item(`B3|${k}`, `week of ${k} — only ${n} tournaments`, { zero: false }))
+      else if (n < 4 && !holiday) gaps.push(item(`B3|${k}`, `week of ${k} — only ${n} tournaments`, { zero: false }))
     }
     report('B3', 'Weeks ahead with no or few tournaments loaded', gaps, {
       severity: (active) => (active.some((i) => i.r.zero) ? 'critical' : 'warn'),
