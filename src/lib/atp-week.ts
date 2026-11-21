@@ -69,6 +69,15 @@ export function getAtpEditionYearForStartDate(
 export const ATP_SEASON_START_SQL = (yearExpr: string) =>
   `(date_trunc('week', make_date((${yearExpr})::int, 1, 5))::date)`;
 
+// SQL twin of getAtpWeekForSeason. Every query that writes or groups by week
+// must use this, never its own "Monday of the week containing Jan 1"
+// arithmetic: that older rule puts Week 1 on the Monday BEFORE Jan 1 even
+// when Jan 1 is Thu-Sun, so every edition of 2022, 2023 and 2027
+// (and 2026, once it stops being the current season) landed one week late --
+// the nightly sync-canonical recompute stored all of January 2027 as weeks 2-5.
+export const ATP_WEEK_SQL = (dateExpr: string, yearExpr: string) =>
+  `greatest(1, ((${dateExpr})::date - ${ATP_SEASON_START_SQL(yearExpr)}) / 7 + 1)`;
+
 export const ATP_SEASON_FOR_DATE_SQL = (dateExpr: string) =>
   `(extract(year from ${dateExpr})::int + case when ${dateExpr} >= ${ATP_SEASON_START_SQL(
     `extract(year from ${dateExpr})::int + 1`

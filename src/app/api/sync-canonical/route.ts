@@ -5,7 +5,7 @@ import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 import { DISCONTINUED_TOURNAMENTS } from '@/lib/discontinued-tournaments';
 import { CANCELLED_EDITIONS } from '@/lib/cancelled-editions';
-import { EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
+import { ATP_WEEK_SQL, EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -74,12 +74,13 @@ export async function GET() {
     }
   }
 
-  // Recompute week for 2024 and 2025 from their stored start_dates
+  // Recompute week for every non-current season from its stored start_dates,
+  // with the same ATP season rule the importers use (src/lib/atp-week.ts).
   const weekFixResults = await Promise.all(
     AVAILABLE_SEASONS.filter((y) => y !== CURRENT_SEASON).map((year) =>
       pool.query<{ count: string }>(
         `update tournament_editions te
-         set week = greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1),
+         set week = ${ATP_WEEK_SQL('te.start_date', 'te.year')},
              updated_at = now()
          where te.year = $1
            and te.start_date is not null

@@ -1,7 +1,7 @@
 import { isAvailableSeason, AVAILABLE_SEASONS } from '@/lib/seasons';
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
+import { ATP_WEEK_SQL, EDITION_IN_ITS_SEASON_SQL } from '@/lib/atp-week';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const visibleWeekCounts = await pool.query<{ week: number; tournament_count: string }>(
     `with visible as (
        select
-         greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1) as week
+         ${ATP_WEEK_SQL('te.start_date', 'te.year')} as week
        from tournament_editions te
        where te.status = 'held'
          and te.year = $1

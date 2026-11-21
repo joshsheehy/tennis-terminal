@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
+import { ATP_WEEK_SQL } from '@/lib/atp-week';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -119,7 +120,7 @@ export async function GET(request: NextRequest) {
   if (apply) {
     await pool.query(
       `update tournament_editions te
-       set week = greatest(1, (te.start_date::date - date_trunc('week', make_date(te.year, 1, 1))::date) / 7 + 1),
+       set week = ${ATP_WEEK_SQL('te.start_date', 'te.year')},
            updated_at = now()
        where te.year = $1 and te.start_date is not null`,
       [year]
