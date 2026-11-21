@@ -136,3 +136,35 @@ For the Telegram webhook specifically, one more secret is needed, in *two* place
 requests against it) and as a GitHub repository secret (so `.github/workflows/register-telegram-webhook.yml`
 can hand it to Telegram's `setWebhook` call). After both are set, run that workflow once by hand from the
 Actions tab to register the webhook. Safe to re-run any time, e.g. after rotating the secret.
+
+## The daily cloud routine (between the boss and you)
+
+A scheduled claude.ai routine, "TennisCuts daily PTL code sweep" (14:00 UTC), picks up what the boss
+escalates and the boss cannot fix because it needs a web search: a ProTennisLive (PTL) code that is not
+known yet. It has **no `ADMIN_SECRET`** and no repo write access; everything it does is a
+`gh workflow run` of one of four workflows:
+
+| Workflow | What it is for |
+|---|---|
+| `case-ledger-report.yml` | read the ledger |
+| `admin-get.yml` | GET-only reads (never with `apply=true`) |
+| `agent-ops.yml` | its only two writes (below) |
+| `notify-telegram.yml` | the message to Josh |
+
+`agent-ops.yml` wraps the writes in the checks a person would do. `attach-code` puts a PTL code on one
+**existing** edition only if the posting is a real sheet (tens of KB, `%PDF`), its header contains the city
+hint, the edition's month and the year, and no other tournament already holds the code that season; it
+defaults to a dry run, and an apply then pulls the cuts. `import-cutoffs` re-runs the deterministic importer
+for one slug. It never sets a cut value (`set-cut`), merges, hides or creates anything: those stay human.
+
+Why it handles more than "no code" cases: Lima 2026 sat in the ledger as "likely cancelled" for a week
+because the audit only probes the code last year used; the 2026 sheets were under a new code. So the routine
+hunts for a new code before it accepts "cancelled", and the A1 cause text now says so. It also re-imports a
+"posted but not imported" case once, and if the importer still reads nothing it reports the Last Direct
+Acceptance box text so a coding session can fix the parser (Metz 2026: `Name ( 184)`, a space inside the
+brackets).
+
+It messages Josh only when it fixed something or something needs him; on a quiet day it sends nothing,
+except a one-line heartbeat on Mondays (UTC). It never touches ATP Player Zone: that is read by hand only.
+To change its behaviour, edit the routine's prompt (claude.ai/code/routines), not this repo; keep this
+section in step with it.
