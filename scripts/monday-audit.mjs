@@ -361,7 +361,9 @@ const CAUSE_TEXT = {
   posted: '📥 the sheet is posted on ProTennisLive but was not imported',
   'needs-code': '🔑 no ProTennisLive code found (add one to src/lib/ptl-code-overrides.ts)',
   waiting: '⏳ ProTennisLive has not published the sheet yet',
-  cancelled: '⚠️ never published and the event has started, so likely cancelled (see src/lib/cancelled-editions.ts)',
+  // Lima 2026 was labelled "likely cancelled" for a week while its sheets sat under a NEW code (6579):
+  // the probe only tries the code last year used. So this is "no sheet at the known code", not proof.
+  cancelled: '⚠️ no sheet at the code last used and the event has started: either cancelled (see src/lib/cancelled-editions.ts) or it has a NEW code this year, so hunt for one first',
   unknown: '❓ could not reach ProTennisLive to check',
 }
 const SEVERITY_RANK = { info: 0, warn: 1, critical: 2 }
