@@ -436,3 +436,19 @@ describe('year-like ranks (1900-2100)', () => {
   });
 });
 
+describe('bracketed rank with padding', () => {
+  // Metz 2026 (PTL 3165) prints "Dedura, Diego ( 184)"; the space inside the
+  // brackets left the singles main cut "Not on record" all week.
+  it('reads "Name ( 184)" the same as "Name (184)"', () => {
+    const lines = (v: string) => ['Last Direct Acceptance', v, 'ATP Supervisor', 'Anne Lasserre'].join('\n');
+    expect(parseOfficialPdfCutoffText(lines('Dedura, Diego ( 184)')).last_direct_acceptance_rank).toBe(184);
+    expect(parseOfficialPdfCutoffText(lines('Dedura, Diego (184)')).last_direct_acceptance_rank).toBe(184);
+    expect(parseOfficialPdfCutoffText(lines('Dedura, Diego ( 184 )')).last_direct_acceptance_rank).toBe(184);
+  });
+
+  it('still never reads a padded byes count as a cut', () => {
+    const text = ['Last Direct Acceptance', 'Byes ( 6)', 'ATP Supervisor'].join('\n');
+    expect(parseOfficialPdfCutoffText(text).last_direct_acceptance_rank).toBeNull();
+  });
+});
+

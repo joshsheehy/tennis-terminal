@@ -136,7 +136,8 @@ function parseNameAndRank(line: string): ParsedNameRank | null {
   // where the last direct acceptance used a protected ranking rather than a live one.
   const patterns = [
     /^(.+?)\s*-\s*P?(\d{1,5})\b/,
-    /^(.+?)\s*\((\d{1,5})\)\s*$/,
+    // "Dedura, Diego ( 184)" -- Metz 2026 pads the rank inside the brackets.
+    /^(.+?)\s*\(\s*P?(\d{1,5})\s*\)\s*$/,
     /^(.+?)\s+P?(\d{1,5})\s*$/,
   ];
 
