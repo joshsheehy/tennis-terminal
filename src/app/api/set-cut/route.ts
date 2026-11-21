@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool, ensureByesColumn } from '@/lib/db';
 import { ALL_EDITIONS } from '@/lib/tournament-data';
 
 export const runtime = 'nodejs';
@@ -79,10 +79,13 @@ export async function GET(request: NextRequest) {
   const year = Number(params.get('year'));
   const cutsRaw = params.get('cuts');
   const realCutsRaw = params.get('realcuts');
+  // `byes` records a draw that was not full ("Byes (2)" in the sheet's box): no
+  // cut exists, so the page shows "2 byes · draw not full" instead of a blank.
+  const byesRaw = params.get('byes');
   const notes = params.get('notes') ?? '';
   const apply = params.get('apply') === 'true';
 
-  if (!slug || !Number.isInteger(year) || (!cutsRaw && !realCutsRaw)) {
+  if (!slug || !Number.isInteger(year) || (!cutsRaw && !realCutsRaw && !byesRaw)) {
     return NextResponse.json(
       {
         ok: false,
@@ -97,6 +100,10 @@ export async function GET(request: NextRequest) {
   // — the hand-sourced "real" rank that ultimately made the main draw after
   // alternates/withdrawals (e.g. Newport: direct 340 but 550 actually got in).
   const { cuts, error } = cutsRaw ? parseCuts(cutsRaw) : { cuts: [], error: null };
+  const { cuts: byesCuts, error: byesError } = byesRaw ? parseCuts(byesRaw) : { cuts: [], error: null };
+  if (byesError || byesCuts.some((b) => b.rank === null)) {
+    return NextResponse.json({ ok: false, error: byesError ?? 'byes needs a count (event:draw:N)' }, { status: 400 });
+  }
   if (error) return NextResponse.json({ ok: false, error }, { status: 400 });
   const { cuts: realCuts, error: realError } = realCutsRaw
     ? parseCuts(realCutsRaw)
@@ -328,6 +335,41 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const byesResults: Array<Record<string, unknown>> = [];
+  if (byesCuts.length > 0) await ensureByesColumn();
+  for (const b of byesCuts) {
+    const before = await pool.query<{ last_direct_acceptance_rank: number | null; byes_count: number | null }>(
+      `select last_direct_acceptance_rank, byes_count
+       from cutoff_snapshots
+       where tournament_edition_id = $1 and event_type = $2 and draw_type = $3`,
+      [editionId, b.event_type, b.draw_type]
+    );
+    const existed = before.rows.length > 0;
+    if (apply && existed) {
+      await pool.query(
+        `update cutoff_snapshots
+         set byes_count = $4,
+             last_direct_acceptance_rank = null,
+             last_direct_acceptance_player_name = null,
+             source_type = 'manual_playerzone_v1',
+             parser_version = 'manual',
+             source_notes = coalesce(nullif($5, ''), source_notes),
+             updated_at = now()
+         where tournament_edition_id = $1 and event_type = $2 and draw_type = $3`,
+        [editionId, b.event_type, b.draw_type, b.rank, notes]
+      );
+    }
+    byesResults.push({
+      event: b.event_type,
+      draw: b.draw_type,
+      byes: b.rank,
+      previousRank: before.rows[0]?.last_direct_acceptance_rank ?? null,
+      previousByes: before.rows[0]?.byes_count ?? null,
+      rowExisted: existed,
+      action: existed ? (apply ? 'byes-set' : 'would-set-byes') : 'no-row',
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     apply,
@@ -338,6 +380,7 @@ export async function GET(request: NextRequest) {
     city: editionResult.rows[0].city,
     cuts: results,
     realCuts: realResults,
+    byes: byesResults,
     message: apply
       ? 'Cut(s) set; ALT/LL preserved.'
       : 'Dry run. Append &apply=true to write.',
