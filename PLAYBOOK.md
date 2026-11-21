@@ -142,18 +142,22 @@ Actions tab to register the webhook. Safe to re-run any time, e.g. after rotatin
 A scheduled claude.ai routine, "TennisCuts daily PTL code sweep" (14:00 UTC), picks up what the boss
 escalates and the boss cannot fix because it needs a web search: a ProTennisLive (PTL) code that is not
 known yet. It has **no `ADMIN_SECRET`** and no repo write access; everything it does is a
-`gh workflow run` of one of four workflows:
+`gh workflow run` of one of three workflows:
 
 | Workflow | What it is for |
 |---|---|
 | `case-ledger-report.yml` | read the ledger |
-| `admin-get.yml` | GET-only reads (never with `apply=true`) |
-| `agent-ops.yml` | its only two writes (below) |
+| `agent-ops.yml` | its two writes (below) plus a read-only `lookup` to confirm them |
 | `notify-telegram.yml` | the message to Josh |
+
+It is deliberately NOT given `admin-get.yml`: that workflow is "GET-only", but many admin GETs write
+(`sync-canonical`, anything with `apply=true`), so a prompt-level "reads only" rule would be the only guard.
+Anything it may do is an op in `agent-ops.yml`, where the workflow enforces it.
 
 `agent-ops.yml` wraps the writes in the checks a person would do. `attach-code` puts a PTL code on one
 **existing** edition only if the posting is a real sheet (tens of KB, `%PDF`), its header contains the city
-hint, the edition's month and the year, and no other tournament already holds the code that season; it
+hint (which must itself be part of the slug), the edition's month and the year, and no other tournament
+already holds the code that season; it
 defaults to a dry run, and an apply then pulls the cuts. `import-cutoffs` re-runs the deterministic importer
 for one slug. It never sets a cut value (`set-cut`), merges, hides or creates anything: those stay human.
 

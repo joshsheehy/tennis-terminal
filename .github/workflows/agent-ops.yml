@@ -9,7 +9,10 @@ name: Agent ops (checked code attach + cut import)
 #                  city hint, the edition's month and the year (codes get reused, so a number alone
 #                  proves nothing), and (3) no other tournament already holds the code that season.
 #                  apply=false (default) runs every check and writes nothing.
+#                  The city hint must also be part of the slug (so a generic word cannot pass).
 #   import-cutoffs Re-run the deterministic sheet importer for one slug + year. Idempotent.
+#   lookup         Read-only: list the stored editions matching a word (`slug` is the word). The routine
+#                  uses this to confirm a write instead of admin-get, which can write with apply=true.
 #
 #   gh workflow run agent-ops.yml -f op=attach-code -f slug=lima -f year=2026 -f code=6579 -f city_hint=Lima -f apply=true
 #
@@ -61,6 +64,12 @@ jobs:
           base="${APP_URL%/}"; [[ "$base" == http* ]] || base="https://$base"
           get() { curl --fail-with-body -sS --max-time 120 -H "X-Admin-Secret: $ADMIN_SECRET" -H 'Accept: application/json' "$base$1"; }
 
+          if [ "$OP" = "lookup" ]; then
+            # Read-only: the one lookup the routine needs to confirm a write. `slug` is the search word.
+            get "/api/debug-tournament?q=$SLUG" | jq '[.rows[]? | {slug, year, week, start_date, status, source_url}]'
+            exit 0
+          fi
+
           if [ "$OP" = "import-cutoffs" ]; then
             get "/api/import-cutoffs?year=$YEAR&slug=$SLUG&limit=10" | jq '{ok, importedWithCutsCount, importedNullCutsCount, importedWithCuts: [.importedWithCuts[]? | select(.slug=="'"$SLUG"'") | {pdf_url, last_direct_acceptance_rank, challenger_doubles_advanced_cut_rank, challenger_doubles_onsite_cut_rank}], importedNullCuts: [.importedNullCuts[]? | select(.slug=="'"$SLUG"'")]}'
             exit 0
@@ -69,6 +78,13 @@ jobs:
           [ "$OP" = "attach-code" ] || fail "op must be attach-code or import-cutoffs"
           [[ "$CODE" =~ ^[0-9]{2,5}$ ]] || fail "bad code"
           [[ "$CITY_HINT" =~ ^[A-Za-z][A-Za-z\ \'-]{1,40}$ ]] || fail "city_hint is required (letters only): a word the posting header must contain"
+
+          # The hint is chosen by the caller, so tie it to the slug: a generic word ("Open", "Tennis",
+          # "Challenger") would otherwise pass the header check on any sheet.
+          hint_norm=$(printf '%s' "$CITY_HINT" | tr '[:upper:]' '[:lower:]' | tr -s ' -' ' ')
+          slug_norm=$(printf '%s' "$SLUG" | tr '-' ' ')
+          [ "${#hint_norm}" -ge 3 ] || fail "city_hint is too short"
+          case " $slug_norm " in *" $hint_norm "*|*" $hint_norm"*) ;; *) fail "city_hint \"$CITY_HINT\" is not part of the slug \"$SLUG\": not attaching" ;; esac
 
           echo "=== 1. The posting must exist and be a real sheet ==="
           mkdir -p "$RUNNER_TEMP/p"; pdf="$RUNNER_TEMP/p/sheet.pdf"; got=""
