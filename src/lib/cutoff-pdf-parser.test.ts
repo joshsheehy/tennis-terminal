@@ -476,3 +476,10 @@ describe('open places in the draw (San Salvador qualifying 2026)', () => {
   });
 });
 
+describe('open places across both text passes', () => {
+  it('counts glued stream-text positions and split layout-text positions', () => {
+    expect(countDrawByes(['11POLING, KarlUSA', '2Bye', '3AltWEINTRAUB, BenISR', '6Bye', '10Bye', 'Last Direct Acceptance'], 5)).toBe(3);
+    expect(countDrawByes(['1', '1 POLING, Karl', '2', 'Bye', '3 Alt', 'WEINTRAUB, Ben', '6', 'Bye', 'Last Direct Acceptance'], 8)).toBe(2);
+  });
+});
+

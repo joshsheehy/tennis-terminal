@@ -524,7 +524,11 @@ export function countDrawByes(lines: string[], footerIndex: number): number | nu
   const end = footerIndex >= 0 ? footerIndex : lines.length;
   let count = 0;
   for (let i = 0; i < end; i += 1) {
-    if (/^\d{1,3}\s+(?:(?:Alt|WC|Q|LL|SE|PR|JR)\s+)?bye\b/i.test(lines[i].trim())) count += 1;
+    const line = lines[i].trim();
+    // Stream text glues the position to the word ("2Bye"); layout text puts the position on the line
+    // above ("2" / "Bye"); a plain sheet has "2   Bye". All three are one empty place.
+    if (/^\d{1,3}\s*(?:(?:Alt|WC|Q|LL|SE|PR|JR)\s*)?bye\b/i.test(line)) count += 1;
+    else if (/^bye\b/i.test(line) && i > 0 && /^\d{1,3}$/.test(lines[i - 1].trim())) count += 1;
   }
   return count > 0 ? count : null;
 }
