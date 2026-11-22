@@ -595,7 +595,18 @@ export default async function TournamentDetailPage({
             <div className="edition-card__body">
               {row.edition.status === 'not_held' ? (
                 <div className="muted-panel">Tournament not held this year.</div>
-              ) : row.edition.start_date && new Date(row.edition.start_date) > new Date() ? (
+              ) : row.edition.start_date &&
+                new Date(row.edition.start_date) > new Date() &&
+                !row.cutoffs.some(
+                  (c) =>
+                    c.last_direct_acceptance_rank !== null ||
+                    c.challenger_doubles_advanced_cut_rank !== null ||
+                    c.challenger_doubles_onsite_cut_rank !== null ||
+                    c.byes_count !== null
+                ) ? (
+                // Entry lists and draw sheets post before the week starts, so the cuts
+                // exist (and the Cuts list shows them) days earlier. Only claim "not
+                // started" while there is truly nothing to show.
                 <div className="muted-panel">Tournament has not started yet.</div>
               ) : (
                 <CutoffTable
