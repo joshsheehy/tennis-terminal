@@ -162,7 +162,7 @@ export default function CutTrendChart({
       <p className="cut-trend__note">
         Last direct acceptance into the {DRAW_PHRASE[current.key]}
         {basis === 'deadline'
-          ? ' at the entry deadline (official ATP cut-off)'
+          ? ' at the entry deadline (ATP cut-off; 2022 and a few later numbers are inferred from the draw)'
           : current.key === 'singles_main'
             ? ' (post-alternates cut where recorded)'
             : ''}
