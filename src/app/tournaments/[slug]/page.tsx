@@ -345,6 +345,16 @@ function CutoffTable({
           cutDisplay = <span className="cut-value cut-value--na">Not on record</span>;
         } else if (isChallenger && eventType === 'doubles') {
           cutDisplay = <span className="cut-value">{challengerDoublesCutText(cutoff)}</span>;
+        } else if ((cutoff.byes_count ?? 0) > 0) {
+          // The sheet still names a lowest acceptance, but the draw had open places: everyone who
+          // entered got in, so nobody was cut. Lead with that and keep the rank as the floor.
+          const lowest = cutoff.last_alternate_rank ?? cutoff.last_direct_acceptance_rank;
+          cutDisplay = (
+            <>
+              <span className="cut-value">{byesText(cutoff.byes_count ?? 0)}</span>
+              <div className="cut-sub cut-sub--faint">Draw not full · lowest in {rankText(lowest)}</div>
+            </>
+          );
         } else if (cutoff.last_alternate_rank != null) {
           // Hand-sourced "real" cut after alternates/withdrawals — show it as the
           // primary number (matches the swing checker), with the direct cut noted

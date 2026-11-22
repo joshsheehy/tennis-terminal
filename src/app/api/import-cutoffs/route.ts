@@ -498,7 +498,13 @@ async function upsertCutoffSnapshot(
       `Official PDF: ${importedPdfUrl}. Raw Last Direct Acceptance: ${parsed.raw_last_direct_acceptance ?? 'not found'}. Historical edition row may be generated from current calendar metadata when no exact historical calendar row exists yet.${anomalyReason ? ` ${ANOMALY_TAG}: ${anomalyReason}` : ''}`,
       parsed.alternate_entries_count,
       parsed.lucky_loser_count,
-      parsed.byes_count,
+      // The box's own "Byes (N)" wins. Otherwise a draw with open places was not full, so nobody was cut
+      // even if the box still names a lowest acceptance. Qualifying draws never seed byes; main draws
+      // only count on Challenger sheets (ATP 28-player draws seed byes by design).
+      parsed.byes_count ??
+        (parsed.open_places && (target.draw_type === 'qualifying' || parsed.is_challenger_sheet)
+          ? parsed.open_places
+          : null),
     ]
   );
 }

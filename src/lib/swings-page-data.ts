@@ -154,8 +154,9 @@ export async function loadReferenceCutoffs(year: number): Promise<Record<string,
   for (const row of result.rows) {
     const entry = refs[row.slug] ?? emptyRefs();
     const ref = row.event_type === 'doubles' ? entry.doubles : entry.singles;
-    // No number but the sheet reported byes: the draw was not full, so any ranking got in.
-    const open = row.direct == null && row.dbl_adv == null && (row.byes ?? 0) > 0;
+    // The sheet reported byes: the draw was not full, so any ranking got in (even when its box still names
+    // the lowest player in). A Challenger doubles advance cut is a real cut regardless.
+    const open = row.dbl_adv == null && (row.byes ?? 0) > 0;
     if (open) {
       if (row.draw_type === 'main') ref.mainOpen = true;
       else ref.qualOpen = true;

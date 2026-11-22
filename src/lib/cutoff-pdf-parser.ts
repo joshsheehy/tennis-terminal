@@ -94,6 +94,13 @@ export type ParsedOfficialPdfCutoff = {
   // Empty slots in the draw, from a "Byes (N)" line in the Last Direct Acceptance box. A draw that
   // is not full has no last direct acceptance, so this is reported instead of a cut, never as one.
   byes_count: number | null;
+  // "Bye" places in the draw itself, counted off the numbered draw positions. Unlike byes_count this is
+  // present even when the box still prints a last direct acceptance (San Salvador qualifying 2026: three
+  // byes, yet the box names Miles Clark, 2160). Everyone who entered got in, so nothing was cut.
+  open_places: number | null;
+  // True for a Challenger sheet. ATP 28-player main draws seed byes by design, so only Challenger main
+  // draws and qualifying draws can read open places as "not full".
+  is_challenger_sheet: boolean;
   pdf_text_length: number;
 };
 
@@ -510,6 +517,18 @@ function parseAlternateEntriesCount(lines: string[]): { alternate_count: number;
   return { alternate_count, lucky_loser_count };
 }
 
+// Counts "Bye" places among the numbered draw positions ("2   Bye", "6 Bye"). Stops at the footer so the
+// "Byes (2)" box text and the seeded-players table are never counted. Qualifying draws have no seeded
+// byes (24 or 16 places, every one playable), so each bye is an empty place.
+export function countDrawByes(lines: string[], footerIndex: number): number | null {
+  const end = footerIndex >= 0 ? footerIndex : lines.length;
+  let count = 0;
+  for (let i = 0; i < end; i += 1) {
+    if (/^\d{1,3}\s+(?:(?:Alt|WC|Q|LL|SE|PR|JR)\s+)?bye\b/i.test(lines[i].trim())) count += 1;
+  }
+  return count > 0 ? count : null;
+}
+
 export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutoff {
   const lines = getUsefulLines(text);
   const lastDirectAcceptanceIndex = lines.findIndex((line) => /last direct acceptance/i.test(line));
@@ -531,6 +550,8 @@ export function parseOfficialPdfCutoffText(text: string): ParsedOfficialPdfCutof
     alternate_entries_count: alternate_count,
     lucky_loser_count,
     byes_count,
+    open_places: countDrawByes(lines, lastDirectAcceptanceIndex),
+    is_challenger_sheet: /challenger supervisor|\bchallenger\s+\d{2,3}\b/i.test(text),
     pdf_text_length: text.length,
   };
 }
@@ -711,6 +732,8 @@ function mergeResults(stream: ParsedOfficialPdfCutoff, layout: ParsedOfficialPdf
     alternate_entries_count: Math.max(stream.alternate_entries_count, layout.alternate_entries_count),
     lucky_loser_count: Math.max(stream.lucky_loser_count, layout.lucky_loser_count),
     byes_count: stream.byes_count ?? layout.byes_count,
+    open_places: Math.max(stream.open_places ?? 0, layout.open_places ?? 0) || null,
+    is_challenger_sheet: stream.is_challenger_sheet || layout.is_challenger_sheet,
     pdf_text_length: stream.pdf_text_length,
   };
 }

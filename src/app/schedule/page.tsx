@@ -63,15 +63,11 @@ function doublesNum(c: CutoffSnapshot | null, isChallenger: boolean): number | n
   if (isChallenger) return c.challenger_doubles_advanced_cut_rank ?? c.last_alternate_rank ?? c.last_direct_acceptance_rank ?? null;
   return c.last_alternate_rank ?? c.last_direct_acceptance_rank ?? null;
 }
-// A draw whose sheet reported byes was not full, so nobody was cut and any ranking got in.
+// A draw whose sheet reported byes was not full, so nobody was cut and any ranking got in. That holds
+// even when the sheet's box still names the lowest player in (San Salvador qualifying: 3 byes, "2160").
+// A Challenger doubles advance cut is a real cut regardless: only its on-site draw had open places.
 function isOpenDraw(c: CutoffSnapshot | null): boolean {
-  return (
-    c != null &&
-    (c.byes_count ?? 0) > 0 &&
-    c.last_direct_acceptance_rank == null &&
-    c.last_alternate_rank == null &&
-    c.challenger_doubles_advanced_cut_rank == null
-  );
+  return c != null && (c.byes_count ?? 0) > 0 && c.challenger_doubles_advanced_cut_rank == null;
 }
 function hasAnyCut(cutoffs: CutoffSnapshot[]): boolean {
   // An open draw is real data for this edition too, so it must not fall back to last year's numbers.
@@ -289,9 +285,9 @@ export default async function SchedulePage({
                 </p>
 
                 <div className="sched-cuts">
-                  <CutChip label="Singles MD" value={sm} open={sm == null && isOpenDraw(smCut)} />
-                  <CutChip label="Singles Q" value={sq} open={sq == null && isOpenDraw(sqCut)} />
-                  <CutChip label="Doubles" value={dd} open={dd == null && isOpenDraw(ddCut)} />
+                  <CutChip label="Singles MD" value={sm} open={isOpenDraw(smCut)} />
+                  <CutChip label="Singles Q" value={sq} open={isOpenDraw(sqCut)} />
+                  <CutChip label="Doubles" value={dd} open={isOpenDraw(ddCut)} />
                 </div>
                 <StopConditions conditions={conditions[e.edition_id]} />
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractChallengerDoublesCuts, isSeededPlayerRow, isSeededTeamRow, layoutItemsToText, looksLikePlayerEntry, parseOfficialPdfCutoffText } from './cutoff-pdf-parser';
+import { extractChallengerDoublesCuts, isSeededPlayerRow, isSeededTeamRow, layoutItemsToText, looksLikePlayerEntry, parseOfficialPdfCutoffText, countDrawByes } from './cutoff-pdf-parser';
 
 
 // pdf.js text item shape: transform[4]=x, transform[5]=y (y grows upward).
@@ -449,6 +449,30 @@ describe('bracketed rank with padding', () => {
   it('still never reads a padded byes count as a cut', () => {
     const text = ['Last Direct Acceptance', 'Byes ( 6)', 'ATP Supervisor'].join('\n');
     expect(parseOfficialPdfCutoffText(text).last_direct_acceptance_rank).toBeNull();
+  });
+});
+
+describe('open places in the draw (San Salvador qualifying 2026)', () => {
+  const draw = [
+    '1 1 POLING, Karl USA K. Poling 1',
+    '2 Bye',
+    '3 Alt WEINTRAUB, Ben ISR',
+    '5 2 SHIMANOV, Ofek ISR O. Shimanov 2',
+    '6 Bye',
+    '10 Bye',
+    '14 CLARK, Miles USA',
+  ];
+
+  it('counts Bye places among the numbered draw positions, not the footer', () => {
+    expect(countDrawByes([...draw, 'Last Direct Acceptance', 'Byes (2)'], 7)).toBe(3);
+    expect(countDrawByes(['1 1 POLING, Karl USA', '2 DIAZ, Sebastian BOL'], -1)).toBeNull();
+  });
+
+  it('reports open places alongside the printed lowest acceptance', () => {
+    const text = [...draw, 'Last Direct Acceptance', 'Miles Clark- 2160', 'ATP Supervisor'].join('\n');
+    const parsed = parseOfficialPdfCutoffText(text);
+    expect(parsed.last_direct_acceptance_rank).toBe(2160);
+    expect(parsed.open_places).toBe(3);
   });
 });
 
