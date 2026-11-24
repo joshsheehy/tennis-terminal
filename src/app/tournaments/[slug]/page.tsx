@@ -364,7 +364,6 @@ function CutoffTable({
           const showAfter = direct != null && afterAlt > direct;
           cutDisplay = (
             <>
-              {showAfter && <div className="cut-tag">Last direct acceptance</div>}
               <span className="cut-value">{rankText(direct ?? afterAlt)}</span>
               {showAfter && <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alternates</div>}
             </>

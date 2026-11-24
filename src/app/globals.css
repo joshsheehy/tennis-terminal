@@ -1166,9 +1166,8 @@ td {
   font-variant-numeric: tabular-nums;
 }
 .cut-sub--faint { color: var(--text-faint); font-size: 11px; }
-/* "Last direct acceptance" tag above the cut, and the larger cut-after-alternates line beneath it. */
-.cut-tag { color: var(--text-faint); font-size: 11px; margin-bottom: 1px; }
-.cut-sub--after-alt { color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+/* Cut after alternates: same layout as the cut, a touch smaller, directly beneath it. */
+.cut-sub--after-alt { color: var(--text-secondary); font-size: 13px; font-weight: 500; }
 
 /* ─── Alerts ────────────────────────────────────────────────────────────────── */
 
