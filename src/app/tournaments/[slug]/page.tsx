@@ -356,7 +356,7 @@ function CutoffTable({
             <>
               <span className="cut-value">{challengerDoublesCutText(cutoff)}</span>
               {afterAlt != null && afterAlt > floor && (
-                <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alternates</div>
+                <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alts</div>
               )}
             </>
           );
@@ -380,7 +380,7 @@ function CutoffTable({
           cutDisplay = (
             <>
               <span className="cut-value">{rankText(direct ?? afterAlt)}</span>
-              {showAfter && <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alternates</div>}
+              {showAfter && <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alts</div>}
             </>
           );
         } else {
