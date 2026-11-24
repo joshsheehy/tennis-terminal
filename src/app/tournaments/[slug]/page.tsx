@@ -356,16 +356,17 @@ function CutoffTable({
             </>
           );
         } else if (cutoff.last_alternate_rank != null) {
-          // The cut stays the headline. When alternates got in, the lowest-ranked of them (ranked on the
-          // same entry-deadline list) is the cut after alternates, shown beneath it.
+          // The cut stays the headline, tagged as the last direct acceptance. When alternates got in below it,
+          // the lowest-ranked of them (ranked on the list in effect the day before the draw) is the cut after
+          // alternates, shown larger beneath. An alternate who climbed above the cut changes nothing.
           const direct = cutoff.last_direct_acceptance_rank;
           const afterAlt = cutoff.last_alternate_rank;
+          const showAfter = direct != null && afterAlt > direct;
           cutDisplay = (
             <>
+              {showAfter && <div className="cut-tag">Last direct acceptance</div>}
               <span className="cut-value">{rankText(direct ?? afterAlt)}</span>
-              {direct != null && afterAlt > direct && (
-                <div className="cut-sub cut-sub--faint">{rankText(afterAlt)} after alternates</div>
-              )}
+              {showAfter && <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alternates</div>}
             </>
           );
         } else {
