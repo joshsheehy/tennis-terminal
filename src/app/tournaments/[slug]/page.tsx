@@ -344,7 +344,22 @@ function CutoffTable({
         } else if (!hasRank || tombstoned) {
           cutDisplay = <span className="cut-value cut-value--na">Not on record</span>;
         } else if (isChallenger && eventType === 'doubles') {
-          cutDisplay = <span className="cut-value">{challengerDoublesCutText(cutoff)}</span>;
+          // Alternate teams who got in are ranked by combined ranking too. Show the lowest one beneath the
+          // Adv / on-site cuts when it falls below both.
+          const afterAlt = cutoff.last_alternate_rank;
+          const floor = Math.max(
+            cutoff.challenger_doubles_advanced_cut_rank ?? 0,
+            cutoff.challenger_doubles_onsite_cut_rank ?? 0,
+            cutoff.last_direct_acceptance_rank ?? 0
+          );
+          cutDisplay = (
+            <>
+              <span className="cut-value">{challengerDoublesCutText(cutoff)}</span>
+              {afterAlt != null && afterAlt > floor && (
+                <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alternates</div>
+              )}
+            </>
+          );
         } else if ((cutoff.byes_count ?? 0) > 0) {
           // The sheet still names a lowest acceptance, but the draw had open places: everyone who
           // entered got in, so nobody was cut. Lead with that and keep the rank as the floor.
