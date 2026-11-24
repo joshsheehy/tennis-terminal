@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ApnsClient, apnsConfigured } from '@/lib/apns';
-import { currentUser, rejectUnsafeWrite, unauthorized } from '@/lib/auth-request';
-import { deleteDeviceToken, listUserDevices, rememberDeviceEnv } from '@/lib/push-devices';
+import { currentUser, rejectUnsafeWrite } from '@/lib/auth-request';
+import { deleteDeviceToken, findDevice, isApnsToken, listUserDevices, rememberDeviceEnv } from '@/lib/push-devices';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Public endpoint (allow-listed in src/middleware.ts), signed-in only: send a
-// test notification to the caller's own devices — the end-to-end check that
-// doesn't wait for a real deadline window. One per account per 30 seconds.
+// Public endpoint (allow-listed in src/middleware.ts): send a test
+// notification — the end-to-end check that doesn't wait for a real deadline
+// window. Signed in, it goes to the account's devices; signed out, to the
+// phone whose token is in the body ({ token }). One per caller per 30 seconds.
 const COOLDOWN_MS = 30_000;
 const lastTest = new Map<string, number>();
 
@@ -16,7 +17,13 @@ export async function POST(request: NextRequest) {
   const blocked = rejectUnsafeWrite(request);
   if (blocked) return blocked;
   const user = await currentUser(request);
-  if (!user) return unauthorized();
+  let token: unknown = null;
+  if (!user) {
+    token = ((await request.json().catch(() => ({}))) as { token?: unknown }).token;
+    if (!isApnsToken(token)) {
+      return NextResponse.json({ ok: false, error: 'Turn on push notifications first.' }, { status: 400 });
+    }
+  }
 
   if (!apnsConfigured()) {
     return NextResponse.json(
@@ -24,13 +31,16 @@ export async function POST(request: NextRequest) {
       { status: 503 }
     );
   }
-  const since = Date.now() - (lastTest.get(user.id) ?? 0);
+  const caller = user ? user.id : `device:${token}`;
+  const since = Date.now() - (lastTest.get(caller) ?? 0);
   if (since < COOLDOWN_MS) {
     return NextResponse.json({ ok: false, error: 'Give it a few seconds before sending another.' }, { status: 429 });
   }
-  lastTest.set(user.id, Date.now());
+  lastTest.set(caller, Date.now());
 
-  const devices = await listUserDevices(user.id);
+  const devices = user
+    ? await listUserDevices(user.id)
+    : await findDevice(token as string).then((device) => (device ? [device] : []));
   if (devices.length === 0) {
     return NextResponse.json({ ok: false, error: 'Turn on push notifications first.' }, { status: 400 });
   }

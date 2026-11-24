@@ -66,10 +66,24 @@ async function obtainToken(promptIfNeeded: boolean): Promise<string | null> {
   });
 }
 
-export type EnableResult = { ok: true } | { ok: false; reason: 'denied' | 'failed'; message: string };
+// What a phone with push on and no account gets alerts about (the account
+// version lives on its alert preferences instead).
+export type DevicePrefs = { categories: string[]; includeDoubles: boolean; reminderHours: number[] };
+
+type RegisterReply = { standalone?: boolean; categories?: string[]; includeDoubles?: boolean; reminderHours?: number[] };
+
+function standalonePrefs(reply: RegisterReply): DevicePrefs | null {
+  if (!reply.standalone || !reply.categories || !reply.reminderHours) return null;
+  return { categories: reply.categories, includeDoubles: reply.includeDoubles === true, reminderHours: reply.reminderHours };
+}
+
+export type EnableResult =
+  | { ok: true; prefs: DevicePrefs | null }
+  | { ok: false; reason: 'denied' | 'failed'; message: string };
 
 // Turn push on for this phone: permission prompt (first time), token, then
-// tie the token to the signed-in account.
+// register it: with the signed-in account, or (signed out) on its own, which
+// answers with the phone's own preferences.
 export async function enablePush(): Promise<EnableResult> {
   const token = await obtainToken(true);
   if (!token) {
@@ -79,29 +93,54 @@ export async function enablePush(): Promise<EnableResult> {
       ? { ok: false, reason: 'denied', message: 'Notifications are off for TennisCuts. Turn them on in iPhone Settings → TennisCuts → Notifications.' }
       : { ok: false, reason: 'failed', message: "Couldn't register this phone for notifications. Try again." };
   }
-  const result = await accountApi('/api/push/register', 'POST', { token });
+  const result = await accountApi<RegisterReply>('/api/push/register', 'POST', { token });
   if (!result.ok) return { ok: false, reason: 'failed', message: result.error };
   storeToken(token);
-  return { ok: true };
+  return { ok: true, prefs: standalonePrefs(result) };
 }
 
-// Turn push off for this phone (also used on sign-out, so the phone stops
-// getting the previous account's alerts).
+// Turn push off for this phone (also on account deletion).
 export async function disablePush(): Promise<void> {
   const token = storedPushToken();
   if (token) await accountApi('/api/push/unregister', 'POST', { token });
   storeToken(null);
 }
 
+// Signing out doesn't turn push off: registering again signed out takes the
+// phone off the account and copies the account's preferences onto it.
+export async function keepPushAfterSignOut(): Promise<void> {
+  const token = storedPushToken();
+  if (token) await accountApi('/api/push/register', 'POST', { token });
+}
+
+// The Alerts screen, signed out: is push on for this phone, and for what?
+// Registering again is harmless and answers both.
+export async function loadStandalonePush(): Promise<{ on: boolean; prefs: DevicePrefs | null; error?: string }> {
+  const token = storedPushToken();
+  if (!token) return { on: false, prefs: null };
+  const result = await accountApi<RegisterReply>('/api/push/register', 'POST', { token });
+  if (!result.ok) return { on: true, prefs: null, error: result.error };
+  return { on: true, prefs: standalonePrefs(result) };
+}
+
+export async function saveStandalonePrefs(prefs: DevicePrefs) {
+  return accountApi('/api/push/prefs', 'PUT', { token: storedPushToken(), ...prefs });
+}
+
+// Signed in, the server sends to the account's phones; signed out, to this one.
+export async function sendTestPush() {
+  return accountApi('/api/push/test', 'POST', { token: storedPushToken() });
+}
+
 // On app launch: if this phone had push on, re-send its (possibly rotated)
 // token. Never prompts.
 export async function refreshPushRegistration(): Promise<void> {
-  if (!storedPushToken()) return;
+  const previousToken = storedPushToken();
+  if (!previousToken) return;
   const token = await obtainToken(false);
   if (!token) return;
-  const result = await accountApi('/api/push/register', 'POST', { token });
+  const result = await accountApi('/api/push/register', 'POST', { token, previousToken });
   if (result.ok) storeToken(token);
-  else if (result.status === 401) storeToken(null); // signed out elsewhere
 }
 
 // Tapping a notification opens the page it points at (e.g. /alerts).

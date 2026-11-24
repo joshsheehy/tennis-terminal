@@ -93,6 +93,41 @@ export default function AlertSignup({ defaultEmail = '' }: { defaultEmail?: stri
 
   return (
     <form onSubmit={handleSubmit} className="alerts-form" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Email and button first, so nobody has to find the button under the
+          options; the options start on the usual picks. */}
+      <div>
+        <label htmlFor="alerts-signup-email" style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
+          Your email
+        </label>
+        <div className="alerts-submit" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input
+            id="alerts-signup-email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="field-input"
+            style={{ flex: '1 1 220px' }}
+          />
+          <button type="submit" disabled={status === 'loading'} className="btn btn--primary">
+            {status === 'loading' ? 'Signing up…' : 'Notify me'}
+          </button>
+        </div>
+        <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+          Pick your tours and timing below, or keep the usual ones.
+        </p>
+      </div>
+      {message && (
+        <p
+          role="status"
+          className={`form-status ${status === 'error' ? 'form-status--error' : 'form-status--ok'}`}
+        >
+          {message}
+        </p>
+      )}
+
       <fieldset className="alerts-group" style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <legend style={{ padding: 0, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
           Which deadlines do you want?
@@ -143,30 +178,6 @@ export default function AlertSignup({ defaultEmail = '' }: { defaultEmail?: stri
           ))}
         </div>
       </fieldset>
-
-      <div className="alerts-submit" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          aria-label="Email address"
-          className="field-input"
-          style={{ flex: '1 1 220px' }}
-        />
-        <button type="submit" disabled={status === 'loading'} className="btn btn--primary">
-          {status === 'loading' ? 'Signing up…' : 'Notify me'}
-        </button>
-      </div>
-      {message && (
-        <p
-          role="status"
-          className={`form-status ${status === 'error' ? 'form-status--error' : 'form-status--ok'}`}
-        >
-          {message}
-        </p>
-      )}
     </form>
   );
 }

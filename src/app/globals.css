@@ -1666,7 +1666,37 @@ html.in-app .alerts-rules__summary::after { content: '›'; font-size: 20px; col
 html.in-app .alerts-rules[open] .alerts-rules__summary::after { transform: rotate(90deg); }
 html.in-app .alerts-rules[open] { padding-bottom: 14px; }
 .alerts-settings__hint { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
-.alerts-settings__test { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.alerts-settings__test { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: -6px 2px 0; font-size: 14px; }
+
+/* App Alerts screen: the switch that turns alerts on leads, ringed in green
+   while it's off; until it's on, every choice it would control is greyed out
+   and locked, so nobody mistakes them for active settings. */
+.alerts-master__label { display: inline-flex; align-items: center; gap: 8px; }
+.alerts-master__label svg { flex-shrink: 0; color: var(--brand-ink); }
+html.in-app .alerts-group--master .check-option { padding: 15px 14px; font-size: 17px; font-weight: 650; color: var(--text-strong); }
+html.in-app .alerts-group--master > .check-option:first-child,
+html.in-app .alerts-group--master > legend + .check-option { border-top: 0; }
+html.in-app .alerts-group--master > legend + .check-option { border-top: 1px solid var(--border); }
+html.in-app .alerts-group--master-off {
+  border-color: var(--brand-ink) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-ink) 20%, transparent);
+}
+.alerts-settings__off { margin: -6px 2px 0; font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--text-strong); }
+.alerts-settings__body { display: flex; flex-direction: column; gap: 18px; transition: opacity 160ms ease, filter 160ms ease; }
+.alerts-settings__body--off { opacity: 0.4; filter: grayscale(1); pointer-events: none; user-select: none; }
+.alerts-email {
+  margin-top: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.alerts-email__title { margin: 0 0 10px; font-size: 16px; font-weight: 700; color: var(--text-strong); }
+.alerts-email__row { display: flex; gap: 8px; }
+.alerts-email__row .field-input { flex: 1 1 auto; min-width: 0; }
+.alerts-email__row .btn { flex: none; }
+.alerts-email__fine { margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-muted); }
+.alerts-email__fine .link-button { font-size: 12px; }
 
 /* App: sentence case instead of all-caps, letter-spaced mini labels, which
    read as template-y on a phone ("Week of Nov 23 — pick your next stop"). */

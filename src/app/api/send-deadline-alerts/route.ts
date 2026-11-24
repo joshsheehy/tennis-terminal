@@ -19,7 +19,15 @@ import {
 } from '@/lib/subscribers';
 import { ApnsClient, apnsConfigured } from '@/lib/apns';
 import { deadlinePushMessage, pushReminderKey } from '@/lib/push-alerts';
-import { deleteDeviceToken, listPushTargets, rememberDeviceEnv } from '@/lib/push-devices';
+import {
+  claimDeviceSend,
+  deleteDeviceToken,
+  listPushTargets,
+  listStandalonePushTargets,
+  releaseDeviceSend,
+  rememberDeviceEnv,
+  type PushDevice,
+} from '@/lib/push-devices';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -222,24 +230,66 @@ function summarize(d: DueReminder) {
 type PushReport = {
   skipped?: string;
   targets: number;
+  /** Of `targets`, phones with push on and no account. */
+  phones: number;
   notified: number;
-  failed: Array<{ email: string; reason: string }>;
+  failed: Array<{ recipient: string; reason: string }>;
   devicesRemoved: number;
 };
 
-// Same deadlines and windows as the email, per account with a registered
-// device, claimed under push: keys so the two channels dedupe independently.
+// Who gets one deadline push per run: an account (all its phones, its alert
+// preferences, deduped in alert_sends) or a phone with push on and no account
+// (its own preferences, deduped in push_device_sends).
+type PushRecipient = {
+  label: string;
+  categories: Category[];
+  includeDoubles: boolean;
+  reminderHours: number[];
+  devices: PushDevice[];
+  claim: (key: string) => Promise<boolean>;
+  release: (key: string) => Promise<void>;
+};
+
+async function listPushRecipients(): Promise<{ recipients: PushRecipient[]; phones: number }> {
+  const [accounts, phones] = await Promise.all([listPushTargets(), listStandalonePushTargets()]);
+  const recipients: PushRecipient[] = [
+    ...accounts.map((t) => ({
+      label: t.email,
+      categories: t.categories,
+      includeDoubles: t.include_doubles,
+      reminderHours: t.reminder_hours,
+      devices: t.devices,
+      claim: (key: string) => claimSend(t.id, key),
+      release: (key: string) => releaseSend(t.id, key),
+    })),
+    ...phones.map((p) => ({
+      label: `phone ${p.id.slice(0, 8)}`,
+      categories: p.categories,
+      includeDoubles: p.include_doubles,
+      reminderHours: p.reminder_hours,
+      devices: [{ token: p.token, env: p.env }],
+      claim: (key: string) => claimDeviceSend(p.id, key),
+      release: (key: string) => releaseDeviceSend(p.id, key),
+    })),
+  ];
+  return { recipients, phones: phones.length };
+}
+
+// Same deadlines and windows as the email, claimed under push: keys so the
+// two channels dedupe independently.
 async function sendDeadlinePushes(
   schedule: Parameters<typeof dueReminderDeadlines>[0],
   now: Date,
   dry: boolean
 ): Promise<PushReport> {
-  const report: PushReport = { targets: 0, notified: 0, failed: [], devicesRemoved: 0 };
+  const report: PushReport = { targets: 0, phones: 0, notified: 0, failed: [], devicesRemoved: 0 };
   if (!apnsConfigured() && !dry) return { ...report, skipped: 'APNs is not configured (APNS_* env vars unset)' };
 
   let targets;
   try {
-    targets = await listPushTargets();
+    const listed = await listPushRecipients();
+    targets = listed.recipients;
+    report.phones = listed.phones;
   } catch (err) {
     return { ...report, skipped: `could not load push devices: ${err instanceof Error ? err.message : 'error'}` };
   }
@@ -248,9 +298,9 @@ async function sendDeadlinePushes(
   try {
     for (const target of targets) {
       const due = dueReminderDeadlines(schedule, now, {
-        windows: normalizeReminderHours(target.reminder_hours),
+        windows: normalizeReminderHours(target.reminderHours),
         categories: target.categories,
-        includeDoubles: target.include_doubles,
+        includeDoubles: target.includeDoubles,
       });
       const won: DueReminder[] = [];
       const wonKeys: string[] = [];
@@ -258,7 +308,7 @@ async function sendDeadlinePushes(
         let winner = false;
         for (const w of d.dueWindows) {
           const key = pushReminderKey(reminderKey(d, w));
-          if (dry || (await claimSend(target.id, key))) {
+          if (dry || (await target.claim(key))) {
             winner = true;
             wonKeys.push(key);
           }
@@ -290,8 +340,8 @@ async function sendDeadlinePushes(
         report.notified += 1;
       } else {
         // Nothing reached any device: release so the next run retries.
-        await Promise.all(wonKeys.map((key) => releaseSend(target.id, key)));
-        report.failed.push({ email: target.email, reason: lastReason });
+        await Promise.all(wonKeys.map((key) => target.release(key)));
+        report.failed.push({ recipient: target.label, reason: lastReason });
       }
     }
   } finally {

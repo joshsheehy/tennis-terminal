@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { accountApi } from '@/lib/account-client';
-import { disablePush } from '@/lib/native-push';
+import { disablePush, keepPushAfterSignOut } from '@/lib/native-push';
 
 // Sign out, and permanently delete the account. Deletion asks once more inline
 // (no browser confirm dialog) because it can't be undone.
@@ -13,9 +13,9 @@ export default function AccountActions() {
 
   async function signOut() {
     setBusy(true);
-    // Stop pushes to this phone before the session goes away.
-    await disablePush().catch(() => {});
     await accountApi('/api/auth/logout', 'POST', {});
+    // Push doesn't need an account: the phone keeps the same alerts on its own.
+    await keepPushAfterSignOut().catch(() => {});
     window.location.assign('/');
   }
 

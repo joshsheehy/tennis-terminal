@@ -23,10 +23,12 @@ const PUBLIC_API_PATHS = new Set([
   '/api/account',
   // Read-only search over the public schedule (Saved page's Add picker).
   '/api/tournament-search',
-  // Signed-in only, checked in each route: the app's push + alert settings.
+  // The app's push + alert settings, checked in each route: signed in, or
+  // (push only) signed out with the phone's APNs token as its proof.
   '/api/push/register',
   '/api/push/unregister',
   '/api/push/test',
+  '/api/push/prefs',
   '/api/alerts/prefs',
   // Link-preview image for shared schedules (read-only, public data).
   '/api/og/schedule',
