@@ -86,6 +86,11 @@ jobs:
               raise SystemExit(1)
           print(f"subscribers={d.get('subscribers')} emailsSent={d.get('emailsSent')} "
                 f"deadlineHits={d.get('deadlineHits')}")
+          # Push is reported but never fails the run (see sendDeadlinePushes).
+          p = d.get('push') or {}
+          print(f"push: targets={p.get('targets')} phones={p.get('phones')} notified={p.get('notified')} "
+                f"failed={len(p.get('failed') or [])} devicesRemoved={p.get('devicesRemoved')}"
+                + (f" SKIPPED: {p['skipped']}" if p.get('skipped') else ''))
           dry = bool(d.get('dry'))
           failed = False
           for s in d.get('perSubscriber', []):
