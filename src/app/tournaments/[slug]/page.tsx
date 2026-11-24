@@ -356,14 +356,15 @@ function CutoffTable({
             </>
           );
         } else if (cutoff.last_alternate_rank != null) {
-          // Hand-sourced "real" cut after alternates/withdrawals — show it as the
-          // primary number (matches the swing checker), with the direct cut noted
-          // beneath for transparency.
+          // The cut stays the headline. When alternates got in, the lowest-ranked of them (ranked on the
+          // same entry-deadline list) is the cut after alternates, shown beneath it.
+          const direct = cutoff.last_direct_acceptance_rank;
+          const afterAlt = cutoff.last_alternate_rank;
           cutDisplay = (
             <>
-              <span className="cut-value">{rankText(cutoff.last_alternate_rank)}</span>
-              {cutoff.last_direct_acceptance_rank != null && (
-                <div className="cut-sub cut-sub--faint">{rankText(cutoff.last_direct_acceptance_rank)} direct</div>
+              <span className="cut-value">{rankText(direct ?? afterAlt)}</span>
+              {direct != null && afterAlt > direct && (
+                <div className="cut-sub cut-sub--faint">{rankText(afterAlt)} after alternates</div>
               )}
             </>
           );
