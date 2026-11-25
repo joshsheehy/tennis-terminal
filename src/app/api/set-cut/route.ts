@@ -82,10 +82,13 @@ export async function GET(request: NextRequest) {
   // `byes` records a draw that was not full ("Byes (2)" in the sheet's box): no
   // cut exists, so the page shows "2 byes · draw not full" instead of a blank.
   const byesRaw = params.get('byes');
+  // `unranked` marks draws where an alternate who got in has no singles ranking, so the cut after alts is
+  // "unranked": unranked=singles:qualifying,doubles:main (or event:draw:none to clear the flag).
+  const unrankedRaw = params.get('unranked');
   const notes = params.get('notes') ?? '';
   const apply = params.get('apply') === 'true';
 
-  if (!slug || !Number.isInteger(year) || (!cutsRaw && !realCutsRaw && !byesRaw)) {
+  if (!slug || !Number.isInteger(year) || (!cutsRaw && !realCutsRaw && !byesRaw && !unrankedRaw)) {
     return NextResponse.json(
       {
         ok: false,
@@ -335,6 +338,28 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const unrankedResults: Array<Record<string, unknown>> = [];
+  if (unrankedRaw) {
+    await ensureByesColumn();
+    for (const piece of unrankedRaw.split(',').map((x) => x.trim()).filter(Boolean)) {
+      const [ev, dr, flag] = piece.split(':').map((x) => x.trim().toLowerCase());
+      if ((ev !== 'singles' && ev !== 'doubles') || (dr !== 'main' && dr !== 'qualifying')) continue;
+      const value = flag !== 'none';
+      const exists = await pool.query(
+        `select 1 from cutoff_snapshots where tournament_edition_id = $1 and event_type = $2 and draw_type = $3`,
+        [editionId, ev, dr]
+      );
+      if (apply && exists.rowCount) {
+        await pool.query(
+          `update cutoff_snapshots set alt_unranked = $4, updated_at = now()
+           where tournament_edition_id = $1 and event_type = $2 and draw_type = $3`,
+          [editionId, ev, dr, value]
+        );
+      }
+      unrankedResults.push({ event: ev, draw: dr, unranked: value, rowExisted: Boolean(exists.rowCount), action: exists.rowCount ? (apply ? 'unranked-set' : 'would-set-unranked') : 'no-row' });
+    }
+  }
+
   const byesResults: Array<Record<string, unknown>> = [];
   if (byesCuts.length > 0) await ensureByesColumn();
   for (const b of byesCuts) {
@@ -381,6 +406,7 @@ export async function GET(request: NextRequest) {
     cuts: results,
     realCuts: realResults,
     byes: byesResults,
+    unranked: unrankedResults,
     message: apply
       ? 'Cut(s) set; ALT/LL preserved.'
       : 'Dry run. Append &apply=true to write.',

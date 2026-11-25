@@ -27,11 +27,15 @@ let byesColumn: Promise<void> | null = null;
 export function ensureByesColumn(): Promise<void> {
   byesColumn ??= (async () => {
     const found = await pool.query(
-      `select 1 from information_schema.columns
-       where table_schema = 'public' and table_name = 'cutoff_snapshots' and column_name = 'byes_count'`
+      `select column_name from information_schema.columns
+       where table_schema = 'public' and table_name = 'cutoff_snapshots'
+         and column_name in ('byes_count', 'alt_unranked')`
     );
-    if (found.rowCount === 0) {
+    if (found.rowCount !== 2) {
       await pool.query('alter table cutoff_snapshots add column if not exists byes_count int');
+      // True when an alternate who got into the draw has no singles ranking (a doubles specialist), so the
+      // cut after alternates is "unranked" rather than a number.
+      await pool.query('alter table cutoff_snapshots add column if not exists alt_unranked boolean');
     }
   })().catch((error) => {
     byesColumn = null; // retry on the next call rather than caching a failure
@@ -306,6 +310,7 @@ export async function getCutoffSnapshotsForEditionIds(
       lucky_loser_count,
       qualifying_byes_count,
       byes_count,
+      alt_unranked,
       created_at,
       updated_at
     from cutoff_snapshots

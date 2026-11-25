@@ -355,6 +355,7 @@ function CutoffTable({
           cutDisplay = (
             <>
               <span className="cut-value">{challengerDoublesCutText(cutoff)}</span>
+              {cutoff.alt_unranked && <div className="cut-sub cut-sub--after-alt">Unranked after alts</div>}
               {afterAlt != null && afterAlt > floor && (
                 <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alts</div>
               )}
@@ -368,6 +369,15 @@ function CutoffTable({
             <>
               <span className="cut-value">{byesText(cutoff.byes_count ?? 0)}</span>
               <div className="cut-sub cut-sub--faint">Draw not full · lowest in {rankText(lowest)}</div>
+            </>
+          );
+        } else if (cutoff.alt_unranked && cutoff.last_direct_acceptance_rank != null) {
+          // An alternate who got in has no singles ranking (a doubles specialist): the cut after alts is
+          // "unranked". Their doubles ranking is never shown as a cut.
+          cutDisplay = (
+            <>
+              <span className="cut-value">{rankText(cutoff.last_direct_acceptance_rank)}</span>
+              <div className="cut-sub cut-sub--after-alt">Unranked after alts</div>
             </>
           );
         } else if (cutoff.last_alternate_rank != null) {

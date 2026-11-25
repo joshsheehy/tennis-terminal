@@ -47,6 +47,8 @@ export type CutoffSnapshot = {
   qualifying_byes_count?: number | null;
   // Empty draw slots the sheet reported in its Last Direct Acceptance box ("Byes (N)"). Any draw.
   byes_count?: number | null;
+  // An alternate who got in has no singles ranking, so the cut after alts is "unranked".
+  alt_unranked?: boolean | null;
   created_at?: string;
   updated_at?: string;
 };
