@@ -135,16 +135,6 @@ function byesText(byes: number) {
   return `${byes} ${byes === 1 ? 'bye' : 'byes'}`;
 }
 
-// "2 alts in, best 456, lowest 495" (or "1 alt in, ranked 191").
-function altsSummary(cutoff: CutoffSnapshot) {
-  const n = cutoff.alternate_entries_count ?? 0;
-  const best = cutoff.alt_best_rank;
-  const lowest = cutoff.alt_lowest_rank;
-  if (best == null || lowest == null) return `${n} ${n === 1 ? 'alt' : 'alts'} in`;
-  if (best === lowest) return `${n} ${n === 1 ? 'alt' : 'alts'} in, ranked ${best}`;
-  return `${n} alts in, best ${best}, lowest ${lowest}`;
-}
-
 function challengerDoublesCutText(cutoff: CutoffSnapshot) {
   const advance = cutoff.challenger_doubles_advanced_cut_rank;
   const onsite = cutoff.challenger_doubles_onsite_cut_rank;
@@ -369,9 +359,6 @@ function CutoffTable({
               {afterAlt != null && afterAlt > floor && (
                 <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alts</div>
               )}
-              {!(afterAlt != null && afterAlt > floor) && cutoff.alt_lowest_rank != null && (cutoff.alternate_entries_count ?? 0) > 0 && (
-                <div className="cut-sub cut-sub--after-alt">{altsSummary(cutoff)}</div>
-              )}
             </>
           );
         } else if ((cutoff.byes_count ?? 0) > 0) {
@@ -404,14 +391,6 @@ function CutoffTable({
             <>
               <span className="cut-value">{rankText(direct ?? afterAlt)}</span>
               {showAfter && <div className="cut-sub cut-sub--after-alt">{rankText(afterAlt)} after alts</div>}
-            </>
-          );
-        } else if (cutoff.alt_lowest_rank != null && (cutoff.alternate_entries_count ?? 0) > 0 && !(isChallenger && eventType === 'doubles')) {
-          // Every alternate who got in ranked above the cut, so nothing moved. Say who got in.
-          cutDisplay = (
-            <>
-              <span className="cut-value">{rankText(cutoff.last_direct_acceptance_rank)}</span>
-              <div className="cut-sub cut-sub--after-alt">{altsSummary(cutoff)}</div>
             </>
           );
         } else {
