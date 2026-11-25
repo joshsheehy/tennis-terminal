@@ -85,10 +85,14 @@ export async function GET(request: NextRequest) {
   // `unranked` marks draws where an alternate who got in has no singles ranking, so the cut after alts is
   // "unranked": unranked=singles:qualifying,doubles:main (or event:draw:none to clear the flag).
   const unrankedRaw = params.get('unranked');
+  // `altinfo` stores who got in as an alternate: altinfo=singles:main:275:311 (best:lowest ranking, combined
+  // ranking for doubles) or event:draw:none to clear. last_alternate_rank (the cut after alts) is set only when
+  // the lowest alt ranks below the last direct acceptance (for Challenger doubles, below both Adv and on-site).
+  const altInfoRaw = params.get('altinfo');
   const notes = params.get('notes') ?? '';
   const apply = params.get('apply') === 'true';
 
-  if (!slug || !Number.isInteger(year) || (!cutsRaw && !realCutsRaw && !byesRaw && !unrankedRaw)) {
+  if (!slug || !Number.isInteger(year) || (!cutsRaw && !realCutsRaw && !byesRaw && !unrankedRaw && !altInfoRaw)) {
     return NextResponse.json(
       {
         ok: false,
@@ -338,6 +342,37 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const altInfoResults: Array<Record<string, unknown>> = [];
+  if (altInfoRaw) {
+    await ensureByesColumn();
+    for (const piece of altInfoRaw.split(',').map((x) => x.trim()).filter(Boolean)) {
+      const [ev, dr, a, b] = piece.split(':').map((x) => x.trim().toLowerCase());
+      if ((ev !== 'singles' && ev !== 'doubles') || (dr !== 'main' && dr !== 'qualifying')) continue;
+      const clear = a === 'none';
+      const best = clear ? null : Number(a);
+      const lowest = clear ? null : Number(b);
+      if (!clear && (!Number.isInteger(best) || !Number.isInteger(lowest) || (best as number) < 1 || (lowest as number) < (best as number))) continue;
+      const row = await pool.query<{ rank: number | null; adv: number | null; onsite: number | null }>(
+        `select last_direct_acceptance_rank as rank, challenger_doubles_advanced_cut_rank as adv,
+                challenger_doubles_onsite_cut_rank as onsite
+         from cutoff_snapshots where tournament_edition_id = $1 and event_type = $2 and draw_type = $3`,
+        [editionId, ev, dr]
+      );
+      const r = row.rows[0];
+      const floor = r ? Math.max(r.rank ?? 0, r.adv ?? 0, r.onsite ?? 0) : 0;
+      const afterAlt = lowest != null && floor > 0 && lowest > floor ? lowest : null;
+      if (apply && r) {
+        await pool.query(
+          `update cutoff_snapshots set alt_best_rank = $4, alt_lowest_rank = $5, last_alternate_rank = $6,
+                  last_alternate_player_name = null, updated_at = now()
+           where tournament_edition_id = $1 and event_type = $2 and draw_type = $3`,
+          [editionId, ev, dr, best, lowest, afterAlt]
+        );
+      }
+      altInfoResults.push({ event: ev, draw: dr, best, lowest, floor, afterAlt, rowExisted: Boolean(r), action: r ? (apply ? 'altinfo-set' : 'would-set-altinfo') : 'no-row' });
+    }
+  }
+
   const unrankedResults: Array<Record<string, unknown>> = [];
   if (unrankedRaw) {
     await ensureByesColumn();
@@ -407,6 +442,7 @@ export async function GET(request: NextRequest) {
     realCuts: realResults,
     byes: byesResults,
     unranked: unrankedResults,
+    altInfo: altInfoResults,
     message: apply
       ? 'Cut(s) set; ALT/LL preserved.'
       : 'Dry run. Append &apply=true to write.',

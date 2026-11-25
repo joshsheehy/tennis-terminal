@@ -49,6 +49,9 @@ export type CutoffSnapshot = {
   byes_count?: number | null;
   // An alternate who got in has no singles ranking, so the cut after alts is "unranked".
   alt_unranked?: boolean | null;
+  // Best and lowest ranking among alternates who got in (singles ranking, or combined ranking for doubles).
+  alt_best_rank?: number | null;
+  alt_lowest_rank?: number | null;
   created_at?: string;
   updated_at?: string;
 };

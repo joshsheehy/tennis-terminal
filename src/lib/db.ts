@@ -29,13 +29,17 @@ export function ensureByesColumn(): Promise<void> {
     const found = await pool.query(
       `select column_name from information_schema.columns
        where table_schema = 'public' and table_name = 'cutoff_snapshots'
-         and column_name in ('byes_count', 'alt_unranked')`
+         and column_name in ('byes_count', 'alt_unranked', 'alt_best_rank', 'alt_lowest_rank')`
     );
-    if (found.rowCount !== 2) {
+    if (found.rowCount !== 4) {
       await pool.query('alter table cutoff_snapshots add column if not exists byes_count int');
       // True when an alternate who got into the draw has no singles ranking (a doubles specialist), so the
       // cut after alternates is "unranked" rather than a number.
       await pool.query('alter table cutoff_snapshots add column if not exists alt_unranked boolean');
+      // The best and lowest ranking among alternates who got in (informational: last_alternate_rank is the
+      // cut after alts only when the lowest alt ranks below the last direct acceptance).
+      await pool.query('alter table cutoff_snapshots add column if not exists alt_best_rank int');
+      await pool.query('alter table cutoff_snapshots add column if not exists alt_lowest_rank int');
     }
   })().catch((error) => {
     byesColumn = null; // retry on the next call rather than caching a failure
@@ -311,6 +315,8 @@ export async function getCutoffSnapshotsForEditionIds(
       qualifying_byes_count,
       byes_count,
       alt_unranked,
+      alt_best_rank,
+      alt_lowest_rank,
       created_at,
       updated_at
     from cutoff_snapshots
