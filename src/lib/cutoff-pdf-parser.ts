@@ -455,7 +455,10 @@ function parseByesCount(lines: string[], ldaIndex: number): number | null {
 // "Adv. (389)/On-site" with a cut of 509, and the advance cut was lost (Wuxi 2026, Maia 2023).
 export function extractChallengerDoublesCuts(text: string): { advanced: number | null; onsite: number | null } {
   const normalized = text.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
-  const advancedMatch = normalized.match(/\badv(?:anc(?:e(?:d)?)?)?\.*\s*[:\-]?\s*\(?\s*(\d{1,5})\b/i);
+  // "ADE 468 | On-site 746" is a typo for ADV on some sheets (Knoxville 2024); accepted only right before On-site.
+  const advancedMatch = normalized.match(
+    /\b(?:adv(?:anc(?:e(?:d)?)?)?|ade(?=\s+\d{1,5}\b[^a-z0-9]{0,5}on[-\s]?site))\.*\s*[:\-]?\s*\(?\s*(\d{1,5})\b/i
+  );
   const onsiteMatch = normalized.match(/\bon[-\s]?site\.*\s*[:\-]?\s*\(?\s*(\d{1,5})\b/i);
   return {
     advanced: advancedMatch ? Number(advancedMatch[1]) : null,

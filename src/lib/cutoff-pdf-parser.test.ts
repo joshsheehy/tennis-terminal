@@ -348,6 +348,10 @@ describe('bracketed Challenger doubles cuts', () => {
     expect(extractChallengerDoublesCuts('Adv (1312)/On-site (708)')).toEqual({ advanced: 1312, onsite: 708 });
     expect(extractChallengerDoublesCuts('Advanced (1708) On-site(913)')).toEqual({ advanced: 1708, onsite: 913 });
     expect(extractChallengerDoublesCuts('Adv(592) On-site(633)')).toEqual({ advanced: 592, onsite: 633 });
+    // "ADE" is a typo for ADV; it only counts when On-site follows the number.
+    expect(extractChallengerDoublesCuts('ADE 468 | On-site 746')).toEqual({ advanced: 468, onsite: 746 });
+    expect(extractChallengerDoublesCuts('ADE 531 / on-site 612')).toEqual({ advanced: 531, onsite: 612 });
+    expect(extractChallengerDoublesCuts('J. Ade 468 R. Smith')).toEqual({ advanced: null, onsite: null });
     expect(extractChallengerDoublesCuts('Advance (472) - On-site (574)')).toEqual({ advanced: 472, onsite: 574 });
   });
 

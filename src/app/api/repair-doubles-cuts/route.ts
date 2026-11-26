@@ -20,7 +20,10 @@ export const dynamic = 'force-dynamic';
 //     sheet printed no cut, so the number is cleared (Canberra 2026, and
 //     Cagliari, Olbia and Turin 2024).
 //
-// A re-import cannot do either: a parse that finds no cut leaves the stored one
+// It also fills a missing advance cut beside a stored on-site cut when the raw
+// text gives both and the on-site numbers agree ("ADE 468 | On-site 746").
+//
+// A re-import cannot clear a figure: a parse that finds no cut leaves the stored one
 // in place, so the Canberra figure would have survived every re-run.
 //
 //   GET /api/repair-doubles-cuts             — dry run, lists every change
@@ -31,7 +34,8 @@ type Row = {
   slug: string;
   year: number;
   level: string;
-  rank: number;
+  rank: number | null;
+  onsite: number | null;
   name: string | null;
   source_notes: string | null;
 };
@@ -49,6 +53,7 @@ export async function GET(request: NextRequest) {
   const rows = await pool.query<Row>(
     `select cs.id, t.slug, te.year, te.level,
             cs.last_direct_acceptance_rank as rank,
+            cs.challenger_doubles_onsite_cut_rank as onsite,
             cs.last_direct_acceptance_player_name as name,
             cs.source_notes
      from cutoff_snapshots cs
@@ -58,9 +63,8 @@ export async function GET(request: NextRequest) {
        and cs.draw_type = 'main'
        and cs.source_type = 'official_pdf'
        and te.level ilike 'Challenger%'
-       and cs.last_direct_acceptance_rank is not null
+       and (cs.last_direct_acceptance_rank is not null or cs.challenger_doubles_onsite_cut_rank is not null)
        and cs.challenger_doubles_advanced_cut_rank is null
-       and cs.challenger_doubles_onsite_cut_rank is null
      order by te.year, t.slug`
   );
 
@@ -72,6 +76,9 @@ export async function GET(request: NextRequest) {
     if (!raw) continue;
 
     const cuts = extractChallengerDoublesCuts(raw);
+    // A stored on-site cut that disagrees with the raw text was set some other way: leave the row alone.
+    if (row.onsite !== null && cuts.onsite !== row.onsite) continue;
+
     if (cuts.advanced !== null && cuts.onsite !== null) {
       split.push({ slug: row.slug, year: row.year, raw, was: row.rank, advanced: cuts.advanced, onsite: cuts.onsite });
       if (apply) {
@@ -87,7 +94,7 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
-    if (isSeededTeamRow(raw)) {
+    if (row.onsite === null && isSeededTeamRow(raw)) {
       cleared.push({ slug: row.slug, year: row.year, raw, was: row.rank });
       if (apply) {
         await pool.query(
