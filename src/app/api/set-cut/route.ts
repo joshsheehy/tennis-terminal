@@ -352,9 +352,9 @@ export async function GET(request: NextRequest) {
       const best = clear ? null : Number(a);
       const lowest = clear ? null : Number(b);
       if (!clear && (!Number.isInteger(best) || !Number.isInteger(lowest) || (best as number) < 1 || (lowest as number) < (best as number))) continue;
-      const row = await pool.query<{ rank: number | null; adv: number | null; onsite: number | null }>(
+      const row = await pool.query<{ rank: number | null; adv: number | null; onsite: number | null; prev: number | null }>(
         `select last_direct_acceptance_rank as rank, challenger_doubles_advanced_cut_rank as adv,
-                challenger_doubles_onsite_cut_rank as onsite
+                challenger_doubles_onsite_cut_rank as onsite, last_alternate_rank as prev
          from cutoff_snapshots where tournament_edition_id = $1 and event_type = $2 and draw_type = $3`,
         [editionId, ev, dr]
       );
@@ -369,7 +369,7 @@ export async function GET(request: NextRequest) {
           [editionId, ev, dr, best, lowest, afterAlt]
         );
       }
-      altInfoResults.push({ event: ev, draw: dr, best, lowest, floor, afterAlt, rowExisted: Boolean(r), action: r ? (apply ? 'altinfo-set' : 'would-set-altinfo') : 'no-row' });
+      altInfoResults.push({ event: ev, draw: dr, best, lowest, floor, afterAlt, previousAfterAlt: r?.prev ?? null, rowExisted: Boolean(r), action: r ? (apply ? 'altinfo-set' : 'would-set-altinfo') : 'no-row' });
     }
   }
 
