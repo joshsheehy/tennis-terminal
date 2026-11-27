@@ -172,3 +172,16 @@ It messages Josh only when it fixed something or something needs him; on a quiet
 except a one-line heartbeat on Mondays (UTC). It never touches ATP Player Zone: that is read by hand only.
 To change its behaviour, edit the routine's prompt (claude.ai/code/routines), not this repo; keep this
 section in step with it.
+
+## Cut after alternates (weekly)
+
+`.github/workflows/after-alts.yml` runs daily. It captures the official ATP singles ranking list (only the
+current one is ever online), re-reads the sheets of events from the last 10 days, then fills "N after alts"
+and "Unranked after alts". A draw is judged on the list from the Monday before its tournament week.
+
+- A run fails red if the stored singles list is more than 16 days old: fix it before the next list appears.
+- A draw it cannot place with certainty (two players share the name, a garbled name) is left blank.
+- **Doubles needs a manual pass**: ATP publishes no doubles list the server can fetch.
+  `GET /api/after-alts?pending=doubles` lists the draws waiting. With a full doubles list (rankRange=0-5000),
+  either POST it to `/api/rankings` or set the values with `set-cut?altinfo=`.
+- To check it by hand: run the workflow with `apply=false` and read "waiting" in the log.

@@ -104,7 +104,7 @@ jobs:
               print('ranking list: could not be fetched this run')
 
           # 2. sheets
-          found = app(f'/api/after-alts?targets=true&days={days}&limit=30')
+          found = app(f'/api/after-alts?targets=true&days={days}&limit=36')
           targets = found.get('targets') or []
           print(f'{len(targets)} sheets to read')
           read = with_alts = failed = 0
