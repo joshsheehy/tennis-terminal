@@ -141,9 +141,31 @@ async function compute(days: number, apply: boolean) {
   };
 }
 
+// Doubles draws with alternates and no value yet. The server has no doubles ranking source (ProTennisLive
+// publishes only the singles list), so these are filled during a manual pass with the ATP doubles list.
+async function pendingDoubles(days: number) {
+  const rows = await pool.query(
+    `select t.slug, te.year, cs.draw_type as draw, to_char(te.start_date, 'YYYY-MM-DD') as "startDate",
+            cs.alt_entrants->'slots' as slots
+     from cutoff_snapshots cs
+     join tournament_editions te on te.id = cs.tournament_edition_id
+     join tournaments t on t.id = te.tournament_id
+     where cs.event_type = 'doubles' and (cs.alt_entrants->>'count')::int > 0
+       and cs.alt_lowest_rank is null and cs.alt_unranked is null
+       and te.start_date >= current_date - $1::int
+     order by te.start_date desc, t.slug`,
+    [days]
+  );
+  return rows.rows;
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   await ensureAfterAltsSchema();
+  if (params.get('pending') === 'doubles') {
+    const pending = await pendingDoubles(intParam(params.get('days'), 60, 400));
+    return NextResponse.json({ ok: true, count: pending.length, pending });
+  }
   if (params.get('targets') === 'true') {
     const list = await targets(intParam(params.get('days'), 10, 400), intParam(params.get('limit'), 30, 200));
     return NextResponse.json({ ok: true, count: list.length, targets: list });
