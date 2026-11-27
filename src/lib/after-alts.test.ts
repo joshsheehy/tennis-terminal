@@ -67,6 +67,9 @@ describe('ranking dates', () => {
     expect(pickSnapshot([older], '2026-03-09')).toBe(older); // second week of Indian Wells
     expect(pickSnapshot([{ listDate: '2026-03-02', lastSeen: '2026-03-08T10:00:00Z' }], '2026-03-09')).toBeNull();
     expect(pickSnapshot([older], '2026-02-23')).toBeNull();
+    // the December freeze: the same list is still being seen weeks later
+    const frozen = { listDate: '2026-11-30', lastSeen: '2026-12-29T10:00:00Z' };
+    expect(pickSnapshot([frozen], '2026-12-28')).toBe(frozen);
   });
 });
 

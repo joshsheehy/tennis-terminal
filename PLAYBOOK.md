@@ -179,7 +179,8 @@ section in step with it.
 current one is ever online), re-reads the sheets of events from the last 10 days, then fills "N after alts"
 and "Unranked after alts". A draw is judged on the list from the Monday before its tournament week.
 
-- A run fails red if the stored singles list is more than 16 days old: fix it before the next list appears.
+- A run fails red if the singles list has not been captured for more than 3 days. Fix it within about 5 days:
+  once the next list posts, the missed one is gone. `cut-sync.yml` captures the list too, as a backstop.
 - A draw it cannot place with certainty (two players share the name, a garbled name) is left blank.
 - **Doubles needs a manual pass**: ATP publishes no doubles list the server can fetch.
   `GET /api/after-alts?pending=doubles` lists the draws waiting. With a full doubles list (rankRange=0-5000),

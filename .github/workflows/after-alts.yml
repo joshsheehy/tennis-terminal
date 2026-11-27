@@ -135,12 +135,18 @@ jobs:
           for reason, keys in (out.get('waiting') or {}).items():
               print(f'  waiting ({len(keys)}): {reason}')
 
-          # A stale list silently stops new draws from being computed, so fail where it can be seen. No list
-          # is published in the second week of a two-week event, hence more than two weeks.
+          # A list that is never captured is gone for good once the next one posts, so fail as soon as the fetch
+          # stops working. Judged on when a list was last seen, not its date: no list is published for weeks in
+          # December or during a two-week event, and the same one is simply seen again.
           snapshots = [s for s in (app('/api/rankings').get('snapshots') or []) if s['kind'] == 'singles']
+          seen = max((s['lastSeen'] for s in snapshots), default=None)
+          age = None
+          if seen:
+              when = datetime.datetime.fromisoformat(seen.replace('Z', '+00:00'))
+              age = (datetime.datetime.now(datetime.timezone.utc) - when).days
           newest = max((s['listDate'] for s in snapshots), default=None)
-          age = (datetime.date.today() - datetime.date.fromisoformat(newest)).days if newest else None
-          print(f'newest singles ranking list: {newest} ({age} days old)')
-          if age is None or age > 16:
-              raise RuntimeError('The stored singles ranking list is missing or more than 16 days old.')
+          print(f'newest singles ranking list: {newest}, last seen {age} days ago')
+          if age is None or age > 3:
+              raise RuntimeError('The singles ranking list has not been captured for more than 3 days. '
+                                 'Fix this before the next list replaces it.')
           PY

@@ -186,7 +186,7 @@ export type SnapshotInfo = { listDate: string; lastSeen: string };
 /**
  * The list in effect on `target`, or null when it was never captured. A list older than the target counts
  * only if it was still the published one after the target day (no list comes out in the second week of a
- * two-week event); otherwise a newer list may simply have been missed.
+ * two-week event, or for weeks in December); otherwise a newer list may simply have been missed.
  */
 export function pickSnapshot<T extends SnapshotInfo>(snapshots: T[], target: string): T | null {
   const candidate = snapshots
@@ -194,6 +194,5 @@ export function pickSnapshot<T extends SnapshotInfo>(snapshots: T[], target: str
     .sort((a, b) => b.listDate.localeCompare(a.listDate))[0];
   if (!candidate) return null;
   if (candidate.listDate === target) return candidate;
-  const age = (Date.parse(target) - Date.parse(candidate.listDate)) / DAY;
-  return age <= 14 && candidate.lastSeen.slice(0, 10) > target ? candidate : null;
+  return candidate.lastSeen.slice(0, 10) > target ? candidate : null;
 }
