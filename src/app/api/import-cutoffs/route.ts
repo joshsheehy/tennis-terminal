@@ -477,7 +477,7 @@ async function upsertCutoffSnapshot(
                          else excluded.source_notes end,
       parsed_at = excluded.parsed_at,
       parser_version = excluded.parser_version,
-      alternate_entries_count = excluded.alternate_entries_count,
+      alternate_entries_count = greatest(excluded.alternate_entries_count, coalesce(cutoff_snapshots.alternate_entries_count, 0)),
       lucky_loser_count = excluded.lucky_loser_count,
       -- A parse with no rank at all keeps the earlier byes, like it keeps the earlier cut.
       byes_count = case when excluded.last_direct_acceptance_rank is null

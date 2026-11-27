@@ -252,14 +252,14 @@ async function storeParsedCut({
          parsed_at = excluded.parsed_at,
          parser_version = excluded.parser_version,
          source_notes = excluded.source_notes,
-         alternate_entries_count = excluded.alternate_entries_count,
+         alternate_entries_count = greatest(excluded.alternate_entries_count, coalesce(cutoff_snapshots.alternate_entries_count, 0)),
          lucky_loser_count = excluded.lucky_loser_count,
          byes_count = excluded.byes_count,
          updated_at = now()`
     : `do update set
          parsed_at = excluded.parsed_at,
          parser_version = excluded.parser_version,
-         alternate_entries_count = excluded.alternate_entries_count,
+         alternate_entries_count = greatest(excluded.alternate_entries_count, coalesce(cutoff_snapshots.alternate_entries_count, 0)),
          lucky_loser_count = excluded.lucky_loser_count,
          -- Earlier versions of the parser read "Byes (5)" as a cut of 5. When the sheet says byes and
          -- the stored cut is exactly that number and came from this importer, it is that misread:
